@@ -122,6 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
             dbg!(&db_name);
             let db = client.database(&db_name);
+            let db_name_clone=db_name.clone();
             let db_tree_name = format!("{}_tree", &db_name);
             let tree_db = client.database(&db_tree_name);
             for (key, ele_data_vec) in db_eles_data_map {
@@ -142,13 +143,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         owner: e.owner.clone(),
                         name: e.name.clone(),
                         order: e.order,
-                        db_name:db_tree_name.clone(),
+                        db_name:db_name_clone.clone(),
                     });
                 }
-                let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
-                tree_collection.insert_many(
-                    ele_nodes, None,
-                ).await?;
+                for tree_chunk in ele_nodes.chunks(10000){
+                    let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
+                    tree_collection.insert_many(
+                        tree_chunk.to_owned(), None,
+                    ).await?;
+                }
+
             }
             println!("Save {:?} to db ok", &path);
         }
@@ -459,9 +463,14 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
         DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
             let l = input;
             let mut data = [0f64; 3];
+
             for i in 0..3 {
-                if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
-                    data[i] = f64::from_be_bytes([e, f, g, h, a, b, c, d]);
+                if l.len()>i*8+8{
+                    if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
+                        data[i] = f64::from_be_bytes([e, f, g, h, a, b, c, d]);
+                    }else {
+                        break;
+                    }
                 }
             }
             let (l, _) = take(3 * 8 as usize)(l)?;
