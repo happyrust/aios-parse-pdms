@@ -22,3 +22,4 @@ simplelog = "0.10.0"
 rayon = "1.5.1"
 dashmap = { version="4.0.2" , features=["serde"] }
 tokio = { version = "1.11.0", features = ["full"] }
+mysql = "21.0.2"

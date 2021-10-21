@@ -31,16 +31,20 @@ use clap::clap_app;
 use log::LevelFilter;
 use log::info;
 use mongodb::options::ClientOptions;
+use mysql::Pool;
+use mysql::prelude::Queryable;
 use rayon::prelude::IntoParallelRefIterator;
 use simplelog::{CombinedLogger, WriteLogger};
 use crate::db_tool::db1_dehash;
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
+use mysql::*;
+use mysql::prelude::*;
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 //fn main() {
     //输入命令行
     let matches = clap_app!(myapp =>
@@ -105,6 +109,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             fs::metadata(b).unwrap().len()
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
     let mut dbinfos = Vec::new();
+
+    let mysql_url="mysql://root:root@10.30.230.146:3306/test_db";
+    //let mysql_url="mysql://root:root@localhost:3306/test_db";
+    let opts=Opts::from_url(mysql_url).unwrap();
+    let pool=Pool::new(opts).unwrap();
+    let mut mysql_conn=pool.get_conn().unwrap();
     for path in target_files {
         let mut file = File::open(&path).unwrap();
         let mut buf = vec![0u8; 36];
@@ -130,12 +140,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             db_info.db_type = db1_dehash( u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
             dbinfos.push(db_info);
             dbg!(&db_name);
+            //给db_tree创建mysql数据库科
+            //let create_db_mysql=format!("create Database {}",db_name);
+            // let create_table_mysql=format!(r"
+            //     drop table pdmstreenode;
+            // ");
+            let create_table_mysql=format!(r"
+                create table PdmsTreeNode(
+                    ref_no    text,
+                    owner     text,
+                    name      text,
+                    orders    int,
+                    db_name   text,
+                    type_name text
+                )
+            ");
+            mysql_conn.query_drop(
+                create_table_mysql
+            ).unwrap();
+
             let db = client.database(&db_name);
             let db_name_clone=db_name.clone();
             let db_tree_name = format!("{}_tree", &db_name);
             let tree_db = client.database(&db_tree_name);
             for (key, ele_data_vec) in db_eles_data_map {
-                // println!("ele_data_vec.len={:?}", ele_data_vec.len());
+                println!("ele_data_vec.len={:?}", ele_data_vec.len());
                 let table_name = db1_dehash(key as u32);
                 let collection = db.collection_with_type::<ElementData>(&table_name);
                 for chunk in ele_data_vec.chunks(10000) {
@@ -155,6 +184,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         db_name: db_name.clone(),
                         type_name: e.noun_name.clone(),
                     });
+                }
+                for mysql_chunk in ele_nodes.chunks(1000) {
+                    mysql_conn.exec_batch(
+                        r"insert into pdmstreenode (ref_no,owner,name,orders,db_name,type_name)
+                                            values(:ref_no,:owner,:name,:orders,:db_name,:type_name)",
+                        mysql_chunk.into_iter().map(|ele|{
+                            params! {
+                                "ref_no"=>ele.ref_no.clone(),
+                                "owner"=>ele.owner.clone(),
+                                "name"=>ele.name.clone(),
+                                "orders"=>ele.order,
+                                "db_name"=>ele.db_name.clone(),
+                                "type_name"=>ele.type_name.clone(),
+
+                            }
+                        })
+                    ).unwrap();
                 }
                 for tree_chunk in ele_nodes.chunks(10000){
                     let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
@@ -190,7 +236,7 @@ pub fn is_cata_noun(bytes: &[u8]) -> bool {
 }
 
 ///保存 noun_hash->refno  map
-pub fn save_type_hash_file(dir: &str, out_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<(), Box<dyn std::error::Error>> {
     let mut unique_hash_refno_map = DashMap::new();
     let mut path_buf = fs::read_dir(dir)?.into_iter().map(|entry| {
         let entry = entry.unwrap();
@@ -209,7 +255,7 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> Result<(), Box<dyn std:
             let mut buf: Vec<u8> = Vec::new();
             file.read_to_end(&mut buf);
             let input = &buf[..];
-            let (input, _) = output_type_hash(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
+            let (_input, _) = output_type_hash(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
             println!("noun_hash_refnos len = {:?}",unique_hash_refno_map.len());
             let encode = bincode::serialize(&unique_hash_refno_map).unwrap();
             let mut file = OpenOptions::new()
@@ -254,7 +300,7 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
             d = &input[j..j + 4];
         }
     }
-    dbg!(&refno_0_set);
+    //dbg!(&refno_0_set);
     refno_0_set
 }
 
@@ -321,10 +367,10 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
         if !attr_info_map.contains_key(&type_hash) {
             continue;
         }
-        if refno.1 == 0{
-            dbg!("Found world");
-            dbg!(&refno);
-        }
+        // if refno.1 == 0{
+        //     dbg!("Found world");
+        //     dbg!(&refno);
+        // }
         // println!("ref_no={:#04X?}", refno);
         // println!("type_hash={:#04X?}", type_hash);
         //if refno == (15392, 7312) {
@@ -440,7 +486,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
     });
     noun_type_ele_data_map
 }
-
+/// 获取隐式属性
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -> IResult<&'a [u8], AttrVal> {
     let mut val = AttrVal::InvalidType;
@@ -1840,4 +1886,11 @@ fn hash_map_test() {
     hash_map.entry(1).or_insert("world");
     hash_map.insert(1, "!");
     println!("hashmap={:?}", hash_map);
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct Payment {
+    customer_id: i32,
+    amount: i32,
+    account_name: Option<String>,
 }
