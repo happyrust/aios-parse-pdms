@@ -1,4 +1,5 @@
 #![feature(array_methods)]
+
 mod pdms_types;
 mod db_tool;
 
@@ -102,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     client_options.app_name = Some("AIOS".to_string());
 
     target_files.sort_by(|a, b|
-            fs::metadata(b).unwrap().len()
+        fs::metadata(b).unwrap().len()
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
     let mut dbinfos = Vec::new();
     for path in target_files {
@@ -114,24 +115,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
 
         if is_cata_noun(db_type_bytes) || is_desi_noun(db_type_bytes) {
-
             let mut db_info = PDMSDBInfo::default();
             println!("path={:?}", &path);
             let db_eles_data_map = parse_db(&path, &database_info);
 
             let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
-            if let Some(name) = db_info_map.get(&db_no){
+            if let Some(name) = db_info_map.get(&db_no) {
                 db_raw_name = name.to_string();
             }
             let client = mongodb::Client::with_options(client_options.clone())?;
             let db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
             db_info.name = db_name.clone();
             db_info.db_no = db_no;
-            db_info.db_type = db1_dehash( u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
+            db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
             dbinfos.push(db_info);
             dbg!(&db_name);
             let db = client.database(&db_name);
-            let db_name_clone=db_name.clone();
+            let db_name_clone = db_name.clone();
             let db_tree_name = format!("{}_tree", &db_name);
             let tree_db = client.database(&db_tree_name);
             for (key, ele_data_vec) in db_eles_data_map {
@@ -156,13 +156,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         type_name: e.noun_name.clone(),
                     });
                 }
-                for tree_chunk in ele_nodes.chunks(10000){
+                for tree_chunk in ele_nodes.chunks(10000) {
                     let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
                     tree_collection.insert_many(
                         tree_chunk.to_owned(), None,
                     ).await?;
                 }
-
             }
             println!("Save {:?} to db ok", &path);
         }
@@ -181,12 +180,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[inline]
 pub fn is_desi_noun(bytes: &[u8]) -> bool {
-    bytes ==  [0x0, 0xB, 0x6, 0x92].as_slice()
+    bytes == [0x0, 0xB, 0x6, 0x92].as_slice()
 }
 
 #[inline]
 pub fn is_cata_noun(bytes: &[u8]) -> bool {
-    bytes ==  [0x0, 0x8, 0xA1, 0xE6].as_slice()
+    bytes == [0x0, 0x8, 0xA1, 0xE6].as_slice()
 }
 
 ///保存 noun_hash->refno  map
@@ -198,33 +197,51 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> Result<(), Box<dyn std:
     }).collect::<Vec<PathBuf>>();
     path_buf.sort_by(|a, b| fs::metadata(b).unwrap().len().partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
 
-    for path in path_buf {
+    for path in path_buf.iter() {
         let mut file = File::open(&path).unwrap();
         let mut buf = vec![0u8; 36];
         file.read_exact(&mut buf)?;
         let input = &buf[32..36];
-        //println!("input={:#04X?}",input);
-        if is_cata_noun(input) || is_desi_noun(input) {
+        if is_desi_noun(input) {
             println!("path={:?}", path);
             let mut buf: Vec<u8> = Vec::new();
             file.read_to_end(&mut buf);
             let input = &buf[..];
-            let (input, _) = output_type_hash(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
-            println!("noun_hash_refnos len = {:?}",unique_hash_refno_map.len());
-            let encode = bincode::serialize(&unique_hash_refno_map).unwrap();
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(out_name)
-                .unwrap();
-            file.write(&encode);
+            let (input, _) = process_type_hash_info(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
         }
     }
+
+    for path in path_buf.iter() {
+        let mut file = File::open(&path).unwrap();
+        let mut buf = vec![0u8; 36];
+        file.read_exact(&mut buf)?;
+        let input = &buf[32..36];
+        if is_cata_noun(input) {
+            println!("path={:?}", path);
+            let mut buf: Vec<u8> = Vec::new();
+            file.read_to_end(&mut buf);
+            let input = &buf[..];
+            let (input, _) = process_type_hash_info(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
+        }
+    }
+
+    println!("noun_hash_refnos len = {:?}", unique_hash_refno_map.len());
+    let encode = bincode::serialize(&unique_hash_refno_map).unwrap();
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(out_name)
+        .unwrap();
+    file.write(&encode);
+
+    let world_refno = &*unique_hash_refno_map.get(&0xBEB83).unwrap();
+    dbg!(world_refno);
+
     Ok(())
 }
 
-pub fn output_type_hash<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (RefNoTuple, String)>, path: &PathBuf) -> IResult<&'a [u8], ()> {
+pub fn process_type_hash_info<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (RefNoTuple, String)>, path: &PathBuf) -> IResult<&'a [u8], ()> {
     let refno_0_set = get_total_refno_0s(input);
     let path = Path::new(path);
     let file_name = path.file_name().unwrap().to_owned().to_string_lossy().to_string();
@@ -289,17 +306,15 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> DashMap<RefNoTuple, (usize, i32)>
             if refno_entry.1.0.0 != 0 {
                 refno_table.entry(refno_entry.1.0).or_insert(refno_entry.1.1);
             }
-
         }
     });
     refno_table
 }
 
 #[inline]
-fn convert_ref_to_string(refno: &RefNoTuple) -> String{
+fn convert_ref_to_string(refno: &RefNoTuple) -> String {
     format!("{}/{}", refno.0, refno.1)
 }
-
 
 
 // file: PathBuf
@@ -317,14 +332,16 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
     let attr_info_map = &database_info.noun_attr_info_map;
     let mut ele_order_map = DashMap::new();  //ele所在的层级的顺序位置
     for (refno, (pos, type_hash)) in refno_table_map {
+        if refno.1 == 0 {
+            dbg!(db1_dehash(type_hash as u32));
+            dbg!("Found world");
+            dbg!(&refno);
+        }
 
         if !attr_info_map.contains_key(&type_hash) {
             continue;
         }
-        if refno.1 == 0{
-            dbg!("Found world");
-            dbg!(&refno);
-        }
+
         // println!("ref_no={:#04X?}", refno);
         // println!("type_hash={:#04X?}", type_hash);
         //if refno == (15392, 7312) {
@@ -369,7 +386,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
                     let (_, children) = parse_attr_children(&membs_data[20..memb_bytes_len]).unwrap();
                     ele_data.children = children;
                 }
-                for i in 0..ele_data.children.len(){
+                for i in 0..ele_data.children.len() {
                     ele_order_map.insert(ele_data.children[i].clone(), i as i32);
                 }
                 //println!("membs_data={:#04X?}",&membs_data[memb_bytes_len..memb_bytes_len+4]);
@@ -393,7 +410,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
                 let mut attr_offset = attr_info.offset as usize;
                 if attr_info.att_type == DbAttributeType::BOOL {
                     attr_offset &= 0xFFFFF;
-                }else if attr_info.att_type == DbAttributeType::STRING{
+                } else if attr_info.att_type == DbAttributeType::STRING {
                     attr_offset -= 1;  //长度在前面
                 }
                 attr_offset *= 4;  //dword => byte
@@ -419,22 +436,22 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
         noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
     }
 
-    noun_type_ele_data_map.iter_mut().for_each(|mut eles|{
-        for mut ele in eles.iter_mut(){
-            if ele_order_map.contains_key(&ele.ref_no){
+    noun_type_ele_data_map.iter_mut().for_each(|mut eles| {
+        for mut ele in eles.iter_mut() {
+            if ele_order_map.contains_key(&ele.ref_no) {
                 ele.order = *ele_order_map.get(&ele.ref_no).unwrap();
             }
             let name_val = &*ele.attr_data_map.get("NAME").unwrap();
             //dbg!(&name_val);
             match name_val {
-                AttrVal::StringType(name)=>{
-                    if name.as_str() == "unset"|| name.as_str() == ""|| name.as_str() == " "{
+                AttrVal::StringType(name) => {
+                    if name.as_str() == "unset" || name.as_str() == "" || name.as_str() == " " {
                         ele.name = format!("{} {}", &ele.noun_name, ele.order)
-                    }else{
+                    } else {
                         ele.name = name.clone()
                     }
                 }
-                _ =>{}
+                _ => {}
             }
         }
     });
@@ -462,12 +479,12 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
         }
         DbAttributeType::STRING => {
             let (_, str_len) = be_i32(input)?;
-            let str_len=str_len as usize;
-            if str_len<input.len() && input.len()>4 && str_len>4 {
+            let str_len = str_len as usize;
+            if str_len < input.len() && input.len() > 4 && str_len > 4 {
                 let string = String::from_utf8_lossy(&input[4..str_len]).to_string();  //todo 中文编码
                 val = AttrVal::StringType(string);
-            }else {
-                val= AttrVal::StringType(" ".to_string());
+            } else {
+                val = AttrVal::StringType(" ".to_string());
             }
         }
         DbAttributeType::ELEMENT => {
@@ -491,10 +508,10 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
             let mut data = [0f64; 3];
 
             for i in 0..3 {
-                if l.len()>i*8+8{
+                if l.len() > i * 8 + 8 {
                     if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
                         data[i] = f64::from_be_bytes([e, f, g, h, a, b, c, d]);
-                    }else {
+                    } else {
                         break;
                     }
                 }
