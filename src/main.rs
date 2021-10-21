@@ -98,28 +98,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let db_info_map = &database_info.db_names_map;
 
+    let mut client_options = ClientOptions::parse(&mongodb_url).await?;
+    client_options.app_name = Some("AIOS".to_string());
+
     target_files.sort_by(|a, b|
             fs::metadata(b).unwrap().len()
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
+    let mut dbinfos = Vec::new();
     for path in target_files {
         let mut file = File::open(&path).unwrap();
         let mut buf = vec![0u8; 36];
         file.read_exact(&mut buf)?;
-        let file_type_bytes = &buf[32..36];
-        let db_info_bytes = &buf[8..12];
-        let db_name_num = i32::from_be_bytes(db_info_bytes.try_into().unwrap());
-        if is_cata_noun(file_type_bytes) || is_desi_noun(file_type_bytes) {
+        let db_type_bytes = &buf[32..36];
+        let db_no_bytes = &buf[8..12];
+        let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
+
+        if is_cata_noun(db_type_bytes) || is_desi_noun(db_type_bytes) {
+
+            let mut db_info = PDMSDBInfo::default();
             println!("path={:?}", &path);
             let db_eles_data_map = parse_db(&path, &database_info);
 
             let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
-            if let Some(name) = db_info_map.get(&db_name_num){
+            if let Some(name) = db_info_map.get(&db_no){
                 db_raw_name = name.to_string();
             }
-            let mut client_options = ClientOptions::parse(&mongodb_url).await?;
-            client_options.app_name = Some("AIOS_TEST".to_string());
-            let client = mongodb::Client::with_options(client_options)?;
+            let client = mongodb::Client::with_options(client_options.clone())?;
             let db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
+            db_info.name = db_name.clone();
+            db_info.db_no = db_no;
+            db_info.db_type = db1_dehash( u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
+            dbinfos.push(db_info);
             dbg!(&db_name);
             let db = client.database(&db_name);
             let db_name_clone=db_name.clone();
@@ -157,6 +166,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Save {:?} to db ok", &path);
         }
     }
+
+    //commit db infos data
+    let client = mongodb::Client::with_options(client_options)?;
+    let db = client.database("PDMSDbInfos");
+    let collection = db.collection_with_type::<PDMSDBInfo>("PDMSDbInfos");
+    collection.insert_many(
+        dbinfos, None,
+    ).await?;
+
     Ok(())
 }
 

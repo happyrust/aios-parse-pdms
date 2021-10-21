@@ -82,3 +82,10 @@ pub struct AttrInfo {
     pub default_val: AttrVal,
     pub att_type: DbAttributeType,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct PDMSDBInfo{
+    pub name: String,
+    pub db_no: i32,
+    pub db_type: String,
+}
