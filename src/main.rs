@@ -135,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let db_tree_name = format!("{}_tree", &db_name);
             let tree_db = client.database(&db_tree_name);
             for (key, ele_data_vec) in db_eles_data_map {
-                println!("ele_data_vec.len={:?}", ele_data_vec.len());
+                // println!("ele_data_vec.len={:?}", ele_data_vec.len());
                 let table_name = db1_dehash(key as u32);
                 let collection = db.collection_with_type::<ElementData>(&table_name);
                 for chunk in ele_data_vec.chunks(10000) {
@@ -152,7 +152,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         owner: e.owner.clone(),
                         name: e.name.clone(),
                         order: e.order,
-                        db_name:db_name_clone.clone(),
+                        db_name: db_name.clone(),
+                        type_name: e.noun_name.clone(),
                     });
                 }
                 for tree_chunk in ele_nodes.chunks(10000){
@@ -253,6 +254,7 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
             d = &input[j..j + 4];
         }
     }
+    dbg!(&refno_0_set);
     refno_0_set
 }
 
@@ -287,6 +289,7 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> DashMap<RefNoTuple, (usize, i32)>
             if refno_entry.1.0.0 != 0 {
                 refno_table.entry(refno_entry.1.0).or_insert(refno_entry.1.1);
             }
+
         }
     });
     refno_table
@@ -314,8 +317,13 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
     let attr_info_map = &database_info.noun_attr_info_map;
     let mut ele_order_map = DashMap::new();  //ele所在的层级的顺序位置
     for (refno, (pos, type_hash)) in refno_table_map {
+
         if !attr_info_map.contains_key(&type_hash) {
             continue;
+        }
+        if refno.1 == 0{
+            dbg!("Found world");
+            dbg!(&refno);
         }
         // println!("ref_no={:#04X?}", refno);
         // println!("type_hash={:#04X?}", type_hash);
