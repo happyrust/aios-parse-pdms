@@ -57,6 +57,7 @@ pub struct EleDataNode {
     pub owner: String,
     pub name: String,
     pub order: i32,
+    pub db_name:String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

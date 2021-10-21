@@ -97,6 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_info: PdmsDatabaseInfo = bincode::deserialize(&attr_buf).unwrap();
 
     let db_info_map = &database_info.db_names_map;
+
     target_files.sort_by(|a, b|
             fs::metadata(b).unwrap().len()
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
@@ -127,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("ele_data_vec.len={:?}", ele_data_vec.len());
                 let table_name = db1_dehash(key as u32);
                 let collection = db.collection_with_type::<ElementData>(&table_name);
-                for chunk in ele_data_vec.chunks(1000) {
+                for chunk in ele_data_vec.chunks(10000) {
                     collection.insert_many(
                         chunk.to_owned(), None,
                     ).await?;
@@ -140,7 +141,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         children: e.children.clone(),
                         owner: e.owner.clone(),
                         name: e.name.clone(),
-                        order: e.order
+                        order: e.order,
+                        db_name:db_tree_name.clone(),
                     });
                 }
                 let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
@@ -393,10 +395,11 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
                 ele.order = *ele_order_map.get(&ele.ref_no).unwrap();
             }
             let name_val = &*ele.attr_data_map.get("NAME").unwrap();
+            //dbg!(&name_val);
             match name_val {
                 AttrVal::StringType(name)=>{
-                    if name.as_str() == "unset"{
-                        ele.name = format!("{} {}", &ele.noun_name, ele.order);
+                    if name.as_str() == "unset"|| name.as_str() == ""|| name.as_str() == " "{
+                        ele.name = format!("{} {}", &ele.noun_name, ele.order)
                     }else{
                         ele.name = name.clone()
                     }
@@ -429,8 +432,13 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
         }
         DbAttributeType::STRING => {
             let (_, str_len) = be_i32(input)?;
-            let string = String::from_utf8_lossy(&input[4..str_len as usize]).to_string();  //todo 中文编码
-            val = AttrVal::StringType(string);
+            let str_len=str_len as usize;
+            if str_len<input.len() && input.len()>4 && str_len>4 {
+                let string = String::from_utf8_lossy(&input[4..str_len]).to_string();  //todo 中文编码
+                val = AttrVal::StringType(string);
+            }else {
+                val= AttrVal::StringType(" ".to_string());
+            }
         }
         DbAttributeType::ELEMENT => {
             let (_, (ref_0, ref_1)) = tuple((
@@ -1775,7 +1783,7 @@ static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 
 #[test]
 fn hash_test() {
-    let mut file = File::open("all_attr_info(1).bin").unwrap();
+    let mut file = File::open("all_attr_info(2).bin").unwrap();
     //let mut file =File::open("zone.bin").unwrap();
     let mut encoded = Vec::new();
     file.read_to_end(&mut encoded);
@@ -1784,10 +1792,10 @@ fn hash_test() {
     let test_attrs_map: PdmsDatabaseInfo = bincode::deserialize(&encoded[..]).unwrap();
     let test_attrs_map = test_attrs_map.noun_attr_info_map;
     if let Some(type_map) = test_attrs_map.get(&0x8A3E5i32) {
-        if let Some(attr_value) = type_map.get(&0xAAFCA) {
-            println!("attr_info={:#04X?}", attr_value);
+        if let Some(attr_value) = type_map.value().get(&0xAAFCA) {
+            println!("attr_info={:#04X?}", attr_value.value());
         }
-    }
+    };
 }
 
 #[test]
