@@ -81,6 +81,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     // SERVER_IP
     let b_run_save_hash_ref = matches.occurrences_of("PARSE_NOUN_HASH_REFNO_MAP") == 1;
     let b_save_to_mongodb = matches.occurrences_of("SAVE_TO_MONGODB") == 1;
+    dbg!(b_save_to_mongodb);
     let b_save_to_mysql = matches.occurrences_of("SAVE_TO_MYSQL") == 1;
 
     let mut target_files = Vec::new();
@@ -171,14 +172,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let db_tree_name = format!("{}_tree", &db_name);
                 let tree_db = client.database(&db_tree_name);
                 for (key, ele_data_vec) in db_eles_data_map {
-                    println!("ele_data_vec.len={:?}", ele_data_vec.len());
+                    println!("ele_data_vec len={:?}", ele_data_vec.len());
                     let table_name = db1_dehash(key as u32);
                     let collection = db.collection_with_type::<ElementData>(&table_name);
-                    for chunk in ele_data_vec.chunks(10000) {
-                        collection.insert_many(
-                            chunk.to_owned(), None,
-                        ).await?;
-                    }
                     let mut ele_nodes = Vec::new();
                     for e in &ele_data_vec {
                         ele_nodes.push(EleDataNode {
@@ -190,6 +186,22 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                             db_name: db_name.clone(),
                             type_name: e.noun_name.clone(),
                         });
+                    }
+                    // for chunk in ele_data_vec.chunks(10000) {
+                    //     collection.insert_many(
+                    //         chunk.to_owned(), None,
+                    //     ).await?;
+                    // }
+                        collection.insert_many(
+                            ele_data_vec, None,
+                        ).await?;
+
+
+                    for tree_chunk in ele_nodes.chunks(10000){
+                        let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
+                        tree_collection.insert_many(
+                            tree_chunk.to_owned(), None,
+                        ).await?;
                     }
                 }
                 //todo 移到一个方法
@@ -287,7 +299,7 @@ pub fn process_type_hash<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (R
         for p in pos_iter {
             //(RefNoTuple , (usize, i32)
             let (_, refno_entry) = get_refno_entry(input, p).unwrap_or_default();
-            type_hash.entry(refno_entry.1.1).or_insert((refno_entry.0, file_name.clone()));
+            type_hash.entry(refno_entry.1.noun_hash).or_insert((refno_entry.0, file_name.clone()));
         }
     });
     Ok((input, ()))
@@ -299,7 +311,6 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
     let mut pos_iter = rfind_iter(&input, [0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00, 0x00].as_slice());
     while let Some(i) = pos_iter.next() {
         let mut j = i + 0x6 * 4;   //偏移6 dword
-        // dbg!(j);
         let mut d = &input[j..j + 4];
         while d != [0, 0, 0, 0].as_slice() {
             // println!("refno={:#04X?}", d);
@@ -313,39 +324,57 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
 }
 
 #[inline]
-fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], (RefNoTuple, (usize, i32))> {
+fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], (RefNoTuple, EleDataEntry)> {
     let (_, ref_type) = be_i32(&input[offset + 8..offset + 12])?;
-    let mut refno_entry = ((0, 0), (0usize, 0i32));
+    let mut refno_entry = ((0, 0), EleDataEntry::default());
     if NOUN_TYPES_MAP.contains_key(&ref_type) {
-        let (_, (refno_0, refno_1, ref_type)) = tuple((
+        let (_, (refno_0, refno_1, noun_hash)) = tuple((
             be_i32,
             be_i32,
             be_i32, //type hash
         ))(&input[offset..offset + 12])?;
-        refno_entry = ((refno_0, refno_1), (offset, ref_type));
+        refno_entry = ((refno_0, refno_1), EleDataEntry{
+            pos: offset as usize,
+            noun_hash
+        } );
     }
     Ok((input, refno_entry))
 }
 
-/// 获取 ref_no + type 的索引位置表
+#[derive(Default, Debug)]
+pub struct EleDataEntry {
+    pub pos: usize,
+    pub noun_hash: i32,
+}
+
+/// 获取 ref_no + type 的索引位置表  和 world的参考号
 /// 根据get_last_index_position返回的hashset获取所有的ref_no + type的位置
 /// 返回值是hashmap k:所有的ref_no v:(ref_no的position,type的hash)
-pub fn gen_ref_type_pos_table(input: &[u8]) -> DashMap<RefNoTuple, (usize, i32)> {
+pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefNoTuple, EleDataEntry>, RefNoTuple) {
     let refno_0_set = get_total_refno_0s(input);
+    let mut world_refno = Arc::new(Mutex::new((0i32, 0)));
     //println!("refno_0_set={:#04X?}", refno_0_set);
     let mut refno_table = DashMap::new();
     refno_0_set.par_iter().for_each(|ref_0| {
         //println!("{:#04X?}", ref_0);
         let pos_iter = rfind_iter(&input, ref_0);
+        let world_refno_clone = world_refno.clone();
+        let mut w_refno = world_refno_clone.lock().unwrap();
         for p in pos_iter {
-            let refno_entry = get_refno_entry(input, p).unwrap_or_default();
+            let (_, refno_entry) = get_refno_entry(input, p).unwrap_or_default();
+            //check if world element
+            if w_refno.0 == 0 && refno_entry.1.noun_hash == 0xBEB83 {
+                w_refno.0 = refno_entry.0.0;
+                w_refno.1 = refno_entry.0.1;
+            }
             //取得 ref_0
-            if refno_entry.1.0.0 != 0 {
-                refno_table.entry(refno_entry.1.0).or_insert(refno_entry.1.1);
+            if refno_entry.0.0 != 0 {
+                refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
             }
         }
     });
-    refno_table
+    let lock = Arc::try_unwrap(world_refno).expect("Lock still has multiple owners");
+    (refno_table, lock.into_inner().expect("Mutex cannot be locked"))
 }
 
 #[inline]
@@ -361,24 +390,27 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
     file.read_to_end(&mut buf);
     let input = &buf[..];
     let start = std::time::Instant::now();
-    let refno_table_map = gen_ref_type_pos_table(input);
+    let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
     let elapsed = start.elapsed();
-    println!("时间获取参考号位置table: {:?}", elapsed);
 
     let mut noun_type_ele_data_map = DashMap::new();
     let attr_info_map = &database_info.noun_attr_info_map;
+    // println!("{:#4X?}", attr_info_map);
     let mut ele_order_map = DashMap::new();  //ele所在的层级的顺序位置
-    for (refno, (pos, type_hash)) in refno_table_map {
+
+    let mut pending_refnos = vec![world_refno];
+    while !pending_refnos.is_empty() {
+        let refno = pending_refnos.pop().unwrap();
+        if !refno_table_map.contains_key(&refno){
+            continue;
+        }
+        let entry = &*refno_table_map.get(&refno).unwrap();
+        // dbg!(&entry);
+        let pos = entry.pos;
+        let type_hash = entry.noun_hash;
         if !attr_info_map.contains_key(&type_hash) {
             continue;
         }
-        // if refno.1 == 0{
-        //     dbg!("Found world");
-        //     dbg!(&refno);
-        // }
-        // println!("ref_no={:#04X?}", refno);
-        // println!("type_hash={:#04X?}", type_hash);
-        //if refno == (15392, 7312) {
         let mut ele_data = ElementData::default();
         ele_data.ref_no = convert_ref_to_string(&refno);
         //println!("ref_no={:?}",refno);
@@ -412,20 +444,23 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
                     let attr_children = &membs_data[20..memb_bytes_len];
                     //println!("attr_remain_children={:#04X?}",attr_remain_children);
                     let membs_data = [attr_children, attr_remain_children].concat();
-                    let (_, children) = parse_attr_children(&membs_data).unwrap();
+                    let (_, children) = parse_attr_members(&membs_data).unwrap();
+                    pending_refnos.extend_from_slice(&children);
                     // 如果出现07 还需要将后面的部分跳掉，帮助后面的01 解析
                     memb_bytes_len += attr_remain_children_len + 4;
-                    ele_data.children = children;
+                    ele_data.children = children.into_iter().map(|x|convert_ref_to_string(&x)).collect::<Vec<_>>();
                 } else {
-                    let (_, children) = parse_attr_children(&membs_data[20..memb_bytes_len]).unwrap();
-                    ele_data.children = children;
+                    let (_, children) = parse_attr_members(&membs_data[20..memb_bytes_len]).unwrap();
+                    pending_refnos.extend_from_slice(&children);
+                    ele_data.children = children.into_iter().map(|x|convert_ref_to_string(&x)).collect::<Vec<_>>();
                 }
                 for i in 0..ele_data.children.len() {
                     ele_order_map.insert(ele_data.children[i].clone(), i as i32);
                 }
-                //println!("membs_data={:#04X?}",&membs_data[memb_bytes_len..memb_bytes_len+4]);
+                // println!("membs_data={:#04X?}", &ele_data.children);
             }
         }
+
         let explicit_data = &input[start + implicit_attr_len + memb_bytes_len..];
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
@@ -448,8 +483,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
                     attr_offset -= 1;  //长度在前面
                 }
                 attr_offset *= 4;  //dword => byte
-                // println!("attr_info={:#04X?}", attr_info);
-                //println!("attr_offset: {:#4X?}, u8 data: {:#4X?}", attr_offset, &//data[attr_offset..]);
                 if implicit_data[..].len() > attr_offset {
                     let (_, att_val) = parse_implicit_attr_value(&implicit_data[attr_offset..], &attr_info).unwrap_or(
                         (&implicit_data[attr_offset..], BoolType(false))
@@ -469,14 +502,12 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
         //println!("{:#4X?}", &ele_data);
         noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
     }
-
     noun_type_ele_data_map.iter_mut().for_each(|mut eles| {
         for mut ele in eles.iter_mut() {
             if ele_order_map.contains_key(&ele.ref_no) {
                 ele.order = *ele_order_map.get(&ele.ref_no).unwrap();
             }
             let name_val = &*ele.attr_data_map.get("NAME").unwrap();
-            //dbg!(&name_val);
             match name_val {
                 AttrVal::StringType(name) => {
                     if name.as_str() == "unset" || name.as_str() == "" || name.as_str() == " " {
@@ -489,6 +520,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
             }
         }
     });
+    println!("解析db所耗时间: {:?}", elapsed);
     noun_type_ele_data_map
 }
 
@@ -518,7 +550,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
             if str_len < input.len() && input.len() > 4 && str_len > 4 {
                 let (decode_string, b_chi) = decode_chars_data(&input[4..str_len]);
                 if b_chi {
-                    log::info!("发现中文字符串，数据为：{:#4X?}, 属性为：{:#4X?}, 值为{}", input, &attr_info, &decode_string);
+                    log::info!("发现中文字符串，数据为：{:#4X?}, 属性为：{:#4X?}, 值为: {}", input, &attr_info, &decode_string);
                 }
                 val = AttrVal::StringType(decode_string);
             } else {
@@ -566,24 +598,27 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
 
 /// 获取已知显式属性
 pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
+
     let mut explict_attrs = DashMap::new();
     let mut residual = input;
+    // if  input.len() <8{
+    //     println!("{:#4X?}", input);
+    // }
     while residual.len() >= 8 {
-        let (l, (explict_type, _, type_len)) = tuple((
+        let (l, (explict_num, _, type_len)) = tuple((
             be_i32,
             be_u16,
             be_u16,//这个就是一个属性的长度
         ))(&residual[..])?;
         let type_len = type_len as usize;
-        //println!("explict_type={:#04X?}",explict_type);
-        //println!("type_len={:#04X?}",type_len);
-        if type_len * 4 < l.len() {
+        // println!("{}: {:#4X?}", db1_dehash(explict_num as u32), explict_num);
+        if type_len * 4 <= l.len() {
             residual = &l[type_len * 4..];
             // 我的思路是把 type后面得长度给到input_tep  input_tep只取一小段 然后用input_tep做解析
             // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
             let tmp_input = &l[..type_len * 4];
             // 根据获取到的type hash值，拿到需要的类型
-            if let Some(attr_info) = attr_info_map.get(&explict_type) {
+            if let Some(attr_info) = attr_info_map.get(&explict_num) {
                 match attr_info.att_type {
                     DbAttributeType::INTEGER => {
                         let (_, val) = be_i32(tmp_input)?;
@@ -604,11 +639,12 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         let len = a as usize;
                         // let val = String::from_utf8_lossy(&tmp_input[4..4 + len]).to_string();
                         let (decode_string, b_chi) = decode_chars_data(&tmp_input[4..4 + len]);
+                        // dbg!(&decode_string);
                         if b_chi {
                             log::info!("发现中文字符串，数据为：{:#4X?}, 值为{}", input, &decode_string);
                         }
-                        let val = AttrVal::StringType(decode_string);
-                        explict_attrs.insert(attr_info.name.clone(), val);
+                        explict_attrs.insert(attr_info.name.clone(), AttrVal::StringType(decode_string));
+                        // dbg!(&explict_attrs);
                     }
                     DbAttributeType::ELEMENT => {
                         let (_, (ref_0, ref_1)) = tuple((
@@ -645,7 +681,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
 }
 
 /// 获取所有的members
-pub fn parse_attr_children(input: &[u8]) -> IResult<&[u8], Vec<String>> {
+pub fn parse_attr_members(input: &[u8]) -> IResult<&[u8], Vec<RefNoTuple>> {
     let mut members = vec![];
     let mut residual = input;
     //println!("residual.len={}",residual.len());
@@ -657,7 +693,7 @@ pub fn parse_attr_children(input: &[u8]) -> IResult<&[u8], Vec<String>> {
         residual = l;
         let ref_no = (ref0, ref1);
         //println!("ref_no={:?}",ref_no);
-        members.push(convert_ref_to_string(&ref_no));
+        members.push(ref_no);
     }
     Ok((input, members))
 }

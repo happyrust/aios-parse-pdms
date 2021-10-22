@@ -24,7 +24,7 @@ pub fn db1_dehash(hash: u32) -> String{
 #[test]
 fn db1_dehash_test(){
     let name=db1_dehash(0xC551C);
-    println!("name={}",name);
+    //println!("name={}",name);
 }
 
 
@@ -56,10 +56,10 @@ fn get_mapped_value(table: &[u8], v: i32) -> i32 {
 
     if res < 0 {
         let c = res * -764i32;
-        println!("{:#4X}", c);
+        //println!("{:#4X}", c);
         let a = v & 0xFF;
-        // println!("{:#4X}", a);
-        println!("{}", (a + (c / 4) as i32 + 1) as usize);
+        // //println!("{:#4X}", a);
+        //println!("{}", (a + (c / 4) as i32 + 1) as usize);
         res = convert_to_le_i32(table, (a + (c / 4) as i32 + 1) as usize) as i32;  //从1开始
     }
     res
@@ -97,19 +97,19 @@ pub fn decode_chi_chars(table: &[u8], data: &[u8]) -> String {
     }
     let mut str_data = vec![];
     let mut d = &data[2..data.len() - 2];
-    println!("{:#4X?}", d);
+    //println!("{:#4X?}", d);
     let mut i = 0;
     while i < d.len() {
         let d0 = d[i] as u64;
-        println!("{:#4X?}", d0);
+        //println!("{:#4X?}", d0);
         let d1 = d[i + 1] as i32;
-        println!("{:#4X?}", d1);
+        //println!("{:#4X?}", d1);
         let val = (d0 << 8) as i32 + d1 + 0x8080;
-        println!("{:#4X?}", val);
+        //println!("{:#4X?}", val);
         let code = get_mapped_value(table, val) as i64;
-        println!("Code: {:#4X?}", code);
+        //println!("Code: {:#4X?}", code);
         let chars = convert(code);
-        println!("Code: {:#4X?}", &chars);
+        //println!("Code: {:#4X?}", &chars);
         str_data.extend(chars);
         i += 2;
     }
@@ -127,7 +127,6 @@ pub fn decode_chars_data(input: &[u8]) -> (String, bool){
         res.extend_from_slice(&input[prev_pos..p]);
         if let Some(len) = find(&input[p..], &[0x20, 0x26]){
             // dbg!(&input[p..p + len]);
-            // println!("{:#4X?}", dbg!(&input[p..p + len]));
             let decode_str = decode_chi_chars(table_data, &input[p..p + len + 2]);
             res.extend(decode_str.bytes());
             prev_pos = p + len + 2;
@@ -144,7 +143,7 @@ pub fn decode_chars_data(input: &[u8]) -> (String, bool){
 
 #[test]
 fn test_chinese_data() {
-    // println!("Hello, world!");
+    // //println!("Hello, world!");
     //26 7E 37 27 43 45 20 26
     let test_code = vec![0x26, 0x7E, 0x37, 0x56, 0x56, 0x27, 0x32, 0x62, 0x4A, 0x54, 0x20, 0x26];
     let test_code = vec![0x26, 0x7E, 0x37, 0x27, 0x43, 0x45, 0x20, 0x26];
@@ -161,7 +160,7 @@ fn test_chinese_data() {
     // let res = get_mapped_value(&table, test_code);
 
 
-    // println!("{:#4X}", res);
+    // //println!("{:#4X}", res);
 }
 
 
