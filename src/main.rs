@@ -1,4 +1,5 @@
 #![feature(array_methods)]
+
 mod pdms_types;
 mod db_tool;
 
@@ -35,7 +36,7 @@ use mysql::Pool;
 use mysql::prelude::Queryable;
 use rayon::prelude::IntoParallelRefIterator;
 use simplelog::{CombinedLogger, WriteLogger};
-use crate::db_tool::db1_dehash;
+use crate::db_tool::{db1_dehash, decode_chars_data};
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use mysql::*;
@@ -45,16 +46,23 @@ const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
-//fn main() {
-    //输入命令行
+
+    CombinedLogger::init(
+        vec![
+            WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
+        ]
+    ).unwrap();
+
     let matches = clap_app!(myapp =>
         (version: "1.0")
         (author: "dpc")
         (about: "获取PDMS的一些属性信息")
         (@arg DIR: -d --dir +takes_value  "PDMS文件夹路径")
+        (@arg SAVE_TO_MONGODB: --save_mongdb  "是否保存到mongodb")
+        (@arg SAVE_TO_MYSQL: --save_sql   "是否保存到mysql")
         (@arg PARSE_NOUN_HASH_REFNO_MAP:  -s --save_pasre_hash_ref  "保存 noun_hash->refno map")
         (@arg FILENAME: -f --files +takes_value "PDMS文件名(格式为\"xx,xx,xx\")")
-        (@arg CONFIG: -config  --attrconfig +takes_value "配置文件名")
+        (@arg CONFIG: -c  --attrconfig +takes_value "配置文件名")
         (@arg SERVER_IP: -i  --ip +takes_value "服务器ip地址")
     ).get_matches();
 
@@ -72,6 +80,8 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
     // SERVER_IP
     let b_run_save_hash_ref = matches.occurrences_of("PARSE_NOUN_HASH_REFNO_MAP") == 1;
+    let b_save_to_mongodb = matches.occurrences_of("SAVE_TO_MONGODB") == 1;
+    let b_save_to_mysql = matches.occurrences_of("SAVE_TO_MYSQL") == 1;
 
     let mut target_files = Vec::new();
     if !filter_file_names.is_empty() && !b_run_save_hash_ref {
@@ -106,15 +116,10 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     client_options.app_name = Some("AIOS".to_string());
 
     target_files.sort_by(|a, b|
-            fs::metadata(b).unwrap().len()
+        fs::metadata(b).unwrap().len()
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
     let mut dbinfos = Vec::new();
 
-    let mysql_url="mysql://root:root@10.30.230.146:3306/test_db";
-    //let mysql_url="mysql://root:root@localhost:3306/test_db";
-    let opts=Opts::from_url(mysql_url).unwrap();
-    let pool=Pool::new(opts).unwrap();
-    let mut mysql_conn=pool.get_conn().unwrap();
     for path in target_files {
         let mut file = File::open(&path).unwrap();
         let mut buf = vec![0u8; 36];
@@ -124,28 +129,29 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
 
         if is_cata_noun(db_type_bytes) || is_desi_noun(db_type_bytes) {
-
             let mut db_info = PDMSDBInfo::default();
             println!("path={:?}", &path);
             let db_eles_data_map = parse_db(&path, &database_info);
 
             let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
-            if let Some(name) = db_info_map.get(&db_no){
+            if let Some(name) = db_info_map.get(&db_no) {
                 db_raw_name = name.to_string();
             }
             let client = mongodb::Client::with_options(client_options.clone())?;
             let db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
             db_info.name = db_name.clone();
             db_info.db_no = db_no;
-            db_info.db_type = db1_dehash( u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
+            db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
             dbinfos.push(db_info);
             dbg!(&db_name);
-            //给db_tree创建mysql数据库科
-            //let create_db_mysql=format!("create Database {}",db_name);
-            // let create_table_mysql=format!(r"
-            //     drop table pdmstreenode;
-            // ");
-            let create_table_mysql=format!(r"
+
+            if b_save_to_mysql {
+                let mysql_url = "mysql://root:root@10.30.230.146:3306/test_db";
+                //let mysql_url="mysql://root:root@localhost:3306/test_db";
+                let opts = Opts::from_url(mysql_url).unwrap();
+                let pool = Pool::new(opts).unwrap();
+                let mut mysql_conn = pool.get_conn().unwrap();
+                let create_table_mysql = format!(r"
                 create table PdmsTreeNode(
                     ref_no    text,
                     owner     text,
@@ -153,64 +159,66 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     orders    int,
                     db_name   text,
                     type_name text
-                )
-            ");
-            mysql_conn.query_drop(
-                create_table_mysql
-            ).unwrap();
-
-            let db = client.database(&db_name);
-            let db_name_clone=db_name.clone();
-            let db_tree_name = format!("{}_tree", &db_name);
-            let tree_db = client.database(&db_tree_name);
-            for (key, ele_data_vec) in db_eles_data_map {
-                println!("ele_data_vec.len={:?}", ele_data_vec.len());
-                let table_name = db1_dehash(key as u32);
-                let collection = db.collection_with_type::<ElementData>(&table_name);
-                for chunk in ele_data_vec.chunks(10000) {
-                    collection.insert_many(
-                        chunk.to_owned(), None,
-                    ).await?;
-                }
-
-                let mut ele_nodes = Vec::new();
-                for e in &ele_data_vec {
-                    ele_nodes.push(EleDataNode {
-                        ref_no: e.ref_no.clone(),
-                        children: e.children.clone(),
-                        owner: e.owner.clone(),
-                        name: e.name.clone(),
-                        order: e.order,
-                        db_name: db_name.clone(),
-                        type_name: e.noun_name.clone(),
-                    });
-                }
-                for mysql_chunk in ele_nodes.chunks(1000) {
-                    mysql_conn.exec_batch(
-                        r"insert into pdmstreenode (ref_no,owner,name,orders,db_name,type_name)
-                                            values(:ref_no,:owner,:name,:orders,:db_name,:type_name)",
-                        mysql_chunk.into_iter().map(|ele|{
-                            params! {
-                                "ref_no"=>ele.ref_no.clone(),
-                                "owner"=>ele.owner.clone(),
-                                "name"=>ele.name.clone(),
-                                "orders"=>ele.order,
-                                "db_name"=>ele.db_name.clone(),
-                                "type_name"=>ele.type_name.clone(),
-
-                            }
-                        })
-                    ).unwrap();
-                }
-                for tree_chunk in ele_nodes.chunks(10000){
-                    let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
-                    tree_collection.insert_many(
-                        tree_chunk.to_owned(), None,
-                    ).await?;
-                }
-
+                )");
+                mysql_conn.query_drop(
+                    create_table_mysql
+                ).unwrap();
             }
-            println!("Save {:?} to db ok", &path);
+
+            if b_save_to_mongodb {
+                let db = client.database(&db_name);
+                let db_name_clone = db_name.clone();
+                let db_tree_name = format!("{}_tree", &db_name);
+                let tree_db = client.database(&db_tree_name);
+                for (key, ele_data_vec) in db_eles_data_map {
+                    println!("ele_data_vec.len={:?}", ele_data_vec.len());
+                    let table_name = db1_dehash(key as u32);
+                    let collection = db.collection_with_type::<ElementData>(&table_name);
+                    for chunk in ele_data_vec.chunks(10000) {
+                        collection.insert_many(
+                            chunk.to_owned(), None,
+                        ).await?;
+                    }
+                    let mut ele_nodes = Vec::new();
+                    for e in &ele_data_vec {
+                        ele_nodes.push(EleDataNode {
+                            ref_no: e.ref_no.clone(),
+                            children: e.children.clone(),
+                            owner: e.owner.clone(),
+                            name: e.name.clone(),
+                            order: e.order,
+                            db_name: db_name.clone(),
+                            type_name: e.noun_name.clone(),
+                        });
+                    }
+                }
+                //todo 移到一个方法
+                // if b_save_to_mysql {
+                //     let mysql_url = "mysql://root:root@10.30.230.146:3306/test_db";
+                //     //let mysql_url="mysql://root:root@localhost:3306/test_db";
+                //     let opts = Opts::from_url(mysql_url).unwrap();
+                //     let pool = Pool::new(opts).unwrap();
+                //     let mut mysql_conn = pool.get_conn().unwrap();
+                //     for mysql_chunk in ele_nodes.chunks(1000) {
+                //         mysql_conn.exec_batch(
+                //             r"insert into pdmstreenode (ref_no,owner,name,orders,db_name,type_name)
+                //                             values(:ref_no,:owner,:name,:orders,:db_name,:type_name)",
+                //             mysql_chunk.into_iter().map(|ele| {
+                //                 params! {
+                //                 "ref_no"=>ele.ref_no.clone(),
+                //                 "owner"=>ele.owner.clone(),
+                //                 "name"=>ele.name.clone(),
+                //                 "orders"=>ele.order,
+                //                 "db_name"=>ele.db_name.clone(),
+                //                 "type_name"=>ele.type_name.clone(),
+                //             }
+                //             }),
+                //         ).unwrap();
+                //     }
+                // }
+                println!("Save {:?} to db ok", &path);
+            }
+
         }
     }
 
@@ -227,12 +235,12 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
 #[inline]
 pub fn is_desi_noun(bytes: &[u8]) -> bool {
-    bytes ==  [0x0, 0xB, 0x6, 0x92].as_slice()
+    bytes == [0x0, 0xB, 0x6, 0x92].as_slice()
 }
 
 #[inline]
 pub fn is_cata_noun(bytes: &[u8]) -> bool {
-    bytes ==  [0x0, 0x8, 0xA1, 0xE6].as_slice()
+    bytes == [0x0, 0x8, 0xA1, 0xE6].as_slice()
 }
 
 ///保存 noun_hash->refno  map
@@ -255,8 +263,8 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
             let mut buf: Vec<u8> = Vec::new();
             file.read_to_end(&mut buf);
             let input = &buf[..];
-            let (_input, _) = output_type_hash(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
-            println!("noun_hash_refnos len = {:?}",unique_hash_refno_map.len());
+            let (_input, _) = process_type_hash(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
+            println!("noun_hash_refnos len = {:?}", unique_hash_refno_map.len());
             let encode = bincode::serialize(&unique_hash_refno_map).unwrap();
             let mut file = OpenOptions::new()
                 .write(true)
@@ -270,7 +278,7 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
     Ok(())
 }
 
-pub fn output_type_hash<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (RefNoTuple, String)>, path: &PathBuf) -> IResult<&'a [u8], ()> {
+pub fn process_type_hash<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (RefNoTuple, String)>, path: &PathBuf) -> IResult<&'a [u8], ()> {
     let refno_0_set = get_total_refno_0s(input);
     let path = Path::new(path);
     let file_name = path.file_name().unwrap().to_owned().to_string_lossy().to_string();
@@ -335,17 +343,15 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> DashMap<RefNoTuple, (usize, i32)>
             if refno_entry.1.0.0 != 0 {
                 refno_table.entry(refno_entry.1.0).or_insert(refno_entry.1.1);
             }
-
         }
     });
     refno_table
 }
 
 #[inline]
-fn convert_ref_to_string(refno: &RefNoTuple) -> String{
+fn convert_ref_to_string(refno: &RefNoTuple) -> String {
     format!("{}/{}", refno.0, refno.1)
 }
-
 
 
 // file: PathBuf
@@ -363,7 +369,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
     let attr_info_map = &database_info.noun_attr_info_map;
     let mut ele_order_map = DashMap::new();  //ele所在的层级的顺序位置
     for (refno, (pos, type_hash)) in refno_table_map {
-
         if !attr_info_map.contains_key(&type_hash) {
             continue;
         }
@@ -415,7 +420,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
                     let (_, children) = parse_attr_children(&membs_data[20..memb_bytes_len]).unwrap();
                     ele_data.children = children;
                 }
-                for i in 0..ele_data.children.len(){
+                for i in 0..ele_data.children.len() {
                     ele_order_map.insert(ele_data.children[i].clone(), i as i32);
                 }
                 //println!("membs_data={:#04X?}",&membs_data[memb_bytes_len..memb_bytes_len+4]);
@@ -439,7 +444,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
                 let mut attr_offset = attr_info.offset as usize;
                 if attr_info.att_type == DbAttributeType::BOOL {
                     attr_offset &= 0xFFFFF;
-                }else if attr_info.att_type == DbAttributeType::STRING{
+                } else if attr_info.att_type == DbAttributeType::STRING {
                     attr_offset -= 1;  //长度在前面
                 }
                 attr_offset *= 4;  //dword => byte
@@ -465,27 +470,28 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo) -> DashMap<i32
         noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
     }
 
-    noun_type_ele_data_map.iter_mut().for_each(|mut eles|{
-        for mut ele in eles.iter_mut(){
-            if ele_order_map.contains_key(&ele.ref_no){
+    noun_type_ele_data_map.iter_mut().for_each(|mut eles| {
+        for mut ele in eles.iter_mut() {
+            if ele_order_map.contains_key(&ele.ref_no) {
                 ele.order = *ele_order_map.get(&ele.ref_no).unwrap();
             }
             let name_val = &*ele.attr_data_map.get("NAME").unwrap();
             //dbg!(&name_val);
             match name_val {
-                AttrVal::StringType(name)=>{
-                    if name.as_str() == "unset"|| name.as_str() == ""|| name.as_str() == " "{
+                AttrVal::StringType(name) => {
+                    if name.as_str() == "unset" || name.as_str() == "" || name.as_str() == " " {
                         ele.name = format!("{} {}", &ele.noun_name, ele.order)
-                    }else{
+                    } else {
                         ele.name = name.clone()
                     }
                 }
-                _ =>{}
+                _ => {}
             }
         }
     });
     noun_type_ele_data_map
 }
+
 /// 获取隐式属性
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -> IResult<&'a [u8], AttrVal> {
@@ -508,12 +514,16 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
         }
         DbAttributeType::STRING => {
             let (_, str_len) = be_i32(input)?;
-            let str_len=str_len as usize;
-            if str_len<input.len() && input.len()>4 && str_len>4 {
-                let string = String::from_utf8_lossy(&input[4..str_len]).to_string();  //todo 中文编码
-                val = AttrVal::StringType(string);
-            }else {
-                val= AttrVal::StringType(" ".to_string());
+            let str_len = str_len as usize;
+            if str_len < input.len() && input.len() > 4 && str_len > 4 {
+                let (decode_string, b_chi) = decode_chars_data(&input[4..str_len]);
+                if b_chi {
+                    log::info!("发现中文字符串，数据为：{:#4X?}, 属性为：{:#4X?}, 值为{}", input, &attr_info, &decode_string);
+                }
+                val = AttrVal::StringType(decode_string);
+            } else {
+                val = AttrVal::StringType("unset".to_string());
+                log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
             }
         }
         DbAttributeType::ELEMENT => {
@@ -537,10 +547,10 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
             let mut data = [0f64; 3];
 
             for i in 0..3 {
-                if l.len()>i*8+8{
+                if l.len() > i * 8 + 8 {
                     if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
                         data[i] = f64::from_be_bytes([e, f, g, h, a, b, c, d]);
-                    }else {
+                    } else {
                         break;
                     }
                 }
@@ -571,46 +581,50 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
             residual = &l[type_len * 4..];
             // 我的思路是把 type后面得长度给到input_tep  input_tep只取一小段 然后用input_tep做解析
             // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
-            let input_tep = &l[..type_len * 4];
+            let tmp_input = &l[..type_len * 4];
             // 根据获取到的type hash值，拿到需要的类型
             if let Some(attr_info) = attr_info_map.get(&explict_type) {
                 match attr_info.att_type {
                     DbAttributeType::INTEGER => {
-                        let (_, val) = be_i32(input_tep)?;
+                        let (_, val) = be_i32(tmp_input)?;
                         explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
                     }
                     DbAttributeType::DOUBLE => {
-                        if let [a, b, c, d, e, f, g, h] = input_tep[..8] {
+                        if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
                             let val = f64::from_be_bytes([e, f, g, h, a, b, c, d]);
                             explict_attrs.insert(attr_info.name.clone(), DoubleType(val));
                         }
                     }
                     DbAttributeType::BOOL => {
-                        let (_, val) = be_u32(input_tep)?;
+                        let (_, val) = be_u32(tmp_input)?;
                         explict_attrs.insert(attr_info.name.clone(), BoolType(val != 0));
                     }
                     DbAttributeType::STRING => {
-                        let (_, a) = be_u32(input_tep)?;
+                        let (_, a) = be_u32(tmp_input)?;
                         let len = a as usize;
-                        let val = String::from_utf8_lossy(&input_tep[4..4 + len]).to_string();
-                        //println!("str_val={}",val);
-                        explict_attrs.insert(attr_info.name.clone(), StringType(val));
+                        // let val = String::from_utf8_lossy(&tmp_input[4..4 + len]).to_string();
+                        let (decode_string, b_chi) = decode_chars_data(&tmp_input[4..4 + len]);
+                        if b_chi {
+                            log::info!("发现中文字符串，数据为：{:#4X?}, 值为{}", input, &decode_string);
+                        }
+                        let val = AttrVal::StringType(decode_string);
+                        explict_attrs.insert(attr_info.name.clone(), val);
                     }
                     DbAttributeType::ELEMENT => {
                         let (_, (ref_0, ref_1)) = tuple((
                             be_i32,
                             be_i32,
-                        ))(input_tep)?;
+                        ))(tmp_input)?;
                         explict_attrs.insert(attr_info.name.clone(), ElementType(convert_ref_to_string(&(ref_0, ref_1))));
                         //explict_attrs.entry(attr_info.name.clone()).or_insert( ElementType((ref_0, ref_1)));
                     }
                     DbAttributeType::WORD => {
-                        let (_, val) = be_u32(input_tep)?;
+                        let (_, val) = be_u32(tmp_input)?;
                         let val_word = db1_dehash(val);
                         explict_attrs.insert(attr_info.name.clone(), WordType(val_word));
                     }
                     DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
-                        let (l, v) = be_i32(input_tep)?;
+                        let (l, v) = be_i32(tmp_input)?;
                         let len = v as usize;
                         let mut data = [0f64; 3];
                         for i in 0..3 {
