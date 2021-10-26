@@ -23,8 +23,8 @@ pub fn db1_dehash(hash: u32) -> String{
 
 #[test]
 fn db1_dehash_test(){
-    let name=db1_dehash(0xC551C);
-    //println!("name={}",name);
+    let name=db1_dehash(0xFFF77D0F);
+    println!("name={}",name);
 }
 
 

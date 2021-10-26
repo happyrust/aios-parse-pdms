@@ -21,11 +21,13 @@ pub enum AttrVal {
     Vec3Type([f64; 3]),
     ElementType(String),
     WordType(String),
+
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PdmsDatabaseInfo {
     pub db_names_map: DashMap<i32, String>,
+    // 第一个i32是refno ，第二个i32是type的hash
     pub noun_attr_info_map: DashMap<i32, DashMap<i32, AttrInfo>>,
 }
 
@@ -73,6 +75,9 @@ pub enum DbAttributeType {
     POSITION,
     ORIENTATION,
     DATETIME,
+    DOUBLEVEC,
+    INTVEC,
+    FLOATARRAY
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -91,4 +96,9 @@ pub struct PDMSDBInfo{
     pub db_type: String,
 }
 
-
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct Table{
+    pub ref_no:String,
+    pub db:String,
+    pub type_name:String
+}
