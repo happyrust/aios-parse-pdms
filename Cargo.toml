@@ -16,7 +16,7 @@ serde-name = "0.1.1"
 serde = { version = "1.0.126", features = ["derive"] }
 phf = { version = "0.9", features = ["macros"] }
 clap = "2.33.3"
-mongodb = { version = "1.2.3", default-features = false, features = ["async-std-runtime"] }
+mongodb = { version = "2.0.1", default-features = false, features = ["async-std-runtime"] }
 log = "0.4.14"
 simplelog = "0.10.0"
 rayon = "1.5.1"

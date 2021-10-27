@@ -31,7 +31,7 @@ extern crate clap;
 use clap::clap_app;
 use log::LevelFilter;
 use log::info;
-use mongodb::options::ClientOptions;
+use mongodb::options::{ClientOptions, FindOneAndUpdateOptions, FindOneOptions};
 use mysql::Pool;
 use mysql::prelude::Queryable;
 use rayon::prelude::IntoParallelRefIterator;
@@ -43,6 +43,8 @@ use mysql::*;
 use mysql::prelude::*;
 use mysql::time::Instant;
 use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATARRAY, INTEGER};
+use mongodb::IndexModel;
+use mongodb::options::IndexOptions;
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
@@ -258,35 +260,43 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     });
                 }
                 // 赋属性值
-                for chunk in ele_data_vec.chunks(10000) {
-                    let collection = db.collection_with_type::<ElementData>(&table_name);
-                    collection.insert_many(
-                        chunk.to_owned(), None,
-                    ).await?;
-                }
-                // collection.insert_many(
-                //     ele_data_vec, None,
-                // ).await?;
+                let collection = db.collection::<ElementData>(&table_name);
+                let filter=doc! {"ref_no":"0/0"};
+                let update=doc! {"$set":{
+                    "ref_no":"15392/7313",
+                }};
+                let find_result=collection.find_one_and_update(filter,update,None).await?;
+                println!("find_result={:?}",find_result);
+                // for chunk in ele_data_vec.chunks(10000) {
+                //     collection.create_index(
+                //         IndexModel::builder()
+                //             .keys(doc! {"ref_no":1})
+                //             .options(IndexOptions::builder().unique(true).build())
+                //             .build(),
+                //         None,
+                //     ).await?;
+                // }
+
                 // 参考号的tree
-                for tree_chunk in ele_nodes.chunks(10000) {
-                    let tree_collection = tree_db.collection_with_type::<EleDataNode>("PdmsTreeNode");
-                    tree_collection.insert_many(
-                        tree_chunk.to_owned(), None,
-                    ).await?;
-                }
-                // 所有refno的dbname和typename
-                for table_chunk in ele_table.chunks(10000) {
-                    let table_collection = table_db.collection_with_type::<Table>("PdmsRefnoTable");
-                    table_collection.insert_many(
-                        table_chunk.to_owned(), None,
-                    ).await?;
-                }
+                // for tree_chunk in ele_nodes.chunks(10000) {
+                //     let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
+                //     tree_collection.insert_many(
+                //         tree_chunk.to_owned(), None,
+                //     ).await?;
+                // }
+                // // 所有refno的dbname和typename
+                // for table_chunk in ele_table.chunks(10000) {
+                //     let table_collection = table_db.collection::<Table>("PdmsRefnoTable");
+                //     table_collection.insert_many(
+                //         table_chunk.to_owned(), None,
+                //     ).await?;
+                // }
             }
 
             //commit db infos data
             let client = mongodb::Client::with_options(client_options)?;
             let db = client.database("PDMSDbInfos");
-            let collection = db.collection_with_type::<PDMSDBInfo>("PDMSDbInfos");
+            let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
             collection.insert_many(
                 dbinfos.to_owned(), None,
             ).await?;
@@ -569,9 +579,18 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
             //println!("explict_data={:#04X?}",&explicit_data[..8]);
             if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
                 explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
-                //println!("explicit data dwords len: {:#4X?}", explicit_bytes_len/4);
-                let (_, explicit_attr_map) = parse_explict_attrs(&explicit_data[16 + 4..explicit_bytes_len], &attr_info_map, refno).unwrap();
-                ele_data.attr_data_map = explicit_attr_map;
+                if &explicit_data[explicit_bytes_len..explicit_bytes_len+6]==&[0x0,0x0,0x0,0x7,0x0,0x1]{
+                    let explicit_remain_data_len=u16::from_be_bytes(explicit_data[explicit_bytes_len+6..explicit_bytes_len+8].try_into().unwrap());
+                    let explicit_remain_data_len=explicit_remain_data_len as usize * 4;
+                    let explicit_remain_data=&explicit_data[explicit_bytes_len+24..explicit_bytes_len+explicit_remain_data_len+4];
+                    let explicit_data=&explicit_data[20..explicit_bytes_len];
+                    let explicit_total_data=[explicit_data,explicit_remain_data].concat();
+                    let (_,explicit_attr_map)=parse_explict_attrs(&explicit_total_data, &attr_info_map, refno).unwrap();
+                    ele_data.attr_data_map = explicit_attr_map;
+                }else {
+                    let (_, explicit_attr_map) = parse_explict_attrs(&explicit_data[16 + 4..explicit_bytes_len], &attr_info_map, refno).unwrap();
+                    ele_data.attr_data_map = explicit_attr_map;
+                }
             }
         }
         for (_, attr_info) in attr_info_map.clone() {
@@ -713,9 +732,6 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo) -
 pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, refno: RefNoTuple) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
     let mut explict_attrs = DashMap::new();
     let mut residual = input;
-    // if  input.len() <8{
-    //     println!("{:#4X?}", input);
-    // }
     while residual.len() >= 8 {
         let (l, (explict_num, attr_type_num, type_len)) = tuple((
             be_i32,
@@ -725,10 +741,12 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
         let type_len = type_len as usize;
         // println!("{}: {:#4X?}", db1_dehash(explict_num as u32), explict_num);
         if type_len * 4 <= l.len() {
+
             residual = &l[type_len * 4..];
             // 我的思路是把 type后面得长度给到input_tep  input_tep只取一小段 然后用input_tep做解析
             // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
-            let tmp_input = &l[..type_len * 4];
+       // println!("tmp_input={:#04X?}",&l[..10]);
+        let tmp_input = &l[..type_len * 4];
             if attr_info_map.contains_key(&explict_num) {
                 let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
                 // vec<f64>
@@ -807,7 +825,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         let array_len = tmp_input.len() / 4;
                         let (tmp_input, data_len) = be_i32(tmp_input)?;
                         let len = data_len as usize;
-                        let double_or_float = array_len - len;
+                        let double_or_float = array_len / len;
                         let mut tmp_input = tmp_input;
 
                         if double_or_float == 2 {
@@ -852,8 +870,8 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
             // else {
             //     println!("donn't have attribute refno={:?} hash ={:#04X?}",refno,explict_num)
             // }
-        } else {
-            break;
+         } else {
+             break;
         }
     }
     Ok((input, explict_attrs))
