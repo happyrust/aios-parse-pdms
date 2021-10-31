@@ -3,6 +3,7 @@
 
 mod pdms_types;
 mod db_tool;
+mod parse_explict_tools;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -43,7 +44,7 @@ use crate::pdms_types::AttrVal::*;
 use mysql::*;
 use mysql::prelude::*;
 use mysql::time::Instant;
-use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATARRAY, INTEGER};
+use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 
@@ -593,7 +594,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         // dbg!(&entry);
         let pos = entry.pos;
         let type_hash = entry.noun_hash;
-        // dbg!(db1_dehash(type_hash as u32));
+        // 判断反序列话的DashMap中有无对应的type
         if !attr_info_map.contains_key(&type_hash) {
             continue;
         }
@@ -612,10 +613,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let implicit_data = &input[start..start + implicit_attr_len];
         // 隐藏属性到显示属性也可能有07截断
         let mut trunc_position = 0usize;
-        // let trunc_data=&input[start + implicit_attr_len..start + implicit_attr_len + 20];
-        // if let Some(find_trunc)=find(trunc_data,&[0x0,0x0,0x0,0x7]){
-        //     trunc_position+=find_trunc + 4;
-        // }
         let mut trunc_data = &input[start + implicit_attr_len..];
         // 记录4个0出现的次数
         let mut zero_times = 0usize;
@@ -635,8 +632,9 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
             if &membs_data[0..2] == [0x0, 0x2].as_slice() {
                 memb_bytes_len = u16::from_be_bytes(membs_data[2..4].try_into().unwrap()) as usize * 4;
-                //todo 这里有没有可能出现多个分段
-                if &membs_data[memb_bytes_len..memb_bytes_len + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, 0x2] {
+                // 这里可能会出现多个00 后面紧接着出现07的情况这个也是截断
+                //if &membs_data[memb_bytes_len..memb_bytes_len + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, 0x2] {
+                if &membs_data[memb_bytes_len..memb_bytes_len+4] == &[0x0 ,0x0 ,0x0,0x7]{
                     let attr_remain_children_len = u16::from_be_bytes(membs_data[memb_bytes_len + 6..memb_bytes_len + 8].try_into().unwrap());
                     let attr_remain_children_len = attr_remain_children_len as usize * 4;
                     let attr_remain_children = &membs_data[memb_bytes_len + 24..memb_bytes_len + attr_remain_children_len + 4];
@@ -739,9 +737,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         }
     });
 
-    // for (key,_) in noun_type_ele_data_map.clone(){
-    //     println!("key={:#04X?}",key);
-    // }
     println!("解析db所耗时间: {:?}", elapsed);
     noun_type_ele_data_map
 }
@@ -962,6 +957,8 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                     log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
                     explict_attrs.insert(attr_info.name.clone(), val);
                 }
+            }else {
+                // 如果DashMap没有对应的属性
             }
         } else {
             break;
