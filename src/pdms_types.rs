@@ -77,7 +77,8 @@ pub enum DbAttributeType {
     DATETIME,
     DOUBLEVEC,
     INTVEC,
-    FLOATVEC
+    FLOATVEC,
+    TYPEX,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
