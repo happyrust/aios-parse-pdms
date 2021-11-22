@@ -33,7 +33,7 @@ extern crate clap;
 use clap::clap_app;
 use log::LevelFilter;
 use log::info;
-use mongodb::options::{ClientOptions, FindOneAndUpdateOptions, FindOneOptions};
+use mongodb::options::{ClientOptions, FindOneAndReplaceOptions, FindOneAndUpdateOptions, FindOneOptions};
 use mysql::Pool;
 use mysql::prelude::Queryable;
 use rayon::prelude::IntoParallelRefIterator;
@@ -47,12 +47,15 @@ use mysql::time::Instant;
 use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
-use crate::parse_explict_tools::get_explicit_attr_type;
+use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr};
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;
 const ATT_PBAX: i32 = 0xF5458;
+const ATT_PX  : u32 = 0xFFF7E177;
+
+
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -300,11 +303,11 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
             let table_db = client.database("Table");
+            let option=FindOneAndReplaceOptions::builder()
+                .upsert(Some(true))
+                .build();
             for (key, ele_data_vec) in db_eles_data_map.clone() {
                 println!("ele_data_vec len={:?}", ele_data_vec.len());
-                if ele_data_vec.len()==1{
-                    println!("ele_data={:?}",ele_data_vec);
-                }
                 let table_name = db1_dehash(key as u32);
                 let mut ele_table = Vec::new();
                 let mut ele_nodes = Vec::new();
@@ -333,10 +336,18 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                         .build(),
                     None,
                 ).await?;
+
                 for chunk in ele_data_vec.chunks(10000){
-                    collection.insert_many(
-                        chunk.to_owned(),None,
-                    ).await?;
+                    // collection.insert_many(
+                    //     chunk.to_owned(),None,
+                    // ).await?;
+                    for ele in chunk{
+                        collection.find_one_and_replace(
+                            doc! {"ref_no":ele.ref_no.clone()},
+                            ele.clone(),
+                            Some(option.clone())
+                        ).await?;
+                    }
                 }
 
                 // 参考号的tree
@@ -349,9 +360,16 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     None,
                 ).await?;
                 for tree_chunk in ele_nodes.chunks(10000) {
-                    tree_collection.insert_many(
-                        tree_chunk.to_owned(), None,
-                    ).await?;
+                    // tree_collection.insert_many(
+                    //     tree_chunk.to_owned(), None,
+                    // ).await?;
+                    for ele in tree_chunk{
+                        tree_collection.find_one_and_replace(
+                            doc! {"ref_no":ele.ref_no.clone()},
+                            ele.clone(),
+                            Some(option.clone())
+                        ).await?;
+                    }
                 }
                 // 所有refno的dbname和typename
                 let table_collection = table_db.collection::<Table>("PdmsRefnoTable");
@@ -363,9 +381,16 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     None,
                 ).await?;
                 for table_chunk in ele_table.chunks(10000) {
-                    table_collection.insert_many(
-                        table_chunk.to_owned(), None,
-                    ).await?;
+                    // table_collection.insert_many(
+                    //     table_chunk.to_owned(), None,
+                    // ).await?;
+                    for ele in table_chunk{
+                        table_collection.find_one_and_replace(
+                            doc! {"ref_no":ele.ref_no.clone()},
+                            ele.clone(),
+                            Some(option.clone())
+                        ).await?;
+                    }
                 }
             }
 
@@ -373,13 +398,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let client = mongodb::Client::with_options(client_options)?;
             let db = client.database("PDMSDbInfos");
             let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
-            collection.create_index(
-                IndexModel::builder()
-                    .keys(doc! {"ref_no":1})
-                    .options(IndexOptions::builder().unique(true).build())
-                    .build(),
-                None,
-            ).await?;
+            // collection.create_index(
+            //     IndexModel::builder()
+            //         .keys(doc! {"ref_no":1})
+            //         .options(IndexOptions::builder().unique(true).build())
+            //         .build(),
+            //     None,
+            // ).await?;
             collection.insert_many(
                 dbinfos.to_owned(), None,
             ).await?;
@@ -805,6 +830,11 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
     let mut explict_attrs = DashMap::new();
     let mut residual = input;
     while residual.len() >= 8 {
+        if &residual[..3] == &[0xFF, 0xF7, 0xE1] {
+            let (input, (expression_type,value)) = get_expression_attr(residual).unwrap();
+            explict_attrs.insert(expression_type,StringType(value));
+            residual = input;
+        }else {
         let (l, (explict_num, attr_type_num, type_len)) = tuple((
             be_i32,
             be_u16,//这个是属性的类型
@@ -933,16 +963,16 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         _ => {}
                     }
                 } else {
-                    let tmp_input=&tmp_input[..];
+                    let tmp_input = &tmp_input[..];
                     let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
                     log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
                     explict_attrs.insert(attr_info.name.clone(), val);
                 }
-            }else {
+            } else {
                 // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
-                if let Some(attr_type)=get_explicit_attr_type(attr_type_num,pos){
+                if let Some(attr_type) = get_explicit_attr_type(attr_type_num, pos) {
                     let b_axis = check_is_axis(explict_num);
-                    let attr_name=db1_dehash(explict_num as u32);
+                    let attr_name = db1_dehash(explict_num as u32);
                     if !b_axis {
                         // 根据获取到的type hash值，拿到需要的类型
                         match attr_type {
@@ -1045,19 +1075,19 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 explict_attrs.insert(attr_name, IntArrayType(data));
                             }
                             DbAttributeType::TYPEX => {
-                                let (tmp_input,len)=be_u32(tmp_input)?;
-                                if len==1{
-                                    let (_,typex)=be_u32(&tmp_input[..4])?;
-                                    let typex=db1_dehash(typex);
+                                let (tmp_input, len) = be_u32(tmp_input)?;
+                                if len == 1 {
+                                    let (_, typex) = be_u32(&tmp_input[..4])?;
+                                    let typex = db1_dehash(typex);
                                     explict_attrs.entry("TYPE".to_string()).or_insert(StringType(typex));
-                                }else {
-                                    println!("undefined TYPE len {} position={:#04X?}",len,pos);
+                                } else {
+                                    println!("undefined TYPE len {} position={:#04X?}", len, pos);
                                 }
                             }
                             _ => {}
                         }
                     } else {
-                        let tmp_input=&tmp_input[..];
+                        let tmp_input = &tmp_input[..];
                         let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
                         // log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
                         explict_attrs.insert(attr_name, val);
@@ -1067,6 +1097,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
         } else {
             break;
         }
+    }
     }
     Ok((input, explict_attrs))
 }
@@ -1127,11 +1158,12 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                         let radius = radius / 100;
                         let mut result = String::new();
                         match &tmp_input[3..4] {
+                            &[0xF4] => { result = format!("X{}Y", radius); }
+                            &[0xD2] => { result = format!("-X{}-Z", radius); }
+                            &[0xF0] => { result = format!("X{}-Z", radius); }
                             &[0xEB] => { result = format!("Y{}X", radius); }
                             &[0xE0] => { result = format!("Z{}Y", radius); }
                             &[0xE1] => { result = format!("Z{}X", radius); }
-                            &[0xF4] => { result = format!("X{}-Z", radius); }
-                            &[0xD2] => { result = format!("-X{}-Z", radius); }
                             &_ => {}
                         }
                         val = AttrVal::StringType(result);
@@ -1211,7 +1243,7 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 /// 检查是否是Axis属性
 #[inline]
 pub fn check_is_axis(input: i32) -> bool {
-    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI {
+    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == (ATT_PX as i32){
         true
     } else {
         false
