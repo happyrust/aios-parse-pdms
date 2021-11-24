@@ -53,13 +53,11 @@ const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;
 const ATT_PBAX: i32 = 0xF5458;
-const ATT_PX  : u32 = 0xFFF7E177;
-
+const ATT_PX: u32 = 0xFFF7E177;
 
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
-
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
@@ -76,9 +74,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         (@arg SAVE_SYS: --save_sys "是否为sys文件")
         (@arg PARSE_NOUN_HASH_REFNO_MAP:  -s --save_pasre_hash_ref  "保存 noun_hash->refno map")
         (@arg FILENAME: -f --files +takes_value "PDMS文件名(格式为\"xx,xx,xx\")")
-        (@arg CONFIG: -c  --attrconfig +takes_value "配置文件名")
+        (@arg CONFIG:  --attrconfig +takes_value "配置文件名")
         (@arg SERVER_IP: -i  --ip +takes_value "服务器ip地址")
-        (@arg COUNT: -c  --count +takes_value "读取的数据个数")
+        (@arg COUNT: --count +takes_value "读取的数据个数")
         (@arg DEBUG_REFNO: --debug_refno  +takes_value "打印参考号对应信息")
         (@arg TARGET_REFNO: --target_refno  +takes_value "指定开始参考号，从这个参考号开始读取")
         (@arg LOG : -l --log "是否保存log日志")
@@ -120,7 +118,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     // SERVER_IP
     let b_run_save_hash_ref = matches.occurrences_of("PARSE_NOUN_HASH_REFNO_MAP") == 1;
     let b_save_to_mongodb = matches.occurrences_of("SAVE_TO_MONGODB") == 1;
-    let b_save_sys=matches.occurrences_of("SAVE_SYS")==1;
+    let b_save_sys = matches.occurrences_of("SAVE_SYS") == 1;
     let b_save_to_log = matches.occurrences_of("LOG") == 1;
     dbg!(b_save_to_mongodb);
     let b_save_to_mysql = matches.occurrences_of("SAVE_TO_MYSQL") == 1;
@@ -176,10 +174,10 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let mut client_options = ClientOptions::parse(&mongodb_url).await?;
             client_options.app_name = Some("AIOS".to_string());
             let client = mongodb::Client::with_options(client_options.clone())?;
-            let db=client.database("Dbsys");
-            let collection=db.collection::<DbInfo>("DbInfo");
-            let db_collection=db.collection::<ElementData>("DbInfos");
-            let mut mdb_children=HashSet::new();
+            let db = client.database("Dbsys");
+            let collection = db.collection::<DbInfo>("DbInfo");
+            let db_collection = db.collection::<ElementData>("DbInfos");
+            let mut mdb_children = HashSet::new();
             if let Some(mdb_name) = db_eles_data_map.get(&0x8221C) {
                 for ele in mdb_name.value() {
                     for child in ele.children.clone() {
@@ -188,17 +186,17 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     //mdb_children.push(ele.clone());
                 }
             }
-            println!("mdb_children.len={}",mdb_children.len());
-            let mut db_info_vec=vec![];
-            if let Some(db_info) = db_eles_data_map.get(&0x81C2B){
-                for ele in db_info.value(){
-                    if mdb_children.contains(&ele.ref_no){
+            println!("mdb_children.len={}", mdb_children.len());
+            let mut db_info_vec = vec![];
+            if let Some(db_info) = db_eles_data_map.get(&0x81C2B) {
+                for ele in db_info.value() {
+                    if mdb_children.contains(&ele.ref_no) {
                         db_info_vec.push(ele.clone());
                     }
                 }
             }
             db_collection.insert_many(
-                db_info_vec,None,
+                db_info_vec, None,
             ).await?;
             //println!("db_info_vec.len={}",db_info_vec.len());
 
@@ -225,7 +223,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             // collection.insert_many(
             //     db_info_vec,None
             // ).await?;
-
         }
         let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
         if let Some(name) = db_info_map.get(&db_no) {
@@ -303,7 +300,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
             let table_db = client.database("Table");
-            let option=FindOneAndReplaceOptions::builder()
+            let option = FindOneAndReplaceOptions::builder()
                 .upsert(Some(true))
                 .build();
             for (key, ele_data_vec) in db_eles_data_map.clone() {
@@ -337,15 +334,15 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     None,
                 ).await?;
 
-                for chunk in ele_data_vec.chunks(10000){
+                for chunk in ele_data_vec.chunks(10000) {
                     // collection.insert_many(
                     //     chunk.to_owned(),None,
                     // ).await?;
-                    for ele in chunk{
+                    for ele in chunk {
                         collection.find_one_and_replace(
                             doc! {"ref_no":ele.ref_no.clone()},
                             ele.clone(),
-                            Some(option.clone())
+                            Some(option.clone()),
                         ).await?;
                     }
                 }
@@ -363,11 +360,11 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     // tree_collection.insert_many(
                     //     tree_chunk.to_owned(), None,
                     // ).await?;
-                    for ele in tree_chunk{
+                    for ele in tree_chunk {
                         tree_collection.find_one_and_replace(
                             doc! {"ref_no":ele.ref_no.clone()},
                             ele.clone(),
-                            Some(option.clone())
+                            Some(option.clone()),
                         ).await?;
                     }
                 }
@@ -384,11 +381,11 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     // table_collection.insert_many(
                     //     table_chunk.to_owned(), None,
                     // ).await?;
-                    for ele in table_chunk{
+                    for ele in table_chunk {
                         table_collection.find_one_and_replace(
                             doc! {"ref_no":ele.ref_no.clone()},
                             ele.clone(),
-                            Some(option.clone())
+                            Some(option.clone()),
                         ).await?;
                     }
                 }
@@ -521,11 +518,13 @@ pub struct EleDataEntry {
     pub pos: usize,
     pub noun_hash: i32,
 }
-#[derive(Debug,serde::Serialize,serde::Deserialize)]
-pub struct DbInfo{
-    pub numb_db:AttrVal,
-    pub db_name:String,
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct DbInfo {
+    pub numb_db: AttrVal,
+    pub db_name: String,
 }
+
 /// 获取 ref_no + type 的索引位置表  和 world的参考号
 /// 根据get_last_index_position返回的hashset获取所有的ref_no + type的位置
 /// 返回值是hashmap k:所有的ref_no v:(ref_no的position,type的hash)
@@ -563,6 +562,32 @@ fn convert_ref_to_string(refno: &RefNoTuple) -> String {
 fn convert_string_to_ref(refno: &str) -> RefNoTuple {
     let x: Vec<i32> = refno.split('/').map(|x| x.parse::<i32>().unwrap_or_default()).collect();
     (x[0], x[1])
+}
+
+
+fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8>{
+    let mut data = input[20..*len].to_vec();
+    if *len + 4 > input.len(){
+        return data;
+    }
+    let mut tmp_offset = *len;
+    while &input[tmp_offset..tmp_offset + 4] == &[0x0, 0x0, 0x0, 0x7] {
+        // println!("{:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
+        let seg_len = u16::from_be_bytes(input[tmp_offset + 6..tmp_offset + 8].try_into().unwrap()) as usize * 4;
+        let mut seg_offset = tmp_offset + 16;
+        let mut i = 0;
+        while &input[seg_offset..seg_offset+4] == &[0x0, 0x0, 0x0, 0x0] {
+            seg_offset += 4;
+            i += 1;
+            if i == 2{ break; }   //暂时最多允许2个0的DWORD
+        }
+        let next_seg = &input[seg_offset..tmp_offset + seg_len + 4];
+        data.extend_from_slice(next_seg);
+        tmp_offset += seg_len + 4;
+        println!("{:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
+    }
+    *len = tmp_offset;
+    data
 }
 
 
@@ -630,7 +655,8 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
             trunc_position = zero_times * 4 + 4;
         }
 
-        let membs_data = &input[start + implicit_attr_len + trunc_position..];
+        let membs_pos = start + implicit_attr_len + trunc_position;
+        let membs_data = &input[membs_pos..];
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
         let mut memb_bytes_len = 0;
@@ -640,48 +666,43 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 memb_bytes_len = u16::from_be_bytes(membs_data[2..4].try_into().unwrap()) as usize * 4;
                 // 这里可能会出现多个00 后面紧接着出现07的情况这个也是截断
                 //if &membs_data[memb_bytes_len..memb_bytes_len + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, 0x2] {
-                if &membs_data[memb_bytes_len..memb_bytes_len+4] == &[0x0 ,0x0 ,0x0,0x7]{
-                    let attr_remain_children_len = u16::from_be_bytes(membs_data[memb_bytes_len + 6..memb_bytes_len + 8].try_into().unwrap());
-                    let attr_remain_children_len = attr_remain_children_len as usize * 4;
-                    let attr_remain_children = &membs_data[memb_bytes_len + 24..memb_bytes_len + attr_remain_children_len + 4];
-                    let attr_children = &membs_data[20..memb_bytes_len];
-                    let membs_data = [attr_children, attr_remain_children].concat();
-
-                    let (_, children) = parse_attr_members(&membs_data).unwrap();
-                    pending_refnos.extend_from_slice(&children);
-                    // 如果出现07 还需要将后面的部分跳掉，帮助后面的01 解析
-                    memb_bytes_len += attr_remain_children_len + 4;
-                    ele_data.children = children.into_iter().map(|x| convert_ref_to_string(&x)).collect::<Vec<_>>();
-                } else {
-                    let (_, children) = parse_attr_members(&membs_data[20..memb_bytes_len]).unwrap();
-                    pending_refnos.extend_from_slice(&children);
-                    ele_data.children = children.into_iter().map(|x| convert_ref_to_string(&x)).collect::<Vec<_>>();
-                }
+                // if &membs_data[memb_bytes_len..memb_bytes_len + 4] == &[0x0, 0x0, 0x0, 0x7] {
+                //
+                let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
+                // println!("{:#4X?}", merged_data);
+                let (_, children) = parse_attr_members(&merged_data).unwrap();
+                pending_refnos.extend_from_slice(&children);
+                ele_data.children = children.into_iter().map(|x| convert_ref_to_string(&x)).collect::<Vec<_>>();
                 for i in 0..ele_data.children.len() {
                     ele_order_map.insert(ele_data.children[i].clone(), i as i32);
                 }
             }
         }
-        let explicit_data = &input[start + implicit_attr_len + memb_bytes_len + trunc_position..];
+        let explicit_start = start + implicit_attr_len + memb_bytes_len + trunc_position;
+        let explicit_data = &input[explicit_start..];
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
         let mut explicit_bytes_len = 0;
         if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
             if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
-
                 explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
-                if &explicit_data[explicit_bytes_len..explicit_bytes_len + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, 0x1] {
-                    let explicit_remain_data_len = u16::from_be_bytes(explicit_data[explicit_bytes_len + 6..explicit_bytes_len + 8].try_into().unwrap());
-                    let explicit_remain_data_len = explicit_remain_data_len as usize * 4;
-                    let explicit_remain_data = &explicit_data[explicit_bytes_len + 24..explicit_bytes_len + explicit_remain_data_len + 4];
-                    let explicit_data = &explicit_data[20..explicit_bytes_len];
-                    let explicit_total_data = [explicit_data, explicit_remain_data].concat();
-                    let (_, explicit_attr_map) = parse_explict_attrs(&explicit_total_data, &attr_info_map, refno,pos).unwrap();
-                    ele_data.attr_data_map = explicit_attr_map;
-                } else {
-                    let (_, explicit_attr_map) = parse_explict_attrs(&explicit_data[16 + 4..explicit_bytes_len], &attr_info_map, refno,pos).unwrap();
-                    ele_data.attr_data_map = explicit_attr_map;
+                let mut debug_flag = false;
+                // if &explicit_data[explicit_bytes_len..explicit_bytes_len + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, 0x1]{
+                //     debug_flag = true;
+                // }
+                if explicit_start == 2580152 {
+                    debug_flag = true;
                 }
+                let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
+                if debug_flag {
+                    println!("{:#4X?}", &merged_data);
+                }
+                let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, refno, explicit_start).unwrap();
+                // if debug_flag {
+                //     println!("{:#4X?}", &merged_data);
+                //     println!("{:#4X?}", &explicit_attr_map);
+                // }
+                ele_data.attr_data_map = explicit_attr_map;
             }
         }
         for (_, attr_info) in attr_info_map.clone() {
@@ -694,7 +715,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 }
                 attr_offset *= 4;  //dword => byte
                 if implicit_data[..].len() > attr_offset {
-                    let (_, att_val) = parse_implicit_attr_value(&implicit_data[attr_offset..], &attr_info,refno:RefNoTuple,pos:usize).unwrap_or(
+                    let (_, att_val) = parse_implicit_attr_value(&implicit_data[attr_offset..], &attr_info, refno: RefNoTuple, pos: usize).unwrap_or(
                         (&implicit_data[attr_offset..], BoolType(false))
                     );
                     ele_data.attr_data_map.entry(attr_info.name.clone())
@@ -749,11 +770,11 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
 
 /// 获取隐式属性
 #[inline]
-pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo,ref_no:RefNoTuple,pos:usize) -> IResult<&'a [u8], AttrVal> {
+pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefNoTuple, pos: usize) -> IResult<&'a [u8], AttrVal> {
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
-    let b_axis=check_is_axis(attr_info.hash);
-    if  b_axis{
+    let b_axis = check_is_axis(attr_info.hash);
+    if b_axis {
         let (_, r) = convert_to_implicit_axis_string(input)?;
         log::error!("隐式属性 ref_no={:?} position={:#04X?} val={:?}",ref_no,pos,r);
         val = r;
@@ -826,169 +847,59 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo,re
 }
 
 /// 获取已知显式属性
-pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, refno: RefNoTuple ,pos:usize) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
+pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, refno: RefNoTuple, pos: usize) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
     let mut explict_attrs = DashMap::new();
     let mut residual = input;
+    let total_len = input.len();
     while residual.len() >= 8 {
+        let debug_pos = total_len - residual.len();
+        if pos == 2580152 {
+            println!("{}", &debug_pos); //*:#4X?*/
+        }
+
         if &residual[..3] == &[0xFF, 0xF7, 0xE1] {
-            let (input, (expression_type,value)) = get_expression_attr(residual).unwrap();
-            explict_attrs.insert(expression_type,StringType(value));
+            let (input, (expression_type, value)) = get_expression_attr(residual).unwrap();
+            explict_attrs.insert(expression_type, StringType(value));
             residual = input;
-        }else {
-        let (l, (explict_num, attr_type_num, type_len)) = tuple((
-            be_i32,
-            be_u16,//这个是属性的类型
-            be_u16,//这个就是一个属性的长度
-        ))(&residual[..])?;
-        let type_len = type_len as usize;
-        if type_len * 4 <= l.len() {
-            residual = &l[type_len * 4..];
-            // 我的思路是把 type后面得长度给到input_tep  input_tep只取一小段 然后用input_tep做解析
-            // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
-            let tmp_input = &l[..type_len * 4];
-            if attr_info_map.contains_key(&explict_num) {
-                let b_axis = check_is_axis(explict_num);
-                let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
-                if !b_axis {
-                    // vec<f64>
-                    if attr_type_num == 0x1800 {
-                        attr_info.att_type = DbAttributeType::DOUBLEVEC;
-                    } else if attr_type_num == 0x1C00 {
-                        attr_info.att_type = DbAttributeType::INTVEC;
-                    } else if attr_type_num == 0x0C00 {
-                        attr_info.att_type = DbAttributeType::WORD;
-                    }
-                    // 根据获取到的type hash值，拿到需要的类型
-                    match attr_info.att_type {
-                        DbAttributeType::INTEGER => {
-                            let (_, val) = be_i32(tmp_input)?;
-                            explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
-                        }
-                        DbAttributeType::DOUBLE => {
-                            if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                let val = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                explict_attrs.insert(attr_info.name.clone(), DoubleType(val));
-                            }
-                        }
-                        DbAttributeType::BOOL => {
-                            let (_, val) = be_u32(tmp_input)?;
-                            explict_attrs.insert(attr_info.name.clone(), BoolType(val != 0));
-                        }
-                        DbAttributeType::STRING => {
-                            let (_, a) = be_u32(tmp_input)?;
-                            let len_a = a as usize;
-                            if tmp_input.len() > 4 {
-                                let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
-                                // dbg!(&decode_string);
-                                explict_attrs.insert(attr_info.name.clone(), AttrVal::StringType(decode_string));
-                            } else {
-                                println!("len_a={:#04X?}", len_a);
-                                println!("error refno={:?}", refno);
-                                println!("error 显示 input={:#04X?}", tmp_input);
-                            }
-                        }
-                        DbAttributeType::ELEMENT => {
-                            let (_, (ref_0, ref_1)) = tuple((
-                                be_i32,
-                                be_i32,
-                            ))(tmp_input)?;
-                            explict_attrs.insert(attr_info.name.clone(), ElementType(convert_ref_to_string(&(ref_0, ref_1))));
-                            //explict_attrs.entry(attr_info.name.clone()).or_insert( ElementType((ref_0, ref_1)));
-                        }
-                        DbAttributeType::WORD => {
-                            let (_, val) = be_i32(tmp_input)?;
-                            if val >= 0x81BF1 {
-                                let val_word = db1_dehash(val as u32);
-                                explict_attrs.insert(attr_info.name.clone(), WordType(val_word));
-                            } else {
-                                explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
-                            }
-                        }
-                        DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
-                            let (l, v) = be_i32(tmp_input)?;
-                            let len = v as usize;
-                            let mut data = [0f64; 3];
-                            for i in 0..3 {
-                                if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
-                                    // 保留两位精度
-                                    data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                }
-                            }
-                            explict_attrs.insert(attr_info.name.clone(), Vec3Type(data));
-                        }
-                        DbAttributeType::DATETIME => {}
-
-                        DbAttributeType::DOUBLEVEC => {
-                            // println!("tmp_input={:#04X?}", tmp_input);
-                            let array_len = tmp_input.len() / 4;
-                            let (tmp_input, data_len) = be_i32(tmp_input)?;
-                            let len = data_len as usize;
-                            let double_or_float = array_len / len;
-                            let mut tmp_input = tmp_input;
-
-                            if double_or_float == 2 {
-                                let mut data = vec![];
-                                for _ in 0..len {
-                                    if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                        data.push(f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0);
-                                        tmp_input = &tmp_input[8..];
-                                    }
-                                }
-                                explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(data));
-                            } else if double_or_float == 1 {
-                                let mut data = vec![];
-                                for _ in 0..len {
-                                    if let [a, b, c, d] = tmp_input[..4] {
-                                        let val = f32::from_be_bytes([a, b, c, d]) as f64;
-                                        data.push(f64::trunc(val * 10000.0) / 10000.0);
-                                        tmp_input = &tmp_input[4..];
-                                    }
-                                }
-                                explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(data));
-                            }
-                        }
-                        DbAttributeType::INTVEC => {
-                            let (tmp_input, len) = be_u32(tmp_input)?;
-                            let len = len as usize;
-                            let mut tmp_input = tmp_input;
-                            let mut data = vec![];
-                            for _ in 0..len {
-                                let (remain_input, val) = be_i32(tmp_input)?;
-                                data.push(val);
-                                tmp_input = remain_input;
-                            }
-                            explict_attrs.insert(attr_info.name.clone(), IntArrayType(data));
-                        }
-
-                        _ => {}
-                    }
-                } else {
-                    let tmp_input = &tmp_input[..];
-                    let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
-                    log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
-                    explict_attrs.insert(attr_info.name.clone(), val);
-                }
-            } else {
-                // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
-                if let Some(attr_type) = get_explicit_attr_type(attr_type_num, pos) {
+        } else {
+            let (l, (explict_num, attr_type_num, type_len)) = tuple((
+                be_i32,
+                be_u16,//这个是属性的类型
+                be_u16,//这个就是一个属性的长度
+            ))(&residual[..])?;
+            let type_len = type_len as usize;
+            if type_len * 4 <= l.len() {
+                residual = &l[type_len * 4..];
+                // 我的思路是把 type后面得长度给到input_tep  input_tep只取一小段 然后用input_tep做解析
+                // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
+                let tmp_input = &l[..type_len * 4];
+                if attr_info_map.contains_key(&explict_num) {
                     let b_axis = check_is_axis(explict_num);
-                    let attr_name = db1_dehash(explict_num as u32);
+                    let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
                     if !b_axis {
+                        // vec<f64>
+                        if attr_type_num == 0x1800 {
+                            attr_info.att_type = DbAttributeType::DOUBLEVEC;
+                        } else if attr_type_num == 0x1C00 {
+                            attr_info.att_type = DbAttributeType::INTVEC;
+                        } else if attr_type_num == 0x0C00 {
+                            attr_info.att_type = DbAttributeType::WORD;
+                        }
                         // 根据获取到的type hash值，拿到需要的类型
-                        match attr_type {
+                        match attr_info.att_type {
                             DbAttributeType::INTEGER => {
                                 let (_, val) = be_i32(tmp_input)?;
-                                explict_attrs.insert(attr_name, IntegerType(val));
+                                explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
                             }
                             DbAttributeType::DOUBLE => {
                                 if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
                                     let val = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                    explict_attrs.insert(attr_name, DoubleType(val));
+                                    explict_attrs.insert(attr_info.name.clone(), DoubleType(val));
                                 }
                             }
                             DbAttributeType::BOOL => {
                                 let (_, val) = be_u32(tmp_input)?;
-                                explict_attrs.insert(attr_name, BoolType(val != 0));
+                                explict_attrs.insert(attr_info.name.clone(), BoolType(val != 0));
                             }
                             DbAttributeType::STRING => {
                                 let (_, a) = be_u32(tmp_input)?;
@@ -996,7 +907,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 if tmp_input.len() > 4 {
                                     let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
                                     // dbg!(&decode_string);
-                                    explict_attrs.insert(attr_name, AttrVal::StringType(decode_string));
+                                    explict_attrs.insert(attr_info.name.clone(), AttrVal::StringType(decode_string));
                                 } else {
                                     println!("len_a={:#04X?}", len_a);
                                     println!("error refno={:?}", refno);
@@ -1008,16 +919,16 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                     be_i32,
                                     be_i32,
                                 ))(tmp_input)?;
-                                explict_attrs.insert(attr_name, ElementType(convert_ref_to_string(&(ref_0, ref_1))));
+                                explict_attrs.insert(attr_info.name.clone(), ElementType(convert_ref_to_string(&(ref_0, ref_1))));
                                 //explict_attrs.entry(attr_info.name.clone()).or_insert( ElementType((ref_0, ref_1)));
                             }
                             DbAttributeType::WORD => {
                                 let (_, val) = be_i32(tmp_input)?;
                                 if val >= 0x81BF1 {
                                     let val_word = db1_dehash(val as u32);
-                                    explict_attrs.insert(attr_name, WordType(val_word));
+                                    explict_attrs.insert(attr_info.name.clone(), WordType(val_word));
                                 } else {
-                                    explict_attrs.insert(attr_name, IntegerType(val));
+                                    explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
                                 }
                             }
                             DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
@@ -1030,8 +941,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                         data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
                                     }
                                 }
-                                explict_attrs.insert(attr_name, Vec3Type(data));
+                                explict_attrs.insert(attr_info.name.clone(), Vec3Type(data));
                             }
+                            DbAttributeType::DATETIME => {}
 
                             DbAttributeType::DOUBLEVEC => {
                                 // println!("tmp_input={:#04X?}", tmp_input);
@@ -1049,7 +961,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                             tmp_input = &tmp_input[8..];
                                         }
                                     }
-                                    explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                    explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(data));
                                 } else if double_or_float == 1 {
                                     let mut data = vec![];
                                     for _ in 0..len {
@@ -1059,7 +971,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                             tmp_input = &tmp_input[4..];
                                         }
                                     }
-                                    explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                    explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(data));
                                 }
                             }
                             DbAttributeType::INTVEC => {
@@ -1072,32 +984,147 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                     data.push(val);
                                     tmp_input = remain_input;
                                 }
-                                explict_attrs.insert(attr_name, IntArrayType(data));
+                                explict_attrs.insert(attr_info.name.clone(), IntArrayType(data));
                             }
-                            DbAttributeType::TYPEX => {
-                                let (tmp_input, len) = be_u32(tmp_input)?;
-                                if len == 1 {
-                                    let (_, typex) = be_u32(&tmp_input[..4])?;
-                                    let typex = db1_dehash(typex);
-                                    explict_attrs.entry("TYPE".to_string()).or_insert(StringType(typex));
-                                } else {
-                                    println!("undefined TYPE len {} position={:#04X?}", len, pos);
-                                }
-                            }
+
                             _ => {}
                         }
                     } else {
                         let tmp_input = &tmp_input[..];
                         let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
-                        // log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
-                        explict_attrs.insert(attr_name, val);
+                        log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}", refno, debug_pos, val);
+                        explict_attrs.insert(attr_info.name.clone(), val);
+                    }
+                } else {
+                    // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
+                    if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos) {
+                        let b_axis = check_is_axis(explict_num);
+                        let attr_name = db1_dehash(explict_num as u32);
+                        if !b_axis {
+                            // 根据获取到的type hash值，拿到需要的类型
+                            match attr_type {
+                                DbAttributeType::INTEGER => {
+                                    let (_, val) = be_i32(tmp_input)?;
+                                    explict_attrs.insert(attr_name, IntegerType(val));
+                                }
+                                DbAttributeType::DOUBLE => {
+                                    if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
+                                        let val = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
+                                        explict_attrs.insert(attr_name, DoubleType(val));
+                                    }
+                                }
+                                DbAttributeType::BOOL => {
+                                    let (_, val) = be_u32(tmp_input)?;
+                                    explict_attrs.insert(attr_name, BoolType(val != 0));
+                                }
+                                DbAttributeType::STRING => {
+                                    let (_, a) = be_u32(tmp_input)?;
+                                    let len_a = a as usize;
+                                    if tmp_input.len() > 4 {
+                                        let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
+                                        // dbg!(&decode_string);
+                                        explict_attrs.insert(attr_name, AttrVal::StringType(decode_string));
+                                    } else {
+                                        println!("len_a={:#04X?}", len_a);
+                                        println!("error refno={:?}", refno);
+                                        println!("error 显示 input={:#04X?}", tmp_input);
+                                    }
+                                }
+                                DbAttributeType::ELEMENT => {
+                                    let (_, (ref_0, ref_1)) = tuple((
+                                        be_i32,
+                                        be_i32,
+                                    ))(tmp_input)?;
+                                    explict_attrs.insert(attr_name, ElementType(convert_ref_to_string(&(ref_0, ref_1))));
+                                    //explict_attrs.entry(attr_info.name.clone()).or_insert( ElementType((ref_0, ref_1)));
+                                }
+                                DbAttributeType::WORD => {
+                                    let (_, val) = be_i32(tmp_input)?;
+                                    if val >= 0x81BF1 {
+                                        let val_word = db1_dehash(val as u32);
+                                        explict_attrs.insert(attr_name, WordType(val_word));
+                                    } else {
+                                        explict_attrs.insert(attr_name, IntegerType(val));
+                                    }
+                                }
+                                DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
+                                    let (l, v) = be_i32(tmp_input)?;
+                                    let len = v as usize;
+                                    let mut data = [0f64; 3];
+                                    for i in 0..3 {
+                                        if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
+                                            // 保留两位精度
+                                            data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
+                                        }
+                                    }
+                                    explict_attrs.insert(attr_name, Vec3Type(data));
+                                }
+
+                                DbAttributeType::DOUBLEVEC => {
+                                    // println!("tmp_input={:#04X?}", tmp_input);
+                                    let array_len = tmp_input.len() / 4;
+                                    let (tmp_input, data_len) = be_i32(tmp_input)?;
+                                    let len = data_len as usize;
+                                    let double_or_float = array_len / len;
+                                    let mut tmp_input = tmp_input;
+
+                                    if double_or_float == 2 {
+                                        let mut data = vec![];
+                                        for _ in 0..len {
+                                            if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
+                                                data.push(f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0);
+                                                tmp_input = &tmp_input[8..];
+                                            }
+                                        }
+                                        explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                    } else if double_or_float == 1 {
+                                        let mut data = vec![];
+                                        for _ in 0..len {
+                                            if let [a, b, c, d] = tmp_input[..4] {
+                                                let val = f32::from_be_bytes([a, b, c, d]) as f64;
+                                                data.push(f64::trunc(val * 10000.0) / 10000.0);
+                                                tmp_input = &tmp_input[4..];
+                                            }
+                                        }
+                                        explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                    }
+                                }
+                                DbAttributeType::INTVEC => {
+                                    let (tmp_input, len) = be_u32(tmp_input)?;
+                                    let len = len as usize;
+                                    let mut tmp_input = tmp_input;
+                                    let mut data = vec![];
+                                    for _ in 0..len {
+                                        let (remain_input, val) = be_i32(tmp_input)?;
+                                        data.push(val);
+                                        tmp_input = remain_input;
+                                    }
+                                    explict_attrs.insert(attr_name, IntArrayType(data));
+                                }
+                                DbAttributeType::TYPEX => {
+                                    let (tmp_input, len) = be_u32(tmp_input)?;
+                                    if len == 1 {
+                                        let (_, typex) = be_u32(&tmp_input[..4])?;
+                                        let typex = db1_dehash(typex);
+                                        explict_attrs.entry("TYPE".to_string()).or_insert(StringType(typex));
+                                    } else {
+                                        println!("undefined TYPE len {} position={:#04X?}", len, pos);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        } else {
+                            let tmp_input = &tmp_input[..];
+                            let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
+                            // log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
+                            explict_attrs.insert(attr_name, val);
+                        }
                     }
                 }
+            } else {
+                break;
             }
-        } else {
-            break;
         }
-    }
     }
     Ok((input, explict_attrs))
 }
@@ -1180,8 +1207,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
 pub fn convert_to_explicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> {
     let mut result = AttrVal::StringType("".to_string());
     if input.len() < 20 {
-        let (_,val)=convert_to_implicit_axis_string(input)?;
-        result=val;
+        let (_, val) = convert_to_implicit_axis_string(input)?;
+        result = val;
     } else {
         // 检测是否以 1A 1A 05 02 17 开头
         let (tmp_input, (a, b, c, d, e)) = tuple((
@@ -1243,7 +1270,7 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 /// 检查是否是Axis属性
 #[inline]
 pub fn check_is_axis(input: i32) -> bool {
-    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == (ATT_PX as i32){
+    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == (ATT_PX as i32) {
         true
     } else {
         false
@@ -1263,6 +1290,7 @@ pub fn get_sys_db_ref_no(db_eles_data_map: &DashMap<i32, Vec<ElementData>>) -> D
     }
     result
 }
+
 #[test]
 fn convert_to_explicit_axis_string_test() {
     let input = &[

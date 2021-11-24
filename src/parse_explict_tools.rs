@@ -41,7 +41,7 @@ pub fn get_expression_attr(input: &[u8]) -> IResult<&[u8], (String,String)> {
     let expression_type_input = &input[..4];
     let mut expression_type = "PX".to_string();
     match expression_type_input {
-        &[0xFF, 0xF7, 0xE1, 0x77] => {}
+        &[0xFF, 0xF7, 0xE1, 0x77] => { expression_type = "PX".to_string(); }
         &[0xFF, 0xF7, 0xE1, 0x5C] => { expression_type = "PY".to_string(); }
         &[0xFF, 0xF7, 0xE1, 0x41] => { expression_type = "PZ".to_string(); }
         _ => {}
