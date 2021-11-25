@@ -47,13 +47,27 @@ use mysql::time::Instant;
 use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
-use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr};
+use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test};
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;
 const ATT_PBAX: i32 = 0xF5458;
-const ATT_PX: u32 = 0xFFF7E177;
+const ATT_PX: i32 = 0xFFF7E177u32 as i32;
+const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
+const ATT_PZ: i32 = 0xFFF7E141u32 as i32;
+const ATT_PDIA: i32 = 0xFFF77D0Fu32 as i32;
+const ATT_PHEI: i32 = 0xFFF520EFu32 as i32;
+const ATT_PDIS: i32 = 0xFFF21519u32 as i32;
+const ATT_PCON: i32 = 0xFFF3848Du32 as i32;
+const ATT_PBOR: i32 = 0xFFF2511Cu32 as i32;
+const ATT_PPRO: i32 = 0xFFF32DC0u32 as i32;
+const ATT_DPRO: i32 = 0xFFF32DCCu32 as i32;
+
+const IMP_PCON: i32 = 0xC7B73;
+const IMP_PDIS: i32 = 0xDEAE7;
+const IMP_PBOR: i32 = 0xDAEE4;
+const IMP_PDIA: i32 = 0x882F1;
 
 
 #[tokio::main]
@@ -565,9 +579,9 @@ fn convert_string_to_ref(refno: &str) -> RefNoTuple {
 }
 
 
-fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8>{
+fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
     let mut data = input[20..*len].to_vec();
-    if *len + 4 > input.len(){
+    if *len + 4 > input.len() {
         return data;
     }
     let mut tmp_offset = *len;
@@ -576,10 +590,10 @@ fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8>{
         let seg_len = u16::from_be_bytes(input[tmp_offset + 6..tmp_offset + 8].try_into().unwrap()) as usize * 4;
         let mut seg_offset = tmp_offset + 16;
         let mut i = 0;
-        while &input[seg_offset..seg_offset+4] == &[0x0, 0x0, 0x0, 0x0] {
+        while &input[seg_offset..seg_offset + 4] == &[0x0, 0x0, 0x0, 0x0] {
             seg_offset += 4;
             i += 1;
-            if i == 2{ break; }   //暂时最多允许2个0的DWORD
+            if i == 2 { break; }   //暂时最多允许2个0的DWORD
         }
         let next_seg = &input[seg_offset..tmp_offset + seg_len + 4];
         data.extend_from_slice(next_seg);
@@ -779,68 +793,82 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
         log::error!("隐式属性 ref_no={:?} position={:#04X?} val={:?}",ref_no,pos,r);
         val = r;
     } else {
-        match attr_info.att_type {
-            DbAttributeType::INTEGER => {
-                let (_, r) = be_i32(input)?;
-                val = AttrVal::IntegerType(r);
+        // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
+        if attr_info.hash == 0x9DB99 || attr_info.hash == 0x85438{ //0x9DB99 LEVEL  0x85438 PTS
+            let (mut tmp_input, length) = be_i32(input)?;
+            let mut result = vec![];
+            let mut length=length as usize;
+            while tmp_input.len() >= 4 && length> 0 {
+                let (input, value) = be_i32(tmp_input)?;
+                result.push(value);
+                tmp_input=input;
+                length-=1;
             }
-            DbAttributeType::DOUBLE => {
-                let (_, r) = be_f64(input)?;
-                let r = f64::trunc(r * 10000.0) / 10000.0;
-                val = AttrVal::DoubleType(r);
-            }
-            DbAttributeType::BOOL => {
-                let o = (attr_info.offset >> 0x14) as usize;
-                let (_, r) = be_u32(input)?;
-                let result = r >> o & 1;
-                val = AttrVal::BoolType(result == 1);
-            }
-            DbAttributeType::STRING => {
-                let (_, str_len) = be_i32(input)?;
-                let str_len = str_len as usize;
-                if str_len < input.len() && input.len() > 4 && str_len > 4 {
-                    let (decode_string, b_chi) = decode_chars_data(&input[4..str_len]);
-                    val = AttrVal::StringType(decode_string);
-                } else {
-                    val = AttrVal::StringType("unset".to_string());
-                    //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
+            val = AttrVal::IntArrayType(result);
+        } else {
+            match attr_info.att_type {
+                DbAttributeType::INTEGER => {
+                    let (_, r) = be_i32(input)?;
+                    val = AttrVal::IntegerType(r);
                 }
-            }
-            DbAttributeType::ELEMENT => {
-                let (_, (ref_0, ref_1)) = tuple((
-                    be_i32,
-                    be_i32,
-                ))(input)?;
-                val = AttrVal::ElementType(convert_ref_to_string(&(ref_0, ref_1)));
-            }
-            DbAttributeType::WORD => {
-                let (_, v) = be_i32(input)?;
-                if v > 0x171FAD39 {
-                    let n = db1_dehash(v as u32);
-                    val = AttrVal::WordType(n);
-                } else {
-                    val = AttrVal::IntegerType(v);
+                DbAttributeType::DOUBLE => {
+                    let (_, r) = be_f64(input)?;
+                    let r = f64::trunc(r * 10000.0) / 10000.0;
+                    val = AttrVal::DoubleType(r);
                 }
-            }
-            DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
-                let (input, len) = be_u32(input)?;
-                let l = input;
-                let mut data = [0f64; 3];
-                if len != 3 {}
-                for i in 0..3 {
-                    if l.len() > i * 8 + 8 {
-                        if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
-                            data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                        } else {
-                            break;
-                        }
+                DbAttributeType::BOOL => {
+                    let o = (attr_info.offset >> 0x14) as usize;
+                    let (_, r) = be_u32(input)?;
+                    let result = r >> o & 1;
+                    val = AttrVal::BoolType(result == 1);
+                }
+                DbAttributeType::STRING => {
+                    let (_, str_len) = be_i32(input)?;
+                    let str_len = str_len as usize;
+                    if str_len < input.len() && input.len() > 4 && str_len > 4 {
+                        let (decode_string, b_chi) = decode_chars_data(&input[4..str_len]);
+                        val = AttrVal::StringType(decode_string);
+                    } else {
+                        val = AttrVal::StringType("unset".to_string());
+                        //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
                     }
                 }
-                let (l, _) = take(3 * 8 as usize)(l)?;
-                val = AttrVal::Vec3Type(data);
+                DbAttributeType::ELEMENT => {
+                    let (_, (ref_0, ref_1)) = tuple((
+                        be_i32,
+                        be_i32,
+                    ))(input)?;
+                    val = AttrVal::ElementType(convert_ref_to_string(&(ref_0, ref_1)));
+                }
+                DbAttributeType::WORD => {
+                    let (_, v) = be_i32(input)?;
+                    if v > 0x171FAD39 {
+                        let n = db1_dehash(v as u32);
+                        val = AttrVal::WordType(n);
+                    } else {
+                        val = AttrVal::IntegerType(v);
+                    }
+                }
+                DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
+                    let (input, len) = be_u32(input)?;
+                    let l = input;
+                    let mut data = [0f64; 3];
+                    if len != 3 {}
+                    for i in 0..3 {
+                        if l.len() > i * 8 + 8 {
+                            if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
+                                data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    let (l, _) = take(3 * 8 as usize)(l)?;
+                    val = AttrVal::Vec3Type(data);
+                }
+                DbAttributeType::DATETIME => {}
+                _ => {}
             }
-            DbAttributeType::DATETIME => {}
-            _ => {}
         }
     }
     Ok((input, val))
@@ -856,9 +884,11 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
         if pos == 2580152 {
             println!("{}", &debug_pos); //*:#4X?*/
         }
-
-        if &residual[..3] == &[0xFF, 0xF7, 0xE1] {
-            let (input, (expression_type, value)) = get_expression_attr(residual).unwrap();
+        let explict_num = i32::from_be_bytes(residual[..4].try_into().unwrap());
+        if check_is_axis(explict_num) {
+            ///todo 这里两个表达式的接口没有统一，这个是直接从0xFF...他的属性开始的 ，第二个是从属性和他的长度结束开始的（在第1007行）
+            /// 第二个方法应该用不上，但是为了保险还是留在了那里
+            let (input, (expression_type, value)) = get_expression_attr_for_test(residual).unwrap();
             explict_attrs.insert(expression_type, StringType(value));
             residual = input;
         } else {
@@ -873,6 +903,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                 // 我的思路是把 type后面得长度给到input_tep  input_tep只取一小段 然后用input_tep做解析
                 // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
                 let tmp_input = &l[..type_len * 4];
+
                 if attr_info_map.contains_key(&explict_num) {
                     let b_axis = check_is_axis(explict_num);
                     let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
@@ -993,14 +1024,22 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         let tmp_input = &tmp_input[..];
                         let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
                         log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}", refno, debug_pos, val);
+                        dbg!(&attr_info.name);
                         explict_attrs.insert(attr_info.name.clone(), val);
                     }
                 } else {
-                    // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
-                    if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos) {
-                        let b_axis = check_is_axis(explict_num);
-                        let attr_name = db1_dehash(explict_num as u32);
-                        if !b_axis {
+                    // 先进行表达式的判断
+                    if check_is_axis(explict_num) {
+                        let tmp_input = &tmp_input[..];
+                        let (_, (key, val)) = get_expression_attr(explict_num, tmp_input)?;
+                        explict_attrs.insert(key, StringType(val));
+                    } else {
+                        /// 这里的逻辑改了一下，先判断是否为表达式，所以之前在这里的表达式判断就注释掉了
+                        // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
+                        if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos) {
+                            //let b_axis = check_is_axis(explict_num);
+                            let attr_name = db1_dehash(explict_num as u32);
+                            //if !b_axis {
                             // 根据获取到的type hash值，拿到需要的类型
                             match attr_type {
                                 DbAttributeType::INTEGER => {
@@ -1113,11 +1152,12 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 }
                                 _ => {}
                             }
-                        } else {
-                            let tmp_input = &tmp_input[..];
-                            let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
-                            // log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
-                            explict_attrs.insert(attr_name, val);
+                            //} else {
+                            //     let tmp_input = &tmp_input[..];
+                            //     let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
+                            //     // log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
+                            //     explict_attrs.insert(attr_name, val);
+                            // }
                         }
                     }
                 }
@@ -1163,7 +1203,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
     let (tmp_input, signal) = be_u32(input)?;
     let mut val = AttrVal::StringType("".to_string());
     if signal == 2 {
-        match tmp_input {
+        //这里改动了一下，给tmp_input截取了..8
+        match &tmp_input[..8] {
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => { val = AttrVal::StringType("X".to_string()) }
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => { val = AttrVal::StringType("Y".to_string()) }
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => { val = AttrVal::StringType("Z".to_string()) }
@@ -1197,9 +1238,98 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     }
                     &_ => {}
                 }
+                match &tmp_input[..4] {
+                    &[0x0, 0x0, 0x0, 0xC] => {
+                        let value = get_implicit_expression(&tmp_input[4..8]);
+                        let result = format!("X {} Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0xD] => {
+                        let value = get_implicit_expression(&tmp_input[4..8]);
+                        let result = format!("X {} Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x15] => {
+                        let value = get_implicit_expression(&tmp_input[4..8]);
+                        let result = format!("Y {} X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x17] => {
+                        let value = get_implicit_expression(&tmp_input[4..8]);
+                        let result = format!("Y {} Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x1F] => {
+                        let value = get_implicit_expression(&tmp_input[4..8]);
+                        let result = format!("Z {} X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x20] => {
+                        let value = get_implicit_expression(&tmp_input[4..8]);
+                        let result = format!("Z {} Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    _ => {}
+                }
             }
         }
-    } else {}
+    }
+    // 发现offset 开头第一个是00 ，但是这个不是一个属性的开头，第二个word才是
+    let (_, signal) = be_u32(tmp_input)?;
+    dbg!(signal);
+    if signal == 4 {
+        let mut val = String::new();
+        // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
+        println!("tmp_input={:#04X?}", tmp_input);
+        match &tmp_input[4..8] {
+            &[0x0, 0x0, 0x0, 0x28] => {
+                val = "PARAM".to_string();
+            }
+            _ => {}
+        }
+        match &tmp_input[8..12] {
+            &[0x0, 0x0, 0x0, 0x1] => {
+                let (_, value) = be_i32(&tmp_input[12..16])?;
+                val = format!("{} {}", val, value);
+                if value >= 0x65 {
+                    let value = value - 0x64;
+                    val = format!("IPARAM {}", value);
+                }
+            }
+            &[0x0, 0x0, 0x0, 0x2] => {
+                let (_, value) = be_i32(&tmp_input[12..16])?;
+                val = format!("TANF {} {}", val, value);
+            }
+            &[0x0, 0x0, 0x0, 0x4] => {
+                let (_, (value1, value2)) = tuple((
+                    be_i32,
+                    be_i32,
+                ))(&tmp_input[12..20])?;
+                dbg!(value1);
+                dbg!(value2);
+                let mut result = String::from("PARAM");
+                if value1 >= 0x65 {
+                    let value1 = value1 - 0x64;
+                    val = format!("IPARAM {}", value1);
+                } else {
+                    val = format!("PARAM {}", value1);
+                }
+                if value2 >= 0x65 {
+                    let value2 = value2 - 0x64;
+                    result = format!("IPARAM {}", value2);
+                } else {
+                    result = format!("PARAM {}", value2);
+                }
+                val = format!("SUM {} {}", val, result);
+            }
+            _ => {}
+        }
+        if tmp_input.len() > 24 {
+            let value = get_implicit_expression(&tmp_input[20..24]);
+            val = format!("{} {}", val, value);
+        }
+        return Ok((input, StringType(val)));
+    }
     Ok((input, val))
 }
 
@@ -1270,7 +1400,11 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 /// 检查是否是Axis属性
 #[inline]
 pub fn check_is_axis(input: i32) -> bool {
-    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == (ATT_PX as i32) {
+    // 显式得表达式
+    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA
+        || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO {
+        true
+    } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA {
         true
     } else {
         false
@@ -1289,6 +1423,22 @@ pub fn get_sys_db_ref_no(db_eles_data_map: &DashMap<i32, Vec<ElementData>>) -> D
         }
     }
     result
+}
+
+/// 隐式表达式解析，给一个字符串返回DDHEIGHT这种表达式
+#[inline]
+pub fn get_implicit_expression(input: &[u8]) -> String {
+    let mut val = String::new();
+    match input {
+        &[0xFF, 0xFF, 0xFF, 0xFB] => {
+            val = "DDHEIGHT".to_string();
+        }
+        &[0xFF, 0xFF, 0xFF, 0xFC] => {
+            val = "DDANGLE".to_string();
+        }
+        _ => {}
+    }
+    val
 }
 
 #[test]
