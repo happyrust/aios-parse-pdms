@@ -68,7 +68,7 @@ const IMP_PCON: i32 = 0xC7B73;
 const IMP_PDIS: i32 = 0xDEAE7;
 const IMP_PBOR: i32 = 0xDAEE4;
 const IMP_PDIA: i32 = 0x882F1;
-
+const IMP_PHEI: i32 = 0xADF11;
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -789,7 +789,19 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
     use nom::bytes::complete::take;
     let b_axis = check_is_axis(attr_info.hash);
     if b_axis {
-        let (_, r) = convert_to_implicit_axis_string(input)?;
+        let mut r=AttrVal::BoolType(false);
+        // 隐式属性的所有StringType的offset都给原本的值-1，表达式默认是StringType，但是他不需要-1,所以这里slice的时候再+1
+        match attr_info.att_type.clone() {
+             DbAttributeType::STRING => {
+                let (_, ar) = convert_to_implicit_axis_string(&input[4..])?;
+                r=ar;
+            }
+            _ => {
+                let (_, ar) = convert_to_implicit_axis_string(input)?;
+                r=ar;
+            }
+
+        }
         log::error!("隐式属性 ref_no={:?} position={:#04X?} val={:?}",ref_no,pos,r);
         val = r;
     } else {
@@ -1202,6 +1214,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
     // 目前都是以02开头，如果不是以02开头就记录下来
     let (tmp_input, signal) = be_u32(input)?;
     let mut val = AttrVal::StringType("".to_string());
+    println!("signal={}",signal);
     if signal == 2 {
         //这里改动了一下，给tmp_input截取了..8
         match &tmp_input[..8] {
@@ -1273,38 +1286,38 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 }
             }
         }
-    }
-    // 发现offset 开头第一个是00 ，但是这个不是一个属性的开头，第二个word才是
-    let (_, signal) = be_u32(tmp_input)?;
-    dbg!(signal);
-    if signal == 4 {
+    } else if signal == 4 {
         let mut val = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
-        println!("tmp_input={:#04X?}", tmp_input);
-        match &tmp_input[4..8] {
+        match &tmp_input[..4] {
             &[0x0, 0x0, 0x0, 0x28] => {
                 val = "PARAM".to_string();
             }
             _ => {}
         }
-        match &tmp_input[8..12] {
+        match &tmp_input[4..8] {
             &[0x0, 0x0, 0x0, 0x1] => {
-                let (_, value) = be_i32(&tmp_input[12..16])?;
-                val = format!("{} {}", val, value);
-                if value >= 0x65 {
+                let (_, value) = be_i32(&tmp_input[8..12])?;
+                if value >= 0x65 && value<0x3E9{
                     let value = value - 0x64;
                     val = format!("IPARAM {}", value);
+                }else if value >=0x3E9{
+                    let value=value-0x3E8;
+                    println!("value={}",value);
+                    val = format!("- {} {}",val,value);
+                }else {
+                    val = format!("{} {}", val, value);
                 }
             }
             &[0x0, 0x0, 0x0, 0x2] => {
-                let (_, value) = be_i32(&tmp_input[12..16])?;
+                let (_, value) = be_i32(&tmp_input[8..12])?;
                 val = format!("TANF {} {}", val, value);
             }
             &[0x0, 0x0, 0x0, 0x4] => {
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
-                ))(&tmp_input[12..20])?;
+                ))(&tmp_input[8..12])?;
                 dbg!(value1);
                 dbg!(value2);
                 let mut result = String::from("PARAM");
@@ -1325,7 +1338,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             _ => {}
         }
         if tmp_input.len() > 24 {
-            let value = get_implicit_expression(&tmp_input[20..24]);
+            let value = get_implicit_expression(&tmp_input[16..20]);
             val = format!("{} {}", val, value);
         }
         return Ok((input, StringType(val)));
@@ -1404,7 +1417,7 @@ pub fn check_is_axis(input: i32) -> bool {
     if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA
         || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO {
         true
-    } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA {
+    } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI {
         true
     } else {
         false
