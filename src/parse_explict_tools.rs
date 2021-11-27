@@ -27,6 +27,7 @@ const ATT_PBOR: i32 = 0xFFF2511Cu32 as i32 ;
 const ATT_PPRO: i32 = 0xFFF32DC0u32 as i32 ;
 const ATT_DPRO: i32 = 0xFFF32DCCu32 as i32 ;
 
+
 #[inline]
 /// 若在反序列化给定的map集合中未找到该属性对应的hash ，则用该方法直接获取到该属性的数据类型 ，然后进行解析
 pub fn get_explicit_attr_type(input: u16, pos: usize) -> Option<DbAttributeType> {
@@ -68,7 +69,6 @@ pub fn get_expression_attr(explict_num:i32,input: &[u8]) -> IResult<&[u8], (Stri
     let expression_start = &expression_data[..4];
     expression_data = &expression_data[4..];
     // 这是表达式数字的起始标志
-    // let expression_data_start = &expression_data[..8];
     let mut result_stack = vec![];
     while (&expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] || &expression_data[..4] == &[0x0, 0x0, 0x0, 0x6A] || &expression_data[..3] == &[0x0,0x0,0x3]) && expression_data.len() >= 8 {
         if &expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] {
@@ -275,7 +275,7 @@ pub fn get_expression_attr(explict_num:i32,input: &[u8]) -> IResult<&[u8], (Stri
 
 #[test]
 fn get_expression_attr_test() {
-    let mut file = File::open("skey1").unwrap();
+    let mut file = File::open("BDIA").unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);
     let (_, (types,result)) = get_expression_attr_for_test(&attr_buf).unwrap();
@@ -306,8 +306,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
     let expression_start = &expression_data[..4];
     expression_data = &expression_data[4..];
     // 这是表达式数字的起始标志
-    // let expression_data_start = &expression_data[..8];
-    let mut result_stack = vec![];
+    let mut result_stack = vec!["".to_string()];
     while expression_data.len() >= 8 && (&expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] || &expression_data[..4] == &[0x0, 0x0, 0x0, 0x6A] || &expression_data[..3] == &[0x0,0x0,0x3] || &expression_data[..4] == &[0x0,0x0,0x0,0x3])  {
         if &expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] {
             expression_data = &expression_data[8..];
@@ -327,76 +326,231 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
         }
         //若后面是6A 则代表该值没完
         while expression_data.len()>4 && &expression_data[..4] == &[0x0u8, 0x0, 0x0, 0x6A][..] {
-            // 跳6A 和02
-            expression_data = &expression_data[8..];
-            match &expression_data[..16] {
-                &[0x0, 0x8, 0x9C, 0x41, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression = "ATTRIB PARA";
-                    let value=result_stack.pop().unwrap();
-                    let value = format!("{}[{}]", expression, value);
-                    result_stack.push(value);
+            // 跳6A
+            expression_data = &expression_data[4..];
+            match &expression_data[..8] {
+                &[0x0, 0x0, 0x0, 0x1, 0x0, 0xE, 0x95, 0xA5] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB MCOU".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    }else {
+                        let expression="ATTRIB MCOU".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xD, 0x88, 0x79, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression = "ATTRIB IPAR";
-                    let value=result_stack.pop().unwrap();
-                    let value = format!("{}[{}]", expression, value);
-                    result_stack.push(value);
+                &[0x0,0x0,0x0,0x2,0x0, 0x8, 0x9C, 0x41] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB PARA";
+                        let value = result_stack.pop().unwrap();
+                        let value = format!("{}[{}]", expression, value);
+                        result_stack.push(value);
+                    }else {
+                        let expression="ATTRIB PARA".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xD, 0x88, 0x87, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression = "ATTRIB WPAR";
-                    let value=result_stack.pop().unwrap();
-                    let value = format!("{}[{}]", expression, value);
-                    result_stack.push(value);
+                &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0x88, 0x79] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB IPAR";
+                        let value = result_stack.pop().unwrap();
+                        let value = format!("{}[{}]", expression, value);
+                        result_stack.push(value);
+                    }else {
+                        let expression="ATTRIB IPAR".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xD, 0xCA, 0x5F, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x78, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression = "ATTRIB DTXR".to_string();
-                    result_stack.push(expression);
+                &[0x0,0x0,0x0,0x6,0x0, 0xD, 0x88, 0x87] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB WPAR";
+                        let value = result_stack.pop().unwrap();
+                        let value = format!("{}[{}]", expression, value);
+                        result_stack.push(value);
+                    }else {
+                        let expression="ATTRIB WPAR".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xC, 0x2C, 0xA0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x2, 0xBC, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression = "ATTRIB FLNM".to_string();
-                    result_stack.push(expression);
+                &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0xCA, 0x5F ] => {
+                    if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                        let expression = "ATTRIB DTAR".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    } else {
+                        let expression = "ATTRIB DTAR".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xB, 0xCB, 0xFF, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression = "ATTRIB ANGL".to_string();
-                    result_stack.push(expression);
+                &[0x0, 0x0, 0x0, 0x4, 0x0, 0xC, 0x2C, 0xA0] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB FLNM".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    }else {
+                        let expression="ATTRIB FLNM".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xC, 0xD2, 0x42, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0xB, 0x20, 0x9F] => {
-                    let expression="ATTRIB RPRO DIAJ".to_string();
-                    result_stack.push(expression);
+                &[0x0, 0x0, 0x0, 0x4, 0x0, 0x8, 0x82, 0xE3] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB BDIA".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    }else {
+                        let expression="ATTRIB BDIA".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xC, 0xD2, 0x42, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0xA, 0x5E, 0x97] => {
-                    let expression="ATTRIB RPRO LENG".to_string();
-                    result_stack.push(expression);
+                &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0x33, 0x70] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB BTYP".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    }else {
+                        let expression="ATTRIB BTYP".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xC, 0xD2, 0x42, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x8, 0x1C, 0x3] => {
-                    let expression="ATTRIB RPRO R".to_string();
-                    result_stack.push(expression);
+                &[0x0,0x0,0x0,0x2,0x0, 0xB, 0xCB, 0xFF ] => {
+                    if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
+                        let expression = "ATTRIB ANGL".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    }else {
+                        let expression="ATTRIB ANGL".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xC, 0xD2, 0x42, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0xA, 0x50, 0x56] => {
-                    let expression="ATTRIB RPRO HEIG".to_string();
-                    result_stack.push(expression);
+                &[0x0, 0x0, 0x0, 0x2, 0x0, 0xC, 0xD2, 0x42] => {
+                    match &expression_data[16..20] {
+                        &[0x0, 0xB, 0x20, 0x9F] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO DIAJ".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO DIAJ".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
+                        &[0x0, 0xA, 0x5E, 0x97] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO LENG".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO LENG".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
+                        &[0x0, 0x8, 0x1C, 0x03] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO R".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO R".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
+                        &[0x0, 0xA, 0x50, 0x56] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO HEIG".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO HEIG".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
+                        &[0x0, 0xE, 0x2A, 0x1B] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO WIDT".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO WIDT".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
+                        &[0x0,0x7,0x44,0x59] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO CNE".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO CNE".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
+                        _ => { }
+                    }
                 }
-                &[0x0, 0xC, 0xD2, 0x42, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0xE, 0x2A, 0x1B] => {
-                    let expression="ATTRIB RPRO WIDT".to_string();
-                    result_stack.push(expression);
+                &[0x0, 0x0,0x0,0x4, 0x0, 0xF, 0xAD, 0x95] => {
+                    if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                        let expression = "ATTRIB SKEY".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    } else {
+                        let expression = "ATTRIB SKEY".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xC, 0xD2, 0x42, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x8, 0x44, 0x59] => {
-                    let expression="ATTRIB RPRO CEN".to_string();
-                    result_stack.push(expression);
+                &[0x0, 0x0, 0x0, 0x5, 0x0, 0xD, 0xBC, 0xF9] => {
+                    if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                        let expression = "ATTRIB CATR".to_string();
+                        let value = result_stack.pop().unwrap();
+                        result_stack.push(expression);
+                    } else {
+                        let expression = "ATTRIB CATR".to_string();
+                        result_stack.push(expression);
+                    }
                 }
-                &[0x0, 0xF, 0xAD, 0x95, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression="ATTRIB SKEY".to_string();
-                    result_stack.push(expression);
-                }
+
                 _ => {}
             }
-
-            // 又跳过20个bytes不知道干啥的，但是是这个if里面才有的(还有上面那个match)
-            expression_data = &expression_data[24..];
+            // OF = 类型表达式解析，目前推测是这样 但不肯定
+            if &expression_data[20..24] == &[0x0, 0x0, 0x6, 0x42] {
+                let (tmp_input, length) = be_i32(&expression_data[24..])?;
+                let length = length as usize * 4;
+                let mut expression_input=&tmp_input[4..length];
+                while expression_input.len()>4 {
+                    let expression = get_expression_of_func(&expression_input[..4]);
+                    if expression != "".to_string(){
+                        let func=result_stack.pop().unwrap();
+                        let result=format!("{} OF {} ",func,expression);
+                        result_stack.push(result);
+                        expression_input=&expression_input[20..];
+                    }
+                    let (expression_tmp, (refno0, refno1, )) = tuple((
+                        be_i32,
+                        be_i32,
+                    ))(&expression_input[..])?;
+                    expression_input=&expression_tmp[..];
+                    if refno0 == 0 {
+                        let expression=get_expression_of_func(&expression_input[..4]);
+                        let func=result_stack.pop().unwrap();
+                        let result=format!("{} OF {} ",func,expression);
+                        result_stack.push(result);
+                        //todo func后面有3个word的数据不知道是干什么的
+                        expression_input=&expression_input[16..];
+                    }else {
+                        let refno = format!("{}/{}", refno0, refno1);
+                        let func = result_stack.pop().unwrap();
+                        let result = format!("{} OF = {}", func, refno);
+                        result_stack.push(result);
+                    }
+                }
+                expression_data = &expression_data[length..];
+            }else {
+                // 跳过普通表达式的结束位
+                expression_data = &expression_data[24..];
+            }
         }
         // 这里表达式是结束了，但是可能会有后序表达式的运算符
-        while expression_data.len() >= 4 && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x65] && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x6A] && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x2]{
-            let mut symbol = "+".to_string();
+        while expression_data.len() >= 4 && &expression_data[..2]==&[0x0,0x0] && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x65] && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x6A] && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x2]{
+            let mut symbol = "".to_string();
             match &expression_data[..4] {
                 &[0x0, 0x0, 0x3, 0x21] => {
                     // 这是负号
@@ -522,7 +676,9 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                 }
                 _ => {}
             }
-            result_stack.push(symbol);
+            if symbol!= "" {
+                result_stack.push(symbol);
+            }
             if expression_data.len() > 4 {
                 expression_data = &expression_data[4..];
             } else {
@@ -530,22 +686,28 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                 return Ok((input,(expression_type,result)))
             }
         }
-        // 像(ATTRIB SKEY OF =15192/4571) 这样的表达式没有跟别的数据表现方式不同，该方法不确定是正确的解析方法
-        if expression_data.len()>4 && &expression_data[..4] == &[0x0,0x0,0x0,0x2] {
-            expression_data=&expression_data[4..];
-            let (expression_tmp,(refno0,refno1,))=tuple((
-                be_i32,
-                be_i32,
-            ))(expression_data)?;
-            let refno=format!("{}/{}",refno0,refno1);
-            result_stack.push(refno);
-            expression_data=expression_tmp;
-        }
     }
-    let result=format!("({})",result_stack[0]);
+    let result=format!("({})",result_stack.pop().unwrap());
     Ok((input, (expression_type,result)))
 }
 
+#[inline]
+pub fn get_expression_of_func(input:&[u8])->String{
+    let mut result="".to_string();
+    match input {
+        &[0x0, 0xA, 0x1D, 0xCB] => {
+            result="BLRF NUM 1".to_string();
+        }
+        &[0x0, 0xD, 0xBC, 0xF9] => {
+            result="CATR".to_string();
+        }
+        &[0x0, 0xD, 0x24, 0x5B] => {
+            result="BLTP 1".to_string();
+        }
+        _ => { }
+    }
+    result
+}
 
 #[test]
 fn paxis_attr_implicit_test(){

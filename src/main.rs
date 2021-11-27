@@ -15,7 +15,7 @@ use nom::combinator::value;
 use nom::error::ParseError;
 use nom::IResult;
 use nom::lib::std::fmt::Error;
-use nom::number::complete::{be_f64, be_i32, be_u16, be_u32, be_u8, f64};
+use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8, f64};
 use nom::sequence::tuple;
 use phf::phf_map;
 use dashmap::DashMap;
@@ -69,6 +69,9 @@ const IMP_PDIS: i32 = 0xDEAE7;
 const IMP_PBOR: i32 = 0xDAEE4;
 const IMP_PDIA: i32 = 0x882F1;
 const IMP_PHEI: i32 = 0xADF11;
+const IMP_PTDI: i32 = 0xADD7C;
+const IMP_PBDI: i32 = 0xADB96;
+const IMP_PBDM: i32 = 0xC0F22;
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -598,7 +601,7 @@ fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
         let next_seg = &input[seg_offset..tmp_offset + seg_len + 4];
         data.extend_from_slice(next_seg);
         tmp_offset += seg_len + 4;
-        println!("{:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
+        println!("fn get_merged_data: {:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
     }
     *len = tmp_offset;
     data
@@ -1164,12 +1167,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 }
                                 _ => {}
                             }
-                            //} else {
-                            //     let tmp_input = &tmp_input[..];
-                            //     let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
-                            //     // log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}",refno,pos,val);
-                            //     explict_attrs.insert(attr_name, val);
-                            // }
                         }
                     }
                 }
@@ -1214,7 +1211,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
     // 目前都是以02开头，如果不是以02开头就记录下来
     let (tmp_input, signal) = be_u32(input)?;
     let mut val = AttrVal::StringType("".to_string());
-    println!("signal={}",signal);
     if signal == 2 {
         //这里改动了一下，给tmp_input截取了..8
         match &tmp_input[..8] {
@@ -1289,9 +1285,25 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
     } else if signal == 4 {
         let mut val = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
-        match &tmp_input[..4] {
-            &[0x0, 0x0, 0x0, 0x28] => {
-                val = "PARAM".to_string();
+        match &tmp_input[..2] {
+
+            &[0x0, 0x0] => {
+                let (_,times)=be_i16(&tmp_input[2..4])?;
+                // 是0x28的几倍就是几TIMES 这里用float 所用是40.0
+                let times=f32::trunc((times as f32)/40.0f32 * 100.0 ) / 100.0;
+                if times == 1.0 {
+                    val = "PARAM".to_string();
+                }else if times == 0.0 {
+                    val = "0".to_string();
+                }else {
+                    val = format!("{} TIMES PARAM",times);
+                }
+            }
+            &[0xFF,0xFF] => {
+                let (_,times)=be_i16(&tmp_input[2..4])?;
+                // todo 这里强转了两次 不知道i16能否转f32带上符号
+                let times=f32::trunc(( (0xFFD8u16 as i16 ) as f32 - times as f32 )/40.0f32 * 100.0 ) / 100.0 + 1.0 ;
+                val = format!("- {} TIMES PARAM",times);
             }
             _ => {}
         }
@@ -1299,12 +1311,17 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             &[0x0, 0x0, 0x0, 0x1] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
                 if value >= 0x65 && value<0x3E9{
+                    // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
                     val = format!("IPARAM {}", value);
                 }else if value >=0x3E9{
                     let value=value-0x3E8;
-                    println!("value={}",value);
-                    val = format!("- {} {}",val,value);
+                    if value >= 0x65{
+                        let value = value -0x64;
+                        val = format!("- IPARAM {}" ,value);
+                    }else {
+                        val = format!("- {} {}", val, value);
+                    }
                 }else {
                     val = format!("{} {}", val, value);
                 }
@@ -1317,7 +1334,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
-                ))(&tmp_input[8..12])?;
+                ))(&tmp_input[8..16])?;
                 dbg!(value1);
                 dbg!(value2);
                 let mut result = String::from("PARAM");
@@ -1417,7 +1434,8 @@ pub fn check_is_axis(input: i32) -> bool {
     if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA
         || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO {
         true
-    } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI {
+    } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
+        || input == IMP_PBDI || input == IMP_PBDM {
         true
     } else {
         false
