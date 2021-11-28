@@ -558,24 +558,32 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                     symbol = format!("(-{})", value);
                 }
                 &[0x0, 0x0, 0x3, 0x22] => {
-                    let value2=result_stack.pop().unwrap();
-                    let value1=result_stack.pop().unwrap();
-                    symbol = format!("({}+{})",value1,value2);
+                    if result_stack.len() > 1 {
+                        let value2 = result_stack.pop().unwrap();
+                        let value1 = result_stack.pop().unwrap();
+                        symbol = format!("({}+{})", value1, value2);
+                    }
                 }
                 &[0x0, 0x0, 0x3, 0x23] => {
-                    let value2=result_stack.pop().unwrap();
-                    let value1=result_stack.pop().unwrap();
-                    symbol = format!("({}-{})",value1,value2);
+                    if result_stack.len() > 1 {
+                        let value2 = result_stack.pop().unwrap();
+                        let value1 = result_stack.pop().unwrap();
+                        symbol = format!("({}-{})", value1, value2);
+                    }
                 }
                 &[0x0, 0x0, 0x3, 0x24] => {
-                    let value2=result_stack.pop().unwrap();
-                    let value1=result_stack.pop().unwrap();
-                    symbol = format!("{}*{}",value1,value2);
+                    if result_stack.len() >1 {
+                        let value2 = result_stack.pop().unwrap();
+                        let value1 = result_stack.pop().unwrap();
+                        symbol = format!("{}*{}", value1, value2);
+                    }
                 }
                 &[0x0, 0x0, 0x3, 0x25] => {
-                    let value2=result_stack.pop().unwrap();
-                    let value1=result_stack.pop().unwrap();
-                    symbol = format!("{}/{}",value1,value2);
+                    if result_stack.len() > 1 {
+                        let value2 = result_stack.pop().unwrap();
+                        let value1 = result_stack.pop().unwrap();
+                        symbol = format!("{}/{}", value1, value2);
+                    }
                 }
                 &[0x0, 0x0, 0x3, 0xE9] => {
                     let value = result_stack.pop().unwrap();
@@ -606,14 +614,18 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                     symbol = format!("ATAN({})",value);
                 }
                 &[0x0, 0x0, 0x3, 0x8B] => {  //这个ATAN有两个值
-                    let value1=result_stack.pop().unwrap();
-                    let value2=result_stack.pop().unwrap();
-                    symbol = format!("ATAN({},{})",value2,value1);
+                    if result_stack.len() > 1 {
+                        let value1 = result_stack.pop().unwrap();
+                        let value2 = result_stack.pop().unwrap();
+                        symbol = format!("ATAN({},{})", value2, value1);
+                    }
                 }
                 &[0x0, 0x0, 0x3, 0xEA] => {
-                    let value1 = result_stack.pop().unwrap();
-                    let value2=result_stack.pop().unwrap();
-                    symbol = format!("POW({},{})", value2,value1);
+                    if result_stack.len() > 1 {
+                        let value1 = result_stack.pop().unwrap();
+                        let value2 = result_stack.pop().unwrap();
+                        symbol = format!("POW({},{})", value2, value1);
+                    }
                 }
                 &[0x0, 0x0, 0x3, 0xEB] => {
                     let value = result_stack.pop().unwrap();
@@ -636,42 +648,48 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                     symbol = format!("ABS({})", value);
                 }
                 &[0x0, 0x0, 0x3, 0xF0] => {
-                    let value1 = result_stack.pop().unwrap();
-                    let value2=result_stack.pop().unwrap();
-                    let mut max_array=format!("{},{}",value2,value1);
-                    while expression_data.len()>36 && &expression_data[32..36] == &[0x0,0x0,0x3,0xF0]{
-                        let expression_data_value = &expression_data[12..24];
-                        let mut dst_data = expression_data_value[..8].to_vec();
-                        let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
-                        dst_data[0] = dst_first;
-                        dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
-                        let value = f64::from_be_bytes(dst_data.try_into().unwrap());
-                        max_array=format!("{},{}",max_array,value);
-                        expression_data=&expression_data[32..];
+                    if result_stack.len() > 1 {
+                        let value1 = result_stack.pop().unwrap();
+                        let value2 = result_stack.pop().unwrap();
+                        let mut max_array = format!("{},{}", value2, value1);
+                        while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF0] {
+                            let expression_data_value = &expression_data[12..24];
+                            let mut dst_data = expression_data_value[..8].to_vec();
+                            let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
+                            dst_data[0] = dst_first;
+                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
+                            let value = f64::from_be_bytes(dst_data.try_into().unwrap());
+                            max_array = format!("{},{}", max_array, value);
+                            expression_data = &expression_data[32..];
+                        }
+                        symbol = format!("MAX({})", max_array);
                     }
-                    symbol=format!("MAX({})",max_array);
                 }
                 &[0x0, 0x0, 0x3, 0xF1] => {
-                    let value1 = result_stack.pop().unwrap();
-                    let value2=result_stack.pop().unwrap();
-                    let mut max_array=format!("{},{}",value2,value1);
-                    while expression_data.len()>36 && &expression_data[32..36] == &[0x0,0x0,0x3,0xF1]{
-                        let expression_data_value = &expression_data[12..24];
-                        let mut dst_data = expression_data_value[..8].to_vec();
-                        let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
-                        dst_data[0] = dst_first;
-                        dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
-                        let value = f64::from_be_bytes(dst_data.try_into().unwrap());
-                        max_array=format!("{},{}",max_array,value);
-                        expression_data=&expression_data[32..];
+                    if result_stack.len() > 1 {
+                        let value1 = result_stack.pop().unwrap();
+                        let value2 = result_stack.pop().unwrap();
+                        let mut max_array = format!("{},{}", value2, value1);
+                        while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF1] {
+                            let expression_data_value = &expression_data[12..24];
+                            let mut dst_data = expression_data_value[..8].to_vec();
+                            let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
+                            dst_data[0] = dst_first;
+                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
+                            let value = f64::from_be_bytes(dst_data.try_into().unwrap());
+                            max_array = format!("{},{}", max_array, value);
+                            expression_data = &expression_data[32..];
+                        }
+                        symbol = format!("MIN({})", max_array);
                     }
-                    symbol=format!("MIN({})",max_array);
                 }
                 &[0x0, 0x0, 0x0, 0x3] => {
                     if &expression_data[4..8] == &[0x0,0x0,0x6,0xA5] {
-                        let value1 = result_stack.pop().unwrap();
-                        let value2 = result_stack.pop().unwrap();
-                        symbol = format!("{} OF = {}", value2, value1);
+                        if result_stack.len() > 1 {
+                            let value1 = result_stack.pop().unwrap();
+                            let value2 = result_stack.pop().unwrap();
+                            symbol = format!("{} OF = {}", value2, value1);
+                        }
                     }
                 }
                 _ => {}
