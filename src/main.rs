@@ -25,6 +25,7 @@ use mongodb::bson::{doc, Document};
 use std::{fs};
 use std::env::current_dir;
 use std::ffi::OsStr;
+use std::option::Option::Some;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -72,6 +73,7 @@ const IMP_PHEI: i32 = 0xADF11;
 const IMP_PTDI: i32 = 0xADD7C;
 const IMP_PBDI: i32 = 0xADB96;
 const IMP_PBDM: i32 = 0xC0F22;
+const IMP_PPRO: i32 = 0xCD240;
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -317,9 +319,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
             let table_db = client.database("Table");
-            let option = FindOneAndReplaceOptions::builder()
-                .upsert(Some(true))
-                .build();
+            // let option = FindOneAndReplaceOptions::builder()
+            //     .upsert(Some(true))
+            //     .build();
             for (key, ele_data_vec) in db_eles_data_map.clone() {
                 println!("ele_data_vec len={:?}", ele_data_vec.len());
                 let table_name = db1_dehash(key as u32);
@@ -343,68 +345,68 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 }
                 // 赋属性值
                 let collection = db.collection::<ElementData>(&table_name);
-                collection.create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"ref_no":1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                ).await?;
+                // collection.create_index(
+                //     IndexModel::builder()
+                //         .keys(doc! {"ref_no":1})
+                //         .options(IndexOptions::builder().unique(true).build())
+                //         .build(),
+                //     None,
+                // ).await?;
 
                 for chunk in ele_data_vec.chunks(10000) {
-                    // collection.insert_many(
-                    //     chunk.to_owned(),None,
-                    // ).await?;
-                    for ele in chunk {
-                        collection.find_one_and_replace(
-                            doc! {"ref_no":ele.ref_no.clone()},
-                            ele.clone(),
-                            Some(option.clone()),
-                        ).await?;
-                    }
+                    collection.insert_many(
+                        chunk.to_owned(),None,
+                    ).await?;
+                    // for ele in chunk {
+                    //     collection.find_one_and_replace(
+                    //         doc! {"ref_no":ele.ref_no.clone()},
+                    //         ele.clone(),
+                    //         Some(option.clone()),
+                    //     ).await?;
+                    // }
                 }
 
                 // 参考号的tree
                 let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
-                collection.create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"ref_no":1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                ).await?;
+                // collection.create_index(
+                //     IndexModel::builder()
+                //         .keys(doc! {"ref_no":1})
+                //         .options(IndexOptions::builder().unique(true).build())
+                //         .build(),
+                //     None,
+                // ).await?;
                 for tree_chunk in ele_nodes.chunks(10000) {
-                    // tree_collection.insert_many(
-                    //     tree_chunk.to_owned(), None,
-                    // ).await?;
-                    for ele in tree_chunk {
-                        tree_collection.find_one_and_replace(
-                            doc! {"ref_no":ele.ref_no.clone()},
-                            ele.clone(),
-                            Some(option.clone()),
-                        ).await?;
-                    }
+                    tree_collection.insert_many(
+                        tree_chunk.to_owned(), None,
+                    ).await?;
+                    // for ele in tree_chunk {
+                    //     tree_collection.find_one_and_replace(
+                    //         doc! {"ref_no":ele.ref_no.clone()},
+                    //         ele.clone(),
+                    //         Some(option.clone()),
+                    //     ).await?;
+                    // }
                 }
                 // 所有refno的dbname和typename
                 let table_collection = table_db.collection::<Table>("PdmsRefnoTable");
-                collection.create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"ref_no":1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                ).await?;
+                // collection.create_index(
+                //     IndexModel::builder()
+                //         .keys(doc! {"ref_no":1})
+                //         .options(IndexOptions::builder().unique(true).build())
+                //         .build(),
+                //     None,
+                // ).await?;
                 for table_chunk in ele_table.chunks(10000) {
-                    // table_collection.insert_many(
-                    //     table_chunk.to_owned(), None,
-                    // ).await?;
-                    for ele in table_chunk {
-                        table_collection.find_one_and_replace(
-                            doc! {"ref_no":ele.ref_no.clone()},
-                            ele.clone(),
-                            Some(option.clone()),
-                        ).await?;
-                    }
+                    table_collection.insert_many(
+                        table_chunk.to_owned(), None,
+                    ).await?;
+                    // for ele in table_chunk {
+                    //     table_collection.find_one_and_replace(
+                    //         doc! {"ref_no":ele.ref_no.clone()},
+                    //         ele.clone(),
+                    //         Some(option.clone()),
+                    //     ).await?;
+                    // }
                 }
             }
 
@@ -601,7 +603,7 @@ fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
         let next_seg = &input[seg_offset..tmp_offset + seg_len + 4];
         data.extend_from_slice(next_seg);
         tmp_offset += seg_len + 4;
-        println!("fn get_merged_data: {:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
+        // println!("fn get_merged_data: {:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
     }
     *len = tmp_offset;
     data
@@ -700,28 +702,21 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
         let mut explicit_bytes_len = 0;
-        if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
-            if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
-                explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
-                let mut debug_flag = false;
-                // if &explicit_data[explicit_bytes_len..explicit_bytes_len + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, 0x1]{
-                //     debug_flag = true;
-                // }
-                if explicit_start == 2580152 {
-                    debug_flag = true;
-                }
-                let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
-                if debug_flag {
-                    println!("{:#4X?}", &merged_data);
-                }
-                let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, refno, explicit_start).unwrap();
-                // if debug_flag {
-                //     println!("{:#4X?}", &merged_data);
-                //     println!("{:#4X?}", &explicit_attr_map);
-                // }
-                ele_data.attr_data_map = explicit_attr_map;
-            }
-        }
+        // if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
+        //     if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
+        //         explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
+        //         let mut debug_flag = false;
+        //         if explicit_start == 2580152 {
+        //             debug_flag = true;
+        //         }
+        //         let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
+        //         if debug_flag {
+        //             println!("{:#4X?}", &merged_data);
+        //         }
+        //         let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, refno, explicit_start).unwrap();
+        //         ele_data.attr_data_map = explicit_attr_map;
+        //     }
+        // }
         for (_, attr_info) in attr_info_map.clone() {
             if attr_info.offset != 0 {
                 let mut attr_offset = attr_info.offset as usize;
@@ -745,6 +740,24 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 } else {
                     ele_data.attr_data_map.entry(attr_info.name.clone())
                         .or_insert(attr_info.default_val.clone());
+                }
+            }
+        }
+        if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
+            if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
+                explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
+                let mut debug_flag = false;
+                if explicit_start == 2580152 {
+                    debug_flag = true;
+                }
+                let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
+                if debug_flag {
+                    println!("{:#4X?}", &merged_data);
+                }
+                let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, ele_data.attr_data_map.clone(),refno, explicit_start).unwrap();
+                //ele_data.attr_data_map = explicit_attr_map;
+                for (key,val) in explicit_attr_map{
+                    ele_data.attr_data_map.insert(key,val);
                 }
             }
         }
@@ -890,7 +903,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
 }
 
 /// 获取已知显式属性
-pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, refno: RefNoTuple, pos: usize) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
+pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, implicit_data:DashMap<String,AttrVal> , refno: RefNoTuple, pos: usize) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
     let mut explict_attrs = DashMap::new();
     let mut residual = input;
     let total_len = input.len();
@@ -903,9 +916,20 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
         if check_is_axis(explict_num) {
             ///todo 这里两个表达式的接口没有统一，这个是直接从0xFF...他的属性开始的 ，第二个是从属性和他的长度结束开始的（在第1007行）
             /// 第二个方法应该用不上，但是为了保险还是留在了那里
-            let (input, (expression_type, value)) = get_expression_attr_for_test(residual).unwrap();
-            explict_attrs.insert(expression_type, StringType(value));
-            residual = input;
+            if let Some(val)=implicit_data.get("NUMB"){
+                let order=match *val {
+                    IntegerType(val) => {val}
+                    _ => { 0 }
+                };
+                let (input, (expression_type, value)) = get_expression_attr_for_test(residual,order).unwrap();
+                explict_attrs.insert(expression_type, StringType(value));
+                residual = input;
+            }else {
+                let (input, (expression_type, value)) = get_expression_attr_for_test(residual,0).unwrap();
+                explict_attrs.insert(expression_type, StringType(value));
+                residual = input;
+            }
+
         } else {
             let (l, (explict_num, attr_type_num, type_len)) = tuple((
                 be_i32,
@@ -1328,15 +1352,37 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             }
             &[0x0, 0x0, 0x0, 0x2] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
-                val = format!("TANF {} {}", val, value);
+                if value > 1000 {
+                    let value=value - 1000 ;
+                    match &tmp_input[12..16] {
+                        &[0xFF, 0xFF, 0xFF, 0xFB] => {
+                            val = format!("TANF - {} {} DDHEIGHT", val, value);
+                        }
+                        &[0xFF, 0xFF, 0xFF, 0xFC] => {
+                            val = format!("TANF - {} {} DDANGLE", val, value);
+                        }
+                        _ => {}
+                    }
+                }else {
+                    match &tmp_input[12..16] {
+                        &[0xFF, 0xFF, 0xFF, 0xFB] => {
+                            val = format!("TANF {} {} DDHEIGHT", val, value);
+                        }
+                        &[0xFF, 0xFF, 0xFF, 0xFC] => {
+                            val = format!("TANF {} {} DDANGLE", val, value);
+                        }
+                        _ => {}
+                    }
+                }
+
             }
             &[0x0, 0x0, 0x0, 0x4] => {
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
-                dbg!(value1);
-                dbg!(value2);
+                // dbg!(value1);
+                // dbg!(value2);
                 let mut result = String::from("PARAM");
                 if value1 >= 0x65 {
                     let value1 = value1 - 0x64;
@@ -1435,7 +1481,7 @@ pub fn check_is_axis(input: i32) -> bool {
         || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO {
         true
     } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
-        || input == IMP_PBDI || input == IMP_PBDM {
+        || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO {
         true
     } else {
         false

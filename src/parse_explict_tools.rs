@@ -278,11 +278,11 @@ fn get_expression_attr_test() {
     let mut file = File::open("BDIA").unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);
-    let (_, (types,result)) = get_expression_attr_for_test(&attr_buf).unwrap();
+    let (_, (types,result)) = get_expression_attr_for_test(&attr_buf,0).unwrap();
     println!("type={},result={}", types,result);
 }
 
-pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,String)> {
+pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (String,String)> {
     let expression_type_input = &input[..4];
     let mut expression_type = "PX".to_string();
     match expression_type_input {
@@ -317,8 +317,12 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
             dst_data[0] = dst_first;
             dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
             let value_tmp = f64::from_be_bytes(dst_data.try_into().unwrap());
-            let value = (f64::trunc(value_tmp * 100.0) / 100.0 ).to_string();
-            result_stack.push(value);
+            if value_tmp < 1.0 {
+                result_stack.push(order.to_string());
+            }else {
+                let value = (f64::trunc(value_tmp * 100.0) / 100.0 ).to_string();
+                result_stack.push(value);
+            }
             expression_data = &expression_data[12..];
             // 表达式 值的结束位  这里是个结束位，但是没什么用，后期判断当表达式的值特别大的时候是否有用（目前遇到的值都是三位）
             let expression_data_value_end = &expression_data[..8];
@@ -346,7 +350,8 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                         let value = format!("{}[{}]", expression, value);
                         result_stack.push(value);
                     }else {
-                        let expression="ATTRIB PARA".to_string();
+                        let (_,val)=be_i32(&expression_data[8..12])?;
+                        let expression=format!("ATTRIB PARA [{}]" ,val.to_string());
                         result_stack.push(expression);
                     }
                 }
@@ -374,11 +379,11 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                 }
                 &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0xCA, 0x5F ] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                        let expression = "ATTRIB DTAR".to_string();
+                        let expression = "ATTRIB DTXR".to_string();
                         let value = result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
-                        let expression = "ATTRIB DTAR".to_string();
+                        let expression = "ATTRIB DTXR".to_string();
                         result_stack.push(expression);
                     }
                 }
@@ -538,8 +543,8 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
                     }else {
                         let refno = format!("{}/{}", refno0, refno1);
                         let func = result_stack.pop().unwrap();
-                        let result = format!("{} OF = {}", func, refno);
-                        result_stack.push(result);
+                        let result = format!("({} OF = {})", func, refno);
+                        return Ok((input,(expression_type,result)))
                     }
                 }
                 expression_data = &expression_data[length..];
@@ -700,7 +705,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String,Stri
             if expression_data.len() > 4 {
                 expression_data = &expression_data[4..];
             } else {
-                let result=format!("({})",result_stack[0]);
+                let result=format!("({})",result_stack.pop().unwrap());
                 return Ok((input,(expression_type,result)))
             }
         }
