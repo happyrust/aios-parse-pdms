@@ -950,7 +950,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         // vec<f64>
                         if attr_type_num == 0x1800 {
                             attr_info.att_type = DbAttributeType::DOUBLEVEC;
-                        } else if attr_type_num == 0x1C00 {
+                        } else if attr_type_num == 0x1C00 || attr_type_num == 0x2000 {
                             attr_info.att_type = DbAttributeType::INTVEC;
                         } else if attr_type_num == 0x0C00 {
                             attr_info.att_type = DbAttributeType::WORD;
@@ -1075,7 +1075,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                     } else {
                         /// 这里的逻辑改了一下，先判断是否为表达式，所以之前在这里的表达式判断就注释掉了
                         // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
-                        if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos) {
+                        if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos+pos) {
                             //let b_axis = check_is_axis(explict_num);
                             let attr_name = db1_dehash(explict_num as u32);
                             //if !b_axis {

@@ -35,8 +35,8 @@ pub fn get_explicit_attr_type(input: u16, pos: usize) -> Option<DbAttributeType>
         // 2800 这个应该是个引用，数据给的是一个参考号 ，但是e3d没有这个属性值 ，但是他的类型不难看出是string   类型: 2C F2 AE D3
         0x3C00 | 0x2800 => { Some(STRING) }
         0x1800 => { Some(DOUBLEVEC) }
-        0x1C00 => { Some(INTVEC) }
-        0x4000 => { Some(ELEMENT) }
+        0x1C00 | 0x2000 => { Some(INTVEC) }
+        0x4000 | 0x1000 => { Some(ELEMENT) }
         0x0C00 => { Some(INTEGER) }
         0x1400 => { Some(BOOL) }
         0x0800 => { Some(DOUBLE) }
@@ -373,7 +373,7 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                         let value = format!("{}[{}]", expression, value);
                         result_stack.push(value);
                     }else {
-                        let expression="ATTRIB WPAR".to_string();
+                        let expression=format!("ATTRIB WPAR");
                         result_stack.push(expression);
                     }
                 }
