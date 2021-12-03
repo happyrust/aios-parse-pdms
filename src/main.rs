@@ -15,7 +15,7 @@ use nom::combinator::value;
 use nom::error::ParseError;
 use nom::IResult;
 use nom::lib::std::fmt::Error;
-use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8, f64};
+use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8, f64,be_f32};
 use nom::sequence::tuple;
 use phf::phf_map;
 use dashmap::DashMap;
@@ -44,11 +44,11 @@ use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use mysql::*;
 use mysql::prelude::*;
-use mysql::time::Instant;
+use mysql::time::{Instant, parse};
 use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
-use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test};
+use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, print_refno_expression_data};
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
@@ -64,6 +64,8 @@ const ATT_PCON: i32 = 0xFFF3848Du32 as i32;
 const ATT_PBOR: i32 = 0xFFF2511Cu32 as i32;
 const ATT_PPRO: i32 = 0xFFF32DC0u32 as i32;
 const ATT_DPRO: i32 = 0xFFF32DCCu32 as i32;
+const ATT_BTHK: i32 = 0xFFF47D68u32 as i32;
+const ATT_BDIA: i32 = 0xFFF77D1Du32 as i32;
 
 const IMP_PCON: i32 = 0xC7B73;
 const IMP_PDIS: i32 = 0xDEAE7;
@@ -71,9 +73,17 @@ const IMP_PBOR: i32 = 0xDAEE4;
 const IMP_PDIA: i32 = 0x882F1;
 const IMP_PHEI: i32 = 0xADF11;
 const IMP_PTDI: i32 = 0xADD7C;
+const IMP_PTDM: i32 = 0xC1108;
 const IMP_PBDI: i32 = 0xADB96;
 const IMP_PBDM: i32 = 0xC0F22;
 const IMP_PPRO: i32 = 0xCD240;
+const IMP_PRAD: i32 = 0x9544C;
+const IMP_PX  : i32 = 0x81E89;
+const IMP_PY  : i32 = 0x81EA4;
+const IMP_PZ  : i32 = 0x81EBF;
+const IMP_PXLE: i32 = 0x9C124;
+const IMP_PYLE: i32 = 0x9C13F;
+const IMP_PZLE: i32 = 0x9C15A;
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -99,6 +109,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         (@arg DEBUG_REFNO: --debug_refno  +takes_value "打印参考号对应信息")
         (@arg TARGET_REFNO: --target_refno  +takes_value "指定开始参考号，从这个参考号开始读取")
         (@arg LOG : -l --log "是否保存log日志")
+        (@arg EXP : -e --exp "是否只输出表达式")
     ).get_matches();
 
     //(@arg END_REFNO: -r  --refno +takes_value "结束的参考号")
@@ -139,6 +150,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     let b_save_to_mongodb = matches.occurrences_of("SAVE_TO_MONGODB") == 1;
     let b_save_sys = matches.occurrences_of("SAVE_SYS") == 1;
     let b_save_to_log = matches.occurrences_of("LOG") == 1;
+    let b_save_to_exp=matches.occurrences_of("EXP") == 1;
     dbg!(b_save_to_mongodb);
     let b_save_to_mysql = matches.occurrences_of("SAVE_TO_MYSQL") == 1;
 
@@ -426,7 +438,40 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             ).await?;
             println!("Save {:?} to db ok", &path);
         }
-
+        if b_save_to_exp {
+            let mut file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
+            let reader=BufReader::new(file);
+            let database_info: DashMap<String,Vec<(String,String)>> = serde_json::from_reader(reader).unwrap();
+            let  exp_type = HashSet::from([String::from("SSPH"),"SCTO".to_string(),"PTAX".to_string(),"LINE".to_string(),"SCYL".to_string(),"SCTO".to_string(),"LSNO".to_string(),"LCYL".to_string(),"PTCA".to_string(),"SDSH".to_string(),
+                "BLTP".to_string(),"SSPH".to_string(),"SBOX".to_string(),"SCON".to_string()]);
+            //let  exp_type = HashSet::from(["DATA".to_string()]);
+            let mut parse_and_pdms_expression=DashMap::new();
+            for (key,ele_data_vec) in db_eles_data_map{
+                let table_name=db1_dehash(key as u32);
+                if exp_type.contains(&table_name) {
+                    for ele in ele_data_vec {
+                        let refno=ele.ref_no;
+                        println!("type={},refno={}",table_name,refno);
+                        if let Some(map)=database_info.get(&refno) {
+                            let value = ele.attr_data_map;
+                            let result=map.clone();
+                            let new_result=print_refno_expression_data(value, result);
+                            parse_and_pdms_expression.insert(refno,new_result);
+                        }
+                        println!(" ")
+                    }
+                }
+            }
+            let encoded: String = serde_json::to_string_pretty(&parse_and_pdms_expression).unwrap();
+            let file_name = "expression.json";
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(file_name)
+                .unwrap();
+            file.write_all(encoded.as_bytes());
+        }
         // }
     }
 
@@ -1313,21 +1358,29 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
 
             &[0x0, 0x0] => {
                 let (_,times)=be_i16(&tmp_input[2..4])?;
-                // 是0x28的几倍就是几TIMES 这里用float 所用是40.0
-                let times=f32::trunc((times as f32)/40.0f32 * 100.0 ) / 100.0;
+                // 是0x28的几倍就是几TIMES 这里用float 所以是除以40.0
+                let f_times=(times as f32)/40.0f32;
+                let times=f32::trunc(((times as f32)/40.0f32 + 0.005 ) * 100.0  ).ceil() / 100.0;
                 if times == 1.0 {
                     val = "PARAM".to_string();
                 }else if times == 0.0 {
-                    val = "0".to_string();
+                    val = "".to_string();
                 }else {
                     val = format!("{} TIMES PARAM",times);
                 }
+
             }
             &[0xFF,0xFF] => {
                 let (_,times)=be_i16(&tmp_input[2..4])?;
-                // todo 这里强转了两次 不知道i16能否转f32带上符号
-                let times=f32::trunc(( (0xFFD8u16 as i16 ) as f32 - times as f32 )/40.0f32 * 100.0 ) / 100.0 + 1.0 ;
-                val = format!("- {} TIMES PARAM",times);
+                // 0.001 是为了控制误差，想3.9999变成4.0 只保留两位 就+0.0001 再trunc
+                let mut times=( (0xFFD8u16 as i16 ) as f32 - times as f32 )/40.0f32 +1.0;
+                times=f32::trunc((times -0.005 ) *100.0).ceil()/100.0;
+                // if times>=0.0{
+                //     times=f32::trunc(( times + 0.0055 )* 100.0 ) / 100.0  ;
+                // }else {
+                //     times=f32::trunc(( times - 0.0055 )* 100.0 ) / 100.0  ;
+                // }
+                val = format!("-{} TIMES PARAM",times);
             }
             _ => {}
         }
@@ -1343,8 +1396,26 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     if value >= 0x65{
                         let value = value -0x64;
                         val = format!("- IPARAM {}" ,value);
+
                     }else {
                         val = format!("- {} {}", val, value);
+                    }
+                }else if  value <= 0xFFFFFFFFu32 as i32{
+                    if value>0xFFFFFFFAu32 as i32{
+                        let value=get_implicit_expression(&tmp_input[8..12]);
+                        val = value;
+                    }else {
+                        let (_, times) = be_i16(&tmp_input[2..4])?;
+                        //println!("f_times={}",(times as f32) / 40.0f32);
+                        let times = (times as f32) / 40.0f32 ;
+                        //println!("times={}",times);
+                        //let value=(value - (0xFFFFFFF6u32 as i32 )) as f32 /0xA as f32  + 1.0;
+                        let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value) as f32 / 0xA as f32 + 0.1) * 100.0).ceil() / 100.0;
+                        if times != 1.0 {
+                            val = format!("{} TIMES {}", times, value.to_string());
+                        } else {
+                            val = value.to_string();
+                        }
                     }
                 }else {
                     val = format!("{} {}", val, value);
@@ -1376,7 +1447,50 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 }
 
             }
+            &[0x0, 0x0, 0x0, 0x3] => {
+                let (_,times)=be_i32(&tmp_input[..4])?;
+
+                let times=f32::trunc(((times as f32 )/40.0f32 +0.005) * 100.0 ).ceil() / 100.0;
+                let (_, (value1, value2)) = tuple((
+                    be_i32,
+                    be_i32,
+                ))(&tmp_input[8..16])?;
+                let mut result = String::from("PARAM");
+                if value1 >= 0x65 && value1 <0x1F5{
+                    let value1 = f32::trunc(((value1 - 0x64) as f32 + 0.005 ) *100.0).ceil() /100.0;
+                    val = format!("IPARAM {}", value1);
+                }else if  value1 >= 0x1F5 {
+                    let value1=value1-0x1F4;
+                    val = format!("TWICE PATAM {}",value1);
+                }else if value1<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    val = value.to_string();
+                }else {
+                    val = format!("PARAM {}", value1);
+                }
+                if value2 >= 0x65 && value2 <0x1F5{
+                    let value2 = value2 - 0x64;
+                    result = format!("IPARAM {}", value2);
+                }else if  value2 >= 0x1F5 {
+                    let value2=value2 - 0x1F4;
+                    result = format!("TWICE PATAM {}",value2);
+                }else if value2<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    result =value.to_string();
+                } else {
+                    result = format!("PARAM {}", value2);
+                }
+                if times != 1.0{
+                    val = format!("{} TIMES DIFFERENCE {} {}",times,val,result);
+                } else {
+                    val = format!("DIFFERENCE {} {}", val, result);
+                }
+            }
+
             &[0x0, 0x0, 0x0, 0x4] => {
+                let (_,times)=be_i32(&tmp_input[..4])?;
+
+                let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1384,20 +1498,119 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 // dbg!(value1);
                 // dbg!(value2);
                 let mut result = String::from("PARAM");
-                if value1 >= 0x65 {
+                if value1 >= 0x65 && value1 <0x1F5{
                     let value1 = value1 - 0x64;
                     val = format!("IPARAM {}", value1);
+                }else if  value1 >= 0x1F5 {
+                    let value1=value1-0x1F4;
+                    val = format!("TWICE PATAM {}",value1);
+                }else if value1<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
                 }
                 if value2 >= 0x65 {
                     let value2 = value2 - 0x64;
                     result = format!("IPARAM {}", value2);
+                }else if  value2 >= 0x1F5 {
+                    let value2=value2-0x1F4;
+                    val = format!("TWICE PATAM {}",value2);
+                }else if value2<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    result =value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
                 }
-                val = format!("SUM {} {}", val, result);
+                if times != 1.0{
+                    val = format!("{} TIMES SUM {} {}",times,val,result);
+                } else {
+                    val = format!("SUM {} {}", val, result);
+                }
             }
+            &[0x0, 0x0, 0x0, 0x7] => {
+                return Ok((input,StringType(String::new())))
+            }
+            &[0x0, 0x0, 0x0, 0x8] => {
+                let (_,times)=be_i32(&tmp_input[..4])?;
+
+                let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
+                let (_, (value1, value2)) = tuple((
+                    be_i32,
+                    be_i32,
+                ))(&tmp_input[8..16])?;
+                let mut result = String::from("PARAM");
+                if value1 >= 0x65 {
+                    let value1 = value1 - 0x64;
+                    val = format!("IPARAM {}", value1);
+                }else if  value1 >= 0x1F5 && value1 <0x1F5{
+                    let value1=value1-0x1F4;
+                    val = format!("TWICE PATAM {}",value1);
+                }else if value1<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    val = value.to_string();
+                }  else {
+                    val = format!("PARAM {}", value1);
+                }
+                if value2 >= 0x65 && value2 <0x1F5{
+                    let value2 = value2 - 0x64;
+                    result = format!("IPARAM {}", value2);
+                }else if  value2 >= 0x1F5 {
+                    let value2=value2-0x1F4;
+                    result = format!("TWICE PATAM {}",value2);
+                }else if value2<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    result =value.to_string();
+                }  else {
+                    result = format!("PARAM {}", value2);
+                }
+                if times != 1.0{
+                    val = format!("{} TIMES SUM {} {}",times,val,result);
+                } else {
+                    val = format!("MULT {} {}", val, result);
+                }
+            }
+            &[0x0, 0x0, 0x0, 0x9] => {
+                let (_,times)=be_i32(&tmp_input[..4])?;
+
+                let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
+                let (_, (value1, value2)) = tuple((
+                    be_i32,
+                    be_i32,
+                ))(&tmp_input[8..16])?;
+                let mut result = String::from("PARAM");
+                if value1 >= 0x65 && value1 <0x1F5{
+                    let value1 = value1 - 0x64;
+                    val = format!("IPARAM {}", value1);
+                }else if  value1 >= 0x1F5 {
+                    let value1=value1-0x1F4;
+                    val = format!("TWICE PATAM {}",value2);
+                }else if value1<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    val = value.to_string();
+                }  else {
+                    val = format!("PARAM {}", value1);
+                }
+                if value2 >= 0x65 && value2 <0x1F5{
+                    let value2 = value2 - 0x64;
+                    result = format!("IPARAM {}", value2);
+                }else if  value2 >= 0x1F5 {
+                    let value2=value2-0x1F4;
+                    result = format!("TWICE PATAM {}",value2);
+                } else if value2<=0xFFFFFFFFu32 as i32 {
+                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                    result =value.to_string();
+                }else {
+                    result = format!("PARAM {}", value2);
+                }
+                if times != 1.0{
+                    val = format!("{} TIMES SUM {} {}",times,val,result);
+                } else {
+                    val = format!("DIV {} {}", val, result);
+                }
+            }
+
+
             _ => {}
         }
         if tmp_input.len() > 24 {
@@ -1478,10 +1691,11 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 pub fn check_is_axis(input: i32) -> bool {
     // 显式得表达式
     if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA
-        || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO {
+        || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO || input == ATT_BTHK || input == ATT_BDIA {
         true
     } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
-        || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO {
+        || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO || input == IMP_PTDM || input == IMP_PX || input == IMP_PY || input == IMP_PZ || input == IMP_PRAD
+        || input == IMP_PYLE || input == IMP_PXLE || input == IMP_PZLE {
         true
     } else {
         false
@@ -1517,6 +1731,8 @@ pub fn get_implicit_expression(input: &[u8]) -> String {
     }
     val
 }
+
+
 
 #[test]
 fn convert_to_explicit_axis_string_test() {

@@ -1,12 +1,17 @@
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufReader, Read};
+use dashmap::DashMap;
 use log::kv::ToKey;
 use memchr::memmem::find_iter;
 use nom::error::Error;
 use nom::IResult;
-use nom::number::complete::{be_f64, be_i32, be_u16, be_u32};
+use nom::number::complete::{be_f64, be_i32, be_u16, be_u32 ,be_i16};
 use nom::sequence::tuple;
+use serde::{Serialize,Deserialize};
 use crate::{convert_to_implicit_axis_string, DbAttributeType};
+use crate::pdms_types::AttrVal;
+use crate::pdms_types::AttrVal::StringType;
 use crate::pdms_types::DbAttributeType::*;
 
 const ADD: &str = "+";
@@ -296,6 +301,8 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
         &[0xFF, 0xF2, 0x51, 0x1C] => { expression_type = "PBOR".to_string(); }
         &[0xFF, 0xF3, 0x2D, 0xC0] => { expression_type = "PPRO".to_string(); }
         &[0xFF, 0xF3, 0x2D, 0xCC] => { expression_type = "DPRO".to_string(); }
+        &[0xFF, 0xF4, 0x7D, 0x68] => { expression_type = "BTHK".to_string(); }
+        &[0xFF, 0xF7, 0x7D, 0x1D] => { expression_type = "BDIA".to_string(); }
         _ => {}
     }
     let (_, expression_length) = be_u16(&input[6..8])?;
@@ -311,22 +318,38 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
         if &expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] {
             expression_data = &expression_data[8..];
             // 表达式的值
-            let expression_data_value = &expression_data[..12];
-            let mut dst_data = expression_data_value[..8].to_vec();
-            let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
-            dst_data[0] = dst_first;
-            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
-            let value_tmp = f64::from_be_bytes(dst_data.try_into().unwrap());
-            if value_tmp < 1.0 {
-                result_stack.push(order.to_string());
-            }else {
-                let value = (f64::trunc(value_tmp * 100.0) / 100.0 ).to_string();
-                result_stack.push(value);
+            match &expression_data[8..10] {
+                &[0x0,0x0] => {
+                    let (_,times)=be_i16(&expression_data[10..12])?;
+                    let times=2_f32.powf((5i16 - times) as f32) as f64;
+                    let (_,a)=be_i32(&expression_data[..4])?;
+                    let (_,b)=be_i32(&expression_data[4..8])?;
+                    let value=((a as f64 /0x400 as f64 ) + (b as f64 /0x20000000 as f64 )) / times;
+                    result_stack.push(value.to_string());
+                    expression_data = &expression_data[20..];
+                }
+
+                &[0x40,0x0] => {
+                    let expression_data_value = &expression_data[..12];
+                    let mut dst_data = expression_data_value[..8].to_vec();
+                    let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
+                    dst_data[0] = dst_first;
+                    dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
+                    let value_tmp = f64::from_be_bytes(dst_data.try_into().unwrap());
+                    if value_tmp < 1.0 {
+                        result_stack.push(order.to_string());
+                    }else {
+                        let value = (f64::trunc(value_tmp * 100.0) / 100.0 ).to_string();
+                        result_stack.push(value);
+                    }
+                    expression_data = &expression_data[12..];
+                    // 表达式 值的结束位  这里是个结束位，但是没什么用，后期判断当表达式的值特别大的时候是否有用（目前遇到的值都是三位）
+                    let expression_data_value_end = &expression_data[..8];
+                    expression_data = &expression_data[8..];
+                }
+                _ => { }
             }
-            expression_data = &expression_data[12..];
-            // 表达式 值的结束位  这里是个结束位，但是没什么用，后期判断当表达式的值特别大的时候是否有用（目前遇到的值都是三位）
-            let expression_data_value_end = &expression_data[..8];
-            expression_data = &expression_data[8..];
+
         }
         //若后面是6A 则代表该值没完
         while expression_data.len()>4 && &expression_data[..4] == &[0x0u8, 0x0, 0x0, 0x6A][..] {
@@ -449,6 +472,16 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                                 result_stack.push(expression);
                             }
                         }
+                        &[0x0, 0xA, 0xBD, 0x47] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO FLTH".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO FLTH".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
                         &[0x0, 0x8, 0x1C, 0x03] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO R".to_string();
@@ -486,6 +519,16 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO CNE".to_string();
+                                result_stack.push(expression);
+                            }
+                        }
+                        &[0x0, 0x8, 0x82, 0xE3] => {
+                            if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                                let expression = "ATTRIB RPRO BDIA".to_string();
+                                let value = result_stack.pop().unwrap();
+                                result_stack.push(expression);
+                            } else {
+                                let expression = "ATTRIB RPRO BDIA".to_string();
                                 result_stack.push(expression);
                             }
                         }
@@ -732,6 +775,179 @@ pub fn get_expression_of_func(input:&[u8])->String{
     result
 }
 
+pub fn print_refno_expression_data(value:DashMap<String,AttrVal>,mut result:Vec<(String,String)>)->Vec<(String,String)>{
+    if let Some(value)=value.get("PPRO"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PPRO".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PDIA"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PDIA".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PDIS"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PDIS".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    // if let Some(value)=value.get("PAAX"){
+    //     match value.clone() {
+    //         StringType(value) => {
+    //             result.push(("PAAX".to_string(),value))
+    //         }
+    //         _ => {}
+    //     }
+    // }
+    // if let Some(value)=value.get("PBAX"){
+    //     match value.clone() {
+    //         StringType(value) => {
+    //             result.push(("PBAX".to_string(),value))
+    //         }
+    //         _ => {}
+    //     }
+    // }
+
+    if let Some(value)=value.get("PCON"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PCON".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PBOR"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PBOR".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PHEI"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PHEI".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PTDI"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PTDI".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PBDI"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PBDI".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PBDM"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PBDM".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PTDM"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PTDM".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PX"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PX".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PY"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PY".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PZ"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PZ".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PRAD"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PRAD".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("BDIA"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("BDIA".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("BTHK"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("BTHK".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PXLE"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PXLE".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PYLE"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PYLE".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    if let Some(value)=value.get("PZLE"){
+        match value.clone() {
+            StringType(value) => {
+                result.push(("PZLE".to_string(),value))
+            }
+            _ => {}
+        }
+    }
+    result
+}
+
 #[test]
 fn paxis_attr_implicit_test(){
     let mut file = File::open("X90Y").unwrap();
@@ -739,4 +955,44 @@ fn paxis_attr_implicit_test(){
     file.read_to_end(&mut attr_buf);
     let (_,result)=convert_to_implicit_axis_string(&attr_buf).unwrap();
     println!("result={:?}",result);
+}
+
+#[test]
+fn ceil_test(){
+    let value1=15.999999f32;
+    let value2=18.1000f32;
+    let value1=f32::trunc((value1 + 0.000001 ) * 100.0) / 100.0;
+    let value2=f32::trunc((value2 + 0.000001 ) * 100.0) / 100.0;
+    println!("value1={}",value1);
+    println!("value2={}",value2);
+}
+
+#[test]
+fn pow_test(){
+    let times=6;
+    let times=2_f32.powf((5 - times) as f32) as f64;
+    println!("times={}",times);
+    let value=(0x4E00 /0x400  ) as f64  / times;
+    println!("value={}",value);
+}
+
+#[test]
+fn read_deseralize_file(){
+    let mut file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
+    let reader=BufReader::new(file);
+    let database_info: DashMap<String,Vec<(String,String)>> = serde_json::from_reader(reader).unwrap();
+    println!("value={:?}",database_info);
+}
+
+#[test]
+fn comparse_number(){
+    let a=0xFFFFFFF9u32 as i32;
+    println!("a={}",a);
+    let b=0xFFFFFFF6u32 as i32;
+    println!("b={}",b);
+    if a>b {
+        println!("true")
+    }else {
+        println!("false")
+    }
 }
