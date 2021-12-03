@@ -1359,8 +1359,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             &[0x0, 0x0] => {
                 let (_,times)=be_i16(&tmp_input[2..4])?;
                 // 是0x28的几倍就是几TIMES 这里用float 所以是除以40.0
-                let f_times=(times as f32)/40.0f32;
-                let times=f32::trunc(((times as f32)/40.0f32 + 0.005 ) * 100.0  ).ceil() / 100.0;
+                let f_times=((times as f32)/40.0f32 * 100.0)  ;
+                let times=(((times as f32)/40.0f32 ) * 100.0 ).round() / 100.0;
                 if times == 1.0 {
                     val = "PARAM".to_string();
                 }else if times == 0.0 {
@@ -1368,19 +1368,18 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 }else {
                     val = format!("{} TIMES PARAM",times);
                 }
-
             }
             &[0xFF,0xFF] => {
                 let (_,times)=be_i16(&tmp_input[2..4])?;
-                // 0.001 是为了控制误差，想3.9999变成4.0 只保留两位 就+0.0001 再trunc
-                let mut times=( (0xFFD8u16 as i16 ) as f32 - times as f32 )/40.0f32 +1.0;
-                times=f32::trunc((times -0.005 ) *100.0).ceil()/100.0;
-                // if times>=0.0{
-                //     times=f32::trunc(( times + 0.0055 )* 100.0 ) / 100.0  ;
-                // }else {
-                //     times=f32::trunc(( times - 0.0055 )* 100.0 ) / 100.0  ;
-                // }
-                val = format!("-{} TIMES PARAM",times);
+                if times>0xFFFFu16 as i16 {
+                    let mut times = ((0xFFFFu16 as i16) as f32 - times as f32 - 1.0) / 40.0f32;
+                    times = (times * 100.0_f32).round() / 100.0;
+                    val = format!("{} TIMES PARAM", times);
+                }else {
+                    let mut times = (times as f32 - (0xFFFFu16 as i16) as f32 - 1.0) / 40.0f32;
+                    times = (times * 100.0_f32).round() / 100.0;
+                    val = format!("{} TIMES PARAM", times);
+                }
             }
             _ => {}
         }
@@ -1449,8 +1448,13 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             }
             &[0x0, 0x0, 0x0, 0x3] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
+                let mut times=times as f32;
+                if times>=0.0{
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
+                }else {
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
+                }
 
-                let times=f32::trunc(((times as f32 )/40.0f32 +0.005) * 100.0 ).ceil() / 100.0;
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1489,8 +1493,13 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
 
             &[0x0, 0x0, 0x0, 0x4] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
-
-                let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
+                let mut times=times as f32;
+                if times>=0.0{
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
+                }else {
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
+                }
+                // let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1533,8 +1542,12 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             }
             &[0x0, 0x0, 0x0, 0x8] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
-
-                let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
+                let mut times=times as f32;
+                if times>=0.0{
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
+                }else {
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
+                }
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1572,8 +1585,12 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             }
             &[0x0, 0x0, 0x0, 0x9] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
-
-                let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
+                let mut times=times as f32;
+                if times>=0.0{
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
+                }else {
+                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
+                }
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,

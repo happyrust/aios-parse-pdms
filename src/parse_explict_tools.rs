@@ -963,8 +963,11 @@ fn ceil_test(){
     let value2=18.1000f32;
     let value1=f32::trunc((value1 + 0.000001 ) * 100.0) / 100.0;
     let value2=f32::trunc((value2 + 0.000001 ) * 100.0) / 100.0;
+    let value3=0.495f32;
+    let value3=-2.4001_f32.round();
     println!("value1={}",value1);
     println!("value2={}",value2);
+    println!("value3={}",value3);
 }
 
 #[test]
@@ -996,3 +999,4 @@ fn comparse_number(){
         println!("false")
     }
 }
+
