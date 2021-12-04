@@ -775,174 +775,31 @@ pub fn get_expression_of_func(input:&[u8])->String{
     result
 }
 
-pub fn print_refno_expression_data(value:DashMap<String,AttrVal>,mut result:Vec<(String,String)>)->Vec<(String,String)>{
-    if let Some(value)=value.get("PPRO"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PPRO".to_string(),value))
-            }
-            _ => {}
-        }
+#[inline]
+pub fn times_keep_f32_two_decimal_place(input:i32)->f32{
+    //let times=(((times as f32)/40.0f32 ) * 100.0 ).round() / 100.0;
+    let input=input as f32;
+    let result=input/40.0f32 *100.0;
+    let b_seven=result as i32 % 10 == 7 && result <100.0 ;
+    let mut result=result;
+    if b_seven {
+        result = f32::trunc(result) /100.0;
+    }else {
+        result = result.round() /100.0;
     }
-    if let Some(value)=value.get("PDIA"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PDIA".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PDIS"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PDIS".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    // if let Some(value)=value.get("PAAX"){
-    //     match value.clone() {
-    //         StringType(value) => {
-    //             result.push(("PAAX".to_string(),value))
-    //         }
-    //         _ => {}
-    //     }
-    // }
-    // if let Some(value)=value.get("PBAX"){
-    //     match value.clone() {
-    //         StringType(value) => {
-    //             result.push(("PBAX".to_string(),value))
-    //         }
-    //         _ => {}
-    //     }
-    // }
+    result
+}
 
-    if let Some(value)=value.get("PCON"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PCON".to_string(),value))
+pub fn print_refno_expression_data(value:DashMap<String,AttrVal>,mut result:Vec<(String,String)>)->Vec<(String,String)>{
+    let data_vec=vec!["PPRO","PDIA","PDIS","PCON","PBOR","PHEI","PTDI","PBDI","PBDM","PTDM","PX","PY","PZ","PRAD","BDIA","BTHK","PXLE","PYLE","PXLE"];
+    for data in data_vec{
+        if let Some(value)=value.get(data){
+            match value.clone() {
+                StringType(value) => {
+                    result.push((data.to_string(),value))
+                }
+                _ => {}
             }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PBOR"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PBOR".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PHEI"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PHEI".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PTDI"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PTDI".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PBDI"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PBDI".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PBDM"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PBDM".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PTDM"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PTDM".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PX"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PX".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PY"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PY".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PZ"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PZ".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PRAD"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PRAD".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("BDIA"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("BDIA".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("BTHK"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("BTHK".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PXLE"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PXLE".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PYLE"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PYLE".to_string(),value))
-            }
-            _ => {}
-        }
-    }
-    if let Some(value)=value.get("PZLE"){
-        match value.clone() {
-            StringType(value) => {
-                result.push(("PZLE".to_string(),value))
-            }
-            _ => {}
         }
     }
     result
@@ -963,11 +820,12 @@ fn ceil_test(){
     let value2=18.1000f32;
     let value1=f32::trunc((value1 + 0.000001 ) * 100.0) / 100.0;
     let value2=f32::trunc((value2 + 0.000001 ) * 100.0) / 100.0;
-    let value3=0.495f32;
     let value3=-2.4001_f32.round();
+    let value4=times_keep_f32_two_decimal_place(19);
     println!("value1={}",value1);
     println!("value2={}",value2);
     println!("value3={}",value3);
+    println!("value4={}",value4);
 }
 
 #[test]

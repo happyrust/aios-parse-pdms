@@ -48,7 +48,7 @@ use mysql::time::{Instant, parse};
 use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
-use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, print_refno_expression_data};
+use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, print_refno_expression_data, times_keep_f32_two_decimal_place};
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
@@ -1358,9 +1358,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
 
             &[0x0, 0x0] => {
                 let (_,times)=be_i16(&tmp_input[2..4])?;
-                // 是0x28的几倍就是几TIMES 这里用float 所以是除以40.0
-                let f_times=((times as f32)/40.0f32 * 100.0)  ;
-                let times=(((times as f32)/40.0f32 ) * 100.0 ).round() / 100.0;
+                let times=times_keep_f32_two_decimal_place(times as i32);
                 if times == 1.0 {
                     val = "PARAM".to_string();
                 }else if times == 0.0 {
@@ -1405,10 +1403,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                         val = value;
                     }else {
                         let (_, times) = be_i16(&tmp_input[2..4])?;
-                        //println!("f_times={}",(times as f32) / 40.0f32);
                         let times = (times as f32) / 40.0f32 ;
-                        //println!("times={}",times);
-                        //let value=(value - (0xFFFFFFF6u32 as i32 )) as f32 /0xA as f32  + 1.0;
                         let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value) as f32 / 0xA as f32 + 0.1) * 100.0).ceil() / 100.0;
                         if times != 1.0 {
                             val = format!("{} TIMES {}", times, value.to_string());
@@ -1448,13 +1443,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             }
             &[0x0, 0x0, 0x0, 0x3] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
-                let mut times=times as f32;
-                if times>=0.0{
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
-                }else {
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
-                }
-
+                let times=times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1493,19 +1482,11 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
 
             &[0x0, 0x0, 0x0, 0x4] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
-                let mut times=times as f32;
-                if times>=0.0{
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
-                }else {
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
-                }
-                // let times=f32::trunc((times as f32 )/40.0f32 * 100.0 ) / 100.0;
+                let times=times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
-                // dbg!(value1);
-                // dbg!(value2);
                 let mut result = String::from("PARAM");
                 if value1 >= 0x65 && value1 <0x1F5{
                     let value1 = value1 - 0x64;
@@ -1542,12 +1523,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             }
             &[0x0, 0x0, 0x0, 0x8] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
-                let mut times=times as f32;
-                if times>=0.0{
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
-                }else {
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
-                }
+                let times=times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1585,12 +1561,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             }
             &[0x0, 0x0, 0x0, 0x9] => {
                 let (_,times)=be_i32(&tmp_input[..4])?;
-                let mut times=times as f32;
-                if times>=0.0{
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0;
-                }else {
-                    times=(((times as f32 )/40.0f32 ) * 100.0 ).round() / 100.0 ;
-                }
+                let times=times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
