@@ -4,6 +4,14 @@
 mod pdms_types;
 mod db_tool;
 mod parse_explict_tools;
+mod get_attr;
+mod get_attr_tool;
+mod pdms_parsed_data;
+mod pdms_origin_data;
+mod param_parse;
+mod polish_notation;
+mod direction_parse;
+mod parse_data_impl;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -48,6 +56,7 @@ use mysql::time::{Instant, parse};
 use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
+use crate::get_attr::run_test;
 use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, print_refno_expression_data, times_keep_f32_two_decimal_place};
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
@@ -268,7 +277,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
         dbinfos.push(db_info);
         dbg!(&db_name);
-
         if b_save_to_mysql {
             let mysql_url = "mysql://root:root@10.30.230.146:3306/test_db";
             //let mysql_url="mysql://root:root@localhost:3306/test_db";
@@ -330,7 +338,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let db_tree_name = format!("{}_tree", &db_name);
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
-            let table_db = client.database("Table");
+            let table_db = client.database("PdmsRefno");
             // let option = FindOneAndReplaceOptions::builder()
             //     .upsert(Some(true))
             //     .build();
@@ -349,7 +357,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                         db_name: db_name.clone(),
                         type_name: e.noun_name.clone(),
                     });
-                    ele_table.push(Table {
+                    ele_table.push(PdmsRefno {
                         ref_no: e.ref_no.clone(),
                         db: db_name.clone(),
                         type_name: e.noun_name.clone(),
@@ -400,7 +408,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     // }
                 }
                 // 所有refno的dbname和typename
-                let table_collection = table_db.collection::<Table>("PdmsRefnoTable");
+                let table_collection = table_db.collection::<PdmsRefno>("PdmsRefnoTable");
                 // collection.create_index(
                 //     IndexModel::builder()
                 //         .keys(doc! {"ref_no":1})
@@ -474,8 +482,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         }
         // }
     }
-
-
+    run_test().await;
     Ok(())
 }
 
@@ -1714,6 +1721,9 @@ pub fn get_implicit_expression(input: &[u8]) -> String {
         }
         &[0xFF, 0xFF, 0xFF, 0xFC] => {
             val = "DDANGLE".to_string();
+        }
+        &[0xFF, 0xFF, 0xFF, 0xFD] => {
+            val = "DDRADIUS".to_string();
         }
         _ => {}
     }

@@ -98,8 +98,9 @@ pub struct PDMSDBInfo{
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct Table{
+pub struct PdmsRefno{
     pub ref_no:String,
     pub db:String,
     pub type_name:String
 }
+
