@@ -351,7 +351,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let db_tree_name = format!("{}_tree", &db_name);
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
-            let table_db = client.database("PdmsRefno");
+            let table_db = client.database("PdmsRefnoDB");
             // let option = FindOneAndReplaceOptions::builder()
             //     .upsert(Some(true))
             //     .build();
@@ -421,7 +421,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     // }
                 }
                 // 所有refno的dbname和typename
-                let table_collection = table_db.collection::<PdmsRefno>("PdmsRefnoTable");
+                let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
                 // collection.create_index(
                 //     IndexModel::builder()
                 //         .keys(doc! {"ref_no":1})
