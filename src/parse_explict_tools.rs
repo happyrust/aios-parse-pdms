@@ -382,7 +382,7 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                     if &expression_data[8..16] == &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF] {
                         let expression = "ATTRIB IPAR";
                         let value = result_stack.pop().unwrap();
-                        let value = format!("{}[{}]", expression, value);
+                        let value = format!("{}[{}] ", expression, value);
                         result_stack.push(value);
                     }else {
                         let expression="ATTRIB IPAR".to_string();
@@ -586,7 +586,7 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                     }else {
                         let refno = format!("{}/{}", refno0, refno1);
                         let func = result_stack.pop().unwrap();
-                        let result = format!("({} OF = {})", func, refno);
+                        let result = format!("( {} OF = {} )", func, refno);
                         return Ok((input,(expression_type,result)))
                     }
                 }
@@ -603,27 +603,27 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                 &[0x0, 0x0, 0x3, 0x21] => {
                     // 这是负号
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("(-{})", value);
+                    symbol = format!("( -{} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x22] => {
                     if result_stack.len() > 1 {
                         let value2 = result_stack.pop().unwrap();
                         let value1 = result_stack.pop().unwrap();
-                        symbol = format!("({}+{})", value1, value2);
+                        symbol = format!("( {} + {} )", value1, value2);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0x23] => {
                     if result_stack.len() > 1 {
                         let value2 = result_stack.pop().unwrap();
                         let value1 = result_stack.pop().unwrap();
-                        symbol = format!("({}-{})", value1, value2);
+                        symbol = format!("( {} - {} )", value1, value2);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0x24] => {
                     if result_stack.len() >1 {
                         let value2 = result_stack.pop().unwrap();
                         let value1 = result_stack.pop().unwrap();
-                        symbol = format!("{}*{}", value1, value2);
+                        symbol = format!("{} * {}", value1, value2);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0x25] => {
@@ -635,65 +635,65 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                 }
                 &[0x0, 0x0, 0x3, 0xE9] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("SQRT({})", value);
+                    symbol = format!("SQRT( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x85] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("SIN({})", value);
+                    symbol = format!("SIN( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x86] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("COS({})", value);
+                    symbol = format!("COS( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x87] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("TAN({})", value);
+                    symbol = format!("TAN( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x88] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("ASIN({})", value);
+                    symbol = format!("ASIN( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x89] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("ACOS({})", value);
+                    symbol = format!("ACOS( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x8A] => {
                     let value=result_stack.pop().unwrap();
-                    symbol = format!("ATAN({})",value);
+                    symbol = format!("ATAN( {} )",value);
                 }
                 &[0x0, 0x0, 0x3, 0x8B] => {  //这个ATAN有两个值
                     if result_stack.len() > 1 {
                         let value1 = result_stack.pop().unwrap();
                         let value2 = result_stack.pop().unwrap();
-                        symbol = format!("ATAN({},{})", value2, value1);
+                        symbol = format!("ATAN( {},{} )", value2, value1);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0xEA] => {
                     if result_stack.len() > 1 {
                         let value1 = result_stack.pop().unwrap();
                         let value2 = result_stack.pop().unwrap();
-                        symbol = format!("POW({},{})", value2, value1);
+                        symbol = format!("POW( {},{} )", value2, value1);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0xEB] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("LOG({})", value);
+                    symbol = format!("LOG( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0xEC] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("ALOG({})", value);
+                    symbol = format!("ALOG( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0xED] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("INT({})", value);
+                    symbol = format!("INT( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0xEE] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("NINT({})", value);
+                    symbol = format!("NINT( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0xEF] => {
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("ABS({})", value);
+                    symbol = format!("ABS( {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0xF0] => {
                     if result_stack.len() > 1 {
@@ -710,7 +710,7 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
                         }
-                        symbol = format!("MAX({})", max_array);
+                        symbol = format!("MAX( {} )", max_array);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0xF1] => {
@@ -728,7 +728,7 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
                         }
-                        symbol = format!("MIN({})", max_array);
+                        symbol = format!("MIN( {} )", max_array);
                     }
                 }
                 &[0x0, 0x0, 0x0, 0x3] => {
@@ -748,12 +748,12 @@ pub fn get_expression_attr_for_test(input: &[u8],order:i32) -> IResult<&[u8], (S
             if expression_data.len() > 4 {
                 expression_data = &expression_data[4..];
             } else {
-                let result=format!("({})",result_stack.pop().unwrap());
+                let result=format!("( {} )",result_stack.pop().unwrap());
                 return Ok((input,(expression_type,result)))
             }
         }
     }
-    let result=format!("({})",result_stack.pop().unwrap());
+    let result=format!("( {} )",result_stack.pop().unwrap());
     Ok((input, (expression_type,result)))
 }
 

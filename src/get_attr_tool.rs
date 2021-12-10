@@ -333,9 +333,6 @@ pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<String>) -> 
             Some(format!("DESP{}", strs[*i]))
         },
         _ =>{
-            // let log_str = format!("PARA 或 DESP 参数解析错误！表达式是 {}, 当前key是 {}", exp, s);
-            // println!("{}",&log_str);
-            // info!("{}, 上下文是 {:?}",&log_str, context);
             Some("".to_string())
         }
     }
