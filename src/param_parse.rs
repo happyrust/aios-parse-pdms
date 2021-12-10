@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use regex::Regex;
 use crate::direction_parse::parse_expr_to_dir;
-use crate::get_attr_tool::{convert_to_context_key, parse_axis_param};
+use crate::get_attr_tool::{convert_to_context_key, resolve_axis_param};
 use crate::pdms_origin_data::{AxisParam, ScomParamStr};
 use crate::pdms_parsed_data::geo_params_data::CateGeoParams;
 use crate::pdms_parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateCylinderParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateTorusParam, GeoParamsData, GmseParamData};
@@ -20,135 +20,144 @@ pub fn parse_design_param_to_hashmap(text: &str) -> HashMap<String, String> {
     params
 }
 
-pub fn eval_str_to_f64(exp: &str, context: &HashMap<String, String>) -> Option<f64> {
+pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> Option<f64> {
+    if input_expr.trim() == "unset"{
+        return Some(0.0);
+    }
     let mut has_desparam = false;
-    let exp = exp.replace("[", " ").replace("]", " ").replace("  ", " ");
-    let tmp_strs = exp.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
-    if tmp_strs.len() == 0 {
+    let mut exp = input_expr.replace("[", " ").replace("]", " ").replace("  ", " ");
+    if exp.len() < 1{
+        return Some(0.0);
+    }
+    if exp.len() >= 2 && exp.chars().nth(0).unwrap_or_default() == '('
+        && exp.chars().nth(exp.len() -1).unwrap_or_default() == ')' {
+        exp = exp[1..exp.len()-1].to_string();
+    }
+    let seg_strs = exp.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
+    if seg_strs.len() == 0 {
         return None;
     }
-    // ////dbg!(&context);
+    dbg!(&context);
     ////dbg!(&exp);
-    let mut new_strs = Vec::new();
+    let mut p_vals = Vec::new();
     let mut i = 0;
     let mut twice_flag = false; //翻倍
     let mut tanf_flag = false; //翻倍
     let mut tan_flag = false; //翻倍
-    while i < tmp_strs.len() {
+    while i < seg_strs.len() {
         let mut key = "".to_string();
-        let s = tmp_strs[i].as_str();
-        if (s == "PARAM" || s == "IPARAM") && i < tmp_strs.len() {
-            key = convert_to_context_key(s, &mut i, &tmp_strs).unwrap_or_default();
-        } else if s == "ATTRIB" && i < tmp_strs.len() - 1 {
+        let s = seg_strs[i].as_str();
+        if (s == "PARAM" || s == "IPARAM") && i < seg_strs.len() {
+            key = convert_to_context_key(s, &mut i, &seg_strs).unwrap_or_default();
+        } else if s == "ATTRIB" && i < seg_strs.len() - 1 {
             i += 1;
-            let s_n = tmp_strs[i].as_str();
-            // ////dbg!(&s_n);
-            if s_n == "RPRO"{
-                let dtse_key = tmp_strs[i + 1].as_str();
-                if context.contains_key(dtse_key){
-                    if let Some(r) = eval_str_to_f64(&context[dtse_key], context){
-                        new_strs.push(r.to_string());
-                    }else{
+            let s_n = seg_strs[i].as_str();
+            dbg!(&s_n);
+            if s_n == "RPRO" {
+                let dtse_key = seg_strs[i + 1].as_str();
+                if context.contains_key(dtse_key) {
+                    if let Some(r) = eval_str_to_f64(&context[dtse_key], context) {
+                        p_vals.push(r.to_string());
+                    } else {
                         let default_key = format!("{}_default_expr", dtse_key);
-                        if context.contains_key(&default_key){
-                            if let Some(r) = eval_str_to_f64(&context[&default_key], context){
-                                new_strs.push(r.to_string());
+                        if context.contains_key(&default_key) {
+                            if let Some(r) = eval_str_to_f64(&context[&default_key], context) {
+                                p_vals.push(r.to_string());
                             }
                         }
                     }
                 }
                 i += 2;
                 continue;
-            }else{
-                key = convert_to_context_key(s_n, &mut i, &tmp_strs).unwrap_or_default();
+            } else {
+                key = convert_to_context_key(s_n, &mut i, &seg_strs).unwrap_or_default();
             }
         }
-        if context.contains_key(&key){
-            new_strs.push(context[&key].clone());
+        if context.contains_key(&key) {
+            p_vals.push(context[&key].clone());
             i += 1;
             continue;
         }
 
         let upper_s = s.to_uppercase();
         match upper_s.as_str() {
-
-            "TIMES" | "MULT" => new_strs.push("*".to_string()),
-            "DIV" => new_strs.push("/".to_string()),
-            "DDHEIGHT" => new_strs.push(context["DDHEIGHT"].to_string()),
-            "DDRADIUS" => new_strs.push(context["DDRADIUS"].to_string()),
-            "DDANGLE" => new_strs.push(context["DDANGLE"].to_string()),
-            _ => new_strs.push(s.to_lowercase()),
+            "TIMES" | "MULT" => p_vals.push("*".to_string()),
+            "DIV" => p_vals.push("/".to_string()),
+            "DDHEIGHT" => p_vals.push(context["DDHEIGHT"].to_string()),
+            "DDRADIUS" => p_vals.push(context["DDRADIUS"].to_string()),
+            "DDANGLE" => p_vals.push(context["DDANGLE"].to_string()),
+            _ => p_vals.push(upper_s),
         }
         i += 1;
     }
 
     //对TWICE、tanf、tan做单独处理
     let mut need_del_keys = vec![];
-    for i in 0..new_strs.len(){
-        if new_strs[i] == "twice" {
+    for i in 0..p_vals.len() {
+        if p_vals[i] == "TWICE" {
             need_del_keys.push(i);
-            if i+1 < new_strs.len(){
-                if let Ok(val) = new_strs[i+1].parse::<f64>(){
+            if i + 1 < p_vals.len() {
+                if let Ok(val) = p_vals[i + 1].parse::<f64>() {
                     let v = val * 2.0f64;
-                    new_strs[i+1] = v.to_string();
+                    p_vals[i + 1] = v.to_string();
                 }
             }
-        }else if new_strs[i] == "tanf" {
+        } else if p_vals[i] == "TANF" {
             need_del_keys.push(i);
-            need_del_keys.push(i+1);
-            if i+2 < new_strs.len(){
-                if let Ok(val) = new_strs[i+1].parse::<f64>() {
-                    if let Ok(angle) = new_strs[i+2].parse::<f64>() {
+            need_del_keys.push(i + 1);
+            if i + 2 < p_vals.len() {
+                if let Ok(val) = p_vals[i + 1].parse::<f64>() {
+                    if let Ok(angle) = p_vals[i + 2].parse::<f64>() {
                         {
-                            let v = val * ((angle/2.0).to_radians() as f64).tan();
-                            new_strs[i+2] = v.to_string();
+                            let v = val * ((angle / 2.0).to_radians() as f64).tan();
+                            p_vals[i + 2] = v.to_string();
                         }
                     }
                 }
             }
-        }else if new_strs[i] == "tan" || new_strs[i] == "sin" || new_strs[i] == "cos"{
-            if i+2 < new_strs.len(){
-                if let Ok(val) = new_strs[i+2].parse::<f64>() {
+        } else if p_vals[i] == "TAN" || p_vals[i] == "SIN" || p_vals[i] == "COS" {
+            if i + 2 < p_vals.len() {
+                if let Ok(val) = p_vals[i + 2].parse::<f64>() {
                     let v = val.to_radians();
-                    new_strs[i+2] = v.to_string();
+                    p_vals[i + 2] = v.to_string();
                 }
             }
         }
         // 单位处理，mm为基本单位
-        if new_strs[i].contains("mm") {
-            new_strs[i] = new_strs[i].replace("mm", "");
+        if p_vals[i].contains("mm") {
+            p_vals[i] = p_vals[i].replace("mm", "");
         }
     }
     for v in need_del_keys {
-        new_strs.remove(v);
+        p_vals.remove(v);
     }
-    if new_strs.is_empty(){
+    if p_vals.is_empty() {
         return None;
     }
     let mut result_string = String::new();
     let mut start_idx = 0;
     let mut i = start_idx;
-    while i < new_strs.len() {
-        if (new_strs[i] == "sum" || new_strs[i] == "difference") && i < new_strs.len() - 2 {
-            if new_strs[i] == "sum"{
+    while i < p_vals.len() {
+        if (p_vals[i] == "SUM" || p_vals[i] == "DIFFERENCE") && i < p_vals.len() - 2 {
+            if p_vals[i] == "SUM" {
                 result_string.push_str(&format!(
                     "({} {} {})",
-                    new_strs[i + 1],
+                    p_vals[i + 1],
                     "+",
-                    new_strs[i + 2]
+                    p_vals[i + 2]
                 ));
-            }else {
+            } else {
                 result_string.push_str(&format!(
                     "({} {} {})",
-                    new_strs[i + 1],
+                    p_vals[i + 1],
                     "-",
-                    new_strs[i + 2]
+                    p_vals[i + 2]
                 ));
             }
             i += 3;
             continue;
         } else {
-            result_string.push_str(&new_strs[i]);
+            result_string.push_str(&p_vals[i]);
         }
         result_string.push(' ');
         i += 1;
@@ -163,7 +172,7 @@ pub fn eval_str_to_f64(exp: &str, context: &HashMap<String, String>) -> Option<f
             let mut stack = Stack::new(&result_string);
             stack.eval()
         }
-    }){
+    }) {
         // ////dbg!(f);
         return Some(f);
     }
@@ -186,7 +195,7 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
             }))
-        },
+        }
         "LCYL" => {
             // 圆柱体
             Some(CateGeoParams::Cylinder(CateCylinderParam {
@@ -202,11 +211,11 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
             Some(CateGeoParams::Line(CateLineParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
-                diameter: gmse.diameters[0],
+                diameter: 0.0, //gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
             }))
-        },
+        }
         "LPYR" => {
             Some(CateGeoParams::Pyramid(CatePyramidParam {
                 pa: Some(gmse.paxises[0].clone()),
@@ -252,7 +261,7 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
             }))
-        },
+        }
         "SCON" => {
             // 圆锥
             Some(CateGeoParams::Cone(CateConeParam {
@@ -304,7 +313,7 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
             }))
-        },
+        }
         "SEXT" => {
             Some(CateGeoParams::Extrusion(CateExtrusionParam {
                 pa: Some(gmse.paxises[0].clone()),
@@ -392,18 +401,18 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
 }
 
 pub fn get_dir_and_pos(axis_str: &AxisParam,
-                   ddangle: f64,
-                   scom: &ScomParamStr,
-                   context: &HashMap<String, String>,
-                   data:&ElementData) -> (Vec<f64>, Vec<f64>){
+                       ddangle: f64,
+                       scom: &ScomParamStr,
+                       context: &HashMap<String, String>,
+                       data: &ElementData) -> (Vec<f64>, Vec<f64>) {
     //替换掉中间出现dataset的值的这种情况 X ( ATTRIB RPRO ANGL ) Z
     let mut dir_str = axis_str.direction.trim().to_string();
-    ////dbg!(&dir_str);
+    dbg!(&dir_str);
     if dir_str.contains("(") {
         ////dbg!(&dir_str);
-        let s:Vec<_> = dir_str.split("(").collect();
+        let s: Vec<_> = dir_str.split("(").collect();
         if s.len() > 1 {
-            let ss:Vec<_> = s[1].split(")").collect();
+            let ss: Vec<_> = s[1].split(")").collect();
             if ss.len() > 1 {
                 let val_str = ss[0];
                 let val_result = eval_str_to_f64(val_str, context).unwrap_or_default().to_string();
@@ -419,16 +428,16 @@ pub fn get_dir_and_pos(axis_str: &AxisParam,
 
     let re = Regex::new(r"^P\d+$").unwrap();
     // ////dbg!(dir_str);
-    if re.is_match(&dir_str){
+    if re.is_match(&dir_str) {
         let pnt_indx = dir_str[1..].parse::<i32>().unwrap_or(i32::MAX);
         // ////dbg!(pnt_indx);
-        if let Some(indx) = scom.axis_param_number.iter().position(|&x| x == pnt_indx){
-            if let Some(axis) = parse_axis_param(&scom.axis_param_strs[indx], scom, context,data){
+        if let Some(indx) = scom.axis_param_number.iter().position(|&x| x == pnt_indx) {
+            if let Some(axis) = resolve_axis_param(&scom.axis_param_collections[indx], scom, context, data) {
                 dir = axis.dir.clone();
                 pos = axis.pt;
             }
         }
-    }else{
+    } else {
         dir = parse_str_axis_to_vec3(&dir_str, ddangle).into();
     }
     return (dir, pos);

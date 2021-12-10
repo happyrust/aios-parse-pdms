@@ -14,10 +14,10 @@ pub struct DesignBranStr {
     #[prost(string, tag = "2")]
     pub refno: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "3")]
-    pub design_component_strs: ::prost::alloc::vec::Vec<DesignComponentStr>,
+    pub design_component_strs: ::prost::alloc::vec::Vec<DesignComponentData>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DesignComponentStr {
+pub struct DesignComponentData {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -48,8 +48,8 @@ pub struct DesignComponentStr {
     pub ldirection: ::prost::alloc::vec::Vec<f64>,
     ///  bool oriflag = 16;
     ///  bool posflag = 17;
-    #[prost(string, tag = "15")]
-    pub desparams: ::prost::alloc::string::String,
+    #[prost(double, repeated, tag = "15")]
+    pub desparams: ::prost::alloc::vec::Vec<f64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ScomParamStr {
@@ -68,7 +68,7 @@ pub struct ScomParamStr {
     #[prost(message, repeated, tag = "7")]
     pub gmse_param_strs: ::prost::alloc::vec::Vec<GmseParam>,
     #[prost(message, repeated, tag = "8")]
-    pub axis_param_strs: ::prost::alloc::vec::Vec<AxisParam>,
+    pub axis_param_collections: ::prost::alloc::vec::Vec<AxisParam>,
     #[prost(string, tag = "9")]
     pub params: ::prost::alloc::string::String,
     ///axis 的number属性

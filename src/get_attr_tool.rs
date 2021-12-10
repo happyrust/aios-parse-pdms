@@ -2,6 +2,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::ops::Neg;
 use dashmap::DashMap;
 use mongodb::{Database,bson::doc};
+use nalgebra_glm::exp;
+use crate::db1_dehash;
 use crate::param_parse::{eval_str_to_f64, get_dir_and_pos, parse_gmse_param_to_cate_geo_params, parse_str_axis_to_vec3};
 use crate::pdms_origin_data::{AxisParam, GmseParam, ScomParamStr};
 use crate::pdms_parsed_data::{CateAxisParam, GeoParamsData, GmseParamData};
@@ -22,18 +24,30 @@ pub async fn get_attr_string_db(ele: EleDataNode, db: &Database, db_tree: &Datab
     }
 }
 
-pub fn get_attr_value_as_string(ele: &DashMap<String, AttrVal>, types: &str) -> String {
+pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
+    if let Some(value) = ele.get(attr) {
+        match value.value() {
+            AttrVal::DoubleType(d) => {
+                return db1_dehash(*d as u32);
+            }
+            _ => {}
+        }
+    };
+    "unset".to_string()
+}
+
+pub fn get_attr_value_as_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
     let mut result = "".to_string();
-    if let Some(value) = ele.get(types) {
+    if let Some(value) = ele.get(attr) {
         match value.value() {
             AttrVal::StringType(str_val) | AttrVal::WordType(str_val) | AttrVal::ElementType(str_val) => {
-                result = str_val.clone();
+                result = str_val.trim().to_string();
             }
             AttrVal::IntegerType(int_str) => {
                 result = int_str.to_string();
             }
-            AttrVal::DoubleType(dou_str) => {
-                result = dou_str.to_string();
+            AttrVal::DoubleType(double_str) => {
+                result = double_str.to_string();
             }
             AttrVal::BoolType(bool_str) => {
                 result = bool_str.to_string();
@@ -44,20 +58,22 @@ pub fn get_attr_value_as_string(ele: &DashMap<String, AttrVal>, types: &str) -> 
     result
 }
 
-pub fn get_attr_value_dou_vec(ele: &DashMap<String, AttrVal>, types: &str) -> Vec<f64> {
-    let mut value = vec![0.0,0.0,0.0];
-    if let Some(ele_value) = ele.get(types) {
+pub fn get_attr_value_f64_vec(ele: &DashMap<String, AttrVal>, att: &str) -> Option<Vec<f64>> {
+    let mut v = vec![];
+    if let Some(ele_value) = ele.get(att) {
         match ele_value.value() {
             AttrVal::DoubleArrayType(data) => {
-                value = data.clone();
+                v = data.clone();
+                return Some(v);
             }
             AttrVal::Vec3Type(data) => {
-                value = data.to_vec();
+                v = data.to_vec();
+                return Some(v);
             }
             _ => {}
         }
     }
-    value
+    None
 }
 
 pub fn get_attr_value_int(ele: &DashMap<String, AttrVal>, types: &str) -> i32 {
@@ -75,7 +91,7 @@ pub fn get_attr_value_int(ele: &DashMap<String, AttrVal>, types: &str) -> i32 {
 
 
 pub fn get_world_matrix_f64_db(ele:&DashMap<String, AttrVal>) -> Vec<f64> {
-    let mut pos=get_attr_value_dou_vec(ele,"POS");
+    let mut pos= get_attr_value_f64_vec(ele, "POS").unwrap_or(vec![0.0, 0.0, 0.0]);
     vec![
         1.0f64, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, pos[0], pos[1], pos[2],
     ]
@@ -98,21 +114,21 @@ pub fn get_attr_strings_db(ele: &DashMap<String, AttrVal>, attrs: &[&str]) -> Ve
     results
 }
 
-pub fn parse_axis_params(
+pub fn resolve_axis_params(
     scom: &ScomParamStr,
     context: &HashMap<String, String>,
     data: &ElementData
 ) -> BTreeMap<i32, CateAxisParam> {
-    let mut cate_axis_params_map = BTreeMap::new();
-    for i in 0..scom.axis_param_strs.len(){
-        if let Some(axis) = parse_axis_param(&scom.axis_param_strs[i], scom, context,data) {
-            cate_axis_params_map.insert(scom.axis_param_number[i], axis);
+    let mut map = BTreeMap::new();
+    for i in 0..scom.axis_param_collections.len(){
+        if let Some(axis) = resolve_axis_param(&scom.axis_param_collections[i], scom, context, data) {
+            map.insert(scom.axis_param_number[i], axis);
         }
     }
-    cate_axis_params_map
+    map
 }
 
-pub fn parse_gmses(
+pub fn resolve_gmses(
     gmse_strs: &[GmseParam],
     context: &HashMap<String, String>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
@@ -238,7 +254,7 @@ pub fn parse_gmse_params(
     })
 }
 
-pub fn parse_axis_param(
+pub fn resolve_axis_param(
     axis_param: &AxisParam,
     scom: &ScomParamStr,
     context: &HashMap<String, String>,
@@ -247,11 +263,11 @@ pub fn parse_axis_param(
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
     let key = &axis_param.pconnect.replace("\n", "").replace(" ", "");
     let pconnect = if context.contains_key(key) {
-        context[key].clone()
+        let tmp = context[key].parse::<u32>().unwrap_or(0u32);
+        db1_dehash(tmp)
     } else {
         "".to_string()
     };
-    ////dbg!(&axis_param);
     let pbore = eval_str_to_f64(&axis_param.pbore, &context).unwrap_or_default();
     match &axis_param.self_type[..] {
         "PTAX" => {
@@ -267,29 +283,22 @@ pub fn parse_axis_param(
         }
         "PTCA" | "PTMI" => {
             let x = eval_str_to_f64(&axis_param.x, &context).unwrap_or_default();
-            ////dbg!(x);
             let y = eval_str_to_f64(&axis_param.y, &context).unwrap_or_default();
-            ////dbg!(y);
             let z = eval_str_to_f64(&axis_param.z, &context).unwrap_or_default();
-            ////dbg!(z);
             let (dir, pos) = get_dir_and_pos(axis_param, ddangle, scom, context,data);
-            ////dbg!(&pos);
             Some(CateAxisParam { pt: vec![pos[0]+x, pos[1]+y, pos[2]+z], dir: dir.to_vec(), pconnect, pbore })
         }
         "PTPOS" => {
             let (dir, pos) = get_dir_and_pos(axis_param, ddangle, scom, context,data);
-            // let ele = DbElement::from_refno_str(&axis_param.refno);
             let ele=&data.ref_no;
             let data_map=&data.attr_data_map;
-            // let pnt_index_str = crate::get_attr_string!(ele, PTCPOS);
             let pnt_index_str=get_attr_value_as_string(data_map,"PTCPOS");
             let paras = pnt_index_str.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
-            // ////dbg!(pnt_index_str);
             if paras.len() ==2 {
                 let pnt_index = paras[1].parse::<i32>().unwrap_or(i32::MAX);
                 if let Some(indx) = scom.axis_param_number.iter().position(|&x| x == pnt_index){
                     // ////dbg!(indx);
-                    if let Some(axis) = parse_axis_param(&scom.axis_param_strs[indx], scom, context,data){
+                    if let Some(axis) = resolve_axis_param(&scom.axis_param_collections[indx], scom, context, data){
                         Some(CateAxisParam { pt: axis.pt, dir: dir.to_vec(), pconnect, pbore })
                     }else{
                         None

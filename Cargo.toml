@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nom = "7.0.0"
+#nom = "7.0.0"
 memchr = "2.4.1"
 slab_tree = "0.3.2"
 itertools = "0.10.1"
@@ -19,6 +19,9 @@ glam = "0.15.2"
 fasteval = "0.2.4"
 regex = "1.5.4"
 
+nom = "6.1.2"
+nom-derive = "0.9.0"
+
 serde-name = "0.1.1"
 serde = { version = "1.0.126", features = ["derive"] }
 phf = { version = "0.9", features = ["macros"] }
@@ -29,5 +32,7 @@ simplelog = "0.10.0"
 rayon = "1.5.1"
 dashmap = { version="4.0.2" , features=["serde"] }
 tokio = { version = "1.11.0", features = ["full"] }
-mysql = "21.0.2"
+#mysql = "21.0.2"
 serde_json = { version = "1.0" }
+
+static_init = "1.0.1"

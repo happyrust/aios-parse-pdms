@@ -13,6 +13,9 @@ mod polish_notation;
 mod direction_parse;
 mod parse_data_impl;
 
+#[macro_use]
+extern crate nom;
+
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fs::{File, OpenOptions};
@@ -36,6 +39,7 @@ use std::ffi::OsStr;
 use std::option::Option::Some;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 extern crate clap;
 
@@ -43,16 +47,16 @@ use clap::clap_app;
 use log::LevelFilter;
 use log::info;
 use mongodb::options::{ClientOptions, FindOneAndReplaceOptions, FindOneAndUpdateOptions, FindOneOptions};
-use mysql::Pool;
-use mysql::prelude::Queryable;
+// use mysql::Pool;
+// use mysql::prelude::Queryable;
 use rayon::prelude::IntoParallelRefIterator;
 use simplelog::{CombinedLogger, WriteLogger};
 use crate::db_tool::{db1_dehash, decode_chars_data};
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
-use mysql::*;
-use mysql::prelude::*;
-use mysql::time::{Instant, parse};
+// use mysql::*;
+// use mysql::prelude::*;
+// use mysql::time::{Instant, parse};
 use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
@@ -96,6 +100,12 @@ const IMP_PZLE: i32 = 0x9C15A;
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+    run_test().await;
+    Ok(())
+}
+
+#[tokio::main]
+async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
@@ -277,57 +287,60 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
         dbinfos.push(db_info);
         dbg!(&db_name);
-        if b_save_to_mysql {
-            let mysql_url = "mysql://root:root@10.30.230.146:3306/test_db";
-            //let mysql_url="mysql://root:root@localhost:3306/test_db";
-            let opts = Opts::from_url(mysql_url).unwrap();
-            let pool = Pool::new(opts).unwrap();
-            let mut mysql_conn = pool.get_conn().unwrap();
-            let create_table_mysql = format!(r"
-                create table PdmsTreeNode(
-                    ref_no    text,
-                    owner     text,
-                    name      text,
-                    orders    int,
-                    db_name   text,
-                    type_name text
-                )");
-            mysql_conn.query_drop(
-                create_table_mysql
-            ).unwrap();
-            for (_, ele_data_vec) in db_eles_data_map.clone() {
-                let mut ele_nodes = vec![];
-                for e in ele_data_vec {
-                    ele_nodes.push(
-                        EleDataNode {
-                            ref_no: e.ref_no.clone(),
-                            children: e.children.clone(),
-                            owner: e.owner.clone(),
-                            name: e.name.clone(),
-                            order: e.order,
-                            db_name: db_name.clone(),
-                            type_name: e.noun_name.clone(),
-                        }
-                    );
-                }
-                for mysql_chunk in ele_nodes.chunks(1000) {
-                    mysql_conn.exec_batch(
-                        r"insert into pdmstreenode (ref_no,owner,name,orders,db_name,type_name)
-                         values(:ref_no,:owner,:name,:orders,:db_name,:type_name)",
-                        mysql_chunk.into_iter().map(|ele| {
-                            params! {
-                            "ref_no"=>ele.ref_no.clone(),
-                            "owner"=>ele.owner.clone(),
-                            "name"=>ele.name.clone(),
-                            "orders"=>ele.order,
-                            "db_name"=>ele.db_name.clone(),
-                            "type_name"=>ele.type_name.clone(),
-                             }
-                        }),
-                    ).unwrap();
-                }
-            }
-        }
+
+        // if b_save_to_mysql {
+        //     let mysql_url = "mysql://root:root@10.30.230.146:3306/test_db";
+        //     //let mysql_url="mysql://root:root@localhost:3306/test_db";
+        //     let opts = Opts::from_url(mysql_url).unwrap();
+        //     let pool = Pool::new(opts).unwrap();
+        //     let mut mysql_conn = pool.get_conn().unwrap();
+        //     let create_table_mysql = format!(r"
+        //         create table PdmsTreeNode(
+        //             ref_no    text,
+        //             owner     text,
+        //             name      text,
+        //             orders    int,
+        //             db_name   text,
+        //             type_name text
+        //         )");
+        //     mysql_conn.query_drop(
+        //         create_table_mysql
+        //     ).unwrap();
+        //     for (_, ele_data_vec) in db_eles_data_map.clone() {
+        //         let mut ele_nodes = vec![];
+        //         for e in ele_data_vec {
+        //             ele_nodes.push(
+        //                 EleDataNode {
+        //                     ref_no: e.ref_no.clone(),
+        //                     children: e.children.clone(),
+        //                     owner: e.owner.clone(),
+        //                     name: e.name.clone(),
+        //                     order: e.order,
+        //                     db_name: db_name.clone(),
+        //                     type_name: e.noun_name.clone(),
+        //                 }
+        //             );
+        //         }
+        //         for mysql_chunk in ele_nodes.chunks(1000) {
+        //             mysql_conn.exec_batch(
+        //                 r"insert into pdmstreenode (ref_no,owner,name,orders,db_name,type_name)
+        //                  values(:ref_no,:owner,:name,:orders,:db_name,:type_name)",
+        //                 mysql_chunk.into_iter().map(|ele| {
+        //                     params! {
+        //                     "ref_no"=>ele.ref_no.clone(),
+        //                     "owner"=>ele.owner.clone(),
+        //                     "name"=>ele.name.clone(),
+        //                     "orders"=>ele.order,
+        //                     "db_name"=>ele.db_name.clone(),
+        //                     "type_name"=>ele.type_name.clone(),
+        //                      }
+        //                 }),
+        //             ).unwrap();
+        //         }
+        //     }
+        // }
+        //
+        //
         if b_save_to_mongodb {
             let mut client_options = ClientOptions::parse(&mongodb_url).await?;
             client_options.app_name = Some("AIOS".to_string());
