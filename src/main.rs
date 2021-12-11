@@ -79,7 +79,14 @@ const ATT_PPRO: i32 = 0xFFF32DC0u32 as i32;
 const ATT_DPRO: i32 = 0xFFF32DCCu32 as i32;
 const ATT_BTHK: i32 = 0xFFF47D68u32 as i32;
 const ATT_BDIA: i32 = 0xFFF77D1Du32 as i32;
+const ATT_PTDI: i32 = 0xFFF52284u32 as i32;
+const ATT_PBDI: i32 = 0xFFF5246Au32 as i32;
+const ATT_PBTP: i32 = 0xFFF2DCA5u32 as i32;
+const ATT_PCTP: i32 = 0xFFF2DC8Au32 as i32;
+const ATT_PBBT: i32 = 0xFFF1DC5Bu32 as i32;
+const ATT_PCBT: i32 = 0xFFF1DC40u32 as i32;
 
+const IMP_PAXI: i32 = 0xB146F;
 const IMP_PCON: i32 = 0xC7B73;
 const IMP_PDIS: i32 = 0xDEAE7;
 const IMP_PBOR: i32 = 0xDAEE4;
@@ -821,7 +828,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, ele_data.attr_data_map.clone(),refno, explicit_start).unwrap();
                 //ele_data.attr_data_map = explicit_attr_map;
                 for (key,val) in explicit_attr_map{
-                    ele_data.attr_data_map.insert(key,val);
+                    ele_data.attr_data_map.insert(key, val);
                 }
             }
         }
@@ -882,8 +889,10 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
             }
 
         }
+
         log::error!("隐式属性 ref_no={:?} position={:#04X?} val={:?}",ref_no,pos,r);
         val = r;
+
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
         if attr_info.hash == 0x9DB99 || attr_info.hash == 0x85438{ //0x9DB99 LEVEL  0x85438 PTS
@@ -1336,6 +1345,14 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     &_ => {}
                 }
                 match &tmp_input[..4] {
+                    &[0x0, 0x0, 0x0, 0x3] => {
+                        let (_, value) = be_u32(&tmp_input[4..8])?;
+                        val = AttrVal::StringType(format!("P{}", value));
+                        if value > 0xE8 {
+                            let value = value - 0xE8;
+                            val = AttrVal::StringType(format!("-P{}", value));
+                        }
+                    }
                     &[0x0, 0x0, 0x0, 0xC] => {
                         let value = get_implicit_expression(&tmp_input[4..8]);
                         let result = format!("X {} Y", value);
@@ -1697,12 +1714,13 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 #[inline]
 pub fn check_is_axis(input: i32) -> bool {
     // 显式得表达式
-    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA
-        || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO || input == ATT_BTHK || input == ATT_BDIA {
+    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA || input == ATT_PHEI
+        || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO || input == ATT_BTHK || input == ATT_BDIA || input == ATT_PTDI
+        || input == ATT_PBDI || input == ATT_PBTP || input == ATT_PCTP || input == ATT_PBBT || input == ATT_PCBT {
         true
     } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
         || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO || input == IMP_PTDM || input == IMP_PX || input == IMP_PY || input == IMP_PZ || input == IMP_PRAD
-        || input == IMP_PYLE || input == IMP_PXLE || input == IMP_PZLE {
+        || input == IMP_PYLE || input == IMP_PXLE || input == IMP_PZLE || input == IMP_PAXI {
         true
     } else {
         false

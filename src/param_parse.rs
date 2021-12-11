@@ -25,7 +25,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         return Some(0.0);
     }
     let mut has_desparam = false;
-    let mut exp = input_expr.replace("[", " ").replace("]", " ").replace("  ", " ");
+    dbg!(&input_expr.trim());
+    let mut exp = input_expr.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
     if exp.len() < 1{
         return Some(0.0);
     }
@@ -33,11 +34,12 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         && exp.chars().nth(exp.len() -1).unwrap_or_default() == ')' {
         exp = exp[1..exp.len()-1].to_string();
     }
+    println!("exp={:?}",exp);
     let seg_strs = exp.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
     if seg_strs.len() == 0 {
         return None;
     }
-    dbg!(&context);
+    // dbg!(&context);
     ////dbg!(&exp);
     let mut p_vals = Vec::new();
     let mut i = 0;
