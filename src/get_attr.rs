@@ -3,7 +3,9 @@ use dashmap::DashMap;
 use crate::pdms_types::{AttrVal, EleDataNode, ElementData, PdmsRefno};
 use mongodb::{Client, Database, bson::doc};
 use nalgebra_glm::{DMat4, DVec4};
+use nom::number::complete::float;
 use nom::Parser;
+use crate::db_tool::db1_dehash;
 use crate::get_attr_tool::{get_attr_double_as_dehash_string, get_attr_string_db, get_attr_strings_db, get_attr_value_as_string, get_attr_value_f64_vec, get_attr_value_int, get_world_matrix_f64_db, resolve_axis_params, resolve_gmses};
 use crate::param_parse::parse_design_param_to_hashmap;
 use crate::pdms_origin_data::{AxisParam, DesignComponentData, GmseParam, ScomParamStr};
@@ -57,7 +59,8 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
     let ptre = get_attr_value_as_string(data_map, "PTRE");
     let scom_param_str = query_scom_str_db(data_map, &db, &db_tree).await?;
     let desparams = get_attr_value_f64_vec(data_map, "PARA").unwrap_or_default();
-
+    let gtype_i32=get_attr_value_int(data_map,"GTYP");
+    let gtype=db1_dehash(gtype_i32 as u32 );
     match &self_type[..] {
         "TUBI" => {
             //let itlength = get_attr_string!(ele, ITLE).to_lowercase().replace("mm", "").replace(" ", "");
@@ -75,7 +78,7 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
                 self_type,
                 //spref_name: get_attr_string!(ele, SPRE),
                 spref_name: get_attr_value_as_string(&data_map, "SPRE"),
-                gtype: get_attr_value_as_string(&data_map, "GTYP"),
+                gtype,
                 scom_param_str: Some(scom_param_str),
                 ddangle,
                 height,
@@ -100,7 +103,7 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
                 owner: data.owner,
                 self_type,
                 spref_name: get_attr_value_as_string(&data_map, "SPRE"),
-                gtype: get_attr_value_as_string(&data_map, "GTYP"),
+                gtype,
                 scom_param_str: Some(scom_param_str),
                 ddangle,
                 height,
@@ -223,7 +226,6 @@ pub async fn resolve_cata_comp_attrs(ele: DesignComponentData, db: &Database, db
         context.insert(format!("PARAM{}", i + 1), ele.desparams[i].to_string());
         context.insert(format!("IPARAM{}", i + 1), ele.desparams[i].to_string());
     }
-    dbg!(&context);
     //log::info!("当前构件是:{},元件库参数是:{}", &ele.refno, &scom.refno);
     match &ele.self_type[..] {
         "TUBI" => {

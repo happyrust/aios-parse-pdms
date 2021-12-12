@@ -189,6 +189,7 @@ pub fn parse_gmse_params(
         .collect::<Vec<f64>>();
 
     let mut paxises: Vec<CateAxisParam> = Vec::new();
+    dbg!(&gmse_str.paxises);
     for name in gmse_str.paxises.iter() {
         if name != "" {
             //////dbg!(&name);
@@ -234,7 +235,7 @@ pub fn parse_gmse_params(
             }
         }
     }
-
+    dbg!(&paxises);
     Some(GmseParamData {
         name: gmse_str.name.clone(),
         refno: gmse_str.refno.clone(),

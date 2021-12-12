@@ -67,6 +67,7 @@ const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;
 const ATT_PBAX: i32 = 0xF5458;
+const ATT_PCAX: i32 = 0xF5473;
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
 const ATT_PZ: i32 = 0xFFF7E141u32 as i32;
@@ -106,13 +107,13 @@ const IMP_PYLE: i32 = 0x9C13F;
 const IMP_PZLE: i32 = 0x9C15A;
 
 #[tokio::main]
-async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     run_test().await;
     Ok(())
 }
 
 #[tokio::main]
-async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
@@ -1716,7 +1717,7 @@ pub fn check_is_axis(input: i32) -> bool {
     // 显式得表达式
     if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA || input == ATT_PHEI
         || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO || input == ATT_BTHK || input == ATT_BDIA || input == ATT_PTDI
-        || input == ATT_PBDI || input == ATT_PBTP || input == ATT_PCTP || input == ATT_PBBT || input == ATT_PCBT {
+        || input == ATT_PBDI || input == ATT_PBTP || input == ATT_PCTP || input == ATT_PBBT || input == ATT_PCBT || input == ATT_PCAX {
         true
     } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
         || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO || input == IMP_PTDM || input == IMP_PX || input == IMP_PY || input == IMP_PZ || input == IMP_PRAD
