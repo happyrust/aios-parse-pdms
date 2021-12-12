@@ -313,6 +313,9 @@ pub fn get_expression_attr_for_test(input: &[u8], order: i32) -> IResult<&[u8], 
         &[0xFF, 0xF2, 0xDC, 0x8A] => { expression_type = "PCTP".to_string(); }
         &[0xFF, 0xF1, 0xDC, 0x5B] => { expression_type = "PBBT".to_string(); }
         &[0xFF, 0xF1, 0xDC, 0x40] => { expression_type = "PCBT".to_string(); }
+        &[0xFF, 0xF6, 0x3E, 0xDC] => { expression_type = "PXLE".to_string(); }
+        &[0xFF, 0xF6, 0x3E, 0xC1] => { expression_type = "PYLE".to_string(); }
+        &[0xFF, 0xF6, 0x3E, 0xA6] => { expression_type = "PZLE".to_string(); }
         _ => {}
     }
     let (_, expression_length) = be_u16(&input[6..8])?;
@@ -624,7 +627,7 @@ pub fn get_expression_attr_for_test(input: &[u8], order: i32) -> IResult<&[u8], 
                 &[0x0, 0x0, 0x3, 0x21] => {
                     // 这是负号
                     let value = result_stack.pop().unwrap();
-                    symbol = format!("( -{} )", value);
+                    symbol = format!("( - {} )", value);
                 }
                 &[0x0, 0x0, 0x3, 0x22] => {
                     if result_stack.len() > 1 {

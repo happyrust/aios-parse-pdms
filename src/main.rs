@@ -86,6 +86,9 @@ const ATT_PBTP: i32 = 0xFFF2DCA5u32 as i32;
 const ATT_PCTP: i32 = 0xFFF2DC8Au32 as i32;
 const ATT_PBBT: i32 = 0xFFF1DC5Bu32 as i32;
 const ATT_PCBT: i32 = 0xFFF1DC40u32 as i32;
+const ATT_PXLE: i32 = 0xFFF63EDCu32 as i32;
+const ATT_PYLE: i32 = 0xFFF63EC1u32 as i32;
+const ATT_PZLE: i32 = 0xFFF63EA6u32 as i32;
 
 const IMP_PAXI: i32 = 0xB146F;
 const IMP_PCON: i32 = 0xC7B73;
@@ -105,6 +108,11 @@ const IMP_PZ  : i32 = 0x81EBF;
 const IMP_PXLE: i32 = 0x9C124;
 const IMP_PYLE: i32 = 0x9C13F;
 const IMP_PZLE: i32 = 0x9C15A;
+const IMP_PCTP: i32 = 0xD2376;
+const IMP_PCBT: i32 = 0xE23C0;
+const IMP_PBBT: i32 = 0xE23A5;
+const IMP_PBOF: i32 = 0xA1440;
+const IMP_PCOF: i32 = 0xA145B;
 
 #[tokio::main]
 async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -1347,7 +1355,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 }
                 match &tmp_input[..4] {
                     &[0x0, 0x0, 0x0, 0x3] => {
-                        let (_, value) = be_u32(&tmp_input[4..8])?;
+                        let (_, value) = be_u8(&tmp_input[7..8])?;
                         val = AttrVal::StringType(format!("P{}", value));
                         if value > 0xE8 {
                             let value = value - 0xE8;
@@ -1717,11 +1725,13 @@ pub fn check_is_axis(input: i32) -> bool {
     // 显式得表达式
     if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA || input == ATT_PHEI
         || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO || input == ATT_BTHK || input == ATT_BDIA || input == ATT_PTDI
-        || input == ATT_PBDI || input == ATT_PBTP || input == ATT_PCTP || input == ATT_PBBT || input == ATT_PCBT || input == ATT_PCAX {
+        || input == ATT_PBDI || input == ATT_PBTP || input == ATT_PCTP || input == ATT_PBBT || input == ATT_PCBT || input == ATT_PCAX || input == ATT_PXLE || input == ATT_PYLE
+        || input == ATT_PZLE {
         true
     } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
         || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO || input == IMP_PTDM || input == IMP_PX || input == IMP_PY || input == IMP_PZ || input == IMP_PRAD
-        || input == IMP_PYLE || input == IMP_PXLE || input == IMP_PZLE || input == IMP_PAXI {
+        || input == IMP_PYLE || input == IMP_PXLE || input == IMP_PZLE || input == IMP_PAXI || input == IMP_PCTP || input == IMP_PBBT || input == IMP_PCBT || input == IMP_PBOF
+        || input == IMP_PCOF {
         true
     } else {
         false

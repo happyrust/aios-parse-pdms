@@ -17,7 +17,7 @@ use crate::pdms_types::AttrVal::IntArrayType;
 pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
     let client_uri = "mongodb://localhost:27017".to_string();
     let client = Client::with_uri_str(&client_uri).await?;
-    let refno = "15192/222507";
+    let refno = "15192/222434";
     let refno_db = client.database("PdmsRefnoDB");
     let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
     let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?;
@@ -27,7 +27,6 @@ pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
         let db = client.database(&db_name);
         let db_tree = client.database(&db_name_tree);
         let refno = query_design_component_by_refno_str_db(refno, &db, &db_tree).await.unwrap();
-        dbg!(&refno);
         let scom = resolve_cata_comp_attrs(refno, &db, &db_tree).await?;
         dbg!(&scom);
     }
@@ -269,8 +268,8 @@ pub async fn resolve_cata_comp_attrs(ele: DesignComponentData, db: &Database, db
             let axis_params_map = resolve_axis_params(
                 &scom, &context, &data,
             );
-            dbg!(&scom.gmse_param_strs);
             //求解子节点几何模型的数据
+            dbg!(&scom.gmse_param_strs);
             let mut geometries = resolve_gmses(
                 &scom.gmse_param_strs,
                 &context,
@@ -412,7 +411,8 @@ pub fn query_gmse_param_str_db(ele: &ElementData) -> GmseParam {
         distances: get_attr_strings_db(ele_map, &["PDIS", "PBDI", "PTDI"]),
         height: get_attr_value_as_string(ele_map, "PHEI"),
         offset: get_attr_value_as_string(ele_map, "POFF"),
-        box_lengths: get_attr_strings_db(ele_map, &["PXEL", "PYEL", "PZEL"]),
+        // box_lengths: get_attr_strings_db(ele_map, &["PXEL", "PYEL", "PZEL"]),
+        box_lengths: get_attr_strings_db(ele_map, &["PXLE", "PYLE", "PZLE"]),
         xyz: get_attr_strings_db(
             ele_map,
             &["PX", "PY", "PZ", "PBBT", "PCBT", "PBTP", "PCTP", "PBOF", "PCOF"],
