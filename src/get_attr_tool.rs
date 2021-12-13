@@ -76,9 +76,9 @@ pub fn get_attr_value_f64_vec(ele: &DashMap<String, AttrVal>, att: &str) -> Opti
     None
 }
 
-pub fn get_attr_value_int(ele: &DashMap<String, AttrVal>, types: &str) -> i32 {
+pub fn get_attr_value_int(ele: &DashMap<String, AttrVal>, attr: &str) -> i32 {
     let mut value = 0;
-    if let Some(ele_value) = ele.get(types) {
+    if let Some(ele_value) = ele.get(attr) {
         match ele_value.value() {
             AttrVal::IntegerType(data) => {
                 value = *data;
@@ -89,6 +89,18 @@ pub fn get_attr_value_int(ele: &DashMap<String, AttrVal>, types: &str) -> i32 {
     value
 }
 
+pub fn get_attr_value_int_vec(ele: &DashMap<String, AttrVal>, attr: &str) -> Vec<i32> {
+    let mut value=vec![];
+    if let Some(ele_value)=ele.get(attr){
+        match ele_value.value() {
+            AttrVal::IntArrayType(data) => {
+                value=data.to_vec();
+            }
+            _ => { }
+        }
+    }
+    value
+}
 
 pub fn get_world_matrix_f64_db(ele:&DashMap<String, AttrVal>) -> Vec<f64> {
     let mut pos= get_attr_value_f64_vec(ele, "POS").unwrap_or(vec![0.0, 0.0, 0.0]);

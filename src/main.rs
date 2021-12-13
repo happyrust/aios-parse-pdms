@@ -1026,9 +1026,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                 let tmp_input = &l[..type_len * 4];
 
                 if attr_info_map.contains_key(&explict_num) {
-                    let b_axis = check_is_axis(explict_num);
+                    // let b_axis = check_is_axis(explict_num);
                     let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
-                    if !b_axis {
+                    // if !b_axis {
                         // vec<f64>
                         if attr_type_num == 0x1800 {
                             attr_info.att_type = DbAttributeType::DOUBLEVEC;
@@ -1037,6 +1037,10 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         } else if attr_type_num == 0x0C00 {
                             attr_info.att_type = DbAttributeType::WORD;
                         }
+                    // DESP 特殊处理
+                    if explict_num == 0xD20C7 {
+                        attr_info.att_type = DbAttributeType::INTVEC;
+                    }
                         // 根据获取到的type hash值，拿到需要的类型
                         match attr_info.att_type {
                             DbAttributeType::INTEGER => {
@@ -1141,13 +1145,13 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
 
                             _ => {}
                         }
-                    } else {
-                        let tmp_input = &tmp_input[..];
-                        let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
-                        log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}", refno, debug_pos, val);
-                        dbg!(&attr_info.name);
-                        explict_attrs.insert(attr_info.name.clone(), val);
-                    }
+                    // } else {
+                    //     let tmp_input = &tmp_input[..];
+                    //     let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
+                    //     log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}", refno, debug_pos, val);
+                    //     dbg!(&attr_info.name);
+                    //     explict_attrs.insert(attr_info.name.clone(), val);
+                    // }
                 } else {
                     // 先进行表达式的判断
                     if check_is_axis(explict_num) {

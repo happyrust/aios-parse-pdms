@@ -49,6 +49,7 @@ pub fn get_explicit_attr_type(input: u16, pos: usize) -> Option<DbAttributeType>
         0x1400 => { Some(BOOL) }
         0x0800 => { Some(DOUBLE) }
         0x3800 => { Some(TYPEX) }
+        0x0000 => { None }
         _ => {
             println!("failed to find explicit attr type {:#04X?} position={:#04X?}", input, pos);
             None

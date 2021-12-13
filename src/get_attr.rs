@@ -6,7 +6,7 @@ use nalgebra_glm::{DMat4, DVec4};
 use nom::number::complete::float;
 use nom::Parser;
 use crate::db_tool::db1_dehash;
-use crate::get_attr_tool::{get_attr_double_as_dehash_string, get_attr_string_db, get_attr_strings_db, get_attr_value_as_string, get_attr_value_f64_vec, get_attr_value_int, get_world_matrix_f64_db, resolve_axis_params, resolve_gmses};
+use crate::get_attr_tool::{get_attr_double_as_dehash_string, get_attr_string_db, get_attr_strings_db, get_attr_value_as_string, get_attr_value_f64_vec, get_attr_value_int, get_attr_value_int_vec, get_world_matrix_f64_db, resolve_axis_params, resolve_gmses};
 use crate::param_parse::parse_design_param_to_hashmap;
 use crate::pdms_origin_data::{AxisParam, DesignComponentData, GmseParam, ScomParamStr};
 use crate::pdms_parsed_data::{CateTubeImpliedParam, DesignComponent, GeoParamsData};
@@ -17,7 +17,7 @@ use crate::pdms_types::AttrVal::IntArrayType;
 pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
     let client_uri = "mongodb://localhost:27017".to_string();
     let client = Client::with_uri_str(&client_uri).await?;
-    let refno = "15192/222434";
+    let refno = "15392/5443";
     let refno_db = client.database("PdmsRefnoDB");
     let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
     let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?;
@@ -27,7 +27,8 @@ pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
         let db = client.database(&db_name);
         let db_tree = client.database(&db_name_tree);
         let refno = query_design_component_by_refno_str_db(refno, &db, &db_tree).await.unwrap();
-        let scom = resolve_cata_comp_attrs(refno, &db, &db_tree).await?;
+        // let scom = resolve_cata_comp_attrs(refno, &db, &db_tree).await?;
+        let scom=resolve_desi_comp_attrs(refno,&db,&db_tree).await?;
         dbg!(&scom);
     }
     Ok(())
@@ -58,8 +59,11 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
     let ptre = get_attr_value_as_string(data_map, "PTRE");
     let scom_param_str = query_scom_str_db(data_map, &db, &db_tree).await?;
     let desparams = get_attr_value_f64_vec(data_map, "PARA").unwrap_or_default();
+    let mut gtype="unset".to_string();
     let gtype_i32=get_attr_value_int(data_map,"GTYP");
-    let gtype=db1_dehash(gtype_i32 as u32 );
+    if gtype_i32>0x81BF1{
+        gtype=db1_dehash(gtype_i32 as u32 );
+    }
     match &self_type[..] {
         "TUBI" => {
             //let itlength = get_attr_string!(ele, ITLE).to_lowercase().replace("mm", "").replace(" ", "");
@@ -195,11 +199,87 @@ pub async fn query_gmse_param_strs_db(ele: &ElementData, db: &Database, db_tree:
 
 ///todo 结合设计模块的构件参数，对元件库的属性进行求值计算
 /// ele: DESI Element
-pub async fn resolve_desi_comp_attrs(ele: DesignComponentData) {
+pub async fn resolve_desi_comp_attrs(ele: DesignComponentData, db:&Database, db_tree: &Database) -> mongodb::error::Result<DesignComponent>{
+    let table=db.collection::<ElementData>(&ele.self_type);
+    let data=table.find_one(doc! {"ref_no":&ele.refno},None).await?.unwrap();
+    let data_map=&data.attr_data_map;
+    let desp=get_attr_value_int_vec(&data_map,"DESP");
+    let scom=ele.scom_param_str.clone().unwrap();
+    let mut context=HashMap::new();
+    context.insert(DDHEIGHT_STR.to_string(),ele.height.clone());
+    context.insert(DDANGLE_STR.to_string(),ele.ddangle.clone());
+    context.insert(DDRADIUS_STR.to_string(),ele.radius.clone());
+    for i in 0..ele.desparams.len(){
+        context.insert(format!("DESP{}", i+1),ele.desparams[i].to_string());
+    }
     //1、get desp params
     //2、insert to context hashmap
     //params.insert(format!("DESP{}", index), d.to_string());
     //3、resolve_cata_comp_attrs
+    match &ele.self_type[..] {
+        "TUBI" => {
+            /// tubi 采用世界坐标系，不需要根据 world matrix 变换
+            let itlength = match ele.itlength.parse::<f64>() {
+                Ok(x) => x,
+                Err(_) => 0.0f64,
+            };
+            let diameter = (&context["PARAM2"]).parse::<f64>().unwrap_or(0.0f64);
+            let geometries =
+                vec![GeoParamsData {
+                    cate_geo_params: Some(TubeImplied(CateTubeImpliedParam {
+                        center_position: ele.world_position.clone(),
+                        direction: ele.ldirection.clone(),
+                        diameter,
+                        height: itlength,
+                        centre_line_flag: true,
+                        tube_flag: true,
+                    }))
+                }];
+
+            Ok(DesignComponent {
+                name: ele.name,
+                refno: ele.refno.clone(),
+                owner: ele.owner,
+                spref_name: ele.spref_name,
+                self_type: ele.self_type,
+                gtype: ele.gtype,
+                geometries,
+                world_matrix: ele.world_matrix,
+                // oriflag: comp_str.oriflag,
+                // posflag: comp_str.posflag
+            })
+        }
+        _ => {
+            let ddangle = match ele.ddangle.parse::<f64>() {
+                Ok(x) => Some(x),
+                Err(_) => None,
+            };
+            //求解AXIS的数据
+            let axis_params_map = resolve_axis_params(
+                &scom, &context, &data,
+            );
+            //求解子节点几何模型的数据
+            let mut geometries = resolve_gmses(
+                &scom.gmse_param_strs,
+                &context,
+                &axis_params_map,
+                ddangle,
+            );
+
+            Ok(DesignComponent {
+                name: ele.name,
+                refno: ele.refno.clone(),
+                owner: ele.owner,
+                spref_name: ele.spref_name,
+                self_type: ele.self_type,
+                gtype: ele.gtype,
+                geometries,
+                world_matrix: ele.world_matrix,
+                // oriflag: comp_str.oriflag,
+                // posflag: comp_str.posflag
+            })
+        }
+    }
 }
 
 
@@ -269,7 +349,6 @@ pub async fn resolve_cata_comp_attrs(ele: DesignComponentData, db: &Database, db
                 &scom, &context, &data,
             );
             //求解子节点几何模型的数据
-            dbg!(&scom.gmse_param_strs);
             let mut geometries = resolve_gmses(
                 &scom.gmse_param_strs,
                 &context,
@@ -426,7 +505,6 @@ pub fn query_gmse_param_str_db(ele: &ElementData) -> GmseParam {
 pub async fn get_dtse_params(data: &ElementData, db: &Database, db_tree: &Database, context: &mut HashMap<String, String>) -> mongodb::error::Result<()> {
     let tree_table = db_tree.collection::<EleDataNode>("PdmsTreeNode");
     let ele = &data.attr_data_map;
-    //let dtse = ele.get_attr_ele(&crate::attr_raw!(DTRE));
     let dtse = get_attr_value_as_string(&ele, "DTRE");
     for child in &data.children {
         let child_data_tree = tree_table.find_one(
@@ -440,12 +518,9 @@ pub async fn get_dtse_params(data: &ElementData, db: &Database, db_tree: &Databa
             None,
         ).await?.unwrap();
         let node_map = node.attr_data_map;
-        // let key = child.get_attr_string(&crate::attr_raw!(DKEY));
         let key = get_attr_value_as_string(&node_map, "DKEY");
-        // let exp = child.get_attr_string(&crate::attr_raw!(PPRO));
         let exp = get_attr_value_as_string(&node_map, "PPRO");
         let default_key = format!("{}_default_expr", key);
-        // let default_expr = child.get_attr_string(&crate::attr_raw!(DPRO));
         let default_expr = get_attr_value_as_string(&node_map, "DPRO");
         context.insert(key, exp);
         context.insert(default_key, default_expr);
