@@ -26,7 +26,7 @@ use nom::combinator::value;
 use nom::error::ParseError;
 use nom::IResult;
 use nom::lib::std::fmt::Error;
-use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8, f64,be_f32};
+use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8, f64, be_f32};
 use nom::sequence::tuple;
 use phf::phf_map;
 use dashmap::DashMap;
@@ -61,7 +61,7 @@ use crate::pdms_types::DbAttributeType::{DOUBLEVEC, FLOATVEC, INTEGER};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use crate::get_attr::run_test;
-use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, print_refno_expression_data, times_keep_f32_two_decimal_place};
+use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
 
 const WORLD_HASH_BYTES: [u8; 4] = [0x00, 0x0B, 0xEB, 0x83];
 const ATT_PAXI: i32 = 0xB146F;
@@ -89,6 +89,7 @@ const ATT_PCBT: i32 = 0xFFF1DC40u32 as i32;
 const ATT_PXLE: i32 = 0xFFF63EDCu32 as i32;
 const ATT_PYLE: i32 = 0xFFF63EC1u32 as i32;
 const ATT_PZLE: i32 = 0xFFF63EA6u32 as i32;
+const ATT_PTCDI: i32 = 0x95A34;
 
 const IMP_PAXI: i32 = 0xB146F;
 const IMP_PCON: i32 = 0xC7B73;
@@ -102,9 +103,9 @@ const IMP_PBDI: i32 = 0xADB96;
 const IMP_PBDM: i32 = 0xC0F22;
 const IMP_PPRO: i32 = 0xCD240;
 const IMP_PRAD: i32 = 0x9544C;
-const IMP_PX  : i32 = 0x81E89;
-const IMP_PY  : i32 = 0x81EA4;
-const IMP_PZ  : i32 = 0x81EBF;
+const IMP_PX: i32 = 0x81E89;
+const IMP_PY: i32 = 0x81EA4;
+const IMP_PZ: i32 = 0x81EBF;
 const IMP_PXLE: i32 = 0x9C124;
 const IMP_PYLE: i32 = 0x9C13F;
 const IMP_PZLE: i32 = 0x9C15A;
@@ -115,13 +116,13 @@ const IMP_PBOF: i32 = 0xA1440;
 const IMP_PCOF: i32 = 0xA145B;
 
 #[tokio::main]
-async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
     run_test().await;
     Ok(())
 }
 
 #[tokio::main]
-async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
@@ -185,7 +186,7 @@ async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
     let b_save_to_mongodb = matches.occurrences_of("SAVE_TO_MONGODB") == 1;
     let b_save_sys = matches.occurrences_of("SAVE_SYS") == 1;
     let b_save_to_log = matches.occurrences_of("LOG") == 1;
-    let b_save_to_exp=matches.occurrences_of("EXP") == 1;
+    let b_save_to_exp = matches.occurrences_of("EXP") == 1;
     dbg!(b_save_to_mongodb);
     let b_save_to_mysql = matches.occurrences_of("SAVE_TO_MYSQL") == 1;
 
@@ -404,7 +405,7 @@ async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
                 for chunk in ele_data_vec.chunks(10000) {
                     collection.insert_many(
-                        chunk.to_owned(),None,
+                        chunk.to_owned(), None,
                     ).await?;
                     // for ele in chunk {
                     //     collection.find_one_and_replace(
@@ -477,23 +478,23 @@ async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
         }
         if b_save_to_exp {
             let mut file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
-            let reader=BufReader::new(file);
-            let database_info: DashMap<String,Vec<(String,String)>> = serde_json::from_reader(reader).unwrap();
-            let  exp_type = HashSet::from([String::from("SSPH"),"SCTO".to_string(),"PTAX".to_string(),"LINE".to_string(),"SCYL".to_string(),"SCTO".to_string(),"LSNO".to_string(),"LCYL".to_string(),"PTCA".to_string(),"SDSH".to_string(),
-                "BLTP".to_string(),"SSPH".to_string(),"SBOX".to_string(),"SCON".to_string()]);
+            let reader = BufReader::new(file);
+            let database_info: DashMap<String, Vec<(String, String)>> = serde_json::from_reader(reader).unwrap();
+            let exp_type = HashSet::from([String::from("SSPH"), "SCTO".to_string(), "PTAX".to_string(), "LINE".to_string(), "SCYL".to_string(), "SCTO".to_string(), "LSNO".to_string(), "LCYL".to_string(), "PTCA".to_string(), "SDSH".to_string(),
+                "BLTP".to_string(), "SSPH".to_string(), "SBOX".to_string(), "SCON".to_string()]);
             //let  exp_type = HashSet::from(["DATA".to_string()]);
-            let mut parse_and_pdms_expression=DashMap::new();
-            for (key,ele_data_vec) in db_eles_data_map{
-                let table_name=db1_dehash(key as u32);
+            let mut parse_and_pdms_expression = DashMap::new();
+            for (key, ele_data_vec) in db_eles_data_map {
+                let table_name = db1_dehash(key as u32);
                 if exp_type.contains(&table_name) {
                     for ele in ele_data_vec {
-                        let refno=ele.ref_no;
-                        println!("type={},refno={}",table_name,refno);
-                        if let Some(map)=database_info.get(&refno) {
+                        let refno = ele.ref_no;
+                        println!("type={},refno={}", table_name, refno);
+                        if let Some(map) = database_info.get(&refno) {
                             let value = ele.attr_data_map;
-                            let result=map.clone();
-                            let new_result=print_refno_expression_data(value, result);
-                            parse_and_pdms_expression.insert(refno,new_result);
+                            let result = map.clone();
+                            let new_result = print_refno_expression_data(value, result);
+                            parse_and_pdms_expression.insert(refno, new_result);
                         }
                         println!(" ")
                     }
@@ -834,9 +835,9 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 if debug_flag {
                     println!("{:#4X?}", &merged_data);
                 }
-                let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, ele_data.attr_data_map.clone(),refno, explicit_start).unwrap();
+                let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, ele_data.attr_data_map.clone(), refno, explicit_start).unwrap();
                 //ele_data.attr_data_map = explicit_attr_map;
-                for (key,val) in explicit_attr_map{
+                for (key, val) in explicit_attr_map {
                     ele_data.attr_data_map.insert(key, val);
                 }
             }
@@ -885,34 +886,32 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
     use nom::bytes::complete::take;
     let b_axis = check_is_axis(attr_info.hash);
     if b_axis {
-        let mut r=AttrVal::BoolType(false);
+        let mut r = AttrVal::BoolType(false);
         // 隐式属性的所有StringType的offset都给原本的值-1，表达式默认是StringType，但是他不需要-1,所以这里slice的时候再+1
         match attr_info.att_type.clone() {
-             DbAttributeType::STRING => {
+            DbAttributeType::STRING => {
                 let (_, ar) = convert_to_implicit_axis_string(&input[4..])?;
-                r=ar;
+                r = ar;
             }
             _ => {
                 let (_, ar) = convert_to_implicit_axis_string(input)?;
-                r=ar;
+                r = ar;
             }
-
         }
 
         log::error!("隐式属性 ref_no={:?} position={:#04X?} val={:?}",ref_no,pos,r);
         val = r;
-
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
-        if attr_info.hash == 0x9DB99 || attr_info.hash == 0x85438{ //0x9DB99 LEVEL  0x85438 PTS
+        if attr_info.hash == 0x9DB99 || attr_info.hash == 0x85438 { //0x9DB99 LEVEL  0x85438 PTS
             let (mut tmp_input, length) = be_i32(input)?;
             let mut result = vec![];
-            let mut length=length as usize;
-            while tmp_input.len() >= 4 && length> 0 {
+            let mut length = length as usize;
+            while tmp_input.len() >= 4 && length > 0 {
                 let (input, value) = be_i32(tmp_input)?;
                 result.push(value);
-                tmp_input=input;
-                length-=1;
+                tmp_input = input;
+                length -= 1;
             }
             val = AttrVal::IntArrayType(result);
         } else {
@@ -985,7 +984,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
 }
 
 /// 获取已知显式属性
-pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, implicit_data:DashMap<String,AttrVal> , refno: RefNoTuple, pos: usize) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
+pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, implicit_data: DashMap<String, AttrVal>, refno: RefNoTuple, pos: usize) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
     let mut explict_attrs = DashMap::new();
     let mut residual = input;
     let total_len = input.len();
@@ -996,22 +995,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
         }
         let explict_num = i32::from_be_bytes(residual[..4].try_into().unwrap());
         if check_is_axis(explict_num) {
-            ///todo 这里两个表达式的接口没有统一，这个是直接从0xFF...他的属性开始的 ，第二个是从属性和他的长度结束开始的（在第1007行）
-            /// 第二个方法应该用不上，但是为了保险还是留在了那里
-            if let Some(val)=implicit_data.get("NUMB"){
-                let order=match *val {
-                    IntegerType(val) => {val}
-                    _ => { 0 }
-                };
-                let (input, (expression_type, value)) = get_expression_attr_for_test(residual,order).unwrap();
-                explict_attrs.insert(expression_type, StringType(value));
-                residual = input;
-            }else {
-                let (input, (expression_type, value)) = get_expression_attr_for_test(residual,0).unwrap();
-                explict_attrs.insert(expression_type, StringType(value));
-                residual = input;
-            }
-
+            let (input, (expression_type, value)) = get_expression_attr_for_test(residual).unwrap();
+            explict_attrs.insert(expression_type, StringType(value));
+            residual = input;
         } else {
             let (l, (explict_num, attr_type_num, type_len)) = tuple((
                 be_i32,
@@ -1024,12 +1010,12 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                 // 我的思路是把 type后面得长度给到input_tep  input_tep只取一小段 然后用input_tep做解析
                 // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
                 let tmp_input = &l[..type_len * 4];
-
-                if attr_info_map.contains_key(&explict_num) {
-                    // let b_axis = check_is_axis(explict_num);
-                    let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
-                    // if !b_axis {
-                        // vec<f64>
+                // if explict_num == ATT_PTCDI {
+                //     let (_, res) = convert_to_explicit_axis_string(tmp_input)?;
+                //     explict_attrs.insert("PTCDI".to_string(), res);
+                // } else {
+                    if attr_info_map.contains_key(&explict_num) {
+                        let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
                         if attr_type_num == 0x1800 {
                             attr_info.att_type = DbAttributeType::DOUBLEVEC;
                         } else if attr_type_num == 0x1C00 || attr_type_num == 0x2000 {
@@ -1037,10 +1023,10 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         } else if attr_type_num == 0x0C00 {
                             attr_info.att_type = DbAttributeType::WORD;
                         }
-                    // DESP 特殊处理
-                    if explict_num == 0xD20C7 {
-                        attr_info.att_type = DbAttributeType::INTVEC;
-                    }
+                        // DESP 特殊处理
+                        if explict_num == 0xD20C7 {
+                            attr_info.att_type = DbAttributeType::INTVEC;
+                        }
                         // 根据获取到的type hash值，拿到需要的类型
                         match attr_info.att_type {
                             DbAttributeType::INTEGER => {
@@ -1102,7 +1088,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                             DbAttributeType::DATETIME => {}
 
                             DbAttributeType::DOUBLEVEC => {
-                                // println!("tmp_input={:#04X?}", tmp_input);
                                 let array_len = tmp_input.len() / 4;
                                 let (tmp_input, data_len) = be_i32(tmp_input)?;
                                 let len = data_len as usize;
@@ -1113,7 +1098,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                     let mut data = vec![];
                                     for _ in 0..len {
                                         if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                            data.push(f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0);
+                                            data.push((f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0);
                                             tmp_input = &tmp_input[8..];
                                         }
                                     }
@@ -1123,7 +1108,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                     for _ in 0..len {
                                         if let [a, b, c, d] = tmp_input[..4] {
                                             let val = f32::from_be_bytes([a, b, c, d]) as f64;
-                                            data.push(f64::trunc(val * 10000.0) / 10000.0);
+                                            data.push((val * 100.0).round() / 100.0);
                                             tmp_input = &tmp_input[4..];
                                         }
                                     }
@@ -1145,141 +1130,133 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
 
                             _ => {}
                         }
-                    // } else {
-                    //     let tmp_input = &tmp_input[..];
-                    //     let (_, val) = convert_to_explicit_axis_string(tmp_input)?;
-                    //     log::error!("显式属性 ref_no={:?} position={:#04X?} val={:?}", refno, debug_pos, val);
-                    //     dbg!(&attr_info.name);
-                    //     explict_attrs.insert(attr_info.name.clone(), val);
-                    // }
-                } else {
-                    // 先进行表达式的判断
-                    if check_is_axis(explict_num) {
-                        let tmp_input = &tmp_input[..];
-                        let (_, (key, val)) = get_expression_attr(explict_num, tmp_input)?;
-                        explict_attrs.insert(key, StringType(val));
                     } else {
-                        /// 这里的逻辑改了一下，先判断是否为表达式，所以之前在这里的表达式判断就注释掉了
-                        // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
-                        if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos+pos) {
-                            //let b_axis = check_is_axis(explict_num);
-                            let attr_name = db1_dehash(explict_num as u32);
-                            //if !b_axis {
-                            // 根据获取到的type hash值，拿到需要的类型
-                            match attr_type {
-                                DbAttributeType::INTEGER => {
-                                    let (_, val) = be_i32(tmp_input)?;
-                                    explict_attrs.insert(attr_name, IntegerType(val));
-                                }
-                                DbAttributeType::DOUBLE => {
-                                    if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                        let val = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                        explict_attrs.insert(attr_name, DoubleType(val));
-                                    }
-                                }
-                                DbAttributeType::BOOL => {
-                                    let (_, val) = be_u32(tmp_input)?;
-                                    explict_attrs.insert(attr_name, BoolType(val != 0));
-                                }
-                                DbAttributeType::STRING => {
-                                    let (_, a) = be_u32(tmp_input)?;
-                                    let len_a = a as usize;
-                                    if tmp_input.len() > 4 {
-                                        let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
-                                        // dbg!(&decode_string);
-                                        explict_attrs.insert(attr_name, AttrVal::StringType(decode_string));
-                                    } else {
-                                        println!("len_a={:#04X?}", len_a);
-                                        println!("error refno={:?}", refno);
-                                        println!("error 显示 input={:#04X?}", tmp_input);
-                                    }
-                                }
-                                DbAttributeType::ELEMENT => {
-                                    let (_, (ref_0, ref_1)) = tuple((
-                                        be_i32,
-                                        be_i32,
-                                    ))(tmp_input)?;
-                                    explict_attrs.insert(attr_name, ElementType(convert_ref_to_string(&(ref_0, ref_1))));
-                                    //explict_attrs.entry(attr_info.name.clone()).or_insert( ElementType((ref_0, ref_1)));
-                                }
-                                DbAttributeType::WORD => {
-                                    let (_, val) = be_i32(tmp_input)?;
-                                    if val >= 0x81BF1 {
-                                        let val_word = db1_dehash(val as u32);
-                                        explict_attrs.insert(attr_name, WordType(val_word));
-                                    } else {
+                        // 先进行表达式的判断
+                        if check_is_axis(explict_num) {
+                            let tmp_input = &tmp_input[..];
+                            let (_, (key, val)) = get_expression_attr(explict_num, tmp_input)?;
+                            explict_attrs.insert(key, StringType(val));
+                        } else {
+                            /// 这里的逻辑改了一下，先判断是否为表达式，所以之前在这里的表达式判断就注释掉了
+                            // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
+                            if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos + pos) {
+                                let attr_name = db1_dehash(explict_num as u32);
+                                // 根据获取到的type hash值，拿到需要的类型
+                                match attr_type {
+                                    DbAttributeType::INTEGER => {
+                                        let (_, val) = be_i32(tmp_input)?;
                                         explict_attrs.insert(attr_name, IntegerType(val));
                                     }
-                                }
-                                DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
-                                    let (l, v) = be_i32(tmp_input)?;
-                                    let len = v as usize;
-                                    let mut data = [0f64; 3];
-                                    for i in 0..3 {
-                                        if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
-                                            // 保留两位精度
-                                            data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
+                                    DbAttributeType::DOUBLE => {
+                                        if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
+                                            let val = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
+                                            explict_attrs.insert(attr_name, DoubleType(val));
                                         }
                                     }
-                                    explict_attrs.insert(attr_name, Vec3Type(data));
-                                }
-
-                                DbAttributeType::DOUBLEVEC => {
-                                    // println!("tmp_input={:#04X?}", tmp_input);
-                                    let array_len = tmp_input.len() / 4;
-                                    let (tmp_input, data_len) = be_i32(tmp_input)?;
-                                    let len = data_len as usize;
-                                    let double_or_float = array_len / len;
-                                    let mut tmp_input = tmp_input;
-
-                                    if double_or_float == 2 {
-                                        let mut data = vec![];
-                                        for _ in 0..len {
-                                            if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                                data.push(f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0);
-                                                tmp_input = &tmp_input[8..];
+                                    DbAttributeType::BOOL => {
+                                        let (_, val) = be_u32(tmp_input)?;
+                                        explict_attrs.insert(attr_name, BoolType(val != 0));
+                                    }
+                                    DbAttributeType::STRING => {
+                                        let (_, a) = be_u32(tmp_input)?;
+                                        let len_a = a as usize;
+                                        if tmp_input.len() > 4 {
+                                            let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
+                                            // dbg!(&decode_string);
+                                            explict_attrs.insert(attr_name, AttrVal::StringType(decode_string));
+                                        } else {
+                                            println!("len_a={:#04X?}", len_a);
+                                            println!("error refno={:?}", refno);
+                                            println!("error 显示 input={:#04X?}", tmp_input);
+                                        }
+                                    }
+                                    DbAttributeType::ELEMENT => {
+                                        let (_, (ref_0, ref_1)) = tuple((
+                                            be_i32,
+                                            be_i32,
+                                        ))(tmp_input)?;
+                                        explict_attrs.insert(attr_name, ElementType(convert_ref_to_string(&(ref_0, ref_1))));
+                                        //explict_attrs.entry(attr_info.name.clone()).or_insert( ElementType((ref_0, ref_1)));
+                                    }
+                                    DbAttributeType::WORD => {
+                                        let (_, val) = be_i32(tmp_input)?;
+                                        if val >= 0x81BF1 {
+                                            let val_word = db1_dehash(val as u32);
+                                            explict_attrs.insert(attr_name, WordType(val_word));
+                                        } else {
+                                            explict_attrs.insert(attr_name, IntegerType(val));
+                                        }
+                                    }
+                                    DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
+                                        let (l, v) = be_i32(tmp_input)?;
+                                        let len = v as usize;
+                                        let mut data = [0f64; 3];
+                                        for i in 0..3 {
+                                            if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
+                                                // 保留两位精度
+                                                data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
                                             }
                                         }
-                                        explict_attrs.insert(attr_name, DoubleArrayType(data));
-                                    } else if double_or_float == 1 {
+                                        explict_attrs.insert(attr_name, Vec3Type(data));
+                                    }
+
+                                    DbAttributeType::DOUBLEVEC => {
+                                        // println!("tmp_input={:#04X?}", tmp_input);
+                                        let array_len = tmp_input.len() / 4;
+                                        let (tmp_input, data_len) = be_i32(tmp_input)?;
+                                        let len = data_len as usize;
+                                        let double_or_float = array_len / len;
+                                        let mut tmp_input = tmp_input;
+
+                                        if double_or_float == 2 {
+                                            let mut data = vec![];
+                                            for _ in 0..len {
+                                                if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
+                                                    data.push(f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0);
+                                                    tmp_input = &tmp_input[8..];
+                                                }
+                                            }
+                                            explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                        } else if double_or_float == 1 {
+                                            let mut data = vec![];
+                                            for _ in 0..len {
+                                                if let [a, b, c, d] = tmp_input[..4] {
+                                                    let val = f32::from_be_bytes([a, b, c, d]) as f64;
+                                                    data.push(f64::trunc(val * 10000.0) / 10000.0);
+                                                    tmp_input = &tmp_input[4..];
+                                                }
+                                            }
+                                            explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                        }
+                                    }
+                                    DbAttributeType::INTVEC => {
+                                        let (tmp_input, len) = be_u32(tmp_input)?;
+                                        let len = len as usize;
+                                        let mut tmp_input = tmp_input;
                                         let mut data = vec![];
                                         for _ in 0..len {
-                                            if let [a, b, c, d] = tmp_input[..4] {
-                                                let val = f32::from_be_bytes([a, b, c, d]) as f64;
-                                                data.push(f64::trunc(val * 10000.0) / 10000.0);
-                                                tmp_input = &tmp_input[4..];
-                                            }
+                                            let (remain_input, val) = be_i32(tmp_input)?;
+                                            data.push(val);
+                                            tmp_input = remain_input;
                                         }
-                                        explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                        explict_attrs.insert(attr_name, IntArrayType(data));
                                     }
-                                }
-                                DbAttributeType::INTVEC => {
-                                    let (tmp_input, len) = be_u32(tmp_input)?;
-                                    let len = len as usize;
-                                    let mut tmp_input = tmp_input;
-                                    let mut data = vec![];
-                                    for _ in 0..len {
-                                        let (remain_input, val) = be_i32(tmp_input)?;
-                                        data.push(val);
-                                        tmp_input = remain_input;
+                                    DbAttributeType::TYPEX => {
+                                        let (tmp_input, len) = be_u32(tmp_input)?;
+                                        if len == 1 {
+                                            let (_, typex) = be_u32(&tmp_input[..4])?;
+                                            let typex = db1_dehash(typex);
+                                            explict_attrs.entry("TYPE".to_string()).or_insert(StringType(typex));
+                                        } else {
+                                            println!("undefined TYPE len {} position={:#04X?}", len, pos);
+                                        }
                                     }
-                                    explict_attrs.insert(attr_name, IntArrayType(data));
+                                    _ => {}
                                 }
-                                DbAttributeType::TYPEX => {
-                                    let (tmp_input, len) = be_u32(tmp_input)?;
-                                    if len == 1 {
-                                        let (_, typex) = be_u32(&tmp_input[..4])?;
-                                        let typex = db1_dehash(typex);
-                                        explict_attrs.entry("TYPE".to_string()).or_insert(StringType(typex));
-                                    } else {
-                                        println!("undefined TYPE len {} position={:#04X?}", len, pos);
-                                    }
-                                }
-                                _ => {}
                             }
                         }
                     }
-                }
+                // }
             } else {
                 break;
             }
@@ -1345,12 +1322,12 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                         let radius = radius / 100;
                         let mut result = String::new();
                         match &tmp_input[3..4] {
-                            &[0xF4] => { result = format!("X{}Y", radius); }
-                            &[0xD2] => { result = format!("-X{}-Z", radius); }
-                            &[0xF0] => { result = format!("X{}-Z", radius); }
-                            &[0xEB] => { result = format!("Y{}X", radius); }
-                            &[0xE0] => { result = format!("Z{}Y", radius); }
-                            &[0xE1] => { result = format!("Z{}X", radius); }
+                            &[0xF4] => { result = format!("X {} Y", radius); }
+                            &[0xD2] => { result = format!("-X {} -Z", radius); }
+                            &[0xF0] => { result = format!("X {} -Z", radius); }
+                            &[0xEB] => { result = format!("Y {} X", radius); }
+                            &[0xE0] => { result = format!("Z {} Y", radius); }
+                            &[0xE1] => { result = format!("Z {} X", radius); }
                             &_ => {}
                         }
                         val = AttrVal::StringType(result);
@@ -1404,25 +1381,24 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
         let mut val = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
         match &tmp_input[..2] {
-
             &[0x0, 0x0] => {
-                let (_,times)=be_i16(&tmp_input[2..4])?;
-                let times=times_keep_f32_two_decimal_place(times as i32);
+                let (_, times) = be_i16(&tmp_input[2..4])?;
+                let times = times_keep_f32_two_decimal_place(times as i32);
                 if times == 1.0 {
                     val = "PARAM".to_string();
-                }else if times == 0.0 {
+                } else if times == 0.0 {
                     val = "".to_string();
-                }else {
-                    val = format!("{} TIMES PARAM",times);
+                } else {
+                    val = format!("{} TIMES PARAM", times);
                 }
             }
-            &[0xFF,0xFF] => {
-                let (_,times)=be_i16(&tmp_input[2..4])?;
-                if times>0xFFFFu16 as i16 {
+            &[0xFF, 0xFF] => {
+                let (_, times) = be_i16(&tmp_input[2..4])?;
+                if times > 0xFFFFu16 as i16 {
                     let mut times = ((0xFFFFu16 as i16) as f32 - times as f32 - 1.0) / 40.0f32;
                     times = (times * 100.0_f32).round() / 100.0;
                     val = format!("{} TIMES PARAM", times);
-                }else {
+                } else {
                     let mut times = (times as f32 - (0xFFFFu16 as i16) as f32 - 1.0) / 40.0f32;
                     times = (times * 100.0_f32).round() / 100.0;
                     val = format!("{} TIMES PARAM", times);
@@ -1433,26 +1409,25 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
         match &tmp_input[4..8] {
             &[0x0, 0x0, 0x0, 0x1] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
-                if value >= 0x65 && value<0x3E9{
+                if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
                     val = format!("IPARAM {}", value);
-                }else if value >=0x3E9{
-                    let value=value-0x3E8;
-                    if value >= 0x65{
-                        let value = value -0x64;
-                        val = format!("- IPARAM {}" ,value);
-
-                    }else {
+                } else if value >= 0x3E9 {
+                    let value = value - 0x3E8;
+                    if value >= 0x65 {
+                        let value = value - 0x64;
+                        val = format!("- IPARAM {}", value);
+                    } else {
                         val = format!("- {} {}", val, value);
                     }
-                }else if  value <= 0xFFFFFFFFu32 as i32{
-                    if value>0xFFFFFFFAu32 as i32{
-                        let value=get_implicit_expression(&tmp_input[8..12]);
+                } else if value <= 0xFFFFFFFFu32 as i32 {
+                    if value > 0xFFFFFFFAu32 as i32 {
+                        let value = get_implicit_expression(&tmp_input[8..12]);
                         val = value;
-                    }else {
+                    } else {
                         let (_, times) = be_i16(&tmp_input[2..4])?;
-                        let times = (times as f32) / 40.0f32 ;
+                        let times = (times as f32) / 40.0f32;
                         let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value) as f32 / 0xA as f32 + 0.1) * 100.0).ceil() / 100.0;
                         if times != 1.0 {
                             val = format!("{} TIMES {}", times, value.to_string());
@@ -1460,14 +1435,14 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                             val = value.to_string();
                         }
                     }
-                }else {
+                } else {
                     val = format!("{} {}", val, value);
                 }
             }
             &[0x0, 0x0, 0x0, 0x2] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
                 if value > 1000 {
-                    let value=value - 1000 ;
+                    let value = value - 1000;
                     match &tmp_input[12..16] {
                         &[0xFF, 0xFF, 0xFF, 0xFB] => {
                             val = format!("TANF - {} {} DDHEIGHT", val, value);
@@ -1477,7 +1452,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                         }
                         _ => {}
                     }
-                }else {
+                } else {
                     match &tmp_input[12..16] {
                         &[0xFF, 0xFF, 0xFF, 0xFB] => {
                             val = format!("TANF {} {} DDHEIGHT", val, value);
@@ -1488,63 +1463,62 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                         _ => {}
                     }
                 }
-
             }
             &[0x0, 0x0, 0x0, 0x3] => {
-                let (_,times)=be_i32(&tmp_input[..4])?;
-                let times=times_keep_f32_two_decimal_place(times);
+                let (_, times) = be_i32(&tmp_input[..4])?;
+                let times = times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
                 let mut result = String::from("PARAM");
-                if value1 >= 0x65 && value1 <0x1F5{
-                    let value1 = f32::trunc(((value1 - 0x64) as f32 + 0.005 ) *100.0).ceil() /100.0;
+                if value1 >= 0x65 && value1 < 0x1F5 {
+                    let value1 = f32::trunc(((value1 - 0x64) as f32 + 0.005) * 100.0).ceil() / 100.0;
                     val = format!("IPARAM {}", value1);
-                }else if  value1 >= 0x1F5 {
-                    let value1=value1-0x1F4;
-                    val = format!("TWICE PATAM {}",value1);
-                }else if value1<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                } else if value1 >= 0x1F5 {
+                    let value1 = value1 - 0x1F4;
+                    val = format!("TWICE PATAM {}", value1);
+                } else if value1 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     val = value.to_string();
-                }else {
+                } else {
                     val = format!("PARAM {}", value1);
                 }
-                if value2 >= 0x65 && value2 <0x1F5{
+                if value2 >= 0x65 && value2 < 0x1F5 {
                     let value2 = value2 - 0x64;
                     result = format!("IPARAM {}", value2);
-                }else if  value2 >= 0x1F5 {
-                    let value2=value2 - 0x1F4;
-                    result = format!("TWICE PATAM {}",value2);
-                }else if value2<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
-                    result =value.to_string();
+                } else if value2 >= 0x1F5 {
+                    let value2 = value2 - 0x1F4;
+                    result = format!("TWICE PATAM {}", value2);
+                } else if value2 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
                 }
-                if times != 1.0{
-                    val = format!("{} TIMES DIFFERENCE {} {}",times,val,result);
+                if times != 1.0 {
+                    val = format!("{} TIMES DIFFERENCE {} {}", times, val, result);
                 } else {
                     val = format!("DIFFERENCE {} {}", val, result);
                 }
             }
 
             &[0x0, 0x0, 0x0, 0x4] => {
-                let (_,times)=be_i32(&tmp_input[..4])?;
-                let times=times_keep_f32_two_decimal_place(times);
+                let (_, times) = be_i32(&tmp_input[..4])?;
+                let times = times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
                 let mut result = String::from("PARAM");
-                if value1 >= 0x65 && value1 <0x1F5{
+                if value1 >= 0x65 && value1 < 0x1F5 {
                     let value1 = value1 - 0x64;
                     val = format!("IPARAM {}", value1);
-                }else if  value1 >= 0x1F5 {
-                    let value1=value1-0x1F4;
-                    val = format!("TWICE PATAM {}",value1);
-                }else if value1<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                } else if value1 >= 0x1F5 {
+                    let value1 = value1 - 0x1F4;
+                    val = format!("TWICE PATAM {}", value1);
+                } else if value1 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -1552,27 +1526,27 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 if value2 >= 0x65 {
                     let value2 = value2 - 0x64;
                     result = format!("IPARAM {}", value2);
-                }else if  value2 >= 0x1F5 {
-                    let value2=value2-0x1F4;
-                    val = format!("TWICE PATAM {}",value2);
-                }else if value2<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
-                    result =value.to_string();
+                } else if value2 >= 0x1F5 {
+                    let value2 = value2 - 0x1F4;
+                    val = format!("TWICE PATAM {}", value2);
+                } else if value2 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
                 }
-                if times != 1.0{
-                    val = format!("{} TIMES SUM {} {}",times,val,result);
+                if times != 1.0 {
+                    val = format!("{} TIMES SUM {} {}", times, val, result);
                 } else {
                     val = format!("SUM {} {}", val, result);
                 }
             }
             &[0x0, 0x0, 0x0, 0x7] => {
-                return Ok((input,StringType(String::new())))
+                return Ok((input, StringType(String::new())));
             }
             &[0x0, 0x0, 0x0, 0x8] => {
-                let (_,times)=be_i32(&tmp_input[..4])?;
-                let times=times_keep_f32_two_decimal_place(times);
+                let (_, times) = be_i32(&tmp_input[..4])?;
+                let times = times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1581,72 +1555,71 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 if value1 >= 0x65 {
                     let value1 = value1 - 0x64;
                     val = format!("IPARAM {}", value1);
-                }else if  value1 >= 0x1F5 && value1 <0x1F5{
-                    let value1=value1-0x1F4;
-                    val = format!("TWICE PATAM {}",value1);
-                }else if value1<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                } else if value1 >= 0x1F5 && value1 < 0x1F5 {
+                    let value1 = value1 - 0x1F4;
+                    val = format!("TWICE PATAM {}", value1);
+                } else if value1 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     val = value.to_string();
-                }  else {
+                } else {
                     val = format!("PARAM {}", value1);
                 }
-                if value2 >= 0x65 && value2 <0x1F5{
+                if value2 >= 0x65 && value2 < 0x1F5 {
                     let value2 = value2 - 0x64;
                     result = format!("IPARAM {}", value2);
-                }else if  value2 >= 0x1F5 {
-                    let value2=value2-0x1F4;
-                    result = format!("TWICE PATAM {}",value2);
-                }else if value2<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
-                    result =value.to_string();
-                }  else {
+                } else if value2 >= 0x1F5 {
+                    let value2 = value2 - 0x1F4;
+                    result = format!("TWICE PATAM {}", value2);
+                } else if value2 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    result = value.to_string();
+                } else {
                     result = format!("PARAM {}", value2);
                 }
-                if times != 1.0{
-                    val = format!("{} TIMES SUM {} {}",times,val,result);
+                if times != 1.0 {
+                    val = format!("{} TIMES SUM {} {}", times, val, result);
                 } else {
                     val = format!("MULT {} {}", val, result);
                 }
             }
             &[0x0, 0x0, 0x0, 0x9] => {
-                let (_,times)=be_i32(&tmp_input[..4])?;
-                let times=times_keep_f32_two_decimal_place(times);
+                let (_, times) = be_i32(&tmp_input[..4])?;
+                let times = times_keep_f32_two_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
                 let mut result = String::from("PARAM");
-                if value1 >= 0x65 && value1 <0x1F5{
+                if value1 >= 0x65 && value1 < 0x1F5 {
                     let value1 = value1 - 0x64;
                     val = format!("IPARAM {}", value1);
-                }else if  value1 >= 0x1F5 {
-                    let value1=value1-0x1F4;
-                    val = format!("TWICE PATAM {}",value2);
-                }else if value1<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value1 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
+                } else if value1 >= 0x1F5 {
+                    let value1 = value1 - 0x1F4;
+                    val = format!("TWICE PATAM {}", value2);
+                } else if value1 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     val = value.to_string();
-                }  else {
+                } else {
                     val = format!("PARAM {}", value1);
                 }
-                if value2 >= 0x65 && value2 <0x1F5{
+                if value2 >= 0x65 && value2 < 0x1F5 {
                     let value2 = value2 - 0x64;
                     result = format!("IPARAM {}", value2);
-                }else if  value2 >= 0x1F5 {
-                    let value2=value2-0x1F4;
-                    result = format!("TWICE PATAM {}",value2);
-                } else if value2<=0xFFFFFFFFu32 as i32 {
-                    let value=f32::trunc(((0xFFFFFFFFu32 as i32 - value2 ) as f32 /0xA as f32  + 0.1) * 10.0) /10.0 ;
-                    result =value.to_string();
-                }else {
+                } else if value2 >= 0x1F5 {
+                    let value2 = value2 - 0x1F4;
+                    result = format!("TWICE PATAM {}", value2);
+                } else if value2 <= 0xFFFFFFFFu32 as i32 {
+                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    result = value.to_string();
+                } else {
                     result = format!("PARAM {}", value2);
                 }
-                if times != 1.0{
-                    val = format!("{} TIMES SUM {} {}",times,val,result);
+                if times != 1.0 {
+                    val = format!("{} TIMES SUM {} {}", times, val, result);
                 } else {
                     val = format!("DIV {} {}", val, result);
                 }
             }
-
 
             _ => {}
         }
@@ -1676,32 +1649,69 @@ pub fn convert_to_explicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
         ))(input)?;
 
         if [a, b, c, d, e] == [0x1A, 0x1A, 0x5, 0x2, 0x17] {
-            let (tmp_input, first) = be_u32(tmp_input)?;
-            let first = match_explicit_attribute_to_string(first);
+            match &tmp_input[24..26] {
+                &[0x0, 0x0] => {
+                    let (tmp_input, first) = be_u32(tmp_input)?;
+                    let first = match_explicit_attribute_to_string(first);
 
-            let data = &tmp_input[16..28];
-            let mut dst_data = data[..8].to_vec();
-            let dst_first = (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
-            dst_data[0] = dst_first;
-            dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
-            let first_data = f64::from_be_bytes(dst_data.try_into().unwrap());
+                    let data = &tmp_input[16..28];
+                    let (_, first_data) = parse_axis_explicit_value_00(data)?;
 
-            let tmp_input = &tmp_input[36..];
-            let (tmp_input, second) = be_u32(tmp_input)?;
-            let second = match_explicit_attribute_to_string(second);
+                    let tmp_input = &tmp_input[36..];
+                    let (tmp_input, second) = be_u32(tmp_input)?;
+                    let second = match_explicit_attribute_to_string(second);
 
-            let data = &tmp_input[16..28];
-            let mut dst_data = data[..8].to_vec();
-            let dst_second = (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
-            dst_data[0] = dst_second;
-            dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
-            let second_data = f64::from_be_bytes(dst_data.try_into().unwrap());
+                    let data = &tmp_input[16..28];
+                    let (_, second_data) = parse_axis_explicit_value_00(data)?;
 
-            let tmp_input = &tmp_input[36..];
-            let (tmp_input, third) = be_u32(tmp_input)?;
-            let third = match_explicit_attribute_to_string(third);
-            let combine_result = format!("{}{}{}{}{}", first, first_data, second, second_data, third);
-            result = AttrVal::StringType(combine_result);
+                    let tmp_input = &tmp_input[36..];
+                    let (_tmp_input, third) = be_u32(tmp_input)?;
+                    let third = match_explicit_attribute_to_string(third);
+                    let combine_result = format!("{} ( {} ) {} ( {} ) {}", first, first_data, second, second_data, third);
+                    result = AttrVal::StringType(combine_result);
+                }
+                &[0x40, 0x0] => {
+                    let (tmp_input, first) = be_u32(tmp_input)?;
+                    let first = match_explicit_attribute_to_string(first);
+
+                    let data = &tmp_input[16..28];
+                    let (_, first_data) = parse_axis_explicit_value_40(data)?;
+
+                    let tmp_input = &tmp_input[36..];
+                    let (tmp_input, second) = be_u32(tmp_input)?;
+                    let second = match_explicit_attribute_to_string(second);
+
+                    let data = &tmp_input[16..28];
+                    let (_, second_data) = parse_axis_explicit_value_40(data)?;
+
+                    let tmp_input = &tmp_input[36..];
+                    let (_tmp_input, third) = be_u32(tmp_input)?;
+                    let third = match_explicit_attribute_to_string(third);
+                    let combine_result = format!("{} ( {} ) {} ( {} ) {}", first, first_data, second, second_data, third);
+                    result = AttrVal::StringType(combine_result);
+                }
+                &[0xFF, 0xFF] => {
+                    let (tmp_input, first) = be_u32(tmp_input)?;
+                    let first = match_explicit_attribute_to_string(first);
+
+                    let data = &tmp_input[16..28];
+                    let (_, first_data) = parse_axis_explicit_value_ff(data)?;
+
+                    let tmp_input = &tmp_input[36..];
+                    let (tmp_input, second) = be_u32(tmp_input)?;
+                    let second = match_explicit_attribute_to_string(second);
+
+                    let data = &tmp_input[16..28];
+                    let (_, second_data) = parse_axis_explicit_value_ff(data)?;
+
+                    let tmp_input = &tmp_input[36..];
+                    let (tmp_input, third) = be_u32(tmp_input)?;
+                    let third = match_explicit_attribute_to_string(third);
+                    let combine_result = format!("{} ( {} ) {} ( {} ) {}", first, first_data, second, second_data, third);
+                    result = AttrVal::StringType(combine_result);
+                }
+                _ => {}
+            }
         }
     }
     Ok((input, result))
@@ -1730,7 +1740,7 @@ pub fn check_is_axis(input: i32) -> bool {
     if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA || input == ATT_PHEI
         || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO || input == ATT_BTHK || input == ATT_BDIA || input == ATT_PTDI
         || input == ATT_PBDI || input == ATT_PBTP || input == ATT_PCTP || input == ATT_PBBT || input == ATT_PCBT || input == ATT_PCAX || input == ATT_PXLE || input == ATT_PYLE
-        || input == ATT_PZLE {
+        || input == ATT_PZLE || input == ATT_PTCDI {
         true
     } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
         || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO || input == IMP_PTDM || input == IMP_PX || input == IMP_PY || input == IMP_PZ || input == IMP_PRAD
@@ -1774,7 +1784,6 @@ pub fn get_implicit_expression(input: &[u8]) -> String {
     }
     val
 }
-
 
 
 #[test]

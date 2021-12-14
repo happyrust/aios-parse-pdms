@@ -10,7 +10,7 @@ use nom::IResult;
 use nom::number::complete::{be_f64, be_i32, be_u16, be_u32, be_i16};
 use nom::sequence::tuple;
 use serde::{Serialize, Deserialize};
-use crate::{convert_to_implicit_axis_string, DbAttributeType};
+use crate::{convert_to_explicit_axis_string, convert_to_implicit_axis_string, DbAttributeType};
 use crate::pdms_types::AttrVal;
 use crate::pdms_types::AttrVal::StringType;
 use crate::pdms_types::DbAttributeType::*;
@@ -288,14 +288,15 @@ fn get_expression_attr_test() {
     let mut file = File::open("BDIA").unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);
-    let (_, (types, result)) = get_expression_attr_for_test(&attr_buf, 0).unwrap();
+    let (_, (types, result)) = get_expression_attr_for_test(&attr_buf).unwrap();
     println!("type={},result={}", types, result);
 }
 
-pub fn get_expression_attr_for_test(input: &[u8], order: i32) -> IResult<&[u8], (String, String)> {
+pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, String)> {
     let expression_type_input = &input[..4];
     let mut expression_type = "PX".to_string();
     match expression_type_input {
+        &[0x0 , 0x9 , 0x5A, 0x34] => { expression_type = "PTCDI".to_string(); }
         &[0xFF, 0xF7, 0xE1, 0x77] => { expression_type = "PX".to_string(); }
         &[0xFF, 0xF7, 0xE1, 0x5C] => { expression_type = "PY".to_string(); }
         &[0xFF, 0xF7, 0xE1, 0x41] => { expression_type = "PZ".to_string(); }
@@ -319,12 +320,27 @@ pub fn get_expression_attr_for_test(input: &[u8], order: i32) -> IResult<&[u8], 
         &[0xFF, 0xF6, 0x3E, 0xA6] => { expression_type = "PZLE".to_string(); }
         _ => {}
     }
+    if expression_type == "PTCDI" {
+        let (_, expression_length) = be_u16(&input[6..8])?;
+        // 显式属性的length后有8个byte没用的，直接跳过了
+        let expression_data = &input[8..(expression_length * 4) as usize + 8 ];
+        let input = &input[(expression_length * 4) as usize + 8 ..];
+        let (_ ,axis) = convert_to_explicit_axis_string(expression_data)?;
+        let mut result=" ".to_string();
+        match axis {
+            StringType(value) => {
+                result = value;
+            }
+            _ => { }
+        }
+        Ok((input, (expression_type, result)))
+    }else {
     let (_, expression_length) = be_u16(&input[6..8])?;
     // 显式属性的length后有8个byte没用的，直接跳过了
     let mut expression_data = &input[16..(expression_length * 4) as usize + 8];
     let input = &input[(expression_length * 4) as usize + 8..];
     // 表达式都是以0x0 0 0 1开头的
-    let expression_start = &expression_data[..4];
+    let _expression_start = &expression_data[..4];
     expression_data = &expression_data[4..];
     // 这是表达式数字的起始标志
     let mut result_stack = vec!["".to_string()];
@@ -350,13 +366,8 @@ pub fn get_expression_attr_for_test(input: &[u8], order: i32) -> IResult<&[u8], 
                     dst_data[0] = dst_first;
                     dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
                     let value_tmp = f64::from_be_bytes(dst_data.try_into().unwrap());
-                    if value_tmp < 1.0 {
-                        result_stack.push(order.to_string());
-                    } else {
-                        // let value = (f64::trunc(value_tmp * 100.0) / 100.0 ).to_string();
-                        let value = ((value_tmp * 100.0).round() / 100.0).to_string();
-                        result_stack.push(value);
-                    }
+                    let value = ((value_tmp * 100.0).round() / 100.0).to_string();
+                    result_stack.push(value);
                     expression_data = &expression_data[12..];
                     // 表达式 值的结束位  这里是个结束位，但是没什么用，后期判断当表达式的值特别大的时候是否有用（目前遇到的值都是三位）
                     let expression_data_value_end = &expression_data[..8];
@@ -778,8 +789,41 @@ pub fn get_expression_attr_for_test(input: &[u8], order: i32) -> IResult<&[u8], 
             }
         }
     }
-    let result = format!("( {} )", result_stack.pop().unwrap());
-    Ok((input, (expression_type, result)))
+        let result = format!("( {} )", result_stack.pop().unwrap());
+        Ok((input, (expression_type, result)))
+    }
+}
+
+/// 解析axis显式属性的值，分为00 40 FF三种
+pub fn parse_axis_explicit_value_00(data: &[u8])-> IResult<&[u8],f64> {
+    let (_, times) = be_i16(&data[10..12])?;
+    let times = 2_f32.powf((5i16 - times) as f32) as f64;
+    let (_, a) = be_i32(&data[..4])?;
+    let (_, b) = be_i32(&data[4..8])?;
+    let value = f64::trunc(((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 100.0) / 100.0;
+    Ok((data,value))
+}
+
+/// 解析axis显式属性的值，分为00 40 FF三种
+pub fn parse_axis_explicit_value_40(data: &[u8])-> IResult<&[u8],f64> {
+    let mut dst_data = data[..8].to_vec();
+    let dst_first = (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
+    dst_data[0] = dst_first;
+    dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
+    let value= f64::from_be_bytes(dst_data.try_into().unwrap());
+    Ok((data,value))
+}
+
+/// 解析axis显式属性的值，分为00 40 FF三种
+pub fn parse_axis_explicit_value_ff(data: &[u8])-> IResult<&[u8],f64> {
+    let (_,time) = be_u16(&data[10..12])?;
+    let time=( time - 0xFFFB ) as f32 * 2.0 ;
+    let (_,value1) = be_i32(&data[..4])?;
+    let value1 = value1 as f32 * 0.000001f32 * time;
+    let (_,value2) = be_i32(&data[4..8])?;
+    let value2 = value2 as f32 / ( 0x6680 as f32 / time ) * 0.000001 ;
+    let value = ( (value1 + value2) * 100.0 ).round() / 100.0 ;
+    Ok((data,value as f64 ))
 }
 
 #[inline]

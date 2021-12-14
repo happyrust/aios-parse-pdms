@@ -17,7 +17,7 @@ use crate::pdms_types::AttrVal::IntArrayType;
 pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
     let client_uri = "mongodb://localhost:27017".to_string();
     let client = Client::with_uri_str(&client_uri).await?;
-    let refno = "15392/5443";
+    let refno = "15192/549";
     let refno_db = client.database("PdmsRefnoDB");
     let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
     let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?;
@@ -27,8 +27,9 @@ pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
         let db = client.database(&db_name);
         let db_tree = client.database(&db_name_tree);
         let refno = query_design_component_by_refno_str_db(refno, &db, &db_tree).await.unwrap();
-        // let scom = resolve_cata_comp_attrs(refno, &db, &db_tree).await?;
-        let scom=resolve_desi_comp_attrs(refno,&db,&db_tree).await?;
+        // dbg!(&refno);
+        let scom = resolve_cata_comp_attrs(refno, &db, &db_tree).await?;
+        // let scom=resolve_desi_comp_attrs(refno,&db,&db_tree).await?;
         dbg!(&scom);
     }
     Ok(())
@@ -87,14 +88,9 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
                 height,
                 itlength,
                 radius,
-                // world_matrix: vec![
-                //     1.0f64, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                // ],
                 world_matrix: get_world_matrix_f64_db(&data_map),
                 world_position: pos.to_vec(),
                 ldirection: direction.data.0.to_vec()[0].to_vec(),
-                // oriflag: true,
-                // posflag: false,
                 desparams,
             })
         }
