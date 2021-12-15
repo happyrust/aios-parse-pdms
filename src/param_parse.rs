@@ -38,7 +38,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         return None;
     }
     // dbg!(&context);
-    ////dbg!(&exp);
+    // dbg!(&seg_strs);
     let mut p_vals = Vec::new();
     let mut i = 0;
     let mut twice_flag = false; //翻倍
@@ -166,7 +166,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     ////dbg!(&result_string);
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
         if let Ok(val) = fasteval::ez_eval(&result_string, &mut ns) {
-            val
+            ( val * 100.0 ).round() /100.0
         } else {
             let mut stack = Stack::new(&result_string);
             stack.eval()

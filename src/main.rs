@@ -15,6 +15,8 @@ mod parse_data_impl;
 
 #[macro_use]
 extern crate nom;
+#[macro_use]
+extern crate lazy_static;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -89,6 +91,8 @@ const ATT_PCBT: i32 = 0xFFF1DC40u32 as i32;
 const ATT_PXLE: i32 = 0xFFF63EDCu32 as i32;
 const ATT_PYLE: i32 = 0xFFF63EC1u32 as i32;
 const ATT_PZLE: i32 = 0xFFF63EA6u32 as i32;
+const ATT_PTDM: i32 = 0xFFF3EEF8u32 as i32;
+const ATT_PBDM: i32 = 0xFFF3F0DEu32 as i32;
 const ATT_PTCDI: i32 = 0x95A34;
 
 const IMP_PAXI: i32 = 0xB146F;
@@ -109,20 +113,42 @@ const IMP_PZ: i32 = 0x81EBF;
 const IMP_PXLE: i32 = 0x9C124;
 const IMP_PYLE: i32 = 0x9C13F;
 const IMP_PZLE: i32 = 0x9C15A;
+const IMP_PBTP: i32 = 0xD235B;
 const IMP_PCTP: i32 = 0xD2376;
 const IMP_PCBT: i32 = 0xE23C0;
 const IMP_PBBT: i32 = 0xE23A5;
 const IMP_PBOF: i32 = 0xA1440;
 const IMP_PCOF: i32 = 0xA145B;
 
+lazy_static! {
+    static ref EXPRESSION: HashSet<i32> = {
+        let mut s = HashSet::new();
+        s.insert(ATT_PAXI);s.insert(ATT_PAAX);s.insert(ATT_PBAX);s.insert(ATT_PCAX);
+        s.insert(ATT_PX);s.insert(ATT_PY);s.insert(ATT_PZ);s.insert(ATT_PDIA);
+        s.insert(ATT_PHEI);s.insert(ATT_PDIS);s.insert(ATT_PCON);s.insert(ATT_PBOR);
+        s.insert(ATT_PPRO);s.insert(ATT_DPRO);s.insert(ATT_BTHK);s.insert(ATT_BDIA);
+        s.insert(ATT_PTDI);s.insert(ATT_PBDI);s.insert(ATT_PBTP);s.insert(ATT_PCTP);
+        s.insert(ATT_PBBT);s.insert(ATT_PCBT);s.insert(ATT_PXLE);s.insert(ATT_PYLE);
+        s.insert(ATT_PZLE);s.insert(ATT_PTDM);s.insert(ATT_PBDM);s.insert(ATT_PTCDI);
+
+        s.insert(IMP_PAXI);s.insert(IMP_PCON);s.insert(IMP_PDIS);s.insert(IMP_PBOR);
+        s.insert(IMP_PDIA);s.insert(IMP_PHEI);s.insert(IMP_PTDI);s.insert(IMP_PTDM);
+        s.insert(IMP_PBDI);s.insert(IMP_PBDM);s.insert(IMP_PPRO);s.insert(IMP_PRAD);
+        s.insert(IMP_PX);s.insert(IMP_PY);s.insert(IMP_PZ);s.insert(IMP_PXLE);
+        s.insert(IMP_PYLE);s.insert(IMP_PZLE);s.insert(IMP_PCTP);s.insert(IMP_PCBT);
+        s.insert(IMP_PBBT);s.insert(IMP_PBOF);s.insert(IMP_PCOF);s.insert(IMP_PBTP);
+        s
+    };
+}
+
 #[tokio::main]
-async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     run_test().await;
     Ok(())
 }
 
 #[tokio::main]
-async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
@@ -1736,18 +1762,9 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 /// 检查是否是Axis属性
 #[inline]
 pub fn check_is_axis(input: i32) -> bool {
-    // 显式得表达式
-    if input == ATT_PBAX || input == ATT_PAAX || input == ATT_PAXI || input == ATT_PX || input == ATT_PY || input == ATT_PZ || input == ATT_PDIA || input == ATT_PHEI
-        || input == ATT_PDIS || input == ATT_PCON || input == ATT_PBOR || input == ATT_PPRO || input == ATT_DPRO || input == ATT_BTHK || input == ATT_BDIA || input == ATT_PTDI
-        || input == ATT_PBDI || input == ATT_PBTP || input == ATT_PCTP || input == ATT_PBBT || input == ATT_PCBT || input == ATT_PCAX || input == ATT_PXLE || input == ATT_PYLE
-        || input == ATT_PZLE || input == ATT_PTCDI {
+    if EXPRESSION.contains(&input) {
         true
-    } else if input == IMP_PCON || input == IMP_PDIS || input == IMP_PDIS || input == IMP_PBOR || input == IMP_PDIA || input == IMP_PHEI || input == IMP_PTDI
-        || input == IMP_PBDI || input == IMP_PBDM || input == IMP_PPRO || input == IMP_PTDM || input == IMP_PX || input == IMP_PY || input == IMP_PZ || input == IMP_PRAD
-        || input == IMP_PYLE || input == IMP_PXLE || input == IMP_PZLE || input == IMP_PAXI || input == IMP_PCTP || input == IMP_PBBT || input == IMP_PCBT || input == IMP_PBOF
-        || input == IMP_PCOF {
-        true
-    } else {
+    }else {
         false
     }
 }

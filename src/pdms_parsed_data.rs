@@ -443,6 +443,28 @@ pub struct CateTubeImpliedParam {
     #[prost(bool, tag = "6")]
     pub tube_flag: bool,
 }
+
+#[derive(Debug,Default,Serialize,Deserialize,Clone)]
+pub struct SLoo{
+    pub name:String,
+    pub refno:String,
+    pub self_type:String,
+    pub owner:String,
+    pub purp:String,
+    pub sver:Vec<Sver>,
+}
+
+#[derive(Debug,Default,Serialize,Deserialize,Clone)]
+pub struct Sver{
+    pub name:String,
+    pub refno:String,
+    pub self_type:String,
+    pub owner:String,
+    pub px:String,
+    pub py:String,
+    pub radius:String,
+}
+
 #[doc = r" Generated client implementations."]
 pub mod query_pdms_data_trait_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]

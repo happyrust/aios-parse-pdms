@@ -34,5 +34,6 @@ dashmap = { version="4.0.2" , features=["serde"] }
 tokio = { version = "1.11.0", features = ["full"] }
 #mysql = "21.0.2"
 serde_json = { version = "1.0" }
+lazy_static = "1.4.0"
 
 static_init = "1.0.1"

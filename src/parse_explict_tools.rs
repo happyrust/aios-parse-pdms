@@ -318,6 +318,8 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
         &[0xFF, 0xF6, 0x3E, 0xDC] => { expression_type = "PXLE".to_string(); }
         &[0xFF, 0xF6, 0x3E, 0xC1] => { expression_type = "PYLE".to_string(); }
         &[0xFF, 0xF6, 0x3E, 0xA6] => { expression_type = "PZLE".to_string(); }
+        &[0xFF, 0xF3, 0xEE, 0xF8] => { expression_type = "PTDM".to_string(); }
+        &[0xFF, 0xF3, 0xF0, 0xDE] => { expression_type = "PBDM".to_string(); }
         _ => {}
     }
     if expression_type == "PTCDI" {

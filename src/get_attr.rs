@@ -17,7 +17,7 @@ use crate::pdms_types::AttrVal::IntArrayType;
 pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
     let client_uri = "mongodb://localhost:27017".to_string();
     let client = Client::with_uri_str(&client_uri).await?;
-    let refno = "15192/549";
+    let refno = "15192/222679";
     let refno_db = client.database("PdmsRefnoDB");
     let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
     let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?;

@@ -203,7 +203,6 @@ pub fn parse_gmse_params(
     let mut paxises: Vec<CateAxisParam> = Vec::new();
     for name in gmse_str.paxises.iter() {
         if name != "" {
-            //////dbg!(&name);
             let (is_negative, name) = if name.starts_with('-') {
                 (true, &name[1..])
             } else {
@@ -219,6 +218,7 @@ pub fn parse_gmse_params(
                             if axis_param_map.contains_key(&index) {
                                 paxises.push(if is_negative {
                                     axis_param_map[&index].clone().neg()
+
                                 } else {
                                     axis_param_map[&index].clone()
                                 });
