@@ -1,3 +1,8 @@
+use dashmap::DashMap;
+use serde::{Serialize, Deserialize};
+use crate::pdms_origin_data::GmseParam;
+use crate::pdms_types::{AttrVal, ElementData};
+
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DesignPipeRequest {
     #[prost(string, tag = "1")]
@@ -162,6 +167,8 @@ pub mod geo_params_data {
         Torus(super::CateTorusParam),
         #[prost(message, tag = "17")]
         TubeImplied(super::CateTubeImpliedParam),
+        #[prost(message, tag = "18")]
+        SVER(super::CateSverParam),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -444,6 +451,16 @@ pub struct CateTubeImpliedParam {
     pub tube_flag: bool,
 }
 
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CateSverParam{
+    #[prost(double, tag = "1")]
+    pub x: f64,
+    #[prost(double, tag = "2")]
+    pub y: f64,
+    #[prost(double, tag = "3")]
+    pub radius:f64,
+}
+
 #[derive(Debug,Default,Serialize,Deserialize,Clone)]
 pub struct SLoo{
     pub name:String,
@@ -452,6 +469,19 @@ pub struct SLoo{
     pub owner:String,
     pub purp:String,
     pub sver:Vec<Sver>,
+}
+
+impl SLoo {
+    pub fn new(e:ElementData) -> Self{
+        Self{
+            name: e.name,
+            refno: e.ref_no,
+            self_type: e.noun_name,
+            owner: e.owner,
+            purp: get_map_string_type_value(&e.attr_data_map,"PURP"),
+            sver: vec![]
+        }
+    }
 }
 
 #[derive(Debug,Default,Serialize,Deserialize,Clone)]
@@ -463,6 +493,52 @@ pub struct Sver{
     pub px:String,
     pub py:String,
     pub radius:String,
+}
+
+impl Sver {
+    pub fn new(e:ElementData) -> Self {
+        Self {
+            name: e.name,
+            refno: e.ref_no,
+            self_type: e.noun_name,
+            owner: e.owner,
+            px: get_map_string_type_value(&e.attr_data_map,"PX"),
+            py: get_map_string_type_value(&e.attr_data_map,"PY"),
+            radius: get_map_string_type_value(&e.attr_data_map,"PRAD"),
+        }
+    }
+
+    pub fn turn_param(self) -> GmseParam {
+        GmseParam {
+            name: self.name,
+            refno: self.refno,
+            owner: self.owner,
+            self_type: self.self_type,
+            radius: self.radius,
+            diameters: vec![],
+            distances: vec![],
+            height: "".to_string(),
+            offset: "".to_string(),
+            box_lengths: vec![],
+            xyz: vec![self.px,self.py],
+            paxises: vec![],
+            centre_line_flag: false,
+            tube_flag: false
+        }
+    }
+}
+
+pub fn get_map_string_type_value(ele:&DashMap<String, AttrVal>,key:&str) -> String {
+    let mut result="".to_string();
+    if let Some(value)=ele.get(key){
+        match  value.value(){
+            AttrVal::StringType(v) => {
+                result=v.to_string();
+            }
+            _ => { }
+        }
+    }
+    result
 }
 
 #[doc = r" Generated client implementations."]

@@ -6,7 +6,7 @@ use nalgebra_glm::{DMat4, DVec4};
 use nom::number::complete::float;
 use nom::Parser;
 use crate::db_tool::db1_dehash;
-use crate::get_attr_tool::{get_attr_double_as_dehash_string, get_attr_string_db, get_attr_strings_db, get_attr_value_as_string, get_attr_value_f64_vec, get_attr_value_int, get_attr_value_int_vec, get_world_matrix_f64_db, resolve_axis_params, resolve_gmses};
+use crate::get_attr_tool::{get_attr_double_as_dehash_string, get_attr_string_db, get_attr_strings_db, get_attr_value_as_string, get_attr_value_f64_vec, get_attr_value_int, get_attr_value_int_vec, get_world_matrix_f64_db, resolve_axis_params, resolve_gmses, resolve_loop_node};
 use crate::param_parse::parse_design_param_to_hashmap;
 use crate::pdms_origin_data::{AxisParam, DesignComponentData, GmseParam, ScomParamStr};
 use crate::pdms_parsed_data::{CateTubeImpliedParam, DesignComponent, GeoParamsData};
@@ -111,8 +111,6 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
                 world_matrix: get_world_matrix_f64_db(&data_map),
                 world_position: vec![],
                 ldirection: vec![],
-                // oriflag: false,
-                // posflag: false,
                 desparams,
             })
         }
@@ -178,16 +176,16 @@ pub async fn query_gmse_param_strs_db(ele: &ElementData, db: &Database, db_tree:
     let mut gmses = vec![];
     let table_tree = db_tree.collection::<EleDataNode>("PdmsTreeNode");
     for child_refno in &ele.children {
-        let child_data_tree = table_tree.find_one(
-            doc! {"ref_no":child_refno.clone(),},
-            None,
-        ).await?.unwrap();
+        let child_data_tree = table_tree.find_one(doc! {"ref_no":child_refno.clone(),}, None, ).await?.unwrap();
         let child_type = child_data_tree.type_name;
         let table = db.collection::<ElementData>(&child_type);
-        let node = table.find_one(
-            doc! {"ref_no":child_refno,},
-            None,
-        ).await?.unwrap();
+        let node = table.find_one(doc! {"ref_no":child_refno,}, None, ).await?.unwrap();
+        if node.noun_name.clone() == "SEXT" {
+            let loop_node=resolve_loop_node(node.ref_no.clone(),db,db_tree).await?;
+            for sver_node in loop_node {
+                gmses.push(sver_node.turn_param());
+            }
+        }
         gmses.push(query_gmse_param_str_db(&node));
     }
     Ok(gmses)

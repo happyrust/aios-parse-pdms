@@ -4,7 +4,7 @@ use crate::direction_parse::parse_expr_to_dir;
 use crate::get_attr_tool::{convert_to_context_key, resolve_axis_param};
 use crate::pdms_origin_data::{AxisParam, ScomParamStr};
 use crate::pdms_parsed_data::geo_params_data::CateGeoParams;
-use crate::pdms_parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateCylinderParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateTorusParam, GeoParamsData, GmseParamData};
+use crate::pdms_parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateCylinderParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateSverParam, CateTorusParam, GeoParamsData, GmseParamData};
 use crate::pdms_types::ElementData;
 use crate::polish_notation::Stack;
 
@@ -383,15 +383,13 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
                 tube_flag: gmse.tube_flag,
             }))
         }
-        // "TUBE" => {
-        //     Some(CateGeoParams::TubeImplied(CateTubeImpliedParam {
-        //         axis: Some(gmse.paxises[0].clone()),
-        //         diameter: gmse.diameters[0],
-        //         height: 0.0,
-        //         centre_line_flag: gmse.centre_line_flag,
-        //         tube_flag: gmse.tube_flag,
-        //     }))
-        // },
+        "SVER" => {
+            Some(CateGeoParams::SVER(CateSverParam{
+                x: gmse.xyz[0],
+                y: gmse.xyz[1],
+                radius: gmse.radius,
+            }))
+        }
         _ => None,
     };
     GeoParamsData {

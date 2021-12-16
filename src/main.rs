@@ -141,14 +141,14 @@ lazy_static! {
     };
 }
 
-#[tokio::main]
-async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+#[tokio::test]
+async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
     run_test().await;
     Ok(())
 }
 
 #[tokio::main]
-async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),

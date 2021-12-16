@@ -1,20 +1,18 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Neg;
 use dashmap::DashMap;
-use mongodb::{Database,bson::doc};
+use mongodb::{Database, bson::doc, Client};
 use nalgebra_glm::exp;
 use crate::db1_dehash;
 use crate::param_parse::{eval_str_to_f64, get_dir_and_pos, parse_gmse_param_to_cate_geo_params, parse_str_axis_to_vec3};
 use crate::pdms_origin_data::{AxisParam, GmseParam, ScomParamStr};
-use crate::pdms_parsed_data::{CateAxisParam, GeoParamsData, GmseParamData};
+use crate::pdms_parsed_data::{CateAxisParam, GeoParamsData, GmseParamData, SLoo, Sver};
 use crate::pdms_types::{AttrVal, EleDataNode, ElementData};
 
 pub async fn get_attr_string_db(ele: EleDataNode, db: &Database, db_tree: &Database) -> mongodb::error::Result<ElementData> {
     let table = db.collection::<ElementData>(&ele.type_name);
     let value = table.find_one(
-        doc! {
-            "ref_no":ele.ref_no
-        },
+        doc! { "ref_no":ele.ref_no },
         None,
     ).await?;
     if let Some(value) = value {
@@ -124,6 +122,36 @@ pub fn get_attr_strings_db(ele: &DashMap<String, AttrVal>, attrs: &[&str]) -> Ve
         }
     }
     results
+}
+
+pub async fn resolve_loop_node(refno: String, db: &Database, db_tree: &Database) -> mongodb::error::Result<Vec<Sver>> {
+    let mut result=vec![];
+    let table_tree = db_tree.collection::<EleDataNode>("PdmsTreeNode");
+    let father_node = table_tree.find_one(doc! {"ref_no":refno}, None).await?.unwrap_or_default();
+    for child_refno in father_node.children {
+        let child_node = table_tree.find_one(doc! {"ref_no":child_refno}, None).await?.unwrap_or_default();
+        if child_node.type_name == "SLOO" {
+            for child in child_node.children {
+                let sver_node_tree = table_tree.find_one(doc! {"ref_no":child.clone()}, None).await?.unwrap_or_default();
+                let sver_table = db.collection::<ElementData>(&sver_node_tree.type_name);
+                let sver_node = sver_table.find_one(doc! {"ref_no":child}, None).await?.unwrap_or_default();
+                let sver=Sver::new(sver_node);
+                result.push(sver);
+            }
+        }
+    }
+    Ok(result)
+}
+
+#[tokio::test]
+async fn judge_child_is_loop_test(){
+    let refno="15192/222670".to_string();
+    let client_uri = "mongodb://localhost:27017".to_string();
+    let client = Client::with_uri_str(&client_uri).await.unwrap();
+    let db_tree = client.database("as7000_0001_tree");
+    let db=client.database("as7000_0001");
+    let result= resolve_loop_node(refno, &db, &db_tree).await.unwrap();
+    println!("result={:?}",result);
 }
 
 pub fn resolve_axis_params(
@@ -348,4 +376,3 @@ pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<String>) -> 
         }
     }
 }
-
