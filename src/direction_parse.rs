@@ -74,6 +74,10 @@ pub fn parse_expr_to_dir(expr: &str) -> Vec3 {
                 axis = quat2 * axis;
             }
         }
+        // todo 这个值不知道怎么求得，只能从这儿修改了
+        axis.x = (axis.x * 100.0).round() / 100.0;
+        axis.y = (axis.y * 100.0).round() / 100.0;
+        axis.z = (axis.z * 100.0).round() / 100.0;
         return axis;
     }
     Vec3::ZERO

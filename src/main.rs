@@ -119,6 +119,7 @@ const IMP_PCBT: i32 = 0xE23C0;
 const IMP_PBBT: i32 = 0xE23A5;
 const IMP_PBOF: i32 = 0xA1440;
 const IMP_PCOF: i32 = 0xA145B;
+const IMP_PTCDI:i32 = 0x95A34;
 
 lazy_static! {
     static ref EXPRESSION: HashSet<i32> = {
@@ -137,6 +138,7 @@ lazy_static! {
         s.insert(IMP_PX);s.insert(IMP_PY);s.insert(IMP_PZ);s.insert(IMP_PXLE);
         s.insert(IMP_PYLE);s.insert(IMP_PZLE);s.insert(IMP_PCTP);s.insert(IMP_PCBT);
         s.insert(IMP_PBBT);s.insert(IMP_PBOF);s.insert(IMP_PCOF);s.insert(IMP_PBTP);
+        s.insert(IMP_PTCDI);
         s
     };
 }
@@ -809,21 +811,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
         let mut explicit_bytes_len = 0;
-        // if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
-        //     if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
-        //         explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
-        //         let mut debug_flag = false;
-        //         if explicit_start == 2580152 {
-        //             debug_flag = true;
-        //         }
-        //         let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
-        //         if debug_flag {
-        //             println!("{:#4X?}", &merged_data);
-        //         }
-        //         let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, refno, explicit_start).unwrap();
-        //         ele_data.attr_data_map = explicit_attr_map;
-        //     }
-        // }
         for (_, attr_info) in attr_info_map.clone() {
             if attr_info.offset != 0 {
                 let mut attr_offset = attr_info.offset as usize;
@@ -871,7 +858,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         ele_data.attr_data_map.insert("OWNER".to_string(), ElementType(owner));
         let type_hash_name = type_hash as u32;
         ele_data.attr_data_map.insert("TYPE".to_string(), WordType(db_tool::db1_dehash(type_hash_name)));
-        // dbg!(&ele_data.ref_no);
         if !print_refno_str.is_empty() && print_refno_str == ele_data.ref_no {
             println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, start, &attr_info_map, &ele_data);
         }
@@ -1673,7 +1659,6 @@ pub fn convert_to_explicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             be_u32,
             be_u32,
         ))(input)?;
-
         if [a, b, c, d, e] == [0x1A, 0x1A, 0x5, 0x2, 0x17] {
             match &tmp_input[24..26] {
                 &[0x0, 0x0] => {
@@ -1736,6 +1721,16 @@ pub fn convert_to_explicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let combine_result = format!("{} ( {} ) {} ( {} ) {}", first, first_data, second, second_data, third);
                     result = AttrVal::StringType(combine_result);
                 }
+                _ => {}
+            }
+        } else {
+            match &tmp_input[..8] {
+                &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("X".to_string()) }
+                &[0x0, 0x0, 0x0, 0xC, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-X".to_string()) }
+                &[0x0, 0x0, 0x0, 0xD, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Y".to_string()) }
+                &[0x0, 0x0, 0x0, 0xE, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Y".to_string()) }
+                &[0x0, 0x0, 0x0, 0xF, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Z".to_string()) }
+                &[0x0, 0x0, 0x0, 0x10, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Z".to_string()) }
                 _ => {}
             }
         }

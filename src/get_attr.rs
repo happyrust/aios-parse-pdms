@@ -17,7 +17,7 @@ use crate::pdms_types::AttrVal::IntArrayType;
 pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
     let client_uri = "mongodb://localhost:27017".to_string();
     let client = Client::with_uri_str(&client_uri).await?;
-    let refno = "15192/222679";
+    let refno = "15192/222818";
     let refno_db = client.database("PdmsRefnoDB");
     let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
     let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?;
@@ -155,20 +155,15 @@ pub async fn query_axis_param_strs_db(ele: &ElementData, db: &Database, db_tree:
     let mut map = BTreeMap::new();
     let table_tree = db_tree.collection::<EleDataNode>("PdmsTreeNode");
     for child_refno in &ele.children {
-        let child_data_tree = table_tree.find_one(
-            doc! {"ref_no":child_refno.clone(),},
-            None,
-        ).await?.unwrap();
+        let child_data_tree = table_tree.find_one(doc! {"ref_no":child_refno.clone(),}, None,).await?.unwrap();
         let child_type = child_data_tree.type_name;
         let table = db.collection::<ElementData>(&child_type);
-        let node = table.find_one(
-            doc! {"ref_no":child_refno,},
-            None,
-        ).await?.unwrap();
+        let node = table.find_one(doc! {"ref_no":child_refno,},None, ).await?.unwrap();
         let child_node_map = &node.attr_data_map;
         let number = get_attr_value_int(child_node_map, "NUMB");
         map.entry(number).or_insert(query_axis_param_str_db(node));
     }
+    dbg!(&map);
     Ok(map)
 }
 
@@ -411,7 +406,7 @@ pub fn query_axis_param_str_db(ele: ElementData) -> AxisParam {
                 y: get_attr_value_as_string(&ele_map, "PY"),
                 z: get_attr_value_as_string(&ele_map, "PZ"),
                 distance: "".to_string(),
-                direction: get_attr_value_as_string(&ele_map, "PTCD"),
+                direction: get_attr_value_as_string(&ele_map, "PTCDI"),
                 pconnect,
                 pbore,
             }

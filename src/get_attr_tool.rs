@@ -11,10 +11,7 @@ use crate::pdms_types::{AttrVal, EleDataNode, ElementData};
 
 pub async fn get_attr_string_db(ele: EleDataNode, db: &Database, db_tree: &Database) -> mongodb::error::Result<ElementData> {
     let table = db.collection::<ElementData>(&ele.type_name);
-    let value = table.find_one(
-        doc! { "ref_no":ele.ref_no },
-        None,
-    ).await?;
+    let value = table.find_one(doc! { "ref_no":ele.ref_no }, None,).await?;
     if let Some(value) = value {
         Ok(value)
     } else {
@@ -321,6 +318,9 @@ pub fn resolve_axis_param(
             })
         }
         "PTCA" | "PTMI" => {
+            if axis_param.refno == "15192/222788" {
+                dbg!(&axis_param);
+            }
             let x = eval_str_to_f64(&axis_param.x, &context).unwrap_or_default();
             let y = eval_str_to_f64(&axis_param.y, &context).unwrap_or_default();
             let z = eval_str_to_f64(&axis_param.z, &context).unwrap_or_default();
