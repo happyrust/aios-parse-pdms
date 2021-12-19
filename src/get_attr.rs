@@ -9,7 +9,7 @@ use crate::db_tool::db1_dehash;
 use crate::get_attr_tool::{get_attr_double_as_dehash_string, get_attr_string_db, get_attr_strings_db, get_attr_value_as_string, get_attr_value_f64_vec, get_attr_value_int, get_attr_value_int_vec, get_world_matrix_f64_db, resolve_axis_params, resolve_gmses, resolve_loop_node};
 use crate::param_parse::parse_design_param_to_hashmap;
 use crate::pdms_origin_data::{AxisParam, DesignComponentData, GmseParam, ScomParamStr};
-use crate::pdms_parsed_data::{CateTubeImpliedParam, DesignComponent, GeoParamsData};
+use crate::pdms_parsed_data::{CateTubeImpliedParam, DesignComponent, GeoParamsData, SLoo};
 use crate::pdms_parsed_data::geo_params_data::CateGeoParams::TubeImplied;
 use crate::pdms_types::AttrVal::IntArrayType;
 
@@ -17,7 +17,7 @@ use crate::pdms_types::AttrVal::IntArrayType;
 pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
     let client_uri = "mongodb://localhost:27017".to_string();
     let client = Client::with_uri_str(&client_uri).await?;
-    let refno = "15192/222818";
+    let refno = "15192/222434";
     let refno_db = client.database("PdmsRefnoDB");
     let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
     let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?;
@@ -26,31 +26,28 @@ pub async fn run_test() -> Result<(), Box<dyn std::error::Error>> {
         let db_name_tree = format!("{}_tree", db_name);
         let db = client.database(&db_name);
         let db_tree = client.database(&db_name_tree);
-        let refno = query_design_component_by_refno_str_db(refno, &db, &db_tree).await.unwrap();
+        let (refno,sloo) = query_design_component_by_refno_str_db(refno, &db, &db_tree).await.unwrap();
         // dbg!(&refno);
-        let scom = resolve_cata_comp_attrs(refno, &db, &db_tree).await?;
+        let scom = resolve_cata_comp_attrs(refno,sloo, &db, &db_tree).await?;
         // let scom=resolve_desi_comp_attrs(refno,&db,&db_tree).await?;
         dbg!(&scom);
     }
     Ok(())
 }
 
-pub async fn query_design_component_by_refno_str_db(refno: &str, db: &Database, db_tree: &Database) -> mongodb::error::Result<DesignComponentData> {
+pub async fn query_design_component_by_refno_str_db(refno: &str, db: &Database, db_tree: &Database) -> mongodb::error::Result<(DesignComponentData,SLoo)> {
     let tree_table = db_tree.collection::<EleDataNode>("PdmsTreeNode");
-    let tree_node_opt = tree_table.find_one(
-        doc! {"ref_no":refno},
-        None,
-    ).await?;
+    let tree_node_opt = tree_table.find_one(doc! {"ref_no":refno}, None, ).await?;
     if let Some(ele_data_node) = tree_node_opt {
-        let result = query_design_component_db(ele_data_node, db, db_tree).await?;
-        Ok(result)
+        let (result,sloo) = query_design_component_db(ele_data_node, db, db_tree).await?;
+        Ok((result,sloo))
     } else {
-        let result = query_design_component_db(EleDataNode::default(), db, db_tree).await?;
-        Ok(result)
+        let (result,sloo) = query_design_component_db(EleDataNode::default(), db, db_tree).await?;
+        Ok((result,sloo))
     }
 }
 
-pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree: &Database) -> mongodb::error::Result<DesignComponentData> {
+pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree: &Database) -> mongodb::error::Result<(DesignComponentData,SLoo)> {
     let data = get_attr_string_db(ele, &db, &db_tree).await.unwrap();
     let data_map = &data.attr_data_map;
     let self_type = get_attr_value_as_string(data_map, "TYPE");
@@ -58,7 +55,7 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
     let height = get_attr_value_as_string(data_map, "HEIG");
     let radius = get_attr_value_as_string(data_map, "RADI");
     let ptre = get_attr_value_as_string(data_map, "PTRE");
-    let scom_param_str = query_scom_str_db(data_map, &db, &db_tree).await?;
+    let (scom_param_str ,sloo ) = query_scom_str_db(data_map, &db, &db_tree).await?;
     let desparams = get_attr_value_f64_vec(data_map, "PARA").unwrap_or_default();
     let mut gtype="unset".to_string();
     let gtype_i32=get_attr_value_int(data_map,"GTYP");
@@ -75,7 +72,7 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
             //圆柱体默认是X方向
             let direction = ori * DVec4::new(1.0, 0.0, 0.0, 0.0);
 
-            Ok(DesignComponentData {
+            Ok((DesignComponentData {
                 name: data.name,
                 refno: data.ref_no,
                 owner: data.owner,
@@ -92,10 +89,10 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
                 world_position: pos.to_vec(),
                 ldirection: direction.data.0.to_vec()[0].to_vec(),
                 desparams,
-            })
+            },sloo))
         }
         _ => {
-            Ok(DesignComponentData {
+            Ok((DesignComponentData {
                 name: data.name,
                 // name: DbElementType::new().get_full_name(),
                 refno: data.ref_no,
@@ -112,12 +109,12 @@ pub async fn query_design_component_db(ele: EleDataNode, db: &Database, db_tree:
                 world_position: vec![],
                 ldirection: vec![],
                 desparams,
-            })
+            },sloo))
         }
     }
 }
 
-pub async fn query_scom_str_db(ele: &DashMap<String, AttrVal>, db: &Database, db_tree: &Database) -> mongodb::error::Result<ScomParamStr> {
+pub async fn query_scom_str_db(ele: &DashMap<String, AttrVal>, db: &Database, db_tree: &Database) -> mongodb::error::Result<(ScomParamStr,SLoo)> {
     let ele_ptset = get_attr_value_as_string(ele, "PTRE");
     let table = db.collection::<ElementData>("PTSE");
     let mut ptre_node = ElementData::default();
@@ -134,9 +131,9 @@ pub async fn query_scom_str_db(ele: &DashMap<String, AttrVal>, db: &Database, db
     if let Some(value) = gmse_table.find_one(doc! {"ref_no":ele_gmset}, None).await? {
         gmse_node = value;
     };
-    let gmse_param_strs = query_gmse_param_strs_db(&gmse_node, &db, &db_tree).await?;
+    let (gmse_param_strs,sloo) = query_gmse_param_strs_db(&gmse_node, &db, &db_tree).await?;
     //dbg!(&gmse_param_strs);
-    Ok(ScomParamStr {
+    Ok((ScomParamStr {
         name: get_attr_value_as_string(ele, "NAME"),
         refno: ptre_node.ref_no,
         self_type: ptre_node.noun_name,
@@ -147,7 +144,7 @@ pub async fn query_scom_str_db(ele: &DashMap<String, AttrVal>, db: &Database, db
         axis_param_collections: axis_param_strs,
         params: get_attr_value_as_string(ele, "PARA").replace("\n", " ").replace("  ", " "),
         axis_param_number,
-    })
+    },sloo))
 }
 
 pub async fn query_axis_param_strs_db(ele: &ElementData, db: &Database, db_tree: &Database) -> mongodb::error::Result<BTreeMap<i32, AxisParam>> {
@@ -163,27 +160,33 @@ pub async fn query_axis_param_strs_db(ele: &ElementData, db: &Database, db_tree:
         let number = get_attr_value_int(child_node_map, "NUMB");
         map.entry(number).or_insert(query_axis_param_str_db(node));
     }
-    dbg!(&map);
     Ok(map)
 }
 
-pub async fn query_gmse_param_strs_db(ele: &ElementData, db: &Database, db_tree: &Database) -> mongodb::error::Result<Vec<GmseParam>> {
+pub async fn query_gmse_param_strs_db(ele: &ElementData, db: &Database, db_tree: &Database) -> mongodb::error::Result<(Vec<GmseParam>,SLoo)> {
     let mut gmses = vec![];
     let table_tree = db_tree.collection::<EleDataNode>("PdmsTreeNode");
+    let mut ploop=SLoo::default();
+    let mut ploop_sver=vec![];
     for child_refno in &ele.children {
         let child_data_tree = table_tree.find_one(doc! {"ref_no":child_refno.clone(),}, None, ).await?.unwrap();
         let child_type = child_data_tree.type_name;
         let table = db.collection::<ElementData>(&child_type);
         let node = table.find_one(doc! {"ref_no":child_refno,}, None, ).await?.unwrap();
         if node.noun_name.clone() == "SEXT" {
+            ploop=SLoo::new(node.clone());
             let loop_node=resolve_loop_node(node.ref_no.clone(),db,db_tree).await?;
             for sver_node in loop_node {
-                gmses.push(sver_node.turn_param());
+                ploop_sver.push(sver_node.turn_param());
+                //gmses.push(sver_node.turn_param());
             }
+
         }
+
         gmses.push(query_gmse_param_str_db(&node));
     }
-    Ok(gmses)
+    ploop.svers=ploop_sver;
+    Ok((gmses,ploop))
 }
 
 ///todo 结合设计模块的构件参数，对元件库的属性进行求值计算
@@ -278,7 +281,7 @@ const DDANGLE_STR: &'static str = "DDANGLE";
 
 ///对元件库的属性进行求值计算
 /// ele: SCOM Element
-pub async fn resolve_cata_comp_attrs(ele: DesignComponentData, db: &Database, db_tree: &Database) -> mongodb::error::Result<DesignComponent> {
+pub async fn resolve_cata_comp_attrs(ele: DesignComponentData,sloo:SLoo, db: &Database, db_tree: &Database) -> mongodb::error::Result<DesignComponent> {
     let table = db.collection::<ElementData>(&ele.self_type);
     let data = table.find_one(doc! {"ref_no":&ele.refno}, None).await?.unwrap();
     let data_map = &data.attr_data_map;
@@ -344,7 +347,13 @@ pub async fn resolve_cata_comp_attrs(ele: DesignComponentData, db: &Database, db
                 &axis_params_map,
                 ddangle,
             );
-
+            let sloo_geometries=resolve_gmses(
+                sloo.svers.as_slice(),
+                &context,
+                &axis_params_map,
+                ddangle,
+            );
+            dbg!(&sloo_geometries);
             Ok(DesignComponent {
                 name: ele.name,
                 refno: ele.refno.clone(),

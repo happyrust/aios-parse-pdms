@@ -461,14 +461,14 @@ pub struct CateSverParam{
     pub radius:f64,
 }
 
-#[derive(Debug,Default,Serialize,Deserialize,Clone)]
+#[derive(Debug,Default,Clone)]
 pub struct SLoo{
     pub name:String,
     pub refno:String,
     pub self_type:String,
     pub owner:String,
     pub purp:String,
-    pub sver:Vec<Sver>,
+    pub svers:Vec<GmseParam>,
 }
 
 impl SLoo {
@@ -479,12 +479,13 @@ impl SLoo {
             self_type: e.noun_name,
             owner: e.owner,
             purp: get_map_string_type_value(&e.attr_data_map,"PURP"),
-            sver: vec![]
+            svers: vec![]
         }
     }
+
 }
 
-#[derive(Debug,Default,Serialize,Deserialize,Clone)]
+#[derive(Debug,Default,Clone)]
 pub struct Sver{
     pub name:String,
     pub refno:String,
