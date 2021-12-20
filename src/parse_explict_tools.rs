@@ -1,27 +1,15 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use dashmap::DashMap;
-use log::kv::ToKey;
-use memchr::memmem::find_iter;
-use nalgebra_glm::exp;
-use nom::error::Error;
 use nom::IResult;
-use nom::number::complete::{be_f64, be_i32, be_u16, be_u32, be_i16};
+use nom::number::complete::{be_i32, be_u16, be_i16};
 use nom::sequence::tuple;
-use serde::{Serialize, Deserialize};
-use crate::{convert_to_explicit_axis_string, convert_to_implicit_axis_string, DbAttributeType};
-use crate::pdms_types::AttrVal;
-use crate::pdms_types::AttrVal::StringType;
+use crate::parse_data_to_db::{convert_to_explicit_axis_string, convert_to_implicit_axis_string};
+use crate::pdms_types::AttrVal::*;
+use crate::pdms_types::{AttrVal, DbAttributeType};
 use crate::pdms_types::DbAttributeType::*;
 
-const ADD: &str = "+";
-const SUBTRACT: &str = "-";
-const MULTIPLICATION: &str = "*";
-const DIVISION: &str = "/";
-const SQRT: &str = "SQRT";
-const SIN: &str = "SIN";
-const COS: &str = "COS";
+
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
 const ATT_PZ: i32 = 0xFFF7E141u32 as i32;
@@ -33,8 +21,6 @@ const ATT_PBOR: i32 = 0xFFF2511Cu32 as i32;
 const ATT_PPRO: i32 = 0xFFF32DC0u32 as i32;
 const ATT_DPRO: i32 = 0xFFF32DCCu32 as i32;
 const ATT_BTHK: i32 = 0xFFF47D68u32 as i32;
-const ATT_BDIA: i32 = 0xFFF77D1Du32 as i32;
-const ATT_PTDI: i32 = 0xFFF52284u32 as i32;
 
 #[inline]
 /// 若在反序列化给定的map集合中未找到该属性对应的hash ，则用该方法直接获取到该属性的数据类型 ，然后进行解析
@@ -76,7 +62,7 @@ pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (St
     }
     let mut expression_data = &input[8..];
     // 表达式都是以0x0 0 0 1开头的
-    let expression_start = &expression_data[..4];
+    let _expression_start = &expression_data[..4];
     expression_data = &expression_data[4..];
     // 这是表达式数字的起始标志
     let mut result_stack = vec![];
@@ -94,7 +80,7 @@ pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (St
             result_stack.push(value);
             expression_data = &expression_data[12..];
             // 表达式 值的结束位  这里是个结束位，但是没什么用，后期判断当表达式的值特别大的时候是否有用（目前遇到的值都是三位）
-            let expression_data_value_end = &expression_data[..8];
+            let _expression_data_value_end = &expression_data[..8];
             expression_data = &expression_data[8..];
         }
         //若后面是6A 则代表该值没完
@@ -372,7 +358,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                     result_stack.push(value);
                     expression_data = &expression_data[12..];
                     // 表达式 值的结束位  这里是个结束位，但是没什么用，后期判断当表达式的值特别大的时候是否有用（目前遇到的值都是三位）
-                    let expression_data_value_end = &expression_data[..8];
+                    let _expression_data_value_end = &expression_data[..8];
                     expression_data = &expression_data[8..];
                 }
                 &[0xFF,0xFF] => {
@@ -397,7 +383,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x1, 0x0, 0xE, 0x95, 0xA5] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB MCOU".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB MCOU".to_string();
@@ -441,7 +427,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0xCA, 0x5F ] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB DTXR".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB DTXR".to_string();
@@ -451,7 +437,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x4, 0x0, 0xC, 0x2C, 0xA0] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB FLNM".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB FLNM".to_string();
@@ -461,7 +447,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x4, 0x0, 0x8, 0x82, 0xE3] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB BDIA".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB BDIA".to_string();
@@ -471,7 +457,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0x33, 0x70] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB BTYP".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB BTYP".to_string();
@@ -481,7 +467,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x2, 0x0, 0xB, 0xCB, 0xFF ] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB ANGL".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB ANGL".to_string();
@@ -493,7 +479,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0xB, 0x20, 0x9F] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO DIAJ".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO DIAJ".to_string();
@@ -503,7 +489,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0xA, 0x5E, 0x97] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO LENG".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO LENG".to_string();
@@ -513,7 +499,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0xA, 0xBD, 0x47] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO FLTH".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO FLTH".to_string();
@@ -523,7 +509,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0x8, 0x1C, 0x03] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO R".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO R".to_string();
@@ -533,7 +519,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0xA, 0x50, 0x56] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO HEIG".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO HEIG".to_string();
@@ -543,7 +529,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0xE, 0x2A, 0x1B] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO WIDT".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO WIDT".to_string();
@@ -553,7 +539,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0x7, 0x44, 0x59] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO CNE".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO CNE".to_string();
@@ -563,7 +549,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                         &[0x0, 0x8, 0x82, 0xE3] => {
                             if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                 let expression = "ATTRIB RPRO BDIA".to_string();
-                                let value = result_stack.pop().unwrap();
+                                result_stack.pop().unwrap();
                                 result_stack.push(expression);
                             } else {
                                 let expression = "ATTRIB RPRO BDIA".to_string();
@@ -576,7 +562,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x4, 0x0, 0xF, 0xAD, 0x95] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB SKEY".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB SKEY".to_string();
@@ -586,7 +572,7 @@ pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, Str
                 &[0x0, 0x0, 0x0, 0x5, 0x0, 0xD, 0xBC, 0xF9] => {
                     if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                         let expression = "ATTRIB CATR".to_string();
-                        let value = result_stack.pop().unwrap();
+                        result_stack.pop().unwrap();
                         result_stack.push(expression);
                     } else {
                         let expression = "ATTRIB CATR".to_string();
@@ -910,7 +896,7 @@ fn pow_test() {
 
 #[test]
 fn read_deseralize_file() {
-    let mut file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
+    let file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
     let reader = BufReader::new(file);
     let database_info: DashMap<String, Vec<(String, String)>> = serde_json::from_reader(reader).unwrap();
     println!("value={:?}", database_info);

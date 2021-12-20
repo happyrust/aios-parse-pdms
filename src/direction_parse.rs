@@ -1,6 +1,7 @@
 use glam::*;
-use nom::number::complete::{recognize_float, float};
+use nom::number::complete:: float;
 
+use nom::*;
 
 use static_init::{dynamic};
 use std::collections::HashMap;
@@ -65,19 +66,15 @@ pub fn parse_expr_to_dir(expr: &str) -> Vec3 {
         if res.rot1.is_some() {
             let rot1 = res.rot1.as_ref().unwrap();
             let target_axis = axis.cross(rot1.axis);
-            let mut quat1 = Quat::from_axis_angle(target_axis, rot1.angle.to_radians());
+            let quat1 = Quat::from_axis_angle(target_axis, rot1.angle.to_radians());
             axis = quat1 * axis;
             if res.rot2.is_some() {
                 let rot2 = res.rot2.as_ref().unwrap();
                 let target_axis = axis.cross(rot2.axis);
-                let mut quat2 = Quat::from_axis_angle(target_axis, rot2.angle.to_radians());
+                let quat2 = Quat::from_axis_angle(target_axis, rot2.angle.to_radians());
                 axis = quat2 * axis;
             }
         }
-        // todo 这个值不知道怎么求得，只能从这儿修改了
-        axis.x = (axis.x * 100.0).round() / 100.0;
-        axis.y = (axis.y * 100.0).round() / 100.0;
-        axis.z = (axis.z * 100.0).round() / 100.0;
         return axis;
     }
     Vec3::ZERO

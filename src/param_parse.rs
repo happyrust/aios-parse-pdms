@@ -21,17 +21,17 @@ pub fn parse_design_param_to_hashmap(text: &str) -> HashMap<String, String> {
 }
 
 pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> Option<f64> {
-    if input_expr.trim() == "unset"{
+    if input_expr.trim() == "unset" {
         return Some(0.0);
     }
-    let mut has_desparam = false;
+    let _has_desparam = false;
     let mut exp = input_expr.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
-    if exp.len() < 1{
+    if exp.len() < 1 {
         return Some(0.0);
     }
     if exp.len() >= 2 && exp.chars().nth(0).unwrap_or_default() == '('
-        && exp.chars().nth(exp.len() -1).unwrap_or_default() == ')' {
-        exp = exp[1..exp.len()-1].to_string();
+        && exp.chars().nth(exp.len() - 1).unwrap_or_default() == ')' {
+        exp = exp[1..exp.len() - 1].to_string();
     }
     let seg_strs = exp.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
     if seg_strs.len() == 0 {
@@ -41,9 +41,9 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     // dbg!(&seg_strs);
     let mut p_vals = Vec::new();
     let mut i = 0;
-    let mut twice_flag = false; //翻倍
-    let mut tanf_flag = false; //翻倍
-    let mut tan_flag = false; //翻倍
+    let _twice_flag = false; //翻倍
+    let _tanf_flag = false; //翻倍
+    let _tan_flag = false; //翻倍
     while i < seg_strs.len() {
         let mut key = "".to_string();
         let s = seg_strs[i].as_str();
@@ -166,7 +166,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     ////dbg!(&result_string);
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
         if let Ok(val) = fasteval::ez_eval(&result_string, &mut ns) {
-            ( val * 100.0 ).round() /100.0
+            (val * 100.0).round() / 100.0
         } else {
             let mut stack = Stack::new(&result_string);
             stack.eval()
@@ -384,7 +384,7 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
             }))
         }
         "SVER" => {
-            Some(CateGeoParams::SVER(CateSverParam{
+            Some(CateGeoParams::SVER(CateSverParam {
                 x: gmse.xyz[0],
                 y: gmse.xyz[1],
                 radius: gmse.radius,
@@ -488,5 +488,5 @@ pub fn parse_str_axis_to_vec3(paxis: &str, ddangle: f64) -> [f64; 3] {
         };
     }
     let v = parse_expr_to_dir(paxis_str);
-    [v[0] as f64, v[1] as f64, v[2] as f64]
+    [(v[0] as f64 * 100.0).round() / 100.0, (v[1] as f64 * 100.0).round() / 100.0, (v[2] as f64 * 100.0).round() / 100.0]
 }
