@@ -61,17 +61,13 @@ use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 
 
-fn main(){
-    test_get_ele_geoms();
-}
-
 #[tokio::test]
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
 #[tokio::main]
-async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
