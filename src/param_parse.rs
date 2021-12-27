@@ -2,23 +2,16 @@ use std::collections::HashMap;
 use regex::Regex;
 use crate::direction_parse::parse_expr_to_dir;
 use crate::get_attr_tool::{convert_to_context_key, resolve_axis_param};
-use crate::pdms_origin_data::{AxisParam, ScomParamStr};
+use crate::pdms_origin_data::{AxisParam, ScomInfo};
 use crate::pdms_parsed_data::geo_params_data::CateGeoParams;
-use crate::pdms_parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateCylinderParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateSverParam, CateTorusParam, GeoParamsData, GmseParamData};
+use crate::pdms_parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam,
+                              CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam,
+                              CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam,
+                              CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam,
+                              CateSphereParam, CateSverParam, CateTorusParam, GeoParamsData, GmseParamData};
 use crate::pdms_types::ElementData;
 use crate::polish_notation::Stack;
 
-pub fn parse_design_param_to_hashmap(text: &str) -> HashMap<String, String> {
-    let mut params: HashMap<String, String> = HashMap::new();
-    let mut index = 1;
-    for d in text.replace("\n", " ").split(" ") {
-        if d != "" && d != " " {
-            params.insert(format!("DESP{}", index), d.to_string());
-            index += 1;
-        }
-    }
-    params
-}
 
 pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> Option<f64> {
     if input_expr.trim() == "unset" {
@@ -163,7 +156,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     }
     // ////dbg!(&result_string);
     let mut ns = fasteval::EmptyNamespace;
-    ////dbg!(&result_string);
+    // dbg!(&result_string);
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
         if let Ok(val) = fasteval::ez_eval(&result_string, &mut ns) {
             (val * 100.0).round() / 100.0
@@ -179,8 +172,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     return None;
 }
 
-pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
-    let data = match &gmse.self_type[..] {
+pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
+    let data = match &gmse.type_name[..] {
         "BOXI" => {
             let z_length = if gmse.box_lengths.len() >= 3 {
                 gmse.box_lengths[2]
@@ -197,10 +190,21 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
         }
         "LCYL" => {
             // 圆柱体
-            Some(CateGeoParams::Cylinder(CateCylinderParam {
+            Some(CateGeoParams::LCylinder(CateLCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
-                height: gmse.distances[1] - gmse.distances[0],
+                diameter: gmse.diameters[0],
+                centre_line_flag: gmse.centre_line_flag,
+                tube_flag: gmse.tube_flag,
+                dist_to_top: gmse.distances[1],
+            }))
+        }
+        "SCYL" => {
+            // 圆柱体
+            Some(CateGeoParams::SCylinder(CateSCylinderParam {
+                axis: Some(gmse.paxises[0].clone()),
+                dist_to_btm: gmse.distances[0],
+                height: gmse.height,
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
@@ -276,17 +280,6 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
             Some(CateGeoParams::Torus(CateTorusParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
-                diameter: gmse.diameters[0],
-                centre_line_flag: gmse.centre_line_flag,
-                tube_flag: gmse.tube_flag,
-            }))
-        }
-        "SCYL" => {
-            // 圆柱体
-            Some(CateGeoParams::Cylinder(CateCylinderParam {
-                axis: Some(gmse.paxises[0].clone()),
-                dist_to_btm: gmse.distances[0],
-                height: gmse.height,
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
@@ -397,25 +390,20 @@ pub fn parse_gmse_param_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData
     }
 }
 
-pub fn get_dir_and_pos(axis_str: &AxisParam,
-                       ddangle: f64,
-                       scom: &ScomParamStr,
-                       context: &HashMap<String, String>,
-                       data: &ElementData) -> (Vec<f64>, Vec<f64>) {
+pub fn resolve_dir_and_pos(axis: &AxisParam,
+                           ddangle: f64,
+                           scom: &ScomInfo,
+                           context: &HashMap<String, String>) -> (Vec<f64>, Vec<f64>) {
     //替换掉中间出现dataset的值的这种情况 X ( ATTRIB RPRO ANGL ) Z
-    let mut dir_str = axis_str.direction.trim().to_string();
+    let mut dir_str = axis.direction.trim().to_string();
     if dir_str.contains("(") {
-        ////dbg!(&dir_str);
         let s: Vec<_> = dir_str.split("(").collect();
         if s.len() > 1 {
             let ss: Vec<_> = s[1].split(")").collect();
             if ss.len() > 1 {
                 let val_str = ss[0];
                 let val_result = eval_str_to_f64(val_str, context).unwrap_or_default().to_string();
-                ////dbg!(val_str);
-                ////dbg!(&val_result);
                 dir_str = dir_str.replace(val_str, &val_result);
-                ////dbg!(&dir_str);
             }
         }
     }
@@ -427,8 +415,8 @@ pub fn get_dir_and_pos(axis_str: &AxisParam,
     if re.is_match(&dir_str) {
         let pnt_indx = dir_str[1..].parse::<i32>().unwrap_or(i32::MAX);
         // ////dbg!(pnt_indx);
-        if let Some(indx) = scom.axis_param_number.iter().position(|&x| x == pnt_indx) {
-            if let Some(axis) = resolve_axis_param(&scom.axis_param_collections[indx], scom, context, data) {
+        if let Some(indx) = scom.axis_param_numbers.iter().position(|&x| x == pnt_indx) {
+            if let Some(axis) = resolve_axis_param(&scom.axis_params[indx], scom, context) {
                 dir = axis.dir.clone();
                 pos = axis.pt;
             }

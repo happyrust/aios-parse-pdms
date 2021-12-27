@@ -4,14 +4,16 @@
 use mongodb::Client;
 use mongodb::bson::doc;
 use std::collections::HashSet;
-use crate::get_attr::{query_design_component_by_refno_str_db, resolve_cata_comp_attrs};
-use crate::pdms_parsed_data::DesignComponent;
-use crate::pdms_types::{EleDataNode, ElementData, PdmsRefno};
+use std::error::Error;
+use crate::query_scom::{query_descomp_info, resolve_cata_comp_attrs};
+use crate::pdms_parsed_data::GeomsInfo;
+use crate::pdms_types::{AttrMap, EleDataNode, ElementData, PdmsRefno};
+use futures::stream::TryStreamExt;
 
 pub mod pdms_types;
 pub mod db_tool;
 pub mod parse_explict_tools;
-pub mod get_attr;
+pub mod query_scom;
 pub mod get_attr_tool;
 pub mod pdms_parsed_data;
 pub mod pdms_origin_data;
@@ -20,6 +22,7 @@ pub mod polish_notation;
 pub mod direction_parse;
 pub mod parse_data_impl;
 pub mod parse_data_to_db;
+pub mod interface;
 
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;
@@ -101,58 +104,3 @@ lazy_static! {
     };
 }
 
-pub async fn get_component_in_db(refno:&str) -> core::result::Result<DesignComponent,Box<dyn std::error::Error>>{
-    let client_uri = "mongodb://localhost:27017".to_string();
-    let client = Client::with_uri_str(&client_uri).await?;
-    let refno_db = client.database("PdmsRefnoDB");
-    let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
-    let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?.unwrap_or_default();
-    let db_name = db_name_opt.db;
-    let db_name_tree = format!("{}_tree", db_name);
-    let db = client.database(&db_name);
-    let db_tree = client.database(&db_name_tree);
-    let (refno, sloo) = query_design_component_by_refno_str_db(refno, &db, &db_tree).await.unwrap();
-    // dbg!(&refno);
-    let scom = resolve_cata_comp_attrs(refno, sloo, &db, &db_tree).await?;
-    // let scom=resolve_desi_comp_attrs(refno,&db,&db_tree).await?;
-    dbg!(&scom);
-    Ok(scom)
-}
-
-pub async fn get_children(refno:&str) -> core::result::Result<Vec<ElementData>,Box<dyn std::error::Error>> {
-    let client_uri = "mongodb://localhost:27017".to_string();
-    let client = Client::with_uri_str(&client_uri).await?;
-    let refno_db = client.database("PdmsRefnoDB");
-    let refno_table = refno_db.collection::<PdmsRefno>("PdmsRefno");
-    let db_name_opt = refno_table.find_one(doc! {"ref_no":refno}, None).await?;
-    let mut result=vec![];
-    if let Some(pdms_refno)=db_name_opt{
-        let db_name=pdms_refno.db;
-        let db_name_tree=format!("{}_tree",db_name);
-        let db=client.database(&db_name);
-        let db_tree=client.database(&db_name_tree);
-        let table_tree=db_tree.collection::<EleDataNode>("PdmsTreeNode");
-        let node_tree=table_tree.find_one(doc! {"ref_no":refno},None).await?.unwrap_or_default();//上面已经查找过了，这条语句在运行，就说明数据库中肯定有
-        let node_children=node_tree.children;
-        for node_child in node_children {
-            let child_tree = table_tree.find_one(doc! {"ref_no":node_child}, None).await?.unwrap_or_default();
-            let child_table=db.collection::<ElementData>(&child_tree.type_name);
-            let child=child_table.find_one(doc! {"ref_no":child_tree.ref_no},None).await?.unwrap_or_default();
-            result.push(child);
-        }
-    }
-    Ok(result)
-}
-
-#[tokio::test]
-async fn get_attr_in_db_test() -> core::result::Result<(),Box<dyn std::error::Error>> {
-    let result= get_component_in_db("15192/222818").await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn get_children_test() -> core::result::Result<(),Box<dyn std::error::Error>> {
-    let result=get_children("15192/222795").await?;
-    println!("result={:?}",result);
-    Ok(())
-}

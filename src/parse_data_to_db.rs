@@ -20,7 +20,6 @@ use crate::pdms_types::AttrVal::*;
 use crate::EXPRESSION;
 
 
-// file: PathBuf
 pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> DashMap<i32, Vec<ElementData>> {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
@@ -28,14 +27,14 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
     file.read_to_end(&mut buf);
     let input = &buf[..];
     let time = time_start.elapsed();
-    println!("parse_db read file {:?} finished in {:?}", path, time);
+    println!("read file {:?} finished in {:?}", path, time);
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
     let elapsed = time_start.elapsed();
 
     let noun_type_ele_data_map = DashMap::new();
     let attr_info_map = &database_info.noun_attr_info_map;
 
-    let ele_order_map = DashMap::new();  //ele所在的层级的顺序位置
+    let ele_order_map = DashMap::new();
 
     let mut root_refno = world_refno;
     if !target_refno_str.is_empty() {
@@ -93,10 +92,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
             if &membs_data[0..2] == [0x0, 0x2].as_slice() {
                 memb_bytes_len = u16::from_be_bytes(membs_data[2..4].try_into().unwrap()) as usize * 4;
-                // 这里可能会出现多个00 后面紧接着出现07的情况这个也是截断
-                //if &membs_data[memb_bytes_len..memb_bytes_len + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, 0x2] {
-                // if &membs_data[memb_bytes_len..memb_bytes_len + 4] == &[0x0, 0x0, 0x0, 0x7] {
-                //
                 let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
                 // println!("{:#4X?}", merged_data);
                 let (_, children) = parse_attr_members(&merged_data).unwrap();
@@ -141,14 +136,14 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
             if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
                 explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
-                let mut debug_flag = false;
-                if explicit_start == 2580152 {
-                    debug_flag = true;
-                }
+                // let mut debug_flag = false;
+                // if explicit_start == 2580152 {
+                //     debug_flag = true;
+                // }
                 let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
-                if debug_flag {
-                    println!("{:#4X?}", &merged_data);
-                }
+                // if debug_flag {
+                //     println!("{:#4X?}", &merged_data);
+                // }
                 let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, ele_data.attr_data_map.clone(), refno, explicit_start).unwrap();
                 //ele_data.attr_data_map = explicit_attr_map;
                 for (key, val) in explicit_attr_map {
@@ -156,13 +151,14 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 }
             }
         }
+
+        //添加遗漏的属性
         ele_data.attr_data_map.insert("OWNER".to_string(), ElementType(owner));
-        let type_hash_name = type_hash as u32;
-        ele_data.attr_data_map.insert("TYPE".to_string(), WordType(db_tool::db1_dehash(type_hash_name)));
+        ele_data.attr_data_map.insert("REFNO".to_string(), StringType(ele_data.ref_no.clone()));
+        ele_data.attr_data_map.insert("TYPE".to_string(), WordType(db_tool::db1_dehash(type_hash as u32)));
         if !print_refno_str.is_empty() && print_refno_str == ele_data.ref_no {
             println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, start, &attr_info_map, &ele_data);
         }
-
         noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
         count += 1;
         if count >= limited_cnt {

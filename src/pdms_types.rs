@@ -1,6 +1,80 @@
+use std::fmt::format;
 use dashmap::DashMap;
 use serde::{Serialize, Deserialize};
+use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, StringArrayType, StringType, Vec3Type, WordType};
+
 pub type RefNoTuple = (i32, i32);
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct AttrMap{
+    pub map: DashMap<String, AttrVal>
+}
+
+impl AttrMap {
+
+    #[inline]
+    pub fn get_name(&self) -> String{
+        self.get_as_string("NAME")
+    }
+
+    #[inline]
+    pub fn get_refno(&self) -> String{
+        self.get_as_string("REFNO")
+    }
+
+    #[inline]
+    pub fn get_owner(&self) -> String{
+        self.get_as_string("OWNER")
+    }
+
+    #[inline]
+    pub fn get_type(&self) -> String{
+        self.get_as_string("TYPE")
+    }
+
+    #[inline]
+    pub fn get_as_string(&self, key: &str) -> String{
+        if let Some(v) = self.map.get(key){
+            match v.value() {
+                StringType(s) | WordType(s) | ElementType(s) => s.trim().to_string(),
+                IntegerType(d)  => d.to_string(),
+                DoubleType(d)  => d.to_string(),
+                BoolType(d)  => d.to_string(),
+                DoubleArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
+                StringArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
+                IntArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
+                BoolArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
+                Vec3Type(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
+                _ => "unset".to_string(),
+            }
+        }else{
+            "unset".to_string()
+        }
+    }
+
+    #[inline]
+    pub fn get_bool(&self, key: &str) -> bool{
+        if let Some(v) = self.map.get(key){
+            match v.value() {
+                BoolType(b)  => *b,
+                _ => false,
+            }
+        }else{
+           false
+        }
+    }
+
+
+    #[inline]
+    pub fn get(&self, key: &str) -> Option<AttrVal>{
+        if let Some(v) = self.map.get(key) {
+            Some(v.value().clone())
+        }else{
+            None
+        }
+    }
+
+}
 
 
 
@@ -43,11 +117,7 @@ pub struct ElementData {
     pub order: i32,
 }
 
-impl ElementData {
-    // pub fn get_type_name(&self) -> String {
-    //     db1_dehash(self.noun_hash as u32)
-    // }
-}
+impl ElementData {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleDataNode {
@@ -56,7 +126,7 @@ pub struct EleDataNode {
     pub owner: String,
     pub name: String,
     pub order: i32,
-    pub db_name:String,
+    pub db_name: String,
     pub type_name: String,
 }
 
@@ -88,16 +158,16 @@ pub struct AttrInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct PDMSDBInfo{
+pub struct PDMSDBInfo {
     pub name: String,
     pub db_no: i32,
     pub db_type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct PdmsRefno{
-    pub ref_no:String,
-    pub db:String,
-    pub type_name:String
+pub struct PdmsRefno {
+    pub ref_no: String,
+    pub db: String,
+    pub type_name: String,
 }
 

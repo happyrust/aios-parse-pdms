@@ -27,44 +27,21 @@ pub struct Refnos {
     #[prost(string, repeated, tag = "1")]
     pub refnos: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, Default)]
 pub struct DesignPipe {
-    #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
     pub refno: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "3")]
     pub brans: ::prost::alloc::vec::Vec<DesignBran>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, Default)]
 pub struct DesignBran {
-    #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
     pub refno: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "3")]
-    pub components: ::prost::alloc::vec::Vec<DesignComponent>,
+    pub components: ::prost::alloc::vec::Vec<GeomsInfo>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DesignComponent {
-    #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub refno: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub owner: ::prost::alloc::string::String,
-    #[prost(string, tag = "4")]
-    pub spref_name: ::prost::alloc::string::String,
-    #[prost(string, tag = "5")]
-    pub self_type: ::prost::alloc::string::String,
-    #[prost(string, tag = "6")]
-    pub gtype: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "8")]
+#[derive(Clone, Debug, Default)]
+pub struct GeomsInfo {
     pub geometries: ::prost::alloc::vec::Vec<GeoParamsData>,
-    ///  bool oriflag = 10;
-    ///  bool posflag = 11;
-    #[prost(double, repeated, tag = "9")]
-    pub world_matrix: ::prost::alloc::vec::Vec<f64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Dataset {
@@ -81,7 +58,7 @@ pub struct GmseParamData {
     pub owner: ::prost::alloc::string::String,
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     #[prost(string, tag = "4")]
-    pub self_type: ::prost::alloc::string::String,
+    pub type_name: ::prost::alloc::string::String,
     #[prost(double, tag = "5")]
     pub radius: f64,
     #[prost(double, tag = "6")]
@@ -139,7 +116,10 @@ pub mod geo_params_data {
         #[prost(message, tag = "3")]
         Cone(super::CateConeParam),
         #[prost(message, tag = "4")]
-        Cylinder(super::CateCylinderParam),
+        LCylinder(super::CateLCylinderParam),
+        #[prost(message, tag = "19")]
+        SCylinder(super::CateSCylinderParam),
+
         #[prost(message, tag = "5")]
         Disc(super::CateDiscParam),
         #[prost(message, tag = "6")]
@@ -208,13 +188,28 @@ pub struct CateConeParam {
     pub tube_flag: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CateCylinderParam {
+pub struct CateSCylinderParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
     #[prost(double, tag = "2")]
     pub dist_to_btm: f64,
     #[prost(double, tag = "3")]
     pub height: f64,
+    #[prost(double, tag = "4")]
+    pub diameter: f64,
+    #[prost(bool, tag = "5")]
+    pub centre_line_flag: bool,
+    #[prost(bool, tag = "6")]
+    pub tube_flag: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CateLCylinderParam {
+    #[prost(message, optional, tag = "1")]
+    pub axis: ::core::option::Option<CateAxisParam>,
+    #[prost(double, tag = "2")]
+    pub dist_to_btm: f64,
+    #[prost(double, tag = "3")]
+    pub dist_to_top: f64,
     #[prost(double, tag = "4")]
     pub diameter: f64,
     #[prost(bool, tag = "5")]
@@ -470,433 +465,19 @@ pub struct SLoo{
     pub svers:Vec<GmseParam>,
 }
 
-impl SLoo {
-    pub fn new(e:ElementData) -> Self{
-        Self{
-            name: e.name,
-            refno: e.ref_no,
-            self_type: e.noun_name,
-            owner: e.owner,
-            purp: get_map_string_type_value(&e.attr_data_map,"PURP"),
-            svers: vec![]
-        }
-    }
+// impl SLoo {
+//     pub fn new(e:ElementData) -> Self{
+//         Self{
+//             name: e.name,
+//             refno: e.ref_no,
+//             self_type: e.noun_name,
+//             owner: e.owner,
+//             purp: get_map_string_type_value(&e.attr_data_map,"PURP"),
+//             svers: vec![]
+//         }
+//     }
+//
+// }
 
-}
 
-#[derive(Debug,Default,Clone)]
-pub struct Sver{
-    pub name:String,
-    pub refno:String,
-    pub self_type:String,
-    pub owner:String,
-    pub px:String,
-    pub py:String,
-    pub radius:String,
-}
 
-impl Sver {
-    pub fn new(e:ElementData) -> Self {
-        Self {
-            name: e.name,
-            refno: e.ref_no,
-            self_type: e.noun_name,
-            owner: e.owner,
-            px: get_map_string_type_value(&e.attr_data_map,"PX"),
-            py: get_map_string_type_value(&e.attr_data_map,"PY"),
-            radius: get_map_string_type_value(&e.attr_data_map,"PRAD"),
-        }
-    }
-
-    pub fn turn_param(self) -> GmseParam {
-        GmseParam {
-            name: self.name,
-            refno: self.refno,
-            owner: self.owner,
-            self_type: self.self_type,
-            radius: self.radius,
-            diameters: vec![],
-            distances: vec![],
-            height: "".to_string(),
-            offset: "".to_string(),
-            box_lengths: vec![],
-            xyz: vec![self.px,self.py],
-            paxises: vec![],
-            centre_line_flag: false,
-            tube_flag: false
-        }
-    }
-}
-
-pub fn get_map_string_type_value(ele:&DashMap<String, AttrVal>,key:&str) -> String {
-    let mut result="".to_string();
-    if let Some(value)=ele.get(key){
-        match  value.value(){
-            AttrVal::StringType(v) => {
-                result=v.to_string();
-            }
-            _ => { }
-        }
-    }
-    result
-}
-
-#[doc = r" Generated client implementations."]
-pub mod query_pdms_data_trait_client {
-    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
-    use tonic::codegen::*;
-    #[derive(Debug, Clone)]
-    pub struct QueryPdmsDataTraitClient<T> {
-        inner: tonic::client::Grpc<T>,
-    }
-    impl QueryPdmsDataTraitClient<tonic::transport::Channel> {
-        #[doc = r" Attempt to create a new client by connecting to a given endpoint."]
-        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
-        where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
-            D::Error: Into<StdError>,
-        {
-            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
-            Ok(Self::new(conn))
-        }
-    }
-    impl<T> QueryPdmsDataTraitClient<T>
-    where
-        T: tonic::client::GrpcService<tonic::body::BoxBody>,
-        T::ResponseBody: Body + Send + Sync + 'static,
-        T::Error: Into<StdError>,
-        <T::ResponseBody as Body>::Error: Into<StdError> + Send,
-    {
-        pub fn new(inner: T) -> Self {
-            let inner = tonic::client::Grpc::new(inner);
-            Self { inner }
-        }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> QueryPdmsDataTraitClient<InterceptedService<T, F>>
-        where
-            F: tonic::service::Interceptor,
-            T: tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-                Response = http::Response<
-                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
-                >,
-            >,
-            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
-                Into<StdError> + Send + Sync,
-        {
-            QueryPdmsDataTraitClient::new(InterceptedService::new(inner, interceptor))
-        }
-        #[doc = r" Compress requests with `gzip`."]
-        #[doc = r""]
-        #[doc = r" This requires the server to support it otherwise it might respond with an"]
-        #[doc = r" error."]
-        pub fn send_gzip(mut self) -> Self {
-            self.inner = self.inner.send_gzip();
-            self
-        }
-        #[doc = r" Enable decompressing responses with `gzip`."]
-        pub fn accept_gzip(mut self) -> Self {
-            self.inner = self.inner.accept_gzip();
-            self
-        }
-        pub async fn query_design_component(
-            &mut self,
-            request: impl tonic::IntoRequest<super::DesignComponentRequest>,
-        ) -> Result<tonic::Response<super::DesignComponent>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryDesignComponent",
-            );
-            self.inner.unary(request.into_request(), path, codec).await
-        }
-        pub async fn query_design_bran(
-            &mut self,
-            request: impl tonic::IntoRequest<super::DesignBranRequest>,
-        ) -> Result<tonic::Response<super::DesignBran>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryDesignBran",
-            );
-            self.inner.unary(request.into_request(), path, codec).await
-        }
-        pub async fn query_design_pipe(
-            &mut self,
-            request: impl tonic::IntoRequest<super::DesignPipeRequest>,
-        ) -> Result<tonic::Response<super::DesignPipe>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryDesignPipe",
-            );
-            self.inner.unary(request.into_request(), path, codec).await
-        }
-        pub async fn query_refnos(
-            &mut self,
-            request: impl tonic::IntoRequest<super::RefnosRequest>,
-        ) -> Result<tonic::Response<super::Refnos>, tonic::Status> {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryRefnos",
-            );
-            self.inner.unary(request.into_request(), path, codec).await
-        }
-    }
-}
-#[doc = r" Generated server implementations."]
-pub mod query_pdms_data_trait_server {
-    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
-    use tonic::codegen::*;
-    #[doc = "Generated trait containing gRPC methods that should be implemented for use with QueryPdmsDataTraitServer."]
-    #[async_trait]
-    pub trait QueryPdmsDataTrait: Send + Sync + 'static {
-        async fn query_design_component(
-            &self,
-            request: tonic::Request<super::DesignComponentRequest>,
-        ) -> Result<tonic::Response<super::DesignComponent>, tonic::Status>;
-        async fn query_design_bran(
-            &self,
-            request: tonic::Request<super::DesignBranRequest>,
-        ) -> Result<tonic::Response<super::DesignBran>, tonic::Status>;
-        async fn query_design_pipe(
-            &self,
-            request: tonic::Request<super::DesignPipeRequest>,
-        ) -> Result<tonic::Response<super::DesignPipe>, tonic::Status>;
-        async fn query_refnos(
-            &self,
-            request: tonic::Request<super::RefnosRequest>,
-        ) -> Result<tonic::Response<super::Refnos>, tonic::Status>;
-    }
-    #[derive(Debug)]
-    pub struct QueryPdmsDataTraitServer<T: QueryPdmsDataTrait> {
-        inner: _Inner<T>,
-        accept_compression_encodings: (),
-        send_compression_encodings: (),
-    }
-    struct _Inner<T>(Arc<T>);
-    impl<T: QueryPdmsDataTrait> QueryPdmsDataTraitServer<T> {
-        pub fn new(inner: T) -> Self {
-            let inner = Arc::new(inner);
-            let inner = _Inner(inner);
-            Self {
-                inner,
-                accept_compression_encodings: Default::default(),
-                send_compression_encodings: Default::default(),
-            }
-        }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
-        where
-            F: tonic::service::Interceptor,
-        {
-            InterceptedService::new(Self::new(inner), interceptor)
-        }
-    }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for QueryPdmsDataTraitServer<T>
-    where
-        T: QueryPdmsDataTrait,
-        B: Body + Send + Sync + 'static,
-        B::Error: Into<StdError> + Send + 'static,
-    {
-        type Response = http::Response<tonic::body::BoxBody>;
-        type Error = Never;
-        type Future = BoxFuture<Self::Response, Self::Error>;
-        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-            Poll::Ready(Ok(()))
-        }
-        fn call(&mut self, req: http::Request<B>) -> Self::Future {
-            let inner = self.inner.clone();
-            match req.uri().path() {
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryDesignComponent" => {
-                    #[allow(non_camel_case_types)]
-                    struct QueryDesignComponentSvc<T: QueryPdmsDataTrait>(pub Arc<T>);
-                    impl<T: QueryPdmsDataTrait>
-                        tonic::server::UnaryService<super::DesignComponentRequest>
-                        for QueryDesignComponentSvc<T>
-                    {
-                        type Response = super::DesignComponent;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::DesignComponentRequest>,
-                        ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).query_design_component(request).await };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = QueryDesignComponentSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryDesignBran" => {
-                    #[allow(non_camel_case_types)]
-                    struct QueryDesignBranSvc<T: QueryPdmsDataTrait>(pub Arc<T>);
-                    impl<T: QueryPdmsDataTrait>
-                        tonic::server::UnaryService<super::DesignBranRequest>
-                        for QueryDesignBranSvc<T>
-                    {
-                        type Response = super::DesignBran;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::DesignBranRequest>,
-                        ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).query_design_bran(request).await };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = QueryDesignBranSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryDesignPipe" => {
-                    #[allow(non_camel_case_types)]
-                    struct QueryDesignPipeSvc<T: QueryPdmsDataTrait>(pub Arc<T>);
-                    impl<T: QueryPdmsDataTrait>
-                        tonic::server::UnaryService<super::DesignPipeRequest>
-                        for QueryDesignPipeSvc<T>
-                    {
-                        type Response = super::DesignPipe;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::DesignPipeRequest>,
-                        ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).query_design_pipe(request).await };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = QueryDesignPipeSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/pdms_parsed_data.QueryPdmsDataTrait/QueryRefnos" => {
-                    #[allow(non_camel_case_types)]
-                    struct QueryRefnosSvc<T: QueryPdmsDataTrait>(pub Arc<T>);
-                    impl<T: QueryPdmsDataTrait> tonic::server::UnaryService<super::RefnosRequest>
-                        for QueryRefnosSvc<T>
-                    {
-                        type Response = super::Refnos;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::RefnosRequest>,
-                        ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).query_refnos(request).await };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = QueryRefnosSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
-            }
-        }
-    }
-    impl<T: QueryPdmsDataTrait> Clone for QueryPdmsDataTraitServer<T> {
-        fn clone(&self) -> Self {
-            let inner = self.inner.clone();
-            Self {
-                inner,
-                accept_compression_encodings: self.accept_compression_encodings,
-                send_compression_encodings: self.send_compression_encodings,
-            }
-        }
-    }
-    impl<T: QueryPdmsDataTrait> Clone for _Inner<T> {
-        fn clone(&self) -> Self {
-            Self(self.0.clone())
-        }
-    }
-    impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{:?}", self.0)
-        }
-    }
-    impl<T: QueryPdmsDataTrait> tonic::transport::NamedService for QueryPdmsDataTraitServer<T> {
-        const NAME: &'static str = "pdms_parsed_data.QueryPdmsDataTrait";
-    }
-}

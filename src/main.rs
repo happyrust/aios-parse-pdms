@@ -53,23 +53,25 @@ use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
-use parse_pdms_db::get_attr::run_test;
+use parse_pdms_db::interface::pdms_interface::test_get_ele_geoms;
+use parse_pdms_db::query_scom::run_test;
 use parse_pdms_db::parse_data_to_db::{DbInfo, parse_db, save_type_hash_file};
 use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 
 
-
+fn main(){
+    test_get_ele_geoms();
+}
 
 #[tokio::test]
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
-    run_test().await;
     Ok(())
 }
 
 #[tokio::main]
-async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main_1() -> core::result::Result<(), Box<dyn std::error::Error>> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
@@ -192,6 +194,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let collection = db.collection::<DbInfo>("DbInfo");
             let db_collection = db.collection::<ElementData>("DbInfos");
             let mut mdb_children = HashSet::new();
+            //todo 0x8221C 这个是啥
             if let Some(mdb_name) = db_eles_data_map.get(&0x8221C) {
                 for ele in mdb_name.value() {
                     for child in ele.children.clone() {
@@ -320,7 +323,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             //     .upsert(Some(true))
             //     .build();
             for (key, ele_data_vec) in db_eles_data_map.clone() {
-                println!("ele_data_vec len={:?}", ele_data_vec.len());
+                println!("Curren elements len={:?}", ele_data_vec.len());
                 let table_name = db1_dehash(key as u32);
                 let mut ele_table = Vec::new();
                 let mut ele_nodes = Vec::new();
@@ -340,15 +343,15 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                         type_name: e.noun_name.clone(),
                     });
                 }
-                // 赋属性值
+                // 属性值
                 let collection = db.collection::<ElementData>(&table_name);
-                // collection.create_index(
-                //     IndexModel::builder()
-                //         .keys(doc! {"ref_no":1})
-                //         .options(IndexOptions::builder().unique(true).build())
-                //         .build(),
-                //     None,
-                // ).await?;
+                collection.create_index(
+                    IndexModel::builder()
+                        .keys(doc! {"ref_no":1})
+                        .options(IndexOptions::builder().unique(true).build())
+                        .build(),
+                    None,
+                ).await?;
 
                 for chunk in ele_data_vec.chunks(10000) {
                     collection.insert_many(
@@ -365,13 +368,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
                 // 参考号的tree
                 let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
-                // collection.create_index(
-                //     IndexModel::builder()
-                //         .keys(doc! {"ref_no":1})
-                //         .options(IndexOptions::builder().unique(true).build())
-                //         .build(),
-                //     None,
-                // ).await?;
+                collection.create_index(
+                    IndexModel::builder()
+                        .keys(doc! {"ref_no":1})
+                        .options(IndexOptions::builder().unique(true).build())
+                        .build(),
+                    None,
+                ).await?;
                 for tree_chunk in ele_nodes.chunks(10000) {
                     tree_collection.insert_many(
                         tree_chunk.to_owned(), None,
@@ -386,13 +389,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 }
                 // 所有refno的dbname和typename
                 let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
-                // collection.create_index(
-                //     IndexModel::builder()
-                //         .keys(doc! {"ref_no":1})
-                //         .options(IndexOptions::builder().unique(true).build())
-                //         .build(),
-                //     None,
-                // ).await?;
+                collection.create_index(
+                    IndexModel::builder()
+                        .keys(doc! {"ref_no":1})
+                        .options(IndexOptions::builder().unique(true).build())
+                        .build(),
+                    None,
+                ).await?;
                 for table_chunk in ele_table.chunks(10000) {
                     table_collection.insert_many(
                         table_chunk.to_owned(), None,

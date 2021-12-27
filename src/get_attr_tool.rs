@@ -2,22 +2,23 @@ use std::collections::{BTreeMap, HashMap};
 use std::ops::Neg;
 use dashmap::DashMap;
 use mongodb::{Database, bson::doc, Client};
+use crate::AttrMap;
 use crate::db_tool::db1_dehash;
-use crate::param_parse::{eval_str_to_f64, get_dir_and_pos, parse_gmse_param_to_cate_geo_params, parse_str_axis_to_vec3};
-use crate::pdms_origin_data::{AxisParam, GmseParam, ScomParamStr};
-use crate::pdms_parsed_data::{CateAxisParam, GeoParamsData, GmseParamData, Sver};
+use crate::param_parse::{eval_str_to_f64, resolve_dir_and_pos,  parse_str_axis_to_vec3, resolve_to_cate_geo_params};
+use crate::pdms_origin_data::{AxisParam, GmseParam, ScomInfo};
+use crate::pdms_parsed_data::{CateAxisParam, GeoParamsData, GmseParamData};
 use crate::pdms_types::{AttrVal, EleDataNode, ElementData};
 
 
-pub async fn get_attr_string_db(ele: EleDataNode, db: &Database, _db_tree: &Database) -> mongodb::error::Result<ElementData> {
-    let table = db.collection::<ElementData>(&ele.type_name);
-    let value = table.find_one(doc! { "ref_no":ele.ref_no }, None).await?;
-    if let Some(value) = value {
-        Ok(value)
-    } else {
-        Ok(ElementData::default())
-    }
-}
+// pub async fn get_attr_string_db(ele: EleDataNode, db: &Database, _db_tree: &Database) -> mongodb::error::Result<ElementData> {
+//     let table = db.collection::<ElementData>(&ele.type_name);
+//     let value = table.find_one(doc! { "ref_no":ele.ref_no }, None).await?;
+//     if let Some(value) = value {
+//         Ok(value)
+//     } else {
+//         Ok(ElementData::default())
+//     }
+// }
 
 pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
     if let Some(value) = ele.get(attr) {
@@ -31,32 +32,12 @@ pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &s
     "unset".to_string()
 }
 
-pub fn get_attr_value_as_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
-    let mut result = "".to_string();
-    if let Some(value) = ele.get(attr) {
-        match value.value() {
-            AttrVal::StringType(str_val) | AttrVal::WordType(str_val) | AttrVal::ElementType(str_val) => {
-                result = str_val.trim().to_string();
-            }
-            AttrVal::IntegerType(int_str) => {
-                result = int_str.to_string();
-            }
-            AttrVal::DoubleType(double_str) => {
-                result = double_str.to_string();
-            }
-            AttrVal::BoolType(bool_str) => {
-                result = bool_str.to_string();
-            }
-            _ => {}
-        }
-    };
-    result
-}
 
-pub fn get_attr_value_f64_vec(ele: &DashMap<String, AttrVal>, att: &str) -> Option<Vec<f64>> {
+
+pub fn get_attr_value_f64_vec(attr_map: &AttrMap, att: &str) -> Option<Vec<f64>> {
     let mut v = vec![];
-    if let Some(ele_value) = ele.get(att) {
-        match ele_value.value() {
+    if let Some(val) = attr_map.get(att) {
+        match val {
             AttrVal::DoubleArrayType(data) => {
                 v = data.clone();
                 return Some(v);
@@ -71,12 +52,12 @@ pub fn get_attr_value_f64_vec(ele: &DashMap<String, AttrVal>, att: &str) -> Opti
     None
 }
 
-pub fn get_attr_value_int(ele: &DashMap<String, AttrVal>, attr: &str) -> i32 {
+pub fn get_attr_value_int(ele: &AttrMap, attr: &str) -> i32 {
     let mut value = 0;
     if let Some(ele_value) = ele.get(attr) {
-        match ele_value.value() {
+        match ele_value {
             AttrVal::IntegerType(data) => {
-                value = *data;
+                value = data;
             }
             _ => {}
         }
@@ -84,10 +65,10 @@ pub fn get_attr_value_int(ele: &DashMap<String, AttrVal>, attr: &str) -> i32 {
     value
 }
 
-pub fn get_attr_value_int_vec(ele: &DashMap<String, AttrVal>, attr: &str) -> Vec<i32> {
+pub fn get_attr_value_int_vec(ele: &AttrMap, attr: &str) -> Vec<i32> {
     let mut value = vec![];
     if let Some(ele_value) = ele.get(attr) {
-        match ele_value.value() {
+        match ele_value {
             AttrVal::IntArrayType(data) => {
                 value = data.to_vec();
             }
@@ -97,18 +78,18 @@ pub fn get_attr_value_int_vec(ele: &DashMap<String, AttrVal>, attr: &str) -> Vec
     value
 }
 
-pub fn get_world_matrix_f64_db(ele: &DashMap<String, AttrVal>) -> Vec<f64> {
+pub fn get_world_matrix_f64_db(ele: &AttrMap) -> Vec<f64> {
     let mut pos = get_attr_value_f64_vec(ele, "POS").unwrap_or(vec![0.0, 0.0, 0.0]);
     vec![
         1.0f64, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, pos[0], pos[1], pos[2],
     ]
 }
 
-pub fn get_attr_strings_db(ele: &DashMap<String, AttrVal>, attrs: &[&str]) -> Vec<String> {
+pub fn get_attr_strings_db(ele: &AttrMap, attrs: &[&str]) -> Vec<String> {
     let mut results = vec![];
     for &attr_name in attrs {
         if let Some(result) = ele.get(attr_name) {
-            match result.value() {
+            match result {
                 AttrVal::StringType(value) => {
                     if value != "" {
                         results.push(value.trim_matches('\0').to_owned().clone());
@@ -121,45 +102,44 @@ pub fn get_attr_strings_db(ele: &DashMap<String, AttrVal>, attrs: &[&str]) -> Ve
     results
 }
 
-pub async fn resolve_loop_node(refno: String, db: &Database, db_tree: &Database) -> mongodb::error::Result<Vec<Sver>> {
-    let mut result = vec![];
-    let table_tree = db_tree.collection::<EleDataNode>("PdmsTreeNode");
-    let father_node = table_tree.find_one(doc! {"ref_no":refno}, None).await?.unwrap_or_default();
-    for child_refno in father_node.children {
-        let child_node = table_tree.find_one(doc! {"ref_no":child_refno}, None).await?.unwrap_or_default();
-        if child_node.type_name == "SLOO" {
-            for child in child_node.children {
-                let sver_node_tree = table_tree.find_one(doc! {"ref_no":child.clone()}, None).await?.unwrap_or_default();
-                let sver_table = db.collection::<ElementData>(&sver_node_tree.type_name);
-                let sver_node = sver_table.find_one(doc! {"ref_no":child}, None).await?.unwrap_or_default();
-                let sver = Sver::new(sver_node);
-                result.push(sver);
-            }
-        }
-    }
-    Ok(result)
-}
+// pub async fn resolve_loop_node(refno: String, db: &Database, db_tree: &Database) -> mongodb::error::Result<Vec<Sver>> {
+//     let mut result = vec![];
+//     let table_tree = db_tree.collection::<EleDataNode>("PdmsTreeNode");
+//     let father_node = table_tree.find_one(doc! {"ref_no":refno}, None).await?.unwrap_or_default();
+//     for child_refno in father_node.children {
+//         let child_node = table_tree.find_one(doc! {"ref_no":child_refno}, None).await?.unwrap_or_default();
+//         if child_node.type_name == "SLOO" {
+//             for child in child_node.children {
+//                 let sver_node_tree = table_tree.find_one(doc! {"ref_no":child.clone()}, None).await?.unwrap_or_default();
+//                 let sver_table = db.collection::<ElementData>(&sver_node_tree.type_name);
+//                 let sver_node = sver_table.find_one(doc! {"ref_no":child}, None).await?.unwrap_or_default();
+//                 let sver = Sver::new(sver_node);
+//                 result.push(sver);
+//             }
+//         }
+//     }
+//     Ok(result)
+// }
 
-#[tokio::test]
-async fn judge_child_is_loop_test() {
-    let refno = "15192/222670".to_string();
-    let client_uri = "mongodb://localhost:27017".to_string();
-    let client = Client::with_uri_str(&client_uri).await.unwrap();
-    let db_tree = client.database("as7000_0001_tree");
-    let db = client.database("as7000_0001");
-    let result = resolve_loop_node(refno, &db, &db_tree).await.unwrap();
-    println!("result={:?}", result);
-}
+// #[tokio::test]
+// async fn judge_child_is_loop_test() {
+//     let refno = "15192/222670".to_string();
+//     let client_uri = "mongodb://localhost:27017".to_string();
+//     let client = Client::with_uri_str(&client_uri).await.unwrap();
+//     let db_tree = client.database("as7000_0001_tree");
+//     let db = client.database("as7000_0001");
+//     let result = resolve_loop_node(refno, &db, &db_tree).await.unwrap();
+//     println!("result={:?}", result);
+// }
 
 pub fn resolve_axis_params(
-    scom: &ScomParamStr,
+    scom: &ScomInfo,
     context: &HashMap<String, String>,
-    data: &ElementData,
 ) -> BTreeMap<i32, CateAxisParam> {
     let mut map = BTreeMap::new();
-    for i in 0..scom.axis_param_collections.len() {
-        if let Some(axis) = resolve_axis_param(&scom.axis_param_collections[i], scom, context, data) {
-            map.insert(scom.axis_param_number[i], axis);
+    for i in 0..scom.axis_params.len() {
+        if let Some(axis) = resolve_axis_param(&scom.axis_params[i], scom, context) {
+            map.insert(scom.axis_param_numbers[i], axis);
         }
     }
     map
@@ -183,50 +163,50 @@ pub fn resolve_gmses(
 
 /// 解析gmes的参数
 pub fn parse_paragon_gmse_params(
-    gmse_str: &GmseParam,
+    gmse_param: &GmseParam,
     context: &HashMap<String, String>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GeoParamsData> {
-    if let Some(gmse) =
-    parse_gmse_params(gmse_str, context, axis_params) {
-        return Some(parse_gmse_param_to_cate_geo_params(gmse));
+    if let Some(gmse_data) = resolve_gmse_params(gmse_param, context, axis_params) {
+        dbg!(&gmse_data);
+        return Some(resolve_to_cate_geo_params(gmse_data));
     }
     None
 }
 
-pub fn parse_gmse_params(
-    gmse_str: &GmseParam,
+pub fn resolve_gmse_params(
+    gmse: &GmseParam,
     context: &HashMap<String, String>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-    let radius = eval_str_to_f64(&gmse_str.radius, context).unwrap_or_default();
+    let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or_default();
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
     let angle = ddangle * std::f64::consts::PI / 180.0;
-    let diameters = gmse_str.diameters
+    let diameters = gmse.diameters
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
-    let distances = gmse_str.distances
+    let distances = gmse.distances
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
-    let height = eval_str_to_f64(&gmse_str.height, context).unwrap_or_default();
-    let offset = eval_str_to_f64(&gmse_str.offset, context).unwrap_or_default();
+    let height = eval_str_to_f64(&gmse.height, context).unwrap_or_default();
+    let offset = eval_str_to_f64(&gmse.offset, context).unwrap_or_default();
 
-    let box_lengths = gmse_str.box_lengths
+    let box_lengths = gmse.box_lengths
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
-    let xyz = gmse_str.xyz
+    let xyz = gmse.xyz
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
     let mut paxises: Vec<CateAxisParam> = Vec::new();
-    for name in gmse_str.paxises.iter() {
+    for name in gmse.paxises.iter() {
         if name != "" {
             let (is_negative, name) = if name.starts_with('-') {
                 (true, &name[1..])
@@ -247,9 +227,6 @@ pub fn parse_gmse_params(
                                     axis_param_map[&index].clone()
                                 });
                             } else {
-                                // ////dbg!(&index);
-                                // ////dbg!(&axis_param_map);
-                                // log::info!("当前axis key是{:?}, axis_param_map是{:?}", index, &axis_param_map);
                                 return None;
                             }
                         }
@@ -270,11 +247,12 @@ pub fn parse_gmse_params(
             }
         }
     }
+    let attr_map = &gmse.attr_map;
     Some(GmseParamData {
-        name: gmse_str.name.clone(),
-        refno: gmse_str.refno.clone(),
-        owner: gmse_str.owner.clone(),
-        self_type: gmse_str.self_type.clone(),
+        name: attr_map.get_name(),
+        refno: attr_map.get_refno(),
+        owner: attr_map.get_owner(),
+        type_name: attr_map.get_type(),
         radius,
         angle,
         diameters,
@@ -284,16 +262,15 @@ pub fn parse_gmse_params(
         box_lengths,
         xyz,
         paxises,
-        centre_line_flag: gmse_str.centre_line_flag,
-        tube_flag: gmse_str.tube_flag,
+        centre_line_flag: gmse.centre_line_flag,
+        tube_flag: gmse.tube_flag,
     })
 }
 
 pub fn resolve_axis_param(
     axis_param: &AxisParam,
-    scom: &ScomParamStr,
+    scom: &ScomInfo,
     context: &HashMap<String, String>,
-    data: &ElementData,
 ) -> Option<CateAxisParam> {
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
     let key = &axis_param.pconnect.replace("\n", "").replace(" ", "");
@@ -303,11 +280,12 @@ pub fn resolve_axis_param(
     } else {
         "".to_string()
     };
+    // dbg!(&context);
     let pbore = eval_str_to_f64(&axis_param.pbore, &context).unwrap_or_default();
-    match &axis_param.self_type[..] {
+    match axis_param.attr_map.get_type().as_str() {
         "PTAX" => {
             let d = eval_str_to_f64(&axis_param.distance, &context).unwrap_or_default();
-            let (dir, pos) = get_dir_and_pos(axis_param, ddangle, scom, context, data);
+            let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);
             Some(CateAxisParam {
                 pt: vec![d * dir[0] + pos[0], d * dir[1] + pos[1], d * dir[2] + pos[2]],
                 dir: dir.to_vec(),
@@ -319,19 +297,17 @@ pub fn resolve_axis_param(
             let x = eval_str_to_f64(&axis_param.x, &context).unwrap_or_default();
             let y = eval_str_to_f64(&axis_param.y, &context).unwrap_or_default();
             let z = eval_str_to_f64(&axis_param.z, &context).unwrap_or_default();
-            let (dir, pos) = get_dir_and_pos(axis_param, ddangle, scom, context, data);
+            let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);
             Some(CateAxisParam { pt: vec![pos[0] + x, pos[1] + y, pos[2] + z], dir: dir.to_vec(), pconnect, pbore })
         }
         "PTPOS" => {
-            let (dir, pos) = get_dir_and_pos(axis_param, ddangle, scom, context, data);
-            let ele = &data.ref_no;
-            let data_map = &data.attr_data_map;
-            let pnt_index_str = get_attr_value_as_string(data_map, "PTCPOS");
+            let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);
+            let pnt_index_str = axis_param.attr_map.get_as_string("PTCPOS");
             let paras = pnt_index_str.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
             if paras.len() == 2 {
                 let pnt_index = paras[1].parse::<i32>().unwrap_or(i32::MAX);
-                if let Some(indx) = scom.axis_param_number.iter().position(|&x| x == pnt_index) {
-                    if let Some(axis) = resolve_axis_param(&scom.axis_param_collections[indx], scom, context, data) {
+                if let Some(indx) = scom.axis_param_numbers.iter().position(|&x| x == pnt_index) {
+                    if let Some(axis) = resolve_axis_param(&scom.axis_params[indx], scom, context) {
                         Some(CateAxisParam { pt: axis.pt, dir: dir.to_vec(), pconnect, pbore })
                     } else {
                         None
