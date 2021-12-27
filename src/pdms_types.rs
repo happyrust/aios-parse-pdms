@@ -146,6 +146,7 @@ pub enum DbAttributeType {
     INTVEC,
     FLOATVEC,
     TYPEX,
+    Vec3Type,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
