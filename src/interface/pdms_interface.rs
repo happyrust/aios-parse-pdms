@@ -4,11 +4,13 @@ use mongodb::bson::doc;
 use std::collections::HashSet;
 use std::error::Error;
 use dashmap::DashMap;
-use crate::query_scom::{query_descomp_info, query_scom_info, resolve_cata_comp_attrs};
-use crate::pdms_parsed_data::GeomsInfo;
+use crate::query::{query_scom_info, resolve_cata_comp_async, resolve_desi_comp};
+use crate::parsed_data::GeomsInfo;
 use crate::pdms_types::{AttrMap, AttrVal, EleDataNode, ElementData, PdmsRefno};
 use futures::stream::TryStreamExt;
 use mongodb::options::{FindOneOptions, FindOptions};
+use crate::helper::get_attr_value_f64_vec;
+use crate::pdms_data::ScomInfo;
 
 type MResult<T> = mongodb::error::Result<T>;
 
@@ -40,19 +42,72 @@ impl PdmsInterface {
         self.client.clone()
     }
 
-    ///获得ele对应的几何体
-    pub async fn get_cata_ele_geoms_async(&mut self, refno: &str) -> MResult<Option<GeomsInfo>> {
+    pub async fn get_scom_info_async(&mut self, refno: &str) -> MResult<Option<ScomInfo>> {
         if let Some(client) = self.connect().await {
             if let Some(scom_info) = query_scom_info(refno, self).await?{
-                let scom = resolve_cata_comp_attrs(&scom_info, self).await?;
-                return Ok(Some(scom));
+                return Ok(Some(scom_info));
             }
-
         }
         Ok(None)
     }
 
-    pub fn get_ele_geoms(&mut self, refno: &str) -> Option<GeomsInfo> {
+    pub fn get_scom_info(&mut self, refno: &str) -> Option<ScomInfo> {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(self.get_scom_info_async(refno)).unwrap()
+    }
+
+    ///获得cata ele对应的几何体
+    pub async fn get_cata_ele_geoms_async(&mut self, refno: &str) -> MResult<Option<GeomsInfo>> {
+        if let Some(client) = self.connect().await {
+            if let Some(scom_info) = query_scom_info(refno, self).await?{
+                let scom = resolve_cata_comp_async(&scom_info, self, None).await?;
+                return Ok(Some(scom));
+            }
+        }
+        Ok(None)
+    }
+
+    /// 同步方法，获得desi ele对应的几何体
+    pub fn get_des_ele_geoms(&mut self, refno: &str) -> Option<GeomsInfo> {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(self.get_des_ele_geoms_async(refno)).unwrap()
+    }
+
+    ///获得desi ele对应的几何体
+    pub async fn get_des_ele_geoms_async(&mut self, refno: &str) -> MResult<Option<GeomsInfo>> {
+        if let Some(client) = self.connect().await {
+            if let Some(geoms) = resolve_desi_comp(refno, self).await?{
+                // dbg!(&geoms);
+                return Ok(Some(geoms));
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn get_des_matrix(&mut self, refno: &str) -> glam::f32::Affine3A {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(self.get_des_matrix_async(refno)).unwrap()
+    }
+
+    pub async fn get_des_matrix_async(&mut self, refno: &str) -> MResult<glam::f32::Affine3A> {
+        if let Some(client) = self.connect().await {
+            if let Some(attr) = self.get_ele_attr_map_async(refno).await?{
+                if let Some(pos) = get_attr_value_f64_vec(&attr, "POS"){
+                    if let Some(ang) = get_attr_value_f64_vec(&attr, "ORI"){
+                        return Ok(glam::f32::Affine3A{
+                            // matrix3: glam::f32::Mat3A::from_euler(glam::EulerRot::ZYX, ang[0].to_radians() as f32, ang[1].to_radians() as f32, ang[2].to_radians() as f32),
+                            // matrix3: glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32) * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32) *glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32),
+                            matrix3: glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32) * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32)  * glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32) ,
+                            translation: glam::f32::Vec3A::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
+                        });
+                    }
+                }
+            }
+        }
+        Ok(glam::f32::Affine3A::IDENTITY)
+    }
+
+    pub fn get_cata_ele_geoms(&mut self, refno: &str) -> Option<GeomsInfo> {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(self.get_cata_ele_geoms_async(refno)).unwrap()
     }
@@ -151,7 +206,7 @@ impl PdmsInterface {
             if let Some(info) = self.get_db_info_of_ele(refno).await?{
                 let db = client.database(&format!("{}_tree", info.db));
                 let tree_collect = db.collection::<EleDataNode>("PdmsTreeNode");
-                let mut cursor = tree_collect.find(doc! {"owner" : refno}, None).await?;
+                let mut cursor = tree_collect.find(doc! {"owner" : refno}, FindOptions::builder().sort( doc! { "order": 1 } ).build())/*.sort( doc! { "order": 1 } )*/.await?;
                 while let Some(c) = cursor.try_next().await? {
                     v.push(c);
                 }
@@ -191,11 +246,20 @@ impl PdmsInterface {
 
 }
 
-// #[test]
-pub fn test_get_ele_geoms() {
+#[test]
+pub fn test_get_cata_geoms() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
-    dbg!(interface.get_ele_geoms("15192/43621"));
+    dbg!(interface.get_cata_ele_geoms("15192/43621"));
 }
+
+#[test]
+pub fn test_get_des_geoms() {
+    let mut interface = PdmsInterface::new("mongodb://localhost:27017");
+    dbg!(interface.get_des_ele_geoms("23584/5539"));
+    let mat = interface.get_des_matrix("23584/5457");
+    dbg!(mat);
+}
+
 //
 // #[test]
 // fn test_get_children() {

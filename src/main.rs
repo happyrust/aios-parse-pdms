@@ -53,10 +53,8 @@ use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
-use parse_pdms_db::interface::pdms_interface::test_get_ele_geoms;
-use parse_pdms_db::query_scom::run_test;
-use parse_pdms_db::parse_data_to_db::{DbInfo, parse_db, save_type_hash_file};
-use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, get_expression_attr_for_test, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
+use parse_pdms_db::parse::{DbInfo, parse_db, save_type_hash_file};
+use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 
@@ -120,11 +118,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         println!("开始目标参考号为: {}", target_refno_str);
     }
 
-
     let limited_count_str = matches.value_of("COUNT").unwrap_or("unset");
     let limited_count = limited_count_str.parse::<i32>().unwrap_or(0xFFFFFF);  //i32::max_value
     dbg!(limited_count);
-
 
     // SERVER_IP
     let b_run_save_hash_ref = matches.occurrences_of("PARSE_NOUN_HASH_REFNO_MAP") == 1;
@@ -161,7 +157,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);
     let database_info: PdmsDatabaseInfo = bincode::deserialize(&attr_buf).unwrap();
-
     let db_info_map = &database_info.db_names_map;
 
     target_files.sort_by(|a, b|
@@ -176,32 +171,31 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let db_type_bytes = &buf[32..36];
         let db_no_bytes = &buf[8..12];
         let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
-
-        // if is_cata_noun(db_type_bytes) || is_desi_noun(db_type_bytes) {
         let mut db_info = PDMSDBInfo::default();
         println!("path={:?}", &path);
 
-        let db_eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+        let mut eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+        // dbg!(&eles_data_map);
+        //todo remove duplicate refno
         if b_save_sys {
             let mut client_options = ClientOptions::parse(&mongodb_url).await?;
             client_options.app_name = Some("AIOS".to_string());
             let client = mongodb::Client::with_options(client_options.clone())?;
-            let db = client.database("Dbsys");
-            let collection = db.collection::<DbInfo>("DbInfo");
-            let db_collection = db.collection::<ElementData>("DbInfos");
+            let sys_db = client.database("Dbsys");
+            let collection = sys_db.collection::<DbInfo>("DbInfo");
+            let db_collection = sys_db.collection::<ElementData>("DbInfos");
             let mut mdb_children = HashSet::new();
             //todo 0x8221C 这个是啥
-            if let Some(mdb_name) = db_eles_data_map.get(&0x8221C) {
+            if let Some(mdb_name) = eles_data_map.get(&0x8221C) {
                 for ele in mdb_name.value() {
                     for child in ele.children.clone() {
                         mdb_children.insert(child);
                     }
-                    //mdb_children.push(ele.clone());
                 }
             }
             println!("mdb_children.len={}", mdb_children.len());
             let mut db_info_vec = vec![];
-            if let Some(db_info) = db_eles_data_map.get(&0x81C2B) {
+            if let Some(db_info) = eles_data_map.get(&0x81C2B) {
                 for ele in db_info.value() {
                     if mdb_children.contains(&ele.ref_no) {
                         db_info_vec.push(ele.clone());
@@ -211,7 +205,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             db_collection.insert_many(
                 db_info_vec, None,
             ).await?;
-            //println!("db_info_vec.len={}",db_info_vec.len());
 
             // let coll=db.collection::<ElementData>("MDB");
             // coll.insert_many(
@@ -250,65 +243,10 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
         dbinfos.push(db_info);
         dbg!(&db_name);
-
-        // if b_save_to_mysql {
-        //     let mysql_url = "mysql://root:root@10.30.230.146:3306/test_db";
-        //     //let mysql_url="mysql://root:root@localhost:3306/test_db";
-        //     let opts = Opts::from_url(mysql_url).unwrap();
-        //     let pool = Pool::new(opts).unwrap();
-        //     let mut mysql_conn = pool.get_conn().unwrap();
-        //     let create_table_mysql = format!(r"
-        //         create table PdmsTreeNode(
-        //             ref_no    text,
-        //             owner     text,
-        //             name      text,
-        //             orders    int,
-        //             db_name   text,
-        //             type_name text
-        //         )");
-        //     mysql_conn.query_drop(
-        //         create_table_mysql
-        //     ).unwrap();
-        //     for (_, ele_data_vec) in db_eles_data_map.clone() {
-        //         let mut ele_nodes = vec![];
-        //         for e in ele_data_vec {
-        //             ele_nodes.push(
-        //                 EleDataNode {
-        //                     ref_no: e.ref_no.clone(),
-        //                     children: e.children.clone(),
-        //                     owner: e.owner.clone(),
-        //                     name: e.name.clone(),
-        //                     order: e.order,
-        //                     db_name: db_name.clone(),
-        //                     type_name: e.noun_name.clone(),
-        //                 }
-        //             );
-        //         }
-        //         for mysql_chunk in ele_nodes.chunks(1000) {
-        //             mysql_conn.exec_batch(
-        //                 r"insert into pdmstreenode (ref_no,owner,name,orders,db_name,type_name)
-        //                  values(:ref_no,:owner,:name,:orders,:db_name,:type_name)",
-        //                 mysql_chunk.into_iter().map(|ele| {
-        //                     params! {
-        //                     "ref_no"=>ele.ref_no.clone(),
-        //                     "owner"=>ele.owner.clone(),
-        //                     "name"=>ele.name.clone(),
-        //                     "orders"=>ele.order,
-        //                     "db_name"=>ele.db_name.clone(),
-        //                     "type_name"=>ele.type_name.clone(),
-        //                      }
-        //                 }),
-        //             ).unwrap();
-        //         }
-        //     }
-        // }
-        //
-        //
         if b_save_to_mongodb {
             let mut client_options = ClientOptions::parse(&mongodb_url).await?;
             client_options.app_name = Some("AIOS".to_string());
             let client = mongodb::Client::with_options(client_options.clone())?;
-
             let db = client.database(&db_name);
             let db_name_clone = db_name.clone();
             let db_tree_name = format!("{}_tree", &db_name);
@@ -318,7 +256,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             // let option = FindOneAndReplaceOptions::builder()
             //     .upsert(Some(true))
             //     .build();
-            for (key, ele_data_vec) in db_eles_data_map.clone() {
+            for (key, mut ele_data_vec) in eles_data_map {
                 println!("Curren elements len={:?}", ele_data_vec.len());
                 let table_name = db1_dehash(key as u32);
                 let mut ele_table = Vec::new();
@@ -341,14 +279,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 }
                 // 属性值
                 let collection = db.collection::<ElementData>(&table_name);
-                collection.create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"ref_no":1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                ).await?;
-
+                // collection.create_index(
+                //     IndexModel::builder()
+                //         .keys(doc! {"ref_no":1})
+                //         .options(IndexOptions::builder().unique(true).build())
+                //         .build(),
+                //     None,
+                // ).await?;
                 for chunk in ele_data_vec.chunks(10000) {
                     collection.insert_many(
                         chunk.to_owned(), None,
@@ -361,16 +298,15 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     //     ).await?;
                     // }
                 }
-
                 // 参考号的tree
                 let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
-                collection.create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"ref_no":1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                ).await?;
+                // collection.create_index(
+                //     IndexModel::builder()
+                //         .keys(doc! {"ref_no":1})
+                //         .options(IndexOptions::builder().unique(true).build())
+                //         .build(),
+                //     None,
+                // ).await?;
                 for tree_chunk in ele_nodes.chunks(10000) {
                     tree_collection.insert_many(
                         tree_chunk.to_owned(), None,
@@ -385,13 +321,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 }
                 // 所有refno的dbname和typename
                 let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
-                collection.create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"ref_no":1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                ).await?;
+                // collection.create_index(
+                //     IndexModel::builder()
+                //         .keys(doc! {"ref_no":1})
+                //         .options(IndexOptions::builder().unique(true).build())
+                //         .build(),
+                //     None,
+                // ).await?;
                 for table_chunk in ele_table.chunks(10000) {
                     table_collection.insert_many(
                         table_chunk.to_owned(), None,
@@ -422,48 +358,8 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             ).await?;
             println!("Save {:?} to db ok", &path);
         }
-        if b_save_to_exp {
-            let mut file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
-            let reader = BufReader::new(file);
-            let database_info: DashMap<String, Vec<(String, String)>> = serde_json::from_reader(reader).unwrap();
-            let exp_type = HashSet::from([String::from("SSPH"), "SCTO".to_string(), "PTAX".to_string(), "LINE".to_string(), "SCYL".to_string(), "SCTO".to_string(), "LSNO".to_string(), "LCYL".to_string(), "PTCA".to_string(), "SDSH".to_string(),
-                "BLTP".to_string(), "SSPH".to_string(), "SBOX".to_string(), "SCON".to_string()]);
-            //let  exp_type = HashSet::from(["DATA".to_string()]);
-            let mut parse_and_pdms_expression = DashMap::new();
-            for (key, ele_data_vec) in db_eles_data_map {
-                let table_name = db1_dehash(key as u32);
-                if exp_type.contains(&table_name) {
-                    for ele in ele_data_vec {
-                        let refno = ele.ref_no;
-                        if let Some(map) = database_info.get(&refno) {
-                            let value = ele.attr_data_map;
-                            let result = map.clone();
-                            let new_result = print_refno_expression_data(value, result);
-                            parse_and_pdms_expression.insert(refno, new_result);
-                        }
-                    }
-                }
-            }
-            let encoded: String = serde_json::to_string_pretty(&parse_and_pdms_expression).unwrap();
-            let file_name = "expression.json";
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(file_name)
-                .unwrap();
-            file.write_all(encoded.as_bytes());
-        }
-        // }
     }
     Ok(())
 }
 
 
-
-#[derive(Debug, PartialEq, Eq)]
-struct Payment {
-    customer_id: i32,
-    amount: i32,
-    account_name: Option<String>,
-}

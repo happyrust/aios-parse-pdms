@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use regex::Regex;
 use crate::direction_parse::parse_expr_to_dir;
-use crate::get_attr_tool::{convert_to_context_key, resolve_axis_param};
-use crate::pdms_origin_data::{AxisParam, ScomInfo};
-use crate::pdms_parsed_data::geo_params_data::CateGeoParams;
-use crate::pdms_parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam,
-                              CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam,
-                              CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam,
-                              CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam,
-                              CateSphereParam, CateSverParam, CateTorusParam, GeoParamsData, GmseParamData};
+use crate::helper::{convert_to_context_key, resolve_axis_param};
+use crate::pdms_data::{AxisParam, ScomInfo};
+use crate::parsed_data::geo_params_data::CateGeoParam;
+use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam,
+                         CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam,
+                         CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam,
+                         CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam,
+                         CateSphereParam, CateSverParam, CateTorusParam, GeoParamsData, GmseParamData};
 use crate::pdms_types::ElementData;
 use crate::polish_notation::Stack;
 
@@ -30,8 +30,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     if seg_strs.len() == 0 {
         return None;
     }
-    // dbg!(&context);
-    // dbg!(&seg_strs);
     let mut p_vals = Vec::new();
     let mut i = 0;
     let _twice_flag = false; //翻倍
@@ -172,15 +170,15 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     return None;
 }
 
-pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
-    let data = match &gmse.type_name[..] {
+pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
+    let geo = match &gmse.type_name[..] {
         "BOXI" => {
             let z_length = if gmse.box_lengths.len() >= 3 {
                 gmse.box_lengths[2]
             } else {
                 gmse.box_lengths[1]
             };
-            Some(CateGeoParams::Boxi(CateBoxImpliedParam {
+            Some(CateGeoParam::Boxi(CateBoxImpliedParam {
                 axis: Some(gmse.paxises[0].clone()),
                 x_length: gmse.box_lengths[0],
                 z_length,
@@ -190,7 +188,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "LCYL" => {
             // 圆柱体
-            Some(CateGeoParams::LCylinder(CateLCylinderParam {
+            Some(CateGeoParam::LCylinder(CateLCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 diameter: gmse.diameters[0],
@@ -201,7 +199,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SCYL" => {
             // 圆柱体
-            Some(CateGeoParams::SCylinder(CateSCylinderParam {
+            Some(CateGeoParam::SCylinder(CateSCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 height: gmse.height,
@@ -211,7 +209,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "LINE" => {
-            Some(CateGeoParams::Line(CateLineParam {
+            Some(CateGeoParam::Line(CateLineParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 diameter: 0.0, //gmse.diameters[0],
@@ -220,7 +218,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "LPYR" => {
-            Some(CateGeoParams::Pyramid(CatePyramidParam {
+            Some(CateGeoParam::Pyramid(CatePyramidParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 pc: Some(gmse.paxises[2].clone()),
@@ -237,7 +235,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "LSNO" => {
-            Some(CateGeoParams::Snout(CateSnoutParam {
+            Some(CateGeoParam::Snout(CateSnoutParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 dist_to_btm: gmse.distances[0],
@@ -250,7 +248,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "SBOX" => {
-            Some(CateGeoParams::Box(CateBoxParam {
+            Some(CateGeoParam::Box(CateBoxParam {
                 size: vec![
                     gmse.box_lengths[0],
                     gmse.box_lengths[1],
@@ -267,7 +265,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SCON" => {
             // 圆锥
-            Some(CateGeoParams::Cone(CateConeParam {
+            Some(CateGeoParam::Cone(CateConeParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 diameter: gmse.diameters[0],
@@ -277,7 +275,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SCTO" => {
             // 弯管
-            Some(CateGeoParams::Torus(CateTorusParam {
+            Some(CateGeoParam::Torus(CateTorusParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 diameter: gmse.diameters[0],
@@ -287,7 +285,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SDIS" => {
             // 圆片
-            Some(CateGeoParams::Disc(CateDiscParam {
+            Some(CateGeoParam::Disc(CateDiscParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 diameter: gmse.diameters[0],
@@ -296,7 +294,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "SDSH" => {
-            Some(CateGeoParams::Dish(CateDishParam {
+            Some(CateGeoParam::Dish(CateDishParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 height: gmse.height,
@@ -307,7 +305,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "SEXT" => {
-            Some(CateGeoParams::Extrusion(CateExtrusionParam {
+            Some(CateGeoParam::Extrusion(CateExtrusionParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 height: gmse.height,
@@ -320,7 +318,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SLINE" => {
             //todo
-            Some(CateGeoParams::Sline(CateSlineParam {
+            Some(CateGeoParam::Sline(CateSlineParam {
                 start_pt: vec![0.0; 3],
                 end_pt: vec![0.0; 3],
                 diameter: gmse.diameters[0],
@@ -329,7 +327,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "SREV" => {
-            Some(CateGeoParams::Revolution(CateRevolutionParam {
+            Some(CateGeoParam::Revolution(CateRevolutionParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 angel: gmse.angle,
@@ -342,7 +340,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SRTO" => { // 如 =15192/210474
             // 截面为矩形的弯管
-            Some(CateGeoParams::RectTorus(CateRectTorusParam {
+            Some(CateGeoParam::RectTorus(CateRectTorusParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 height: gmse.height,
@@ -353,7 +351,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SSLC" => {
             //todo
-            Some(CateGeoParams::SlopeBottomCylinder(CateSlopeBottomCylinderParam {
+            Some(CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
                 height: gmse.height,
                 diameter: gmse.diameters[0],
@@ -368,7 +366,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         "SSPH" => {
             // 球
-            Some(CateGeoParams::Sphere(CateSphereParam {
+            Some(CateGeoParam::Sphere(CateSphereParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_center: gmse.distances[0],
                 diameter: gmse.diameters[0],
@@ -377,7 +375,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
             }))
         }
         "SVER" => {
-            Some(CateGeoParams::SVER(CateSverParam {
+            Some(CateGeoParam::SVER(CateSverParam {
                 x: gmse.xyz[0],
                 y: gmse.xyz[1],
                 radius: gmse.radius,
@@ -385,9 +383,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> GeoParamsData {
         }
         _ => None,
     };
-    GeoParamsData {
-        cate_geo_params: data
-    }
+    geo
 }
 
 pub fn resolve_dir_and_pos(axis: &AxisParam,

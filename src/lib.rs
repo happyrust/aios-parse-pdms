@@ -5,23 +5,22 @@ use mongodb::Client;
 use mongodb::bson::doc;
 use std::collections::HashSet;
 use std::error::Error;
-use crate::query_scom::{query_descomp_info, resolve_cata_comp_attrs};
-use crate::pdms_parsed_data::GeomsInfo;
+use crate::parsed_data::GeomsInfo;
 use crate::pdms_types::{AttrMap, EleDataNode, ElementData, PdmsRefno};
 use futures::stream::TryStreamExt;
 
 pub mod pdms_types;
 pub mod db_tool;
 pub mod parse_explict_tools;
-pub mod query_scom;
-pub mod get_attr_tool;
-pub mod pdms_parsed_data;
-pub mod pdms_origin_data;
-pub mod param_parse;
+pub mod query;
+pub mod helper;
+pub mod parsed_data;
+pub mod pdms_data;
+pub mod resolve_helper;
 pub mod polish_notation;
 pub mod direction_parse;
-pub mod parse_data_impl;
-pub mod parse_data_to_db;
+pub mod axis_param;
+pub mod parse;
 pub mod interface;
 
 const ATT_PAXI: i32 = 0xB146F;
@@ -83,7 +82,7 @@ const IMP_PTCDI: i32 = 0x95A34;
 extern crate lazy_static;
 
 lazy_static! {
-    pub static ref EXPRESSION: HashSet<i32> = {
+    pub static ref EXPR_ATT_SET: HashSet<i32> = {
         let mut s = HashSet::new();
         s.insert(ATT_PAXI);s.insert(ATT_PAAX);s.insert(ATT_PBAX);s.insert(ATT_PCAX);
         s.insert(ATT_PX);s.insert(ATT_PY);s.insert(ATT_PZ);s.insert(ATT_PDIA);

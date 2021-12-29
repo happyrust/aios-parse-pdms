@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use nom::IResult;
 use nom::number::complete::{be_i32, be_u16, be_i16};
 use nom::sequence::tuple;
-use crate::parse_data_to_db::{convert_to_explicit_axis_string, convert_to_implicit_axis_string};
+use crate::parse::{convert_to_explicit_axis_string, convert_to_implicit_axis_string};
 use crate::pdms_types::AttrVal::*;
 use crate::pdms_types::{AttrVal, DbAttributeType};
 use crate::pdms_types::DbAttributeType::*;
@@ -276,11 +276,11 @@ fn get_expression_attr_test() {
     let mut file = File::open("BDIA").unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);
-    let (_, (types, result)) = get_expression_attr_for_test(&attr_buf).unwrap();
+    let (_, (types, result)) = parse_expression_attr(&attr_buf).unwrap();
     println!("type={},result={}", types, result);
 }
 
-pub fn get_expression_attr_for_test(input: &[u8]) -> IResult<&[u8], (String, String)> {
+pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
     let expression_type_input = &input[..4];
     let expression_type = match_expression_type(expression_type_input);
     if expression_type == "PTCDI" {

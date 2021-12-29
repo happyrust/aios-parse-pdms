@@ -1,5 +1,8 @@
+use std::collections::BTreeMap;
+
 use dashmap::DashMap;
-use crate::pdms_origin_data::GmseParam;
+use crate::parsed_data::geo_params_data::CateGeoParam;
+use crate::pdms_data::GmseParam;
 use crate::pdms_types::{AttrVal, ElementData};
 
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -39,10 +42,14 @@ pub struct DesignBran {
     pub refno: ::prost::alloc::string::String,
     pub components: ::prost::alloc::vec::Vec<GeomsInfo>,
 }
+
 #[derive(Clone, Debug, Default)]
 pub struct GeomsInfo {
-    pub geometries: ::prost::alloc::vec::Vec<GeoParamsData>,
+    pub geometries: Vec<CateGeoParam>,
+    pub axis_map: BTreeMap<i32, CateAxisParam>,
+    // pub matrix: glam::f32::Affine3A
 }
+
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Dataset {
     #[prost(string, tag = "1")]
@@ -97,18 +104,14 @@ pub struct CateAxisParam {
     #[prost(double, tag = "4")]
     pub pbore: f64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq)]
 pub struct GeoParamsData {
-    #[prost(
-        oneof = "geo_params_data::CateGeoParams",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17"
-    )]
-    pub cate_geo_params: ::core::option::Option<geo_params_data::CateGeoParams>,
+    pub cate_geo_params: ::core::option::Option<geo_params_data::CateGeoParam>,
 }
 /// Nested message and enum types in `GeoParamsData`.
 pub mod geo_params_data {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum CateGeoParams {
+    pub enum CateGeoParam {
         #[prost(message, tag = "1")]
         Boxi(super::CateBoxImpliedParam),
         #[prost(message, tag = "2")]

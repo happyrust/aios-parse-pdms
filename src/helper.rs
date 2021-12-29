@@ -1,12 +1,14 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Neg;
 use dashmap::DashMap;
+use itertools::Itertools;
 use mongodb::{Database, bson::doc, Client};
 use crate::AttrMap;
 use crate::db_tool::db1_dehash;
-use crate::param_parse::{eval_str_to_f64, resolve_dir_and_pos,  parse_str_axis_to_vec3, resolve_to_cate_geo_params};
-use crate::pdms_origin_data::{AxisParam, GmseParam, ScomInfo};
-use crate::pdms_parsed_data::{CateAxisParam, GeoParamsData, GmseParamData};
+use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params};
+use crate::pdms_data::{AxisParam, GmseParam, ScomInfo};
+use crate::parsed_data::{CateAxisParam, GeoParamsData, GmseParamData};
+use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_types::{AttrVal, EleDataNode, ElementData};
 
 
@@ -102,36 +104,7 @@ pub fn get_attr_strings_db(ele: &AttrMap, attrs: &[&str]) -> Vec<String> {
     results
 }
 
-// pub async fn resolve_loop_node(refno: String, db: &Database, db_tree: &Database) -> mongodb::error::Result<Vec<Sver>> {
-//     let mut result = vec![];
-//     let table_tree = db_tree.collection::<EleDataNode>("PdmsTreeNode");
-//     let father_node = table_tree.find_one(doc! {"ref_no":refno}, None).await?.unwrap_or_default();
-//     for child_refno in father_node.children {
-//         let child_node = table_tree.find_one(doc! {"ref_no":child_refno}, None).await?.unwrap_or_default();
-//         if child_node.type_name == "SLOO" {
-//             for child in child_node.children {
-//                 let sver_node_tree = table_tree.find_one(doc! {"ref_no":child.clone()}, None).await?.unwrap_or_default();
-//                 let sver_table = db.collection::<ElementData>(&sver_node_tree.type_name);
-//                 let sver_node = sver_table.find_one(doc! {"ref_no":child}, None).await?.unwrap_or_default();
-//                 let sver = Sver::new(sver_node);
-//                 result.push(sver);
-//             }
-//         }
-//     }
-//     Ok(result)
-// }
-
-// #[tokio::test]
-// async fn judge_child_is_loop_test() {
-//     let refno = "15192/222670".to_string();
-//     let client_uri = "mongodb://localhost:27017".to_string();
-//     let client = Client::with_uri_str(&client_uri).await.unwrap();
-//     let db_tree = client.database("as7000_0001_tree");
-//     let db = client.database("as7000_0001");
-//     let result = resolve_loop_node(refno, &db, &db_tree).await.unwrap();
-//     println!("result={:?}", result);
-// }
-
+/// 求解axis的数值, 得到 {num:  }
 pub fn resolve_axis_params(
     scom: &ScomInfo,
     context: &HashMap<String, String>,
@@ -150,15 +123,13 @@ pub fn resolve_gmses(
     context: &HashMap<String, String>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
     ddangle: Option<f64>,
-) -> Vec<GeoParamsData> {
+) -> Vec<CateGeoParam> {
     gmse_strs
         .iter()
-        .map(|gmse_str| {
-            parse_paragon_gmse_params(&gmse_str, context, axis_params).unwrap_or(GeoParamsData {
-                cate_geo_params: None
-            })
+        .filter_map(|gmse_str| {
+            parse_paragon_gmse_params(&gmse_str, context, axis_params)
         })
-        .collect::<Vec<GeoParamsData>>()
+        .collect::<Vec<CateGeoParam>>()
 }
 
 /// 解析gmes的参数
@@ -166,10 +137,9 @@ pub fn parse_paragon_gmse_params(
     gmse_param: &GmseParam,
     context: &HashMap<String, String>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
-) -> Option<GeoParamsData> {
+) -> Option<CateGeoParam> {
     if let Some(gmse_data) = resolve_gmse_params(gmse_param, context, axis_params) {
-        dbg!(&gmse_data);
-        return Some(resolve_to_cate_geo_params(gmse_data));
+        return resolve_to_cate_geo_params(gmse_data);
     }
     None
 }
@@ -181,7 +151,7 @@ pub fn resolve_gmse_params(
 ) -> Option<GmseParamData> {
     let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or_default();
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
-    let angle = ddangle * std::f64::consts::PI / 180.0;
+    let angle = ddangle.to_radians();
     let diameters = gmse.diameters
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
@@ -280,7 +250,6 @@ pub fn resolve_axis_param(
     } else {
         "".to_string()
     };
-    // dbg!(&context);
     let pbore = eval_str_to_f64(&axis_param.pbore, &context).unwrap_or_default();
     match axis_param.attr_map.get_type().as_str() {
         "PTAX" => {
