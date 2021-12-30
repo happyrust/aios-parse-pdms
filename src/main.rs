@@ -253,9 +253,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
             let table_db = client.database("PdmsRefnoDB");
-            // let option = FindOneAndReplaceOptions::builder()
-            //     .upsert(Some(true))
-            //     .build();
             for (key, mut ele_data_vec) in eles_data_map {
                 println!("Curren elements len={:?}", ele_data_vec.len());
                 let table_name = db1_dehash(key as u32);
@@ -279,66 +276,46 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 }
                 // 属性值
                 let collection = db.collection::<ElementData>(&table_name);
-                // collection.create_index(
-                //     IndexModel::builder()
-                //         .keys(doc! {"ref_no":1})
-                //         .options(IndexOptions::builder().unique(true).build())
-                //         .build(),
-                //     None,
-                // ).await?;
+                collection.create_index(
+                    IndexModel::builder()
+                        .keys(doc! {"ref_no":1})
+                        .options(IndexOptions::builder().unique(true).build())
+                        .build(),
+                    None,
+                ).await?;
                 for chunk in ele_data_vec.chunks(10000) {
                     collection.insert_many(
                         chunk.to_owned(), None,
                     ).await?;
-                    // for ele in chunk {
-                    //     collection.find_one_and_replace(
-                    //         doc! {"ref_no":ele.ref_no.clone()},
-                    //         ele.clone(),
-                    //         Some(option.clone()),
-                    //     ).await?;
-                    // }
                 }
                 // 参考号的tree
                 let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
-                // collection.create_index(
-                //     IndexModel::builder()
-                //         .keys(doc! {"ref_no":1})
-                //         .options(IndexOptions::builder().unique(true).build())
-                //         .build(),
-                //     None,
-                // ).await?;
+                collection.create_index(
+                    IndexModel::builder()
+                        .keys(doc! {"ref_no":1})
+                        .options(IndexOptions::builder().unique(true).build())
+                        .build(),
+                    None,
+                ).await?;
                 for tree_chunk in ele_nodes.chunks(10000) {
                     tree_collection.insert_many(
                         tree_chunk.to_owned(), None,
                     ).await?;
-                    // for ele in tree_chunk {
-                    //     tree_collection.find_one_and_replace(
-                    //         doc! {"ref_no":ele.ref_no.clone()},
-                    //         ele.clone(),
-                    //         Some(option.clone()),
-                    //     ).await?;
-                    // }
+
                 }
                 // 所有refno的dbname和typename
                 let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
-                // collection.create_index(
-                //     IndexModel::builder()
-                //         .keys(doc! {"ref_no":1})
-                //         .options(IndexOptions::builder().unique(true).build())
-                //         .build(),
-                //     None,
-                // ).await?;
+                collection.create_index(
+                    IndexModel::builder()
+                        .keys(doc! {"ref_no":1})
+                        .options(IndexOptions::builder().unique(true).build())
+                        .build(),
+                    None,
+                ).await?;
                 for table_chunk in ele_table.chunks(10000) {
                     table_collection.insert_many(
                         table_chunk.to_owned(), None,
                     ).await?;
-                    // for ele in table_chunk {
-                    //     table_collection.find_one_and_replace(
-                    //         doc! {"ref_no":ele.ref_no.clone()},
-                    //         ele.clone(),
-                    //         Some(option.clone()),
-                    //     ).await?;
-                    // }
                 }
             }
 
@@ -346,13 +323,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let client = mongodb::Client::with_options(client_options)?;
             let db = client.database("PDMSDbInfos");
             let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
-            // collection.create_index(
-            //     IndexModel::builder()
-            //         .keys(doc! {"ref_no":1})
-            //         .options(IndexOptions::builder().unique(true).build())
-            //         .build(),
-            //     None,
-            // ).await?;
+            collection.create_index(
+                IndexModel::builder()
+                    .keys(doc! {"ref_no":1})
+                    .options(IndexOptions::builder().unique(true).build())
+                    .build(),
+                None,
+            ).await?;
             collection.insert_many(
                 dbinfos.to_owned(), None,
             ).await?;

@@ -89,14 +89,13 @@ impl PdmsInterface {
         rt.block_on(self.get_des_matrix_async(refno)).unwrap()
     }
 
+    ///获得构件的变换矩阵
     pub async fn get_des_matrix_async(&mut self, refno: &str) -> MResult<glam::f32::Affine3A> {
         if let Some(client) = self.connect().await {
             if let Some(attr) = self.get_ele_attr_map_async(refno).await?{
                 if let Some(pos) = get_attr_value_f64_vec(&attr, "POS"){
                     if let Some(ang) = get_attr_value_f64_vec(&attr, "ORI"){
                         return Ok(glam::f32::Affine3A{
-                            // matrix3: glam::f32::Mat3A::from_euler(glam::EulerRot::ZYX, ang[0].to_radians() as f32, ang[1].to_radians() as f32, ang[2].to_radians() as f32),
-                            // matrix3: glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32) * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32) *glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32),
                             matrix3: glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32) * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32)  * glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32) ,
                             translation: glam::f32::Vec3A::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
                         });

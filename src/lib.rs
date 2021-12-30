@@ -5,9 +5,11 @@ use mongodb::Client;
 use mongodb::bson::doc;
 use std::collections::HashSet;
 use std::error::Error;
+use autowired::Autowired;
 use crate::parsed_data::GeomsInfo;
 use crate::pdms_types::{AttrMap, EleDataNode, ElementData, PdmsRefno};
 use futures::stream::TryStreamExt;
+use crate::interface::pdms_interface::PdmsInterface;
 
 pub mod pdms_types;
 pub mod db_tool;
@@ -102,4 +104,28 @@ lazy_static! {
         s
     };
 }
+
+
+
+//cached functions to get value
+//todo 数据分层，尽可能的用缓存
+
+
+pub fn create_pdms_interface(url: &str){
+    let interface = Autowired::<PdmsInterface>::new();
+}
+
+
+
+// #[bean(lazy)]
+// fn build_interface() -> PdmsInterface {
+//     PdmsInterface::default()
+// }
+//
+//
+// #[test]
+// fn test_create_interface(){
+//     let interface = create_pdms_interface("mongodb://localhost:27017");
+// }
+
 

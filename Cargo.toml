@@ -31,10 +31,14 @@ mongodb = { version = "2.0.1", default-features = false, features = ["async-std-
 log = "0.4.14"
 simplelog = "0.10.0"
 rayon = "1.5.1"
-dashmap = { version="4.0.2" , features=["serde"] }
 tokio = { version = "1.11.0", features = ["full"] }
 #mysql = "21.0.2"
 serde_json = { version = "1.0" }
 lazy_static = "1.4.0"
 
 static_init = "1.0.1"
+
+cached = { version = "0.26.2", default-features = false, features = ["proc_macro"] }
+dashmap =  { version="5.0.0" , features=["serde"] }
+once_cell = "1.9.0"
+autowired = { path = "D:/autowired-rs" }

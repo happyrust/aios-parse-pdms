@@ -117,7 +117,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                     data_len = data_len.min((sorted_offs[next_offset_idx as usize] as i32 - attr_info.offset as i32) * 4);
                 }
                 if implicit_data[..].len() > k as usize {
-                    let att_val = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno: RefNoTuple, pos: usize)
+                    let att_val = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize)
                         .unwrap().1;
                     ele_data.attr_data_map.entry(attr_info.name.clone())
                         .or_insert(att_val);
@@ -182,7 +182,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
 }
 
 const ATT_LEVE: i32 = 0x9DB99;
-
 const ATT_PTS: i32 = 0x85438;
 
 /// 获取隐式属性
@@ -204,11 +203,10 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                 val = attrval;
             }
         }
-        // dbg!(&val);
         // log::info!("隐式属性 ref_no={:?} position={:#04X?} val={:?}",ref_no,pos,r);
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
-        if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS { //0x9DB99 LEVEL  0x85438 PTS
+        if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS {
             let (mut tmp_input, length) = be_i32(input)?;
             let mut result = vec![];
             let mut length = length as usize;
@@ -227,7 +225,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                 }
                 DbAttributeType::DOUBLE => {
                     if data_len == 4{
-                        let d = ((f32::from_be_bytes(input.try_into().unwrap()) * 100.0).round() / 100.0) as f64;
+                        let d = ((f32::from_be_bytes(input[0..4].try_into().unwrap()) * 100.0).round() / 100.0) as f64;
                         val = AttrVal::DoubleType(d);
                     }else if data_len == 8{
                         if let [a, b, c, d, e, f, g, h] = input[0..8] {
@@ -235,7 +233,6 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                             val = AttrVal::DoubleType(d);
                         }
                     }
-
                 }
                 DbAttributeType::BOOL => {
                     let o = (attr_info.offset >> 0x14) as usize;
@@ -271,10 +268,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                     }
                 }
                 DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
-                    // dbg!(&attr_info);
-                    // dbg!(&attr_info.offset);
                     let mut data = [0f64; 3];
-                    //todo 这里需要改成自动计算，是float,还是double
                     let (input, cnt) = be_i32(input)?;
                     let l = input;
                     if input.len() >= 3 && cnt == 3{
@@ -523,13 +517,11 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                             }
 
                             DbAttributeType::DOUBLEVEC => {
-                                // println!("tmp_input={:#04X?}", tmp_input);
                                 let array_len = tmp_input.len() / 4;
-                                let (tmp_input, data_len) = be_i32(tmp_input)?;
+                                let (mut tmp_input, data_len) = be_i32(tmp_input)?;
                                 let len = data_len as usize;
                                 let double_or_float = array_len / len;
-                                let mut tmp_input = tmp_input;
-
+                                // let mut tmp_input = tmp_input;
                                 if double_or_float == 2 {
                                     let mut data = vec![];
                                     for _ in 0..len {
