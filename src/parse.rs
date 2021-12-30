@@ -98,9 +98,11 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
         let mut explicit_bytes_len = 0;
-        let sorted_offs = sort_offsets(attr_info_map.clone());
+        let implicit_len = implicit_data.len();
+        let mut sorted_offs = sort_offsets(attr_info_map.clone());
+        sorted_offs.retain(|x| *x < implicit_len as u32);
         for (_, attr_info) in attr_info_map.clone() {
-            if attr_info.offset != 0 && implicit_data.len() > (attr_info.offset & 0xFFFFF) as usize  {
+            if attr_info.offset != 0 && implicit_len > (attr_info.offset & 0xFFFFF) as usize  {
                 let mut k = attr_info.offset as usize;
                 if attr_info.att_type == DbAttributeType::BOOL {
                     k &= 0xFFFFF;
@@ -108,13 +110,18 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                     k -= 1;  //长度在前面
                 }
                 k *= 4;  //dword => byte
-                let next_offset_idx = sorted_offs.iter().position(|&x| x == attr_info.offset).unwrap_or(0) as i32 + 1;
-                let mut data_len = implicit_data.len() as i32 - k as i32;
+                // if attr_info.name.as_str() == "RADI"  {
+                //     dbg!("test");
+                // }
+                let mut data_len = implicit_len as i32 - k as i32;
                 if data_len < 0 { break; }
-                if next_offset_idx > 0 && next_offset_idx < sorted_offs.len() as i32 {
-                    data_len = data_len.min((sorted_offs[next_offset_idx as usize] as i32 - attr_info.offset as i32) * 4);
+                if let Some(mut j) = sorted_offs.iter().position(|&x| x == attr_info.offset){
+                    let next_offset_idx = j as i32 + 1;
+                    if  next_offset_idx < sorted_offs.len() as i32 {
+                        data_len = data_len.min((sorted_offs[next_offset_idx as usize] as i32 - attr_info.offset as i32) * 4);
+                    }
                 }
-                if implicit_data[..].len() > k as usize {
+                if implicit_len > k as usize {
                     let att_val = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize)
                         .unwrap().1;
                     ele_data.attr_data_map.entry(attr_info.name.clone())
@@ -228,7 +235,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                     if data_len == 4{
                         let d = ((f32::from_be_bytes(input[0..4].try_into().unwrap()) * 100.0).round() / 100.0) as f64;
                         val = AttrVal::DoubleType(d);
-                    }else if data_len == 8{
+                    }else if data_len >= 8{    //允许是最后一个offset的情况，导致长度可能>8
                         if let [a, b, c, d, e, f, g, h] = input[0..8] {
                             let d = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
                             val = AttrVal::DoubleType(d);

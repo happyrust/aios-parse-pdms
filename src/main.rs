@@ -1,18 +1,6 @@
 #![feature(array_methods)]
 #![feature(type_ascription)]
 
-// mod pdms_types;
-// mod db_tool;
-// mod parse_explict_tools;
-// mod get_attr;
-// mod get_attr_tool;
-// mod pdms_parsed_data;
-// mod pdms_origin_data;
-// mod param_parse;
-// mod polish_notation;
-// mod direction_parse;
-// mod parse_data_impl;
-
 #[macro_use]
 extern crate nom;
 

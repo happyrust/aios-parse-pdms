@@ -40,6 +40,8 @@ pub async fn resolve_desi_comp(
     context.insert(DDHEIGHT_STR.to_string(), attr_map.get_as_string("HEIG"));
     context.insert(DDANGLE_STR.to_string(), attr_map.get_as_string("ANGL"));
     context.insert(DDRADIUS_STR.to_string(), attr_map.get_as_string("RADI"));
+    // dbg!(&attr_map);
+    // dbg!(&context);
     let desparams = get_attr_value_f64_vec(&attr_map, "PARA").unwrap_or_default();
     for i in 0..desparams.len() {
         context.insert(

@@ -17,6 +17,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     if input_expr.trim() == "unset" {
         return Some(0.0);
     }
+    // println!("{}",input_expr);
     let _has_desparam = false;
     let mut exp = input_expr.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
     if exp.len() < 1 {
@@ -32,9 +33,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     }
     let mut p_vals = Vec::new();
     let mut i = 0;
-    let _twice_flag = false; //翻倍
-    let _tanf_flag = false; //翻倍
-    let _tan_flag = false; //翻倍
     while i < seg_strs.len() {
         let mut key = "".to_string();
         let s = seg_strs[i].as_str();
@@ -80,7 +78,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         }
         i += 1;
     }
-
     //对TWICE、tanf、tan做单独处理
     let mut need_del_keys = vec![];
     for i in 0..p_vals.len() {
@@ -152,9 +149,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         result_string.push(' ');
         i += 1;
     }
-    // ////dbg!(&result_string);
-    let mut ns = fasteval::EmptyNamespace;
     // dbg!(&result_string);
+    let mut ns = fasteval::EmptyNamespace;
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
         if let Ok(val) = fasteval::ez_eval(&result_string, &mut ns) {
             (val * 100.0).round() / 100.0
@@ -163,10 +159,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
             stack.eval()
         }
     }) {
-        // ////dbg!(f);
         return Some(f);
     }
-    // ////dbg!("None");
     return None;
 }
 

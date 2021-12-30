@@ -24,6 +24,7 @@ pub mod direction_parse;
 pub mod axis_param;
 pub mod parse;
 pub mod interface;
+pub mod mesh_helper;
 
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;

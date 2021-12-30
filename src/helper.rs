@@ -149,8 +149,8 @@ pub fn resolve_gmse_params(
     context: &HashMap<String, String>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-    let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or_default();
-    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
+    let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or(10.0f64);
+    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(90.0f64);
     let angle = ddangle.to_radians();
     let diameters = gmse.diameters
         .iter()
@@ -162,7 +162,7 @@ pub fn resolve_gmse_params(
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
-    let height = eval_str_to_f64(&gmse.height, context).unwrap_or_default();
+    let height = eval_str_to_f64(&gmse.height, context).unwrap_or(10.0);
     let offset = eval_str_to_f64(&gmse.offset, context).unwrap_or_default();
 
     let box_lengths = gmse.box_lengths
@@ -204,7 +204,7 @@ pub fn resolve_gmse_params(
                 }
                 "T" => {}
                 _ => {
-                    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
+                    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(90.0f64);
                     let dir = parse_str_axis_to_vec3(name, ddangle);
                     let axis = CateAxisParam {
                         pt: vec![0.0f64, 0.0, 0.0],

@@ -254,9 +254,9 @@ pub fn test_get_cata_geoms() {
 #[test]
 pub fn test_get_des_geoms() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
-    dbg!(interface.get_des_ele_geoms("23584/5539"));
-    let mat = interface.get_des_matrix("23584/5457");
-    dbg!(mat);
+    interface.get_des_ele_geoms("23584/5531");
+    // let mat = interface.get_des_matrix("23584/5457");
+    // dbg!(mat);
 }
 
 //
@@ -283,17 +283,3 @@ async fn get_attr_in_db_test() -> MResult<()> {
     dbg!(&result);
     Ok(())
 }
-
-//
-// #[tokio::test]
-// async fn get_attr_in_db_test() -> core::result::Result<()> {
-//     let result = PdmsInterface::get_ele_geoms_async("15192/222818").await?;
-//     Ok(())
-// }
-//
-// #[tokio::test]
-// async fn get_children_test() -> core::result::Result<()> {
-//     let result = PdmsInterface::get_children_async("15192/222795").await?;
-//     println!("result={:?}", result);
-//     Ok(())
-// }
