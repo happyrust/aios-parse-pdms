@@ -22,6 +22,7 @@ use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
 
 pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> DashMap<i32, Vec<ElementData>> {
+    let mut all_ref_no=HashSet::new();
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -50,7 +51,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
             continue;
         }
         let entry = &*refno_table_map.get(&refno).unwrap();
-        // dbg!(&entry);
         let pos = entry.pos;
         let type_hash = entry.noun_hash;
         // 判断反序列话的DashMap中有无对应的type
@@ -99,9 +99,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
         let mut explicit_bytes_len = 0;
         let sorted_offs = sort_offsets(attr_info_map.clone());
-        // dbg!(&sorted_offs);
         for (_, attr_info) in attr_info_map.clone() {
-            // dbg!(&attr_info);
             if attr_info.offset != 0 && implicit_data.len() > (attr_info.offset & 0xFFFFF) as usize  {
                 let mut k = attr_info.offset as usize;
                 if attr_info.att_type == DbAttributeType::BOOL {
@@ -152,10 +150,13 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         if !print_refno_str.is_empty() && print_refno_str == ele_data.ref_no {
             println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, start, &attr_info_map, &ele_data);
         }
-        noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
-        count += 1;
-        if count >= limited_cnt {
-            break;
+        if !all_ref_no.contains(&ele_data.ref_no) {
+            all_ref_no.insert(ele_data.ref_no.clone());
+            noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
+            count += 1;
+            if count >= limited_cnt {
+                break;
+            }
         }
     }
     noun_type_ele_data_map.iter_mut().for_each(|mut eles| {

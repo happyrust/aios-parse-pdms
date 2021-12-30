@@ -58,6 +58,8 @@ use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 
+const ATT_MDB:i32 = 0x8221C;
+const ATT_DB:i32  = 0x81C2B;
 
 #[tokio::test]
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -186,7 +188,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let db_collection = sys_db.collection::<ElementData>("DbInfos");
             let mut mdb_children = HashSet::new();
             //todo 0x8221C 这个是啥
-            if let Some(mdb_name) = eles_data_map.get(&0x8221C) {
+            if let Some(mdb_name) = eles_data_map.get(&ATT_MDB) {
                 for ele in mdb_name.value() {
                     for child in ele.children.clone() {
                         mdb_children.insert(child);
@@ -195,7 +197,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             }
             println!("mdb_children.len={}", mdb_children.len());
             let mut db_info_vec = vec![];
-            if let Some(db_info) = eles_data_map.get(&0x81C2B) {
+            if let Some(db_info) = eles_data_map.get(&ATT_DB) {
                 for ele in db_info.value() {
                     if mdb_children.contains(&ele.ref_no) {
                         db_info_vec.push(ele.clone());
@@ -305,13 +307,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 }
                 // 所有refno的dbname和typename
                 let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
-                collection.create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"ref_no":1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                ).await?;
+                // collection.create_index(
+                //     IndexModel::builder()
+                //         .keys(doc! {"ref_no":1})
+                //         .options(IndexOptions::builder().unique(true).build())
+                //         .build(),
+                //     None,
+                // ).await?;
                 for table_chunk in ele_table.chunks(10000) {
                     table_collection.insert_many(
                         table_chunk.to_owned(), None,
@@ -323,13 +325,13 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let client = mongodb::Client::with_options(client_options)?;
             let db = client.database("PDMSDbInfos");
             let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
-            collection.create_index(
-                IndexModel::builder()
-                    .keys(doc! {"ref_no":1})
-                    .options(IndexOptions::builder().unique(true).build())
-                    .build(),
-                None,
-            ).await?;
+            // collection.create_index(
+            //     IndexModel::builder()
+            //         .keys(doc! {"ref_no":1})
+            //         .options(IndexOptions::builder().unique(true).build())
+            //         .build(),
+            //     None,
+            // ).await?;
             collection.insert_many(
                 dbinfos.to_owned(), None,
             ).await?;
