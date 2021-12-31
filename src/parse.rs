@@ -750,9 +750,16 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     if t == 0x28 {
                         val = get_implicit_angle_expression(&tmp_input[8..12]);
                     } else {
+                        let mut value="".to_string();
                         let v = t as f32 / 40.0;
                         let times= trunc_f32_two(v);
-                        let value = get_implicit_angle_expression(&tmp_input[8..12]);
+                        value = get_implicit_angle_expression(&tmp_input[8..12]);
+                        if value == "" {
+                            let v=i32::from_be_bytes(tmp_input[8..12].try_into().unwrap());
+                            if v!=0 {
+                                value = (-v as f32 / 10.0 ).to_string();
+                            }
+                        }
                         val = format!("{} TIMES {}", times, value);
                     }
                 } else {
@@ -1100,7 +1107,7 @@ pub fn get_implicit_angle_expression(input: &[u8]) -> String {
         &[0xFF, 0xFF, 0xFF, 0xFD] => {
             val = "DDRADIUS".to_string();
         }
-        _ => {}
+        _ => { }
     }
     val
 }
