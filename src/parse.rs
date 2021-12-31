@@ -611,6 +611,11 @@ pub fn parse_attr_owner(input: &[u8]) -> IResult<&[u8], String> {
     Ok((input, owner))
 }
 
+#[inline]
+pub fn trunc_f32_two(input:f32) -> f32 {
+    ( input * 100.0 ).round() /100.0
+}
+
 /// 特殊处理AXIS隐式属性
 pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> {
     // 目前都是以02开头，如果不是以02开头就记录下来
@@ -740,18 +745,15 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                         val = format!("- {} {}", val, value);
                     }
                 } else if value <= 0xFFFFFFFFu32 as i32 {
-                    if value > 0xFFFFFFFAu32 as i32 {
-                        let value = get_implicit_angle_expression(&tmp_input[8..12]);
-                        val = value;
+                    let (_, t) = be_i32(&tmp_input[..4])?;
+                    // times是除以0x28的倍数
+                    if t == 0x28 {
+                        val = get_implicit_angle_expression(&tmp_input[8..12]);
                     } else {
-                        let (_, times) = be_i16(&tmp_input[2..4])?;
-                        let times = (times as f32) / 40.0f32;
-                        let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value) as f32 / 0xA as f32 + 0.1) * 100.0).ceil() / 100.0;
-                        if times != 1.0 {
-                            val = format!("{} TIMES {}", times, value.to_string());
-                        } else {
-                            val = value.to_string();
-                        }
+                        let v = t as f32 / 40.0;
+                        let times= trunc_f32_two(v);
+                        let value = get_implicit_angle_expression(&tmp_input[8..12]);
+                        val = format!("{} TIMES {}", times, value);
                     }
                 } else {
                     val = format!("{} {}", val, value);

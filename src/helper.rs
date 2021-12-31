@@ -149,6 +149,7 @@ pub fn resolve_gmse_params(
     context: &HashMap<String, String>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
+    dbg!(&gmse);
     let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or(10.0f64);
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(90.0f64);
     let angle = ddangle.to_radians();
