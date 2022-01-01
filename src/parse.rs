@@ -807,7 +807,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value1 = value1 - 0x1F4;
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    // let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    let value= match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -819,8 +820,12 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    result = value.to_string();
+                    // let mut value=get_implicit_angle_expression(&value2.to_be_bytes());
+                    // if value == "".to_string() {
+                    //     value = ( f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0 ).to_string();
+                    // }
+                    let value= match_angle_or_return_number(value2);
+                    result = value;
                 } else {
                     result = format!("PARAM {}", value2);
                 }
@@ -846,7 +851,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value1 = value1 - 0x1F4;
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    let value= match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -858,7 +864,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     val = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    let value= match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
@@ -887,7 +894,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value1 = value1 - 0x1F4;
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    let value= match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -899,7 +907,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    let value= match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
@@ -923,9 +932,10 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("IPARAM {}", value1);
                 } else if value1 >= 0x1F5 {
                     let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PATAM {}", value2);
+                    val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    let value= match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -937,7 +947,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
+                    let value= match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
@@ -1228,6 +1239,16 @@ pub fn get_implicit_len_by_offset(count: &Vec<u32>, offset: u32) -> usize {
         return (count[index + 1] - count[index]) as usize;
     }
     0
+}
+
+/// 根据i32数据match DDHEIGHT这种表达式，若没有则返回数据
+pub fn match_angle_or_return_number(input:i32) -> String {
+    let mut result=get_implicit_angle_expression(&input.to_be_bytes());
+    if result == "" {
+        let value = (((0xFFFFFFFFu32 as i32 - input ) as f32 / 0xA as f32 + 0.1) * 10.0).round() / 10.0;
+        result = value.to_string();
+    }
+    result
 }
 
 #[derive(Default, Debug)]
