@@ -138,8 +138,11 @@ pub fn parse_paragon_gmse_params(
     context: &HashMap<String, String>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<CateGeoParam> {
+    dbg!(&gmse_param);
     if let Some(gmse_data) = resolve_gmse_params(gmse_param, context, axis_params) {
-        return resolve_to_cate_geo_params(gmse_data);
+        let d = resolve_to_cate_geo_params(gmse_data);
+        dbg!(&d);
+        return d;
     }
     None
 }
@@ -149,7 +152,6 @@ pub fn resolve_gmse_params(
     context: &HashMap<String, String>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-    dbg!(&gmse);
     let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or(10.0f64);
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(90.0f64);
     let angle = ddangle.to_radians();
@@ -272,7 +274,7 @@ pub fn resolve_axis_param(
         }
         "PTPOS" => {
             let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);
-            let pnt_index_str = axis_param.attr_map.get_as_string("PTCPOS");
+            let pnt_index_str = axis_param.attr_map.get_as_string("PTCPOS").unwrap_or_default();
             let paras = pnt_index_str.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
             if paras.len() == 2 {
                 let pnt_index = paras[1].parse::<i32>().unwrap_or(i32::MAX);

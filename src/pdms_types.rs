@@ -13,28 +13,28 @@ impl AttrMap {
 
     #[inline]
     pub fn get_name(&self) -> String{
-        self.get_as_string("NAME")
+        self.get_as_string("NAME").unwrap_or("unset".to_string())
     }
 
     #[inline]
     pub fn get_refno(&self) -> String{
-        self.get_as_string("REFNO")
+        self.get_as_string("REFNO").unwrap_or("unset".to_string())
     }
 
     #[inline]
     pub fn get_owner(&self) -> String{
-        self.get_as_string("OWNER")
+        self.get_as_string("OWNER").unwrap_or("unset".to_string())
     }
 
     #[inline]
     pub fn get_type(&self) -> String{
-        self.get_as_string("TYPE")
+        self.get_as_string("TYPE").unwrap_or("unset".to_string())
     }
 
     #[inline]
-    pub fn get_as_string(&self, key: &str) -> String{
+    pub fn get_as_string(&self, key: &str) -> Option<String>{
         if let Some(v) = self.map.get(key){
-            match v.value() {
+            let s = match v.value() {
                 StringType(s) | WordType(s) | ElementType(s) => s.trim().to_string(),
                 IntegerType(d)  => d.to_string(),
                 DoubleType(d)  => d.to_string(),
@@ -44,11 +44,11 @@ impl AttrMap {
                 IntArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
                 BoolArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
                 Vec3Type(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
-                _ => "unset".to_string(),
-            }
-        }else{
-            "unset".to_string()
+                _ => { "unset".to_string() }
+            };
+            return Some(s);
         }
+        None
     }
 
     #[inline]

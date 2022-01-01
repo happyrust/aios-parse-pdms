@@ -28,18 +28,18 @@ pub async fn resolve_desi_comp(
     if attr_map.is_none() { return Ok(None); }
     let attr_map = attr_map.unwrap();
     let desp = get_attr_value_int_vec(&attr_map, "DESP");
-    let spre_ref = attr_map.get_as_string("SPRE");
+    let spre_ref = attr_map.get_as_string("SPRE").unwrap_or_default();
     let mut scom_ref = "unset".to_string();
     if let Some(spre) = interface.get_ele_attr_map_async(spre_ref.as_str()).await?{
-        scom_ref = spre.get_as_string("CATR");
+        scom_ref = spre.get_as_string("CATR").unwrap_or_default();
     }
     let scom_info = interface.get_scom_info_async(scom_ref.as_str()).await?;
     // dbg!(&scom_info);
     if scom_info.is_none() { return Ok(None); }
     let mut context = HashMap::new();
-    context.insert(DDHEIGHT_STR.to_string(), attr_map.get_as_string("HEIG"));
-    context.insert(DDANGLE_STR.to_string(), attr_map.get_as_string("ANGL"));
-    context.insert(DDRADIUS_STR.to_string(), attr_map.get_as_string("RADI"));
+    context.insert(DDHEIGHT_STR.to_string(), attr_map.get_as_string("HEIG").unwrap_or("1.0".to_string()));
+    context.insert(DDANGLE_STR.to_string(), attr_map.get_as_string("ANGL").unwrap_or("90.0".to_string()));
+    context.insert(DDRADIUS_STR.to_string(), attr_map.get_as_string("RADI").unwrap_or("1.0".to_string()));
     // dbg!(&attr_map);
     // dbg!(&context);
     let desparams = get_attr_value_f64_vec(&attr_map, "PARA").unwrap_or_default();
@@ -59,7 +59,7 @@ pub async fn query_scom_info(
     interface: &mut PdmsInterface,
 ) -> mongodb::error::Result<Option<ScomInfo>> {
     if let Some(attr_map) = interface.get_ele_attr_map_async(refno).await? {
-        let ptre_refno = attr_map.get_as_string("PTRE");
+        let ptre_refno = attr_map.get_as_string("PTRE").unwrap_or_default();
         let mut axis_params = vec![];
         let mut axis_param_numbers = vec![];
         if let Some(ptre_am) = interface
@@ -71,7 +71,7 @@ pub async fn query_scom_info(
             axis_param_numbers = axis_param_map.keys().cloned().collect::<Vec<_>>();
         }
 
-        let gmset_refno = attr_map.get_as_string("GMRE");
+        let gmset_refno = attr_map.get_as_string("GMRE").unwrap_or_default();
         let mut gmse_params = vec![];
         if let Some(gmse_am) = interface
             .get_ele_attr_map_async(gmset_refno.as_str())
@@ -82,12 +82,12 @@ pub async fn query_scom_info(
 
         return Ok(Some(ScomInfo {
             name: attr_map.get_name(),
-            gtype: attr_map.get_as_string("GTYPE"),
+            gtype: attr_map.get_as_string("GTYPE").unwrap_or_default(),
             dtse_params: vec![],
             gmse_params,
             axis_params,
             params: attr_map
-                .get_as_string("PARA")
+                .get_as_string("PARA").unwrap_or_default()
                 .replace("\n", " ")
                 .replace("  ", " "),
             axis_param_numbers,
@@ -108,7 +108,7 @@ pub async fn query_axis_params(
         .get_children_attr_map_async(refno.as_str())
         .await?;
     for child in children {
-        let number = child.get_as_string("NUMB").parse::<i32>().unwrap_or(-1);
+        let number = child.get_as_string("NUMB").unwrap_or_default().parse::<i32>().unwrap_or(-1);
         map.entry(number).or_insert(get_axis_param(&child));
     }
     Ok(map)
@@ -141,15 +141,16 @@ pub async fn resolve_cata_comp_async(
     if context.is_some(){
         cur_context = context.unwrap();
     }
+    //默认值
     cur_context
         .entry(DDHEIGHT_STR.to_string())
-        .or_insert("0.0".to_string());
+        .or_insert("1.0".to_string());
     cur_context
         .entry(DDRADIUS_STR.to_string())
-        .or_insert("0.0".to_string());
+        .or_insert("1.0".to_string());
     cur_context
         .entry(DDANGLE_STR.to_string())
-        .or_insert("0.0".to_string());
+        .or_insert("90.0".to_string());
     //获取DTSE的expression
     query_dtse_params(&scomp_info.attr_map, interface, &mut cur_context).await;
     cur_context.insert("IPARAM0".to_string(), "0".to_string());
@@ -159,9 +160,12 @@ pub async fn resolve_cata_comp_async(
         cur_context.insert(format!("IPARAM{}", i + 1), "0".to_string());
     }
     //求解AXIS的数据
+    // dbg!(&scomp_info.axis_params);
     let axis_map = resolve_axis_params(scomp_info, &cur_context);
+    // dbg!(&axis_map);
     //求解子节点几何模型的数据
     let geometries = resolve_gmses(&scomp_info.gmse_params, &cur_context, &axis_map, None);
+    // dbg!(&geometries);
     Ok(GeomsInfo {
         geometries,
         axis_map,
@@ -170,9 +174,9 @@ pub async fn resolve_cata_comp_async(
 
 ///获得AxisParam
 pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
-    let type_name = attr_map.get_as_string("TYPE");
-    let pconnect = attr_map.get_as_string("PCON");
-    let pbore = attr_map.get_as_string("PBOR");
+    let type_name = attr_map.get_as_string("TYPE").unwrap_or_default();
+    let pconnect = attr_map.get_as_string("PCON").unwrap_or_default();
+    let pbore = attr_map.get_as_string("PBOR").unwrap_or_default();
     let refno = attr_map.get_refno();
     let pos = get_attr_value_f64_vec(attr_map, "POS").unwrap_or(vec![0.0, 0.0, 0.0]);
     match type_name.as_ref() {
@@ -181,28 +185,28 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
             x: "".to_string(),
             y: "".to_string(),
             z: "".to_string(),
-            distance: attr_map.get_as_string("PDIS"),
-            direction: attr_map.get_as_string("PAXI"),
+            distance: attr_map.get_as_string("PDIS").unwrap_or_default(),
+            direction: attr_map.get_as_string("PAXI").unwrap_or_default(),
             pconnect,
             pbore,
         },
         "PTCA" => AxisParam {
             attr_map: attr_map.clone(),
-            x: attr_map.get_as_string("PX"),
-            y: attr_map.get_as_string("PY"),
-            z: attr_map.get_as_string("PZ"),
+            x: attr_map.get_as_string("PX").unwrap_or_default(),
+            y: attr_map.get_as_string("PY").unwrap_or_default(),
+            z: attr_map.get_as_string("PZ").unwrap_or_default(),
             distance: "".to_string(),
-            direction: attr_map.get_as_string("PTCDI"),
+            direction: attr_map.get_as_string("PTCDI").unwrap_or_default(),
             pconnect,
             pbore,
         },
         "PTMI" => AxisParam {
             attr_map: attr_map.clone(),
-            x: attr_map.get_as_string("PX"),
-            y: attr_map.get_as_string("PY"),
-            z: attr_map.get_as_string("PZ"),
+            x: attr_map.get_as_string("PX").unwrap_or_default(),
+            y: attr_map.get_as_string("PY").unwrap_or_default(),
+            z: attr_map.get_as_string("PZ").unwrap_or_default(),
             distance: "".to_string(),
-            direction: attr_map.get_as_string("PAXI"),
+            direction: attr_map.get_as_string("PAXI").unwrap_or_default(),
             pconnect,
             pbore,
         },
@@ -211,8 +215,8 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
             x: "".to_string(),
             y: "".to_string(),
             z: "".to_string(),
-            distance: attr_map.get_as_string("PTCPOS"),
-            direction: attr_map.get_as_string("PTCD"),
+            distance: attr_map.get_as_string("PTCPOS").unwrap_or_default(),
+            direction: attr_map.get_as_string("PTCD").unwrap_or_default(),
             pconnect,
             pbore,
         },
@@ -246,11 +250,11 @@ pub fn query_gmse_param(attr_map: &AttrMap) -> GmseParam {
     let tube_flag = attr_map.get_bool("TUFL");
     GmseParam {
         attr_map: attr_map.clone(),
-        radius: attr_map.get_as_string("PRAD"),
+        radius: attr_map.get_as_string("PRAD").unwrap_or_default(),
         diameters: get_attr_strings_db(attr_map, &["PDIA", "PBDM", "PTDM", "DIAM"]),
         distances: get_attr_strings_db(attr_map, &["PDIS", "PBDI", "PTDI"]),
-        height: attr_map.get_as_string("PHEI"),
-        offset: attr_map.get_as_string("POFF"),
+        height: attr_map.get_as_string("PHEI").unwrap_or_default(),
+        offset: attr_map.get_as_string("POFF").unwrap_or_default(),
         // box_lengths: get_attr_strings_db(ele_map, &["PXEL", "PYEL", "PZEL"]),
         box_lengths: get_attr_strings_db(attr_map, &["PXLE", "PYLE", "PZLE"]),
         xyz: get_attr_strings_db(
@@ -272,17 +276,15 @@ pub async fn query_dtse_params(
     context: &mut HashMap<String, String>,
 ) -> mongodb::error::Result<()> {
 
-    let dtre_refno = attr_map.get_as_string("DTRE");
+    let dtre_refno = attr_map.get_as_string("DTRE").unwrap_or_default();
     let children = interface
         .get_children_attr_map_async(dtre_refno.as_str())
         .await?;
     for child in children {
-        // let number = child.get_as_string("NUMB").parse::<i32>().unwrap_or(-1);
-        // map.entry(number).or_insert(get_axis_param(&child));
-        let key = child.get_as_string("DKEY");
-        let exp = child.get_as_string("PPRO");
+        let key = child.get_as_string("DKEY").unwrap_or_default();
+        let exp = child.get_as_string("PPRO").unwrap_or_default();
         let default_key = format!("{}_default_expr", key);
-        let default_expr = child.get_as_string("DPRO"); 
+        let default_expr = child.get_as_string("DPRO").unwrap_or_default();
         context.insert(key, exp);
         context.insert(default_key, default_expr);
     }

@@ -109,7 +109,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     }
 
     let limited_count_str = matches.value_of("COUNT").unwrap_or("unset");
-    let limited_count = limited_count_str.parse::<i32>().unwrap_or(0xFFFFFF);  //i32::max_value
+    let limited_count = limited_count_str.parse::<u64>().unwrap_or(u64::MAX);  //i32::max_value
     dbg!(limited_count);
 
     // SERVER_IP
@@ -165,8 +165,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         println!("path={:?}", &path);
 
         let mut eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-        // dbg!(&eles_data_map);
-        //todo remove duplicate refno
+        dbg!(&eles_data_map);
         if b_save_sys {
             let mut client_options = ClientOptions::parse(&mongodb_url).await?;
             client_options.app_name = Some("AIOS".to_string());
@@ -175,7 +174,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let collection = sys_db.collection::<DbInfo>("DbInfo");
             let db_collection = sys_db.collection::<ElementData>("DbInfos");
             let mut mdb_children = HashSet::new();
-            //todo 0x8221C 这个是啥
             if let Some(mdb_name) = eles_data_map.get(&ATT_MDB) {
                 for ele in mdb_name.value() {
                     for child in ele.children.clone() {

@@ -62,16 +62,20 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         ele_data.noun_hash = type_hash;
         ele_data.noun_name = db1_dehash(type_hash as u32);
         let attr_info_map = &*attr_info_map.get(&type_hash).unwrap();
-        let implicit_attr_len = i32::from_be_bytes(input[pos - 4..pos].try_into().unwrap()) as usize * 4;
+        let mut impl_len = i32::from_be_bytes(input[pos - 4..pos].try_into().unwrap()) as usize * 4;
+
         let start = pos - 4;
         // owner: position+12
         let (_, owner) = parse_attr_owner(&input[pos + 12..pos + 20]).unwrap();
         ele_data.owner = owner.clone();
 
+        //有连接关系()
+        if &input[start+impl_len..start+impl_len+4] == [0x0, 0x0, 0x0, 0x7].as_slice() {
+            impl_len += 4;
+        }
         //隐藏属性得数据切片
-        let implicit_data = &input[start..start + implicit_attr_len];
-
-        let membs_pos = start + implicit_attr_len;
+        let implicit_data = &input[start..start + impl_len];
+        let membs_pos = start + impl_len;
         let membs_data = &input[membs_pos..];
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
@@ -93,7 +97,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 }
             }
         }
-        let explicit_start = start + implicit_attr_len + memb_bytes_len;
+        let explicit_start = start + impl_len + memb_bytes_len;
         let explicit_data = &input[explicit_start..];
         let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
@@ -110,9 +114,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                     k -= 1;  //长度在前面
                 }
                 k *= 4;  //dword => byte
-                // if attr_info.name.as_str() == "RADI"  {
-                //     dbg!("test");
-                // }
                 let mut data_len = implicit_len as i32 - k as i32;
                 if data_len < 0 { break; }
                 if let Some(mut j) = sorted_offs.iter().position(|&x| x == attr_info.offset){
