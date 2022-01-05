@@ -126,6 +126,8 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                     }
                 }
                 if implicit_len > k as usize {
+                    // let (_,att_val) = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize)
+                    //     .unwrap_or((&implicit_data[k..], Vec3Type([0.0f64, 0.0, 0.0])));
                     let att_val = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize)
                         .unwrap().1;
                     ele_data.attr_data_map.entry(attr_info.name.clone())

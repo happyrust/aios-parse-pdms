@@ -157,6 +157,19 @@ pub enum AttrVal {
 
 }
 
+impl AttrVal {
+    pub fn get_attrval_value_in_integer_type(&self) -> i32 {
+        match self {
+            IntegerType(v) => {
+                return *v;
+            }
+            _ => {
+                return 0;
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PdmsDatabaseInfo {
     pub db_names_map: DashMap<i32, String>,

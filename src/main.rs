@@ -43,10 +43,11 @@ use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
-use parse_pdms_db::parse::{DbInfo, parse_db, save_type_hash_file};
+use parse_pdms_db::parse::{DbInfo, get_dbname, get_dbname_from_dbnumber, get_project_name_from_filename, parse_db, save_type_hash_file};
 use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
+use std::ffi::OsString;
 
 const ATT_MDB:i32 = 0x8221C;
 const ATT_DB:i32  = 0x81C2B;
@@ -156,6 +157,32 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
     let mut dbinfos = Vec::new();
 
+    if b_save_sys {
+        for path in target_files.clone() {
+            if let Some(file_name) = path.file_name() {
+                let mut p = "sam";
+                if let Ok((_, n)) = get_project_name_from_filename(&target_files[0].file_name().unwrap().to_str().unwrap()) {
+                    p = n;
+                }
+                //let project_sys_name = p.to_string();
+                let project_sys_name=format!("{}sys",p);
+                if file_name == OsString::from(&project_sys_name) {
+                    let sys_db_ele_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                    let db_name_map = get_dbname_from_dbnumber(sys_db_ele_data_map);
+                    let encode = bincode::serialize(&db_name_map).unwrap();
+                    let file_name = "db_name.bin";
+                    let mut file = OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(file_name)
+                        .unwrap();
+                    file.write(&encode);
+                }
+            }
+        }
+    }
+
     for path in target_files {
         let mut file = File::open(&path).unwrap();
         let mut buf = vec![0u8; 36];
@@ -168,72 +195,29 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
         let mut eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
         // dbg!(&eles_data_map);
-        if b_save_sys {
-            let mut client_options = ClientOptions::parse(&mongodb_url).await?;
-            client_options.app_name = Some("AIOS".to_string());
-            let client = mongodb::Client::with_options(client_options.clone())?;
-            let sys_db = client.database("Dbsys");
-            let collection = sys_db.collection::<DbInfo>("DbInfo");
-            let db_collection = sys_db.collection::<ElementData>("DbInfos");
-            let mut mdb_children = HashSet::new();
-            if let Some(mdb_name) = eles_data_map.get(&ATT_MDB) {
-                for ele in mdb_name.value() {
-                    for child in ele.children.clone() {
-                        mdb_children.insert(child);
-                    }
-                }
-            }
-            println!("mdb_children.len={}", mdb_children.len());
-            let mut db_info_vec = vec![];
-            if let Some(db_info) = eles_data_map.get(&ATT_DB) {
-                for ele in db_info.value() {
-                    if mdb_children.contains(&ele.ref_no) {
-                        db_info_vec.push(ele.clone());
-                    }
-                }
-            }
-            db_collection.insert_many(
-                db_info_vec, None,
-            ).await?;
 
-            // let coll=db.collection::<ElementData>("MDB");
-            // coll.insert_many(
-            //     mdb_children,None,
-            // ).await?;
-            // let mut db_info_vec=vec![];
-            // let mut db_info_map=DashMap::new();
-            // for child in mdb_children {
-            //     let number_db_map = get_sys_db_ref_no(&db_eles_data_map);
-            //     if let Some(value) = number_db_map.get(&child) {
-            //         let (numb_db,db_name) = value.value();
-            //         db_info_map.entry(db_name.clone()).or_insert(numb_db.clone());
-            //     };
-            // }
-            // for (numb_db,db_name) in db_info_map{
-            //     let db_info=DbInfo{
-            //         numb_db: db_name,
-            //         db_name: numb_db,
-            //     };
-            //     db_info_vec.push(db_info);
-            // }
-            // collection.insert_many(
-            //     db_info_vec,None
-            // ).await?;
-        }
-        let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
-        if let Some(name) = db_info_map.get(&db_no) {
-            db_raw_name = name.to_string();
-        }
-        if db_raw_name == "" {
-            db_raw_name = "*samsys".to_string();
-        }
-        let db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
-        db_info.name = db_name.clone();
-        db_info.db_no = db_no;
-        db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
-        dbinfos.push(db_info);
-        dbg!(&db_name);
         if b_save_to_mongodb {
+            let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
+            if let Some(name) = db_info_map.get(&db_no) {
+                db_raw_name = name.to_string();
+            }
+            if db_raw_name == "" {
+                //db_raw_name = project_sys_name;
+                continue;
+            }
+            if let Ok(mut file) = File::open("db_name.bin") {
+                let mut db_name_buf: Vec<u8> = Vec::new();
+                file.read_to_end(&mut db_name_buf);
+                let db_name_map = bincode::deserialize(&db_name_buf).unwrap();
+                db_raw_name = get_dbname(db_raw_name.as_bytes(), &db_name_map).unwrap().1;
+            }
+            let mut db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
+            db_info.name = db_name.clone();
+            db_info.db_no = db_no;
+            db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
+            dbinfos.push(db_info);
+            dbg!(&db_name);
+
             let mut client_options = ClientOptions::parse(&mongodb_url).await?;
             client_options.app_name = Some("AIOS".to_string());
             let client = mongodb::Client::with_options(client_options.clone())?;
