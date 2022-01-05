@@ -9,6 +9,8 @@ use std::time::Instant;
 use dashmap::DashMap;
 use futures::TryFutureExt;
 use memchr::memmem::rfind_iter;
+use mongodb::Client;
+use mongodb::options::ClientOptions;
 use nom::bytes::complete::take_until;
 use nom::character::complete::alpha1;
 use nom::IResult;
@@ -16,6 +18,9 @@ use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8};
 use nom::sequence::tuple;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use phf::phf_map;
+use mongodb::bson::doc;
+use mongodb::IndexModel;
+use mongodb::options::IndexOptions;
 use serde::__private::from_utf8_lossy;
 use crate::db_tool;
 use crate::db_tool::{db1_dehash, decode_chars_data};
@@ -23,6 +28,7 @@ use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, pa
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
+use crate::interface::pdms_interface::PdmsInterface;
 
 pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> DashMap<i32, Vec<ElementData>> {
     let mut all_ref_no = HashSet::new();
@@ -126,8 +132,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                     }
                 }
                 if implicit_len > k as usize {
-                    // let (_,att_val) = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize)
-                    //     .unwrap_or((&implicit_data[k..], Vec3Type([0.0f64, 0.0, 0.0])));
                     let att_val = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize)
                         .unwrap().1;
                     ele_data.attr_data_map.entry(attr_info.name.clone())
@@ -342,9 +346,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         attr_info.att_type = DbAttributeType::WORD;
                     }
                     // DESP 特殊处理
-                    if explict_num == 0xD20C7 {
-                        attr_info.att_type = DbAttributeType::INTVEC;
-                    }
+                    // if explict_num == 0xD20C7 {
+                    //     attr_info.att_type = DbAttributeType::INTVEC;
+                    // }
                     // 根据获取到的type hash值，拿到需要的类型
                     match attr_info.att_type {
                         DbAttributeType::INTEGER => {
@@ -1256,6 +1260,113 @@ pub fn match_angle_or_return_number(input: i32) -> String {
     result
 }
 
+pub async fn gen_sys_to_db(eles_data_map: DashMap<i32, Vec<ElementData>>,file_name:&str, client: &Client) -> mongodb::error::Result<()> {
+    let mut dbinfos=vec![];
+    let mut db_info=PDMSDBInfo::default();
+    let db = client.database(&file_name);
+    let db_tree_name = format!("{}_tree", &file_name);
+    let tree_db = client.database(&db_tree_name);
+    // 存放所有的refno对应的db_name和type_name
+    let table_db = client.database("PdmsRefnoDB");
+    for (key, mut ele_data_vec) in eles_data_map {
+        println!("Curren elements len={:?}", ele_data_vec.len());
+        let table_name = db1_dehash(key as u32);
+        let mut ele_table = Vec::new();
+        let mut ele_nodes = Vec::new();
+        for e in &ele_data_vec {
+            ele_nodes.push(EleDataNode {
+                ref_no: e.ref_no.clone(),
+                children: e.children.clone(),
+                owner: e.owner.clone(),
+                name: e.name.clone(),
+                order: e.order,
+                db_name: file_name.to_string(),
+                type_name: e.noun_name.clone(),
+            });
+            ele_table.push(PdmsRefno {
+                ref_no: e.ref_no.clone(),
+                db: file_name.to_string(),
+                type_name: e.noun_name.clone(),
+            });
+        }
+        // 属性值
+        let collection = db.collection::<ElementData>(&table_name);
+        collection.create_index(
+            IndexModel::builder()
+                .keys(doc! {"ref_no":1})
+                .options(IndexOptions::builder().unique(true).build())
+                .build(),
+            None,
+        ).await?;
+        for chunk in ele_data_vec.chunks(10000) {
+            collection.insert_many(
+                chunk.to_owned(), None,
+            ).await?;
+        }
+        // 参考号的tree
+        let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
+        collection.create_index(
+            IndexModel::builder()
+                .keys(doc! {"ref_no":1})
+                .options(IndexOptions::builder().unique(true).build())
+                .build(),
+            None,
+        ).await?;
+        for tree_chunk in ele_nodes.chunks(10000) {
+            tree_collection.insert_many(
+                tree_chunk.to_owned(), None,
+            ).await?;
+        }
+        // 所有refno的dbname和typename
+        let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
+        for table_chunk in ele_table.chunks(10000) {
+            table_collection.insert_many(
+                table_chunk.to_owned(), None,
+            ).await?;
+        }
+    }
+    db_info.name = file_name.to_string();
+    // db_info.db_no = db_no;
+    // db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
+    dbinfos.push(db_info);
+    //commit db infos data
+    let db =client.database("PDMSDbInfos");
+    let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
+    collection.insert_many(
+        dbinfos.to_owned(), None,
+    ).await?;
+    println!("Save to db ok");
+    Ok(())
+}
+
+/// 返回 k:DBnumber v:Dbname
+pub fn get_numberdb(map: DashMap<i32, Vec<ElementData>>) -> DashMap<String, String> {
+    let mut result = DashMap::new();
+    for (_, v) in map {
+        for node in v {
+            let node_map = node.attr_data_map;
+            if let Some(number_db) = node_map.get("NUMBDB") {
+                match number_db.value() {
+                    IntegerType(number) => {
+                        result.entry(number.to_string()).or_insert(node.name);
+                    }
+                    _ => {}
+                }
+            };
+        }
+    }
+    result
+}
+
+#[test]
+fn gen_sys_to_db_test() {
+    let target_files = fs::read_dir(r#"E:\AVEVA\Plant\PDMS12.0.SP4\project\Master\mas000"# ).unwrap().into_iter().map(|entry| {
+        let entry = entry.unwrap();
+        entry.path()
+    }).collect::<Vec<PathBuf>>();
+    //gen_sys_to_db(target_files);
+}
+
 #[derive(Default, Debug)]
 pub struct EleDataEntry {
     pub pos: usize,
@@ -1359,7 +1470,7 @@ pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<ElementData>>) -> DashMap<
 pub fn get_dbname<'a>(name: &'a [u8], map: &'a DashMap<String, String>) -> IResult<&'a [u8], String> {
     let mut result = from_utf8_lossy(name).to_string();
     if name.len()>5 {
-        let (input, (_, n, )) = tuple((
+        let (_input, (_, n, )) = tuple((
             alpha1,
             take_until("_"),
         ))(name)?;

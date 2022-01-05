@@ -43,14 +43,14 @@ use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
-use parse_pdms_db::parse::{DbInfo, get_dbname, get_dbname_from_dbnumber, get_project_name_from_filename, parse_db, save_type_hash_file};
+use parse_pdms_db::parse::{DbInfo, gen_sys_to_db, get_dbname, get_dbname_from_dbnumber, get_numberdb, get_project_name_from_filename, parse_db, save_type_hash_file};
 use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
 
-const ATT_MDB:i32 = 0x8221C;
-const ATT_DB:i32  = 0x81C2B;
+const ATT_MDB: i32 = 0x8221C;
+const ATT_DB: i32 = 0x81C2B;
 
 #[tokio::test]
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -156,29 +156,106 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         fs::metadata(b).unwrap().len()
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
     let mut dbinfos = Vec::new();
+    let mut db_name_map=DashMap::new();
+    let parent_files = fs::read_dir(dir)?.into_iter().map(|entry| {
+        let entry = entry.unwrap();
+        entry.path()
+    }).collect::<Vec<PathBuf>>();
+    for path in parent_files {
+        if let Some(file_name) = path.file_name().unwrap().to_str() {
+            if file_name.to_string().ends_with("sys") {
+                let mut client_options = ClientOptions::parse(&mongodb_url).await?;
+                client_options.app_name = Some("AIOS".to_string());
+                let client = mongodb::Client::with_options(client_options.clone())?;
 
-    if b_save_sys {
-        for path in target_files.clone() {
-            if let Some(file_name) = path.file_name() {
-                let mut p = "sam";
-                if let Ok((_, n)) = get_project_name_from_filename(&target_files[0].file_name().unwrap().to_str().unwrap()) {
-                    p = n;
+                let mut file = File::open(&path).unwrap();
+                let mut buf = vec![0u8; 36];
+                file.read_exact(&mut buf)?;
+                let db_type_bytes = &buf[32..36];
+                let db_no_bytes = &buf[8..12];
+                let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
+                let mut db_info = PDMSDBInfo::default();
+                let eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                db_name_map = get_numberdb(eles_data_map.clone());
+                db_info.name = file_name.to_string();
+                db_info.db_no = db_no;
+                db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
+                dbinfos.push(db_info);
+                dbg!(&file_name);
+
+                let db = client.database(file_name);
+                db.drop(None).await?;
+                let db_tree_name = format!("{}_tree", &file_name);
+                let tree_db = client.database(&db_tree_name);
+                tree_db.drop(None).await?;
+                // 存放所有的refno对应的db_name和type_name
+                let table_db = client.database("PdmsRefnoDB");
+                for (key, mut ele_data_vec) in eles_data_map {
+                    println!("Curren elements len={:?}", ele_data_vec.len());
+                    let table_name = db1_dehash(key as u32);
+                    let mut ele_table = Vec::new();
+                    let mut ele_nodes = Vec::new();
+                    for e in &ele_data_vec {
+                        ele_nodes.push(EleDataNode {
+                            ref_no: e.ref_no.clone(),
+                            children: e.children.clone(),
+                            owner: e.owner.clone(),
+                            name: e.name.clone(),
+                            order: e.order,
+                            db_name: file_name.to_string(),
+                            type_name: e.noun_name.clone(),
+                        });
+                        ele_table.push(PdmsRefno {
+                            ref_no: e.ref_no.clone(),
+                            db: file_name.to_string(),
+                            type_name: e.noun_name.clone(),
+                        });
+                    }
+                    // 属性值
+                    let collection = db.collection::<ElementData>(&table_name);
+                    collection.create_index(
+                        IndexModel::builder()
+                            .keys(doc! {"ref_no":1})
+                            .options(IndexOptions::builder().unique(true).build())
+                            .build(),
+                        None,
+                    ).await?;
+                    for chunk in ele_data_vec.chunks(10000) {
+                        collection.insert_many(
+                            chunk.to_owned(), None,
+                        ).await?;
+                    }
+                    // 参考号的tree
+                    let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
+                    collection.create_index(
+                        IndexModel::builder()
+                            .keys(doc! {"ref_no":1})
+                            .options(IndexOptions::builder().unique(true).build())
+                            .build(),
+                        None,
+                    ).await?;
+                    for tree_chunk in ele_nodes.chunks(10000) {
+                        tree_collection.insert_many(
+                            tree_chunk.to_owned(), None,
+                        ).await?;
+                    }
+                    // 所有refno的dbname和typename
+                    let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
+                    for table_chunk in ele_table.chunks(10000) {
+                        table_collection.insert_many(
+                            table_chunk.to_owned(), None,
+                        ).await?;
+                    }
                 }
-                //let project_sys_name = p.to_string();
-                let project_sys_name=format!("{}sys",p);
-                if file_name == OsString::from(&project_sys_name) {
-                    let sys_db_ele_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-                    let db_name_map = get_dbname_from_dbnumber(sys_db_ele_data_map);
-                    let encode = bincode::serialize(&db_name_map).unwrap();
-                    let file_name = "db_name.bin";
-                    let mut file = OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(file_name)
-                        .unwrap();
-                    file.write(&encode);
-                }
+
+                //commit db infos data
+                let client = mongodb::Client::with_options(client_options)?;
+                let db = client.database("PDMSDbInfos");
+                let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
+                collection.insert_many(
+                    dbinfos.to_owned(), None,
+                ).await?;
+                println!("Save {:?} to db ok", &file);
             }
         }
     }
@@ -194,7 +271,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         println!("path={:?}", &path);
 
         let mut eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-        // dbg!(&eles_data_map);
 
         if b_save_to_mongodb {
             let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
@@ -202,15 +278,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 db_raw_name = name.to_string();
             }
             if db_raw_name == "" {
-                //db_raw_name = project_sys_name;
                 continue;
             }
-            if let Ok(mut file) = File::open("db_name.bin") {
-                let mut db_name_buf: Vec<u8> = Vec::new();
-                file.read_to_end(&mut db_name_buf);
-                let db_name_map = bincode::deserialize(&db_name_buf).unwrap();
-                db_raw_name = get_dbname(db_raw_name.as_bytes(), &db_name_map).unwrap().1;
-            }
+            db_raw_name = get_dbname(db_raw_name.as_bytes(), &db_name_map).unwrap().1;
             let mut db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
             db_info.name = db_name.clone();
             db_info.db_no = db_no;
@@ -222,7 +292,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             client_options.app_name = Some("AIOS".to_string());
             let client = mongodb::Client::with_options(client_options.clone())?;
             let db = client.database(&db_name);
-            let db_name_clone = db_name.clone();
             let db_tree_name = format!("{}_tree", &db_name);
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
@@ -275,7 +344,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     tree_collection.insert_many(
                         tree_chunk.to_owned(), None,
                     ).await?;
-
                 }
                 // 所有refno的dbname和typename
                 let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
