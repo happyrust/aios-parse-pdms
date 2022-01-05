@@ -9,11 +9,14 @@ use std::time::Instant;
 use dashmap::DashMap;
 use futures::TryFutureExt;
 use memchr::memmem::rfind_iter;
+use nom::bytes::complete::take_until;
+use nom::character::complete::alpha1;
 use nom::IResult;
 use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8};
 use nom::sequence::tuple;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use phf::phf_map;
+use serde::__private::from_utf8_lossy;
 use crate::db_tool;
 use crate::db_tool::{db1_dehash, decode_chars_data};
 use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, times_keep_f32_two_decimal_place};
@@ -22,7 +25,7 @@ use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
 
 pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> DashMap<i32, Vec<ElementData>> {
-    let mut all_ref_no=HashSet::new();
+    let mut all_ref_no = HashSet::new();
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -70,7 +73,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         ele_data.owner = owner.clone();
 
         //有连接关系()
-        if &input[start+impl_len..start+impl_len+4] == [0x0, 0x0, 0x0, 0x7].as_slice() {
+        if &input[start + impl_len..start + impl_len + 4] == [0x0, 0x0, 0x0, 0x7].as_slice() {
             impl_len += 4;
         }
         //隐藏属性得数据切片
@@ -106,7 +109,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let mut sorted_offs = sort_offsets(attr_info_map.clone());
         sorted_offs.retain(|x| *x < implicit_len as u32);
         for (_, attr_info) in attr_info_map.clone() {
-            if attr_info.offset != 0 && implicit_len > (attr_info.offset & 0xFFFFF) as usize  {
+            if attr_info.offset != 0 && implicit_len > (attr_info.offset & 0xFFFFF) as usize {
                 let mut k = attr_info.offset as usize;
                 if attr_info.att_type == DbAttributeType::BOOL {
                     k &= 0xFFFFF;
@@ -116,9 +119,9 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 k *= 4;  //dword => byte
                 let mut data_len = implicit_len as i32 - k as i32;
                 if data_len < 0 { break; }
-                if let Some(mut j) = sorted_offs.iter().position(|&x| x == attr_info.offset){
+                if let Some(mut j) = sorted_offs.iter().position(|&x| x == attr_info.offset) {
                     let next_offset_idx = j as i32 + 1;
-                    if  next_offset_idx < sorted_offs.len() as i32 {
+                    if next_offset_idx < sorted_offs.len() as i32 {
                         data_len = data_len.min((sorted_offs[next_offset_idx as usize] as i32 - attr_info.offset as i32) * 4);
                     }
                 }
@@ -132,9 +135,9 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 // 给未出现的显式属性赋值
                 if attr_info.name.as_str() == "PARA" {
                     ele_data.attr_data_map.entry(attr_info.name.clone()).or_insert(StringType("0".to_string()));
-                } else if attr_info.name.as_str() == "PTCDI"{  //PTCD 默认值为Y
+                } else if attr_info.name.as_str() == "PTCDI" {  //PTCD 默认值为Y
                     ele_data.attr_data_map.entry(attr_info.name.clone()).or_insert(StringType("Y".to_string()));
-                }else {
+                } else {
                     ele_data.attr_data_map.entry(attr_info.name.clone())
                         .or_insert(attr_info.default_val.clone());
                 }
@@ -195,7 +198,7 @@ const ATT_PTS: i32 = 0x85438;
 
 /// 获取隐式属性
 #[inline]
-pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, data_len : i32, ref_no: RefNoTuple, pos: usize) -> IResult<&'a [u8], AttrVal> {
+pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, data_len: i32, ref_no: RefNoTuple, pos: usize) -> IResult<&'a [u8], AttrVal> {
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
     let b_expr = check_is_expr(attr_info.hash);
@@ -233,10 +236,10 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                     val = AttrVal::IntegerType(r);
                 }
                 DbAttributeType::DOUBLE => {
-                    if data_len == 4{
+                    if data_len == 4 {
                         let d = ((f32::from_be_bytes(input[0..4].try_into().unwrap()) * 100.0).round() / 100.0) as f64;
                         val = AttrVal::DoubleType(d);
-                    }else if data_len >= 8{    //允许是最后一个offset的情况，导致长度可能>8
+                    } else if data_len >= 8 {    //允许是最后一个offset的情况，导致长度可能>8
                         if let [a, b, c, d, e, f, g, h] = input[0..8] {
                             let d = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
                             val = AttrVal::DoubleType(d);
@@ -280,8 +283,8 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                     let mut data = [0f64; 3];
                     let (input, cnt) = be_i32(input)?;
                     let l = input;
-                    if input.len() >= 3 && cnt == 3{
-                        let b_double = (data_len - 1) / cnt /4  == 2;
+                    if input.len() >= 3 && cnt == 3 {
+                        let b_double = (data_len - 1) / cnt / 4 == 2;
                         if b_double {
                             for i in 0..cnt as usize {
                                 if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
@@ -613,8 +616,8 @@ pub fn parse_attr_owner(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 #[inline]
-pub fn trunc_f32_two(input:f32) -> f32 {
-    ( input * 100.0 ).round() /100.0
+pub fn trunc_f32_two(input: f32) -> f32 {
+    (input * 100.0).round() / 100.0
 }
 
 /// 特殊处理AXIS隐式属性
@@ -751,14 +754,14 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     if t == 0x28 {
                         val = get_implicit_angle_expression(&tmp_input[8..12]);
                     } else {
-                        let mut value="".to_string();
+                        let mut value = "".to_string();
                         let v = t as f32 / 40.0;
-                        let times= trunc_f32_two(v);
+                        let times = trunc_f32_two(v);
                         value = get_implicit_angle_expression(&tmp_input[8..12]);
                         if value == "" {
-                            let v=i32::from_be_bytes(tmp_input[8..12].try_into().unwrap());
-                            if v!=0 {
-                                value = (-v as f32 / 10.0 ).to_string();
+                            let v = i32::from_be_bytes(tmp_input[8..12].try_into().unwrap());
+                            if v != 0 {
+                                value = (-v as f32 / 10.0).to_string();
                             }
                         }
                         val = format!("{} TIMES {}", times, value);
@@ -808,7 +811,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     // let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    let value= match_angle_or_return_number(value1);
+                    let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -824,7 +827,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     // if value == "".to_string() {
                     //     value = ( f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0 ).to_string();
                     // }
-                    let value= match_angle_or_return_number(value2);
+                    let value = match_angle_or_return_number(value2);
                     result = value;
                 } else {
                     result = format!("PARAM {}", value2);
@@ -852,7 +855,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    let value= match_angle_or_return_number(value1);
+                    let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -865,7 +868,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
                     //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    let value= match_angle_or_return_number(value2);
+                    let value = match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
@@ -895,7 +898,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    let value= match_angle_or_return_number(value1);
+                    let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -908,7 +911,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
                     //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    let value= match_angle_or_return_number(value2);
+                    let value = match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
@@ -935,7 +938,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    let value= match_angle_or_return_number(value1);
+                    let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
                     val = format!("PARAM {}", value1);
@@ -948,7 +951,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
                     //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
-                    let value= match_angle_or_return_number(value2);
+                    let value = match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
                     result = format!("PARAM {}", value2);
@@ -1119,7 +1122,7 @@ pub fn get_implicit_angle_expression(input: &[u8]) -> String {
         &[0xFF, 0xFF, 0xFF, 0xFD] => {
             val = "DDRADIUS".to_string();
         }
-        _ => { }
+        _ => {}
     }
     val
 }
@@ -1242,10 +1245,10 @@ pub fn get_implicit_len_by_offset(count: &Vec<u32>, offset: u32) -> usize {
 }
 
 /// 根据i32数据match DDHEIGHT这种表达式，若没有则返回数据
-pub fn match_angle_or_return_number(input:i32) -> String {
-    let mut result=get_implicit_angle_expression(&input.to_be_bytes());
+pub fn match_angle_or_return_number(input: i32) -> String {
+    let mut result = get_implicit_angle_expression(&input.to_be_bytes());
     if result == "" {
-        let value = (((0xFFFFFFFFu32 as i32 - input ) as f32 / 0xA as f32 + 0.1) * 10.0).round() / 10.0;
+        let value = (((0xFFFFFFFFu32 as i32 - input) as f32 / 0xA as f32 + 0.1) * 10.0).round() / 10.0;
         result = value.to_string();
     }
     result
@@ -1325,6 +1328,45 @@ fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
     }
     *len = tmp_offset;
     data
+}
+
+pub fn get_project_name_from_filename(filename:&str) -> IResult<&str,&str> {
+    let (input,p)= alpha1(filename)?;
+    Ok((input,p))
+}
+
+/// 返回 k:DBnumber v:Dbname
+pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<ElementData>>) -> DashMap<String, String> {
+    let mut result = DashMap::new();
+    for (_, v) in map {
+        for node in v {
+            let node_map = node.attr_data_map;
+            if let Some(number_db) = node_map.get("NUMBDB") {
+                match number_db.value() {
+                    IntegerType(number) => {
+                        result.entry(number.to_string()).or_insert(node.name);
+                    }
+                    _ => {}
+                }
+            };
+        }
+    }
+    result
+}
+
+pub fn get_dbname<'a>(name: &'a [u8], map: &'a DashMap<String, String>) -> IResult<&'a [u8], String> {
+    let mut result = from_utf8_lossy(name).to_string();
+    if name.len()>5 {
+        let (input, (_, n, )) = tuple((
+            alpha1,
+            take_until("_"),
+        ))(name)?;
+        let db_number = from_utf8_lossy(n).to_string();
+        if let Some(db_name) = map.get(&db_number) {
+            result = db_name.value().clone();
+        }
+    }
+    Ok((name, result))
 }
 
 static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
