@@ -4,6 +4,7 @@ use dashmap::DashMap;
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_data::GmseParam;
 use crate::pdms_types::{AttrVal, ElementData};
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DesignPipeRequest {
@@ -43,10 +44,11 @@ pub struct DesignBran {
     pub components: ::prost::alloc::vec::Vec<GeomsInfo>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GeomsInfo {
     pub geometries: Vec<CateGeoParam>,
     pub axis_map: BTreeMap<i32, CateAxisParam>,
+    pub tubi_bore: Option<f32>,
     // pub matrix: glam::f32::Affine3A
 }
 
@@ -93,7 +95,7 @@ pub struct GmseParamData {
     #[prost(bool, tag = "15")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateAxisParam {
     #[prost(double, repeated, tag = "1")]
     pub pt: ::prost::alloc::vec::Vec<f64>,
@@ -110,7 +112,7 @@ pub struct GeoParamsData {
 }
 /// Nested message and enum types in `GeoParamsData`.
 pub mod geo_params_data {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Oneof)]
     pub enum CateGeoParam {
         #[prost(message, tag = "1")]
         Boxi(super::CateBoxImpliedParam),
@@ -153,7 +155,7 @@ pub mod geo_params_data {
         SVER(super::CateSverParam),
     }
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize,  ::prost::Message)]
 pub struct CateBoxImpliedParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -166,7 +168,7 @@ pub struct CateBoxImpliedParam {
     #[prost(bool, tag = "5")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateBoxParam {
     #[prost(double, repeated, tag = "1")]
     pub size: ::prost::alloc::vec::Vec<f64>,
@@ -177,7 +179,8 @@ pub struct CateBoxParam {
     #[prost(bool, tag = "4")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateConeParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -190,7 +193,7 @@ pub struct CateConeParam {
     #[prost(bool, tag = "5")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateSCylinderParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -205,7 +208,7 @@ pub struct CateSCylinderParam {
     #[prost(bool, tag = "6")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize,::prost::Message)]
 pub struct CateLCylinderParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -220,7 +223,7 @@ pub struct CateLCylinderParam {
     #[prost(bool, tag = "6")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateExtrusionParam {
     #[prost(message, optional, tag = "1")]
     pub pa: ::core::option::Option<CateAxisParam>,
@@ -239,7 +242,7 @@ pub struct CateExtrusionParam {
     #[prost(bool, tag = "8")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateDiscParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -252,7 +255,7 @@ pub struct CateDiscParam {
     #[prost(bool, tag = "5")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize,::prost::Message)]
 pub struct CateDishParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -269,7 +272,7 @@ pub struct CateDishParam {
     #[prost(bool, tag = "7")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize,::prost::Message)]
 pub struct CateLineParam {
     #[prost(message, optional, tag = "1")]
     pub pa: ::core::option::Option<CateAxisParam>,
@@ -282,7 +285,7 @@ pub struct CateLineParam {
     #[prost(bool, tag = "5")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CatePyramidParam {
     #[prost(message, optional, tag = "1")]
     pub pa: ::core::option::Option<CateAxisParam>,
@@ -312,7 +315,7 @@ pub struct CatePyramidParam {
     pub tube_flag: bool,
 }
 /// 截面为矩形的弯管
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateRectTorusParam {
     #[prost(message, optional, tag = "1")]
     pub pa: ::core::option::Option<CateAxisParam>,
@@ -327,7 +330,7 @@ pub struct CateRectTorusParam {
     #[prost(bool, tag = "6")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateRevolutionParam {
     #[prost(message, optional, tag = "1")]
     pub pa: ::core::option::Option<CateAxisParam>,
@@ -346,7 +349,7 @@ pub struct CateRevolutionParam {
     #[prost(bool, tag = "8")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateSlineParam {
     #[prost(double, repeated, tag = "1")]
     pub start_pt: ::prost::alloc::vec::Vec<f64>,
@@ -359,7 +362,7 @@ pub struct CateSlineParam {
     #[prost(bool, tag = "5")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateSlopeBottomCylinderParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -383,7 +386,7 @@ pub struct CateSlopeBottomCylinderParam {
     pub tube_flag: bool,
 }
 /// 圆台 或 管嘴
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateSnoutParam {
     #[prost(message, optional, tag = "1")]
     pub pa: ::core::option::Option<CateAxisParam>,
@@ -405,7 +408,7 @@ pub struct CateSnoutParam {
     pub tube_flag: bool,
 }
 /// 球
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateSphereParam {
     #[prost(message, optional, tag = "1")]
     pub axis: ::core::option::Option<CateAxisParam>,
@@ -419,7 +422,7 @@ pub struct CateSphereParam {
     pub tube_flag: bool,
 }
 ///元件库里的torus参数
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateTorusParam {
     #[prost(message, optional, tag = "1")]
     pub pa: ::core::option::Option<CateAxisParam>,
@@ -432,7 +435,8 @@ pub struct CateTorusParam {
     #[prost(bool, tag = "5")]
     pub tube_flag: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateTubeImpliedParam {
     #[prost(double, repeated, tag = "1")]
     pub center_position: ::prost::alloc::vec::Vec<f64>,
@@ -448,7 +452,7 @@ pub struct CateTubeImpliedParam {
     pub tube_flag: bool,
 }
 
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, ::prost::Message)]
 pub struct CateSverParam{
     #[prost(double, tag = "1")]
     pub x: f64,
@@ -457,30 +461,6 @@ pub struct CateSverParam{
     #[prost(double, tag = "3")]
     pub radius:f64,
 }
-
-#[derive(Debug,Default,Clone)]
-pub struct SLoo{
-    pub name:String,
-    pub refno:String,
-    pub self_type:String,
-    pub owner:String,
-    pub purp:String,
-    pub svers:Vec<GmseParam>,
-}
-
-// impl SLoo {
-//     pub fn new(e:ElementData) -> Self{
-//         Self{
-//             name: e.name,
-//             refno: e.ref_no,
-//             self_type: e.noun_name,
-//             owner: e.owner,
-//             purp: get_map_string_type_value(&e.attr_data_map,"PURP"),
-//             svers: vec![]
-//         }
-//     }
-//
-// }
 
 
 

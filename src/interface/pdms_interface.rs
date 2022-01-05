@@ -181,6 +181,7 @@ impl PdmsInterface {
         Ok(None)
     }
 
+    ///获得ele data
     pub async fn get_ele_data_async(&mut self, refno: &str, type_name: &str) -> MResult<Option<ElementData>> {
         if let Some(client) = self.connect().await {
             if let Some(info) = self.get_db_info_of_ele(&refno).await?{
@@ -214,6 +215,31 @@ impl PdmsInterface {
         Ok(v)
     }
 
+    pub fn get_eles_by_type(&mut self, db_name: &str, type_name: &str) -> Vec<AttrMap> {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(self.get_ele_attr_map_by_type_async(db_name, type_name)).unwrap_or_default()
+    }
+
+    ///根据type name获取所有的节点
+    pub async fn get_ele_attr_map_by_type_async(&mut self, db_name: &str, type_name: &str) -> MResult<Vec<AttrMap>> {
+        let mut v = vec![];
+        if let Some(client) = self.connect().await {
+            let db = client.database(db_name);
+            let t = db.collection::<ElementData>(type_name);
+            // let mut find_options = FindOneOptions::default();
+            // find_options.projection = Some(doc! {"attr_data_map": 1});
+            let mut cursor = t.find(doc!{}, None ).await?;
+            while let Some(c) = cursor.try_next().await? {
+                v.push(AttrMap{
+                    map: c.attr_data_map
+                });
+            }
+        }
+        Ok(v)
+    }
+
+
+
     ///获取子节点的所有attr_map
     pub async fn get_children_attr_map_async(&mut self, refno: &str) -> MResult<Vec<AttrMap>> {
         let mut v = vec![];
@@ -242,6 +268,33 @@ impl PdmsInterface {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(self.get_children_async(refno)).unwrap_or_default()
     }
+
+
+    pub fn get_tubi_bore_by_refno(&mut self, refno: &str) -> f32 {
+        if let Some(attr_map) = self.get_ele_attr_map(refno) {
+            let lstu_ref = attr_map.get_as_string("LSTU").unwrap_or_default();
+            if let Some(lstu) = self.get_ele_attr_map(lstu_ref.as_str()) {
+                let catr_ref = lstu.get_as_string("CATR").unwrap_or_default();
+                if let Some(cata) = self.get_ele_attr_map(catr_ref.as_str()) {
+                    let v = get_attr_value_f64_vec(&cata, "PARA").unwrap_or_default();
+                    if v.len() >= 2 { return v[1] as f32; }
+                }
+            }
+        }
+        0.0
+    }
+
+    pub fn get_tubi_bore_by_lstu(&mut self, lstu_ref: &str) -> f32 {
+        if let Some(lstu) = self.get_ele_attr_map(lstu_ref) {
+            let catr_ref = lstu.get_as_string("CATR").unwrap_or_default();
+            if let Some(cata) = self.get_ele_attr_map(catr_ref.as_str()) {
+                let v = get_attr_value_f64_vec(&cata, "PARA").unwrap_or_default();
+                if v.len() >= 2 { return v[1] as f32; }
+            }
+        }
+        0.0
+    }
+
 
 }
 

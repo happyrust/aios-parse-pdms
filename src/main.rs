@@ -3,6 +3,8 @@
 
 #[macro_use]
 extern crate nom;
+#[macro_use]
+extern crate serde;
 
 
 use std::collections::{HashMap, HashSet};
@@ -165,7 +167,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         println!("path={:?}", &path);
 
         let mut eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-        dbg!(&eles_data_map);
+        // dbg!(&eles_data_map);
         if b_save_sys {
             let mut client_options = ClientOptions::parse(&mongodb_url).await?;
             client_options.app_name = Some("AIOS".to_string());

@@ -1,6 +1,9 @@
 #![feature(type_ascription)]
 #![feature(array_methods)]
 
+#[macro_use]
+extern crate serde;
+
 use mongodb::Client;
 use mongodb::bson::doc;
 use std::collections::HashSet;

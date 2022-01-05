@@ -22,9 +22,11 @@ futures = "0.3.19"
 
 nom = "6.1.2"
 nom-derive = "0.9.0"
+highway = "0.7.0"
 
 serde-name = "0.1.1"
-serde = { version = "1.0.126", features = ["derive"] }
+serde = { version = "1.0.133", features = ["derive"] }
+serde_derive = "1.0.133"
 phf = { version = "0.9", features = ["macros"] }
 clap = "2.33.3"
 mongodb = { version = "2.0.1", default-features = false, features = ["async-std-runtime"] }
@@ -35,10 +37,10 @@ tokio = { version = "1.11.0", features = ["full"] }
 #mysql = "21.0.2"
 serde_json = { version = "1.0" }
 lazy_static = "1.4.0"
-
 static_init = "1.0.1"
-
 cached = { version = "0.26.2", default-features = false, features = ["proc_macro"] }
 dashmap =  { version="5.0.0" , features=["serde"] }
 once_cell = "1.9.0"
 autowired = { path = "D:/autowired-rs" }
+
+gdnative = {git="https://github.com/godot-rust/godot-rust"}

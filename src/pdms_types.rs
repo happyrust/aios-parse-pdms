@@ -1,6 +1,10 @@
 use dashmap::DashMap;
+use gdnative::prelude::{Transform, Vector3};
+use highway::{HighwayHash, HighwayHasher, Key};
 use serde::{Serialize, Deserialize};
 use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, StringArrayType, StringType, Vec3Type, WordType};
+use crate::helper::get_attr_value_f64_vec;
+
 
 pub type RefNoTuple = (i32, i32);
 
@@ -71,6 +75,65 @@ impl AttrMap {
         }else{
             None
         }
+    }
+
+    pub fn get_matrix(&self) -> glam::f32::Affine3A{
+        let mut affine = glam::f32::Affine3A::IDENTITY;
+        if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
+            affine.translation = glam::f32::Vec3A::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
+        }
+        if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
+            affine.matrix3 = glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32) * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32)  * glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32);
+        }
+        affine
+    }
+
+    pub fn get_transform(&self) -> Transform{
+        let matrix = self.get_matrix();
+        let x = &matrix.matrix3.col(0);
+        let y = &matrix.matrix3.col(1);
+        let z = &matrix.matrix3.col(2);
+        let p = &matrix.translation;
+        Transform::from_basis_origin(
+            Vector3::new(x[0], x[1], x[2]),
+            Vector3::new(y[0], y[1], y[2]),
+            Vector3::new(z[0], z[1], z[2]),
+            Vector3::new(p[0], p[1], p[2]))
+    }
+
+    pub fn get_f64_vec(&self, att: &str) -> Option<Vec<f64>> {
+        let mut v = vec![];
+        if let Some(val) = self.map.get(att) {
+            match val.value() {
+                AttrVal::DoubleArrayType(data) => {
+                    v = data.clone();
+                    return Some(v);
+                }
+                AttrVal::Vec3Type(data) => {
+                    v = data.to_vec();
+                    return Some(v);
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+
+    ///使用spref + params 混合成的meshid
+    pub fn cal_des_mesh_id(&self) -> u64{
+        let key = Key([1, 2, 3, 4]);
+        let mut hasher64 = HighwayHasher::new(key);
+        if let Some(spref) = self.get_as_string("SPRE"){
+            hasher64.append(spref.as_ref());
+        }
+        if let Some(para) = self.get_f64_vec("PARA"){
+            let output: Vec<u8> = para.iter().flat_map(|val| val.to_be_bytes()).collect();
+            hasher64.append(&output);
+        }
+
+        let id = hasher64.finalize64();
+        id
     }
 
 }

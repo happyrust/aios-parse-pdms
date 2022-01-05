@@ -27,7 +27,6 @@ fn db1_dehash_test(){
     println!("name={:?}",name);
 }
 
-
 use std::io::Read;
 use memchr::memmem::{find, find_iter};
 
@@ -64,10 +63,8 @@ fn get_mapped_value(table: &[u8], v: i32) -> i32 {
     res
 }
 
-
-pub fn convert(v: i64) -> Vec<u8> {
+pub fn convert_to_u8_vec(v: i64) -> Vec<u8> {
     let mut res = vec![];
-
     if v < 0 {} else if v <= 127 {
         res.push(v as u8);
     } else if v <= 2047 {
@@ -85,7 +82,6 @@ pub fn convert(v: i64) -> Vec<u8> {
         res.push(((v & 0x80000FFF) / 0x40 + 0x80) as u8);
         res.push((v % 0x40 + 0x80) as u8);
     }
-
     return res;
 }
 
@@ -107,7 +103,7 @@ pub fn decode_chi_chars(table: &[u8], data: &[u8]) -> String {
         //println!("{:#4X?}", val);
         let code = get_mapped_value(table, val) as i64;
         //println!("Code: {:#4X?}", code);
-        let chars = convert(code);
+        let chars = convert_to_u8_vec(code);
         //println!("Code: {:#4X?}", &chars);
         str_data.extend(chars);
         i += 2;

@@ -3,7 +3,7 @@ use crate::helper::*;
 use crate::interface::pdms_interface::PdmsInterface;
 use crate::pdms_data::{AxisParam, DesCompInfo, GmseParam, ScomInfo};
 use crate::parsed_data::geo_params_data::CateGeoParam::TubeImplied;
-use crate::parsed_data::{CateTubeImpliedParam, GeoParamsData, GeomsInfo, SLoo};
+use crate::parsed_data::{CateTubeImpliedParam, GeoParamsData, GeomsInfo};
 use crate::pdms_types::AttrVal::IntArrayType;
 use crate::pdms_types::{AttrVal, EleDataNode, ElementData, PdmsRefno};
 use crate::AttrMap;
@@ -169,6 +169,7 @@ pub async fn resolve_cata_comp_async(
     Ok(GeomsInfo {
         geometries,
         axis_map,
+        tubi_bore: None,
     })
 }
 
