@@ -287,9 +287,9 @@ impl PdmsInterface {
         0.0
     }
 
-    pub fn get_tubi_bore_by_lstu(&mut self, lstu_ref: &str) -> f32 {
-        if let Some(lstu) = self.get_ele_attr_map(lstu_ref) {
-            let catr_ref = lstu.get_as_string("CATR").unwrap_or_default();
+    pub fn get_tubi_bore_by_stu(&mut self, stu_ref: &str) -> f32 {
+        if let Some(stu) = self.get_ele_attr_map(stu_ref) {
+            let catr_ref = stu.get_as_string("CATR").unwrap_or_default();
             if let Some(cata) = self.get_ele_attr_map(catr_ref.as_str()) {
                 let v = get_attr_value_f64_vec(&cata, "PARA").unwrap_or_default();
                 if v.len() >= 2 { return v[1] as f32; }
