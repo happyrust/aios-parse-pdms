@@ -164,7 +164,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 if let Ok((_, n)) = get_project_name_from_filename(&target_files[0].file_name().unwrap().to_str().unwrap()) {
                     p = n;
                 }
-                //let project_sys_name = p.to_string();
                 let project_sys_name=format!("{}sys",p);
                 if file_name == OsString::from(&project_sys_name) {
                     let sys_db_ele_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
