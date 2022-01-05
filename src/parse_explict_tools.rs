@@ -826,7 +826,7 @@ pub fn match_expression_type(input: &[u8]) -> String {
     let mut expression_type = "PX".to_string();
     match input {
         &[0x0, 0x9, 0x5A, 0x34] => { expression_type = "PTCDI".to_string(); }
-        &[0xFF, 0xF7, 0xE1, 0x77] => {}
+        &[0xFF, 0xF7, 0xE1, 0x77] => {} // 这个就是PX ,所以不用match了
         &[0xFF, 0xF7, 0xE1, 0x5C] => { expression_type = "PY".to_string(); }
         &[0xFF, 0xF7, 0xE1, 0x41] => { expression_type = "PZ".to_string(); }
         &[0xFF, 0xF7, 0x7D, 0x0F] => { expression_type = "PDIA".to_string(); }
@@ -849,6 +849,7 @@ pub fn match_expression_type(input: &[u8]) -> String {
         &[0xFF, 0xF6, 0x3E, 0xA6] => { expression_type = "PZLE".to_string(); }
         &[0xFF, 0xF3, 0xEE, 0xF8] => { expression_type = "PTDM".to_string(); }
         &[0xFF, 0xF3, 0xF0, 0xDE] => { expression_type = "PBDM".to_string(); }
+        &[0xFF, 0xF6, 0x04, 0x02] => { expression_type = "POFF".to_string(); }
         _ => {}
     }
     expression_type
