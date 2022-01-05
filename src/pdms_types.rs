@@ -131,6 +131,15 @@ impl AttrMap {
             let output: Vec<u8> = para.iter().flat_map(|val| val.to_be_bytes()).collect();
             hasher64.append(&output);
         }
+        if let Some(d) = self.get_as_string("RADI"){
+            hasher64.append(d.as_ref());
+        }
+        if let Some(d) = self.get_as_string("HEIG"){
+            hasher64.append(d.as_ref());
+        }
+        if let Some(d) = self.get_as_string("ANGL"){
+            hasher64.append(d.as_ref());
+        }
 
         let id = hasher64.finalize64();
         id

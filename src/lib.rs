@@ -1,5 +1,6 @@
 #![feature(type_ascription)]
 #![feature(array_methods)]
+#![feature(slice_pattern)]
 
 #[macro_use]
 extern crate serde;

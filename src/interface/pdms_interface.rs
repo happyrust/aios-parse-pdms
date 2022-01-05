@@ -139,11 +139,14 @@ impl PdmsInterface {
         Ok(None)
     }
 
+    ///通过EleDataNode获取attr map 的同步方法
     pub fn get_ele_attr_map_by_node(&mut self, ele: &EleDataNode) -> Option<AttrMap> {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(self.get_ele_attr_map_by_node_async(ele)).unwrap()
     }
 
+
+    ///通过refno获取attr map 的同步方法
     pub fn get_ele_attr_map(&mut self, refno: &str) -> Option<AttrMap> {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(self.get_ele_attr_map_async(refno)).unwrap()
@@ -308,17 +311,13 @@ pub fn test_get_cata_geoms() {
 #[test]
 pub fn test_get_des_geoms() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
-    interface.get_des_ele_geoms("23584/5531");
+    let geoms = interface.get_des_ele_geoms("23584/7902");
+    dbg!(geoms);
     // let mat = interface.get_des_matrix("23584/5457");
     // dbg!(mat);
 }
 
-//
-// #[test]
-// fn test_get_children() {
-//     dbg!(PdmsInterface::get_children("15192/72762"));
-// }
-//
+
 #[test]
 fn test_get_children() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");

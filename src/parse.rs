@@ -1,3 +1,4 @@
+use core::slice::SlicePattern;
 use std::collections::HashSet;
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -78,10 +79,13 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let (_, owner) = parse_attr_owner(&input[pos + 12..pos + 20]).unwrap();
         ele_data.owner = owner.clone();
 
-        //有连接关系()
-        if &input[start + impl_len..start + impl_len + 4] == [0x0, 0x0, 0x0, 0x7].as_slice() {
+        //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
+        let mut tmp_value = i32::from_be_bytes(input[start + impl_len..start + impl_len + 4].try_into().unwrap());
+        while tmp_value == 0|| tmp_value == 7 {
             impl_len += 4;
+            tmp_value = i32::from_be_bytes(input[start + impl_len..start + impl_len + 4].try_into().unwrap());
         }
+
         //隐藏属性得数据切片
         let implicit_data = &input[start..start + impl_len];
         let membs_pos = start + impl_len;
