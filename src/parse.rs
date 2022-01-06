@@ -136,10 +136,10 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                     }
                 }
                 if implicit_len > k as usize {
-                    let att_val = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize)
-                        .unwrap().1;
-                    ele_data.attr_data_map.entry(attr_info.name.clone())
-                        .or_insert(att_val);
+                    if let Ok((_,att_val)) = parse_implicit_attr_value(&implicit_data[k..], &attr_info, data_len, refno, pos: usize) {
+                        ele_data.attr_data_map.entry(attr_info.name.clone())
+                            .or_insert(att_val);
+                    }
                 }
             } else {
                 // 给未出现的显式属性赋值
@@ -212,7 +212,6 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
     let b_expr = check_is_expr(attr_info.hash);
-    // println!("{:#4X?}", input);
     if b_expr {
         // 隐式属性的所有StringType的offset都给原本的值-1，表达式默认是StringType，但是他不需要-1,所以这里slice的时候再+1
         match attr_info.att_type {
@@ -282,7 +281,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                 }
                 DbAttributeType::WORD => {
                     let (_, v) = be_i32(input)?;
-                    if v > 0x171FAD39 {
+                    if v > 0x81BF1 {
                         let n = db1_dehash(v as u32);
                         val = AttrVal::WordType(n);
                     } else {
@@ -833,10 +832,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    // let mut value=get_implicit_angle_expression(&value2.to_be_bytes());
-                    // if value == "".to_string() {
-                    //     value = ( f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0 ).to_string();
-                    // }
                     let value = match_angle_or_return_number(value2);
                     result = value;
                 } else {
@@ -864,7 +859,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value1 = value1 - 0x1F4;
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
@@ -877,7 +871,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     val = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
@@ -907,7 +900,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value1 = value1 - 0x1F4;
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
@@ -920,7 +912,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {
@@ -947,7 +938,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value1 = value1 - 0x1F4;
                     val = format!("TWICE PATAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
@@ -960,7 +950,6 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let value2 = value2 - 0x1F4;
                     result = format!("TWICE PATAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    //let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value2) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value2);
                     result = value.to_string();
                 } else {

@@ -388,6 +388,17 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
                             result_stack.push(expression);
                         }
                     }
+                    &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0x20, 0xC7] => {
+                        if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                            let expression = "ATTRIB DESP";
+                            let value = result_stack.pop().unwrap();
+                            let value = format!("{}[{}]", expression, value);
+                            result_stack.push(value);
+                        } else {
+                            let expression = format!("ATTRIB DESP");
+                            result_stack.push(expression);
+                        }
+                    }
                     &[0x0, 0x0, 0x0, 0x6, 0x0, 0xD, 0x88, 0x87] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB WPAR";

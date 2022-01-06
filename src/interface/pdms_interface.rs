@@ -321,12 +321,21 @@ pub fn test_get_des_geoms() {
 #[test]
 fn test_get_children() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
-    let w = interface.get_world("as7000_0001");
-    let children = interface.get_children_by_node(w.as_ref().unwrap());
-    let children = interface.get_ele_attr_map("15192/53758");
-    dbg!(&children);
+   // let w = interface.get_world("SAMPLE_IMPDESI");
+    //let children = interface.get_children_by_node(w.as_ref().unwrap());
+    let children = interface.get_children("15392/0");
+    for child in children {
+        dbg!(&child.ref_no);
+    }
     // let attr_map = interface.get_ele_attr_map_by_node(w.as_ref().unwrap());
     // dbg!(attr_map);
+}
+
+#[test]
+fn get_world_test() {
+    let mut  interface = PdmsInterface::new("mongodb://localhost:27017");
+    let world=interface.get_world("SAMPLE_IMPDESI").unwrap();
+    println!("world.refno={}",world.ref_no);
 }
 
 #[tokio::test]
