@@ -1,5 +1,5 @@
 use core::slice::SlicePattern;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -23,6 +23,7 @@ use mongodb::bson::doc;
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use serde::__private::from_utf8_lossy;
+use serde_json::to_string;
 use crate::db_tool;
 use crate::db_tool::{db1_dehash, decode_chars_data};
 use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, times_keep_f32_two_decimal_place};
@@ -116,11 +117,24 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
         let mut explicit_bytes_len = 0;
         let implicit_len = implicit_data.len();
-        let mut sorted_offs = sort_offsets(attr_info_map.clone());
-        sorted_offs.retain(|x| *x < implicit_len as u32);
+        let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
+        let mut sorted_offs=sort_offsets(attr_info_map.clone());
+        sorted_offs.retain(|x| *x < ( implicit_len + 0x100 )  as u32);
+        let b_dislocation=sorted_offs[sorted_offs.len()-1] > origin_implicit_len;
+        println!("b_dislocation={}",b_dislocation);
+        let mut sorted_offs_map=HashMap::new();
+        if b_dislocation {
+            let (m,v) = reset_implicit_offset(attr_info_map.clone());
+            sorted_offs_map=m;
+            sorted_offs=v;
+        }
         for (_, attr_info) in attr_info_map.clone() {
             if attr_info.offset != 0 && implicit_len > (attr_info.offset & 0xFFFFF) as usize {
                 let mut k = attr_info.offset as usize;
+                if b_dislocation {
+                    k = *sorted_offs_map.get(&attr_info.offset).unwrap() as usize;
+                    println!("k={}",k);
+                }
                 if attr_info.att_type == DbAttributeType::BOOL {
                     k &= 0xFFFFF;
                 } else if attr_info.att_type == DbAttributeType::STRING {
@@ -128,6 +142,7 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 }
                 k *= 4;  //dword => byte
                 let mut data_len = implicit_len as i32 - k as i32;
+                println!("data_len={}",data_len);
                 if data_len < 0 { break; }
                 if let Some(mut j) = sorted_offs.iter().position(|&x| x == attr_info.offset) {
                     let next_offset_idx = j as i32 + 1;
@@ -185,7 +200,10 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
             if ele_order_map.contains_key(&ele.ref_no) {
                 ele.order = *ele_order_map.get(&ele.ref_no).unwrap();
             }
-            let name_val = &*ele.attr_data_map.get("NAME").unwrap();
+            let mut name_val=AttrVal::StringType("unset".to_string());
+            if let Some(v)=ele.attr_data_map.get("NAME"){
+                name_val=v.value().clone();
+            }
             match name_val {
                 AttrVal::StringType(name) => {
                     if name.as_str() == "unset" || name.as_str() == "" || name.as_str() == " " {
@@ -680,33 +698,153 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                         }
                     }
                     &[0x0, 0x0, 0x0, 0xC] => {
-                        let value = get_implicit_angle_expression(&tmp_input[4..8]);
+                        let value=get_expression_angle_or_param(&tmp_input[4..8])?.1;
                         let result = format!("X {} Y", value);
                         val = AttrVal::StringType(result);
                     }
                     &[0x0, 0x0, 0x0, 0xD] => {
-                        let value = get_implicit_angle_expression(&tmp_input[4..8]);
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
                         let result = format!("X {} Z", value);
                         val = AttrVal::StringType(result);
                     }
+                    &[0x0, 0x0, 0x0, 0xE] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("X {} -X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0xF] => {
+                        let value=get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result=format!("X {} -Y",value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x10] => {
+                        let value=get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result=format!("X {} -Z",value);
+                        val = AttrVal::StringType(result);
+                    }
                     &[0x0, 0x0, 0x0, 0x15] => {
-                        let value = get_implicit_angle_expression(&tmp_input[4..8]);
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
                         let result = format!("Y {} X", value);
                         val = AttrVal::StringType(result);
                     }
                     &[0x0, 0x0, 0x0, 0x17] => {
-                        let value = get_implicit_angle_expression(&tmp_input[4..8]);
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
                         let result = format!("Y {} Z", value);
                         val = AttrVal::StringType(result);
                     }
+                    &[0x0, 0x0, 0x0, 0x18] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("Y {} -X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x19] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("Y {} -Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x1A] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("Y {} -Z", value);
+                        val = AttrVal::StringType(result);
+                    }
                     &[0x0, 0x0, 0x0, 0x1F] => {
-                        let value = get_implicit_angle_expression(&tmp_input[4..8]);
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
                         let result = format!("Z {} X", value);
                         val = AttrVal::StringType(result);
                     }
                     &[0x0, 0x0, 0x0, 0x20] => {
-                        let value = get_implicit_angle_expression(&tmp_input[4..8]);
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
                         let result = format!("Z {} Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x22] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("Z {} -X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x23] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("Z {} -Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x24] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("Z {} -Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x29] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-X {} -X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x2A] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-X {} Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x2B] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-X {} Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x2D] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-X {} -Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x2E] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-X {} -Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x33] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Y {} X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x34] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Y {} Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x35] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Y {} Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x36] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Y {} -X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x38] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Y {} -Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x3D] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Z {} X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x3E] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Z {} Y", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x3F] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Z {} Z", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x40] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Z {} -X", value);
+                        val = AttrVal::StringType(result);
+                    }
+                    &[0x0, 0x0, 0x0, 0x41] => {
+                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let result = format!("-Z {} -Y", value);
                         val = AttrVal::StringType(result);
                     }
                     _ => {}
@@ -1205,6 +1343,14 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
     refno_0_set
 }
 
+pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
+    let mut value = get_implicit_angle_expression(input);
+    if value == "".to_string() {
+        value = format!("PARAM {}", be_u32(input)?.1);
+    }
+    Ok((input, value))
+}
+
 #[inline]
 fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], (RefNoTuple, EleDataEntry)> {
     let (_, ref_type) = be_i32(&input[offset + 8..offset + 12])?;
@@ -1235,6 +1381,62 @@ pub fn sort_offsets(map: DashMap<i32, AttrInfo>) -> Vec<u32> {
     offsets
 }
 
+pub fn get_offset_map(map: DashMap<i32, AttrInfo>) -> HashMap<u32,(u32,DbAttributeType)> {
+    let mut offset_map=HashMap::new();
+    for (_,a) in map {
+        if a.offset != 0 {
+            offset_map.insert(a.offset, (a.offset,a.att_type));
+        }
+    }
+    offset_map
+}
+
+pub fn reset_implicit_offset(map: DashMap<i32, AttrInfo>) -> (HashMap<u32, u32>, Vec<u32>){
+    let mut correct_offset_map = get_offset_map(map.clone());
+    let mut correct_offs_map = HashMap::new();
+    let mut correct_offs_vec = vec![];
+    let sorted_offset = sort_offsets(map.clone());
+    let mut vec3_type_times = 0;
+    for offset in sorted_offset {
+        if let Some((offset, att_type)) = correct_offset_map.get(&offset) {
+            match att_type {
+                DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION
+                | DbAttributeType::DOUBLEVEC | DbAttributeType::Vec3Type => {
+
+                    if offset > &0x1000 { //type为bool，不需要减
+                        correct_offs_vec.push(*offset);
+                        correct_offs_map.insert(*offset,*offset);
+                    }else {
+                        correct_offs_vec.push(offset - 3 * vec3_type_times);
+                        correct_offs_map.insert(*offset, offset - 3 * vec3_type_times);
+                        vec3_type_times += 1;
+                    }
+                }
+                _ => {
+                    if offset > &0x1000 {
+                        correct_offs_vec.push(*offset);
+                        correct_offs_map.insert(*offset,*offset);
+                    }else {
+                        correct_offs_vec.push(offset - 3 * vec3_type_times);
+                        correct_offs_map.insert(*offset, offset - 3 * vec3_type_times);
+                    }
+                    // correct_offs_vec.push(offset - 3 * vec3_type_times);
+                }
+            }
+        }
+    }
+    (correct_offs_map,correct_offs_vec)
+}
+// match a.att_type {
+// DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION
+// |DbAttributeType::DOUBLEVEC| DbAttributeType::Vec3Type=> {
+// if let Some(o)=correct_offset_map.get(&a.offset) {
+// correct_offset_map.insert(a.offset,a.offset-vec3_type_times*3);
+// }
+// vec3_type_times+=1;
+// }
+// _ => {}
+// }
 ///通过offset获取某个隐式属性的长度
 pub fn get_implicit_len_by_offset(count: &Vec<u32>, offset: u32) -> usize {
     if let Some(index) = count.iter().position(|o| *o == offset) {
@@ -1351,14 +1553,6 @@ pub fn get_numberdb(map: DashMap<i32, Vec<ElementData>>) -> DashMap<String, Stri
     result
 }
 
-#[test]
-fn gen_sys_to_db_test() {
-    let target_files = fs::read_dir(r#"E:\AVEVA\Plant\PDMS12.0.SP4\project\Master\mas000"# ).unwrap().into_iter().map(|entry| {
-        let entry = entry.unwrap();
-        entry.path()
-    }).collect::<Vec<PathBuf>>();
-    //gen_sys_to_db(target_files);
-}
 
 #[derive(Default, Debug)]
 pub struct EleDataEntry {
