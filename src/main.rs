@@ -282,7 +282,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             if db_raw_name == "" {
                 continue;
             }
-            db_raw_name = get_dbname(db_raw_name.as_bytes(), &db_name_map).unwrap().1;
+            if let Ok((_,v)) = get_dbname(db_raw_name.as_bytes(), &db_name_map){
+                db_raw_name = v;
+            }
             let mut db_name = db_raw_name[1..].replace('*', "").replace('/', "_");
             db_info.name = db_name.clone();
             db_info.db_no = db_no;

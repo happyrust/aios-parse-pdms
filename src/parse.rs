@@ -120,8 +120,10 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
         let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
         let mut sorted_offs=sort_offsets(attr_info_map.clone());
         sorted_offs.retain(|x| *x < ( implicit_len + 0x100 )  as u32);
-        let b_dislocation=sorted_offs[sorted_offs.len()-1] > origin_implicit_len;
-        println!("b_dislocation={}",b_dislocation);
+        let mut b_dislocation=false;
+        if !sorted_offs.is_empty() {
+            b_dislocation = sorted_offs[sorted_offs.len() - 1] > origin_implicit_len;
+        }
         let mut sorted_offs_map=HashMap::new();
         if b_dislocation {
             let (m,v) = reset_implicit_offset(attr_info_map.clone());
@@ -133,7 +135,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 let mut k = attr_info.offset as usize;
                 if b_dislocation {
                     k = *sorted_offs_map.get(&attr_info.offset).unwrap() as usize;
-                    println!("k={}",k);
                 }
                 if attr_info.att_type == DbAttributeType::BOOL {
                     k &= 0xFFFFF;
@@ -142,7 +143,6 @@ pub fn parse_db(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u
                 }
                 k *= 4;  //dword => byte
                 let mut data_len = implicit_len as i32 - k as i32;
-                println!("data_len={}",data_len);
                 if data_len < 0 { break; }
                 if let Some(mut j) = sorted_offs.iter().position(|&x| x == attr_info.offset) {
                     let next_offset_idx = j as i32 + 1;
