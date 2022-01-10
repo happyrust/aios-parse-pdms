@@ -4,7 +4,7 @@ use crate::pdms_types::PdmsDatabaseInfo;
 
 
 #[cfg(test)]
-mod test_implicit;
+mod test_branchs;
 
 
 fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{

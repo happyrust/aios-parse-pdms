@@ -199,7 +199,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     for e in &ele_data_vec {
                         ele_nodes.push(EleDataNode {
                             ref_no: e.ref_no.clone(),
-                            children: e.children.clone(),
+                            children: vec![],
                             owner: e.owner.clone(),
                             name: e.name.clone(),
                             order: e.order,
