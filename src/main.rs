@@ -43,7 +43,7 @@ use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
-use parse_pdms_db::parse::{DbInfo, get_dbname, get_dbname_from_dbnumber, get_numberdb, get_project_name_from_filename, parse_db, save_type_hash_file};
+use parse_pdms_db::parse::{DbInfo, get_dbname, get_dbname_from_dbnumber, get_numberdb, get_project_name_from_filename, parse_db, parse_file, save_type_hash_file};
 use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
@@ -176,7 +176,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let db_no_bytes = &buf[8..12];
                 let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
                 let mut db_info = PDMSDBInfo::default();
-                let eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
                 db_name_map = get_numberdb(eles_data_map.clone());
                 db_info.name = file_name.to_string();
                 db_info.db_no = db_no;
@@ -272,7 +272,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let mut db_info = PDMSDBInfo::default();
         println!("path={:?}", &path);
 
-        let mut eles_data_map = parse_db(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+        let mut eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
         // dbg!(&eles_data_map);
         if b_save_to_mongodb {
             let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();

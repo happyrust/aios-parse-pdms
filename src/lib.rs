@@ -29,6 +29,7 @@ pub mod axis_param;
 pub mod parse;
 pub mod interface;
 pub mod mesh_helper;
+pub mod test_cases;
 
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;

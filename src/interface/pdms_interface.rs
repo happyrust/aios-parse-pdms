@@ -321,14 +321,10 @@ pub fn test_get_des_geoms() {
 #[test]
 fn test_get_children() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
-   // let w = interface.get_world("SAMPLE_IMPDESI");
-    //let children = interface.get_children_by_node(w.as_ref().unwrap());
-    let children = interface.get_children("15392/0");
+    let children = interface.get_children("16476/8");
     for child in children {
         dbg!(&child.ref_no);
     }
-    // let attr_map = interface.get_ele_attr_map_by_node(w.as_ref().unwrap());
-    // dbg!(attr_map);
 }
 
 #[test]
