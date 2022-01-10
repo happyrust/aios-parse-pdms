@@ -58,13 +58,13 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let mut impl_len = i32::from_be_bytes(input[0..4].try_into().unwrap()) as usize * 4;  //隐含数据长度  0-4
     let refno = (i32::from_be_bytes(input[4..8].try_into().unwrap()), i32::from_be_bytes(input[8..12].try_into().unwrap()));  //4-12
     ele_data.ref_no = convert_ref_to_string(&refno);
-    dbg!(&ele_data.ref_no);
+    // dbg!(&ele_data.ref_no);
     let type_hash = i32::from_be_bytes(input[12..16].try_into().unwrap());   //类型hash  12-16
     ele_data.noun_hash = type_hash;
     ele_data.noun_name = db1_dehash(type_hash as u32);
     let attr_info_map = &*attr_info_map.get(&type_hash).unwrap();
 
-    let (_, owner) = parse_attr_owner(&input[12..20]).unwrap();  // owner: position+12
+    let (_, owner) = parse_attr_owner(&input[16..24]).unwrap();  // owner: position+16
     ele_data.owner = owner.clone();
 
     //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
@@ -100,59 +100,45 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let implicit_len = implicit_data.len();
     let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
     let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
-    println!("{:?}", &sorted_noun_hash);
-    // sorted_offs.retain(|x| *x < (implicit_len + 0x100) as u32);
-    // let mut b_dislocation=false;
-    // if !sorted_offs.is_empty() {
-    //     b_dislocation = sorted_offs[sorted_offs.len() - 1] > origin_implicit_len;
-    // }
-    // let mut sorted_offs_map=HashMap::new();
-    // if b_dislocation {
-    //     let (m,v) = reset_implicit_offset(attr_info_map.clone());
-    //     sorted_offs_map=m;
-    //     sorted_offs=v;
-    // }
-    // for (_, attr_info) in attr_info_map.clone() {
+    // println!("{:?}", &sorted_noun_hash);
     let mut cur_offset = 0;
-    let mut last_is_bool = false;
+    let _last_is_bool = false;
 
     let mut is_double = false;
-    for i in 0..sorted_noun_hash.len()-1 {
-        let noun_hash = sorted_noun_hash[i];
-        let attr_info = attr_info_map.get(&noun_hash).unwrap();
-        if cur_offset == 0 { cur_offset = attr_info.offset as usize; }
-        let next_attr_info = attr_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
-        cur_offset += ((next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as usize;
+    if sorted_noun_hash.len() >=1 {
+        for i in 0..sorted_noun_hash.len() - 1 {
+            let noun_hash = sorted_noun_hash[i];
+            let attr_info = attr_info_map.get(&noun_hash).unwrap();
+            if cur_offset == 0 { cur_offset = attr_info.offset as usize; }
+            let next_attr_info = attr_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
+            cur_offset += ((next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as usize;
+        }
     }
-    // cur_offset += attr_info_map.get(&sorted_noun_hash[sorted_noun_hash.last().unwrap()]).unwrap().offset as usize;
-    // dbg!(cur_offset);
     is_double = cur_offset < implicit_len/4;
     cur_offset = 0;
+    // dbg!(&sorted_noun_hash);
     for i in 0..sorted_noun_hash.len(){
         let noun_hash = sorted_noun_hash[i];
         let attr_info = attr_info_map.get(&noun_hash).unwrap();
         let mut cur_len = 0;
         if cur_offset == 0 {  cur_offset = attr_info.offset as usize; }
-        // dbg!(cur_offset);
         let mut att_will_change = false;
         if i != sorted_noun_hash.len() - 1{
             let next_attr_info = attr_info_map.get(&sorted_noun_hash[i+1]).unwrap();
             att_will_change = next_attr_info.att_type != attr_info.att_type ;
             cur_len = ( (next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as usize;
-        }else{
-            cur_len = implicit_len / 4 - cur_offset;
-        }
-        match attr_info.att_type {
-            DbAttributeType::BOOL => { cur_len = 1; }
-            DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
-                if !is_double {
-                    cur_len = (cur_len -1 ) / 2 + 1;
+            match attr_info.att_type {
+                DbAttributeType::BOOL => { cur_len = 1; }
+                DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
+                    if !is_double {
+                        cur_len = (cur_len -1 ) / 2 + 1;
+                    }
                 }
-            }
-            _ => {}
-        };
-        // dbg!(cur_len);
-        // println!("{:?}", *attr_info);
+                _ => {}
+            };
+        }else{
+            cur_len = implicit_len / 4 - cur_offset;  //最后的数据应该准确，数据才ok
+        }
         if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset*4..(cur_offset + cur_len) * 4], &attr_info, refno, 0) {
             if advance == 0 {    //nullref的处理
                 if att_will_change {
@@ -161,7 +147,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             }else{
                 cur_offset += advance;
             }
-            // dbg!(&att_val);
+            dbg!(&att_val);
             ele_data.attr_data_map.entry(attr_info.name.clone())
                 .or_insert(att_val);
         }
@@ -169,7 +155,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     //增加一些默认值情况
     ele_data.attr_data_map.entry("PARA".to_string()).or_insert(StringType("0".to_string()));
     if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
-        if &explicit_data[0..2] == [0x0, 0x1].as_slice() {
+        if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
             let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
             let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, ele_data.attr_data_map.clone(), refno, explicit_start).unwrap();
@@ -279,16 +265,19 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
     let data_len = input.len();
     if b_expr {
         // 隐式属性的所有StringType的offset都给原本的值-1，表达式默认是StringType，但是他不需要-1,所以这里slice的时候再+1
-        match attr_info.att_type {
-            DbAttributeType::STRING => {
-                let (_, attrval) = convert_to_implicit_axis_string(&input[4..])?;
-                val = attrval;
-            }
-            _ => {
-                let (_, attr_val) = convert_to_implicit_axis_string(input)?;
-                val = attr_val;
-            }
-        }
+        // match attr_info.att_type {
+        //     DbAttributeType::STRING => {
+        //         let (_, attrval) = convert_to_implicit_axis_string(&input[4..])?;
+        //         dbg!(&input[4..]);
+        //         val = attrval;
+        //     }
+        //     _ => {
+        //         let (_, attr_val) = convert_to_implicit_axis_string(input)?;
+        //         val = attr_val;
+        //     }
+        // }
+        let (_, attr_val) = convert_to_implicit_axis_string(input)?;
+        val = attr_val;
         // log::info!("隐式属性 ref_no={:?} position={:#04X?} val={:?}",ref_no,pos,r);
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
@@ -364,11 +353,6 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                     let l = input;
                     if l.len() >= 3 && cnt == 3 {
                         let mut b_double = (data_len - 1) / 12 == 2;
-                        // if b_double {
-                        //     dbg!(i32::from_be_bytes(l[12..16].try_into().unwrap()));
-                        //     b_double = i32::from_be_bytes(l[12..16].try_into().unwrap()) != 3;  //如果第四个数据又出现3，则为float
-                        //     println!("{:?} is: {}", &attr_info, b_double);
-                        // }
                         if b_double {
                             for i in 0..3 {
                                 if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
@@ -942,6 +926,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
         match &tmp_input[4..8] {
             &[0x0, 0x0, 0x0, 0x1] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
+                dbg!(&value);
                 if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
@@ -958,7 +943,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let (_, t) = be_i32(&tmp_input[..4])?;
                     // times是除以0x28的倍数
                     if t == 0x28 {
-                        val = get_implicit_angle_expression(&tmp_input[8..12]);
+                        val = match_angle_or_return_number(i32::from_be_bytes(tmp_input[8..12].try_into().unwrap()));
                     } else {
                         let mut value = "".to_string();
                         let v = t as f32 / 40.0;
@@ -1080,7 +1065,10 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 }
             }
             &[0x0, 0x0, 0x0, 0x7] => {
-                return Ok((input, StringType(String::new())));
+                let (_,refno_0)=be_u32(&tmp_input[8..12])?;
+                let (_,refnp_1)=be_u32(&tmp_input[12..16])?;
+                val = format!("{}/{}",refno_0,refnp_1);
+                //return Ok((input, StringType(String::new())));
             }
             &[0x0, 0x0, 0x0, 0x8] => {
                 let (_, times) = be_i32(&tmp_input[..4])?;
@@ -1488,16 +1476,6 @@ pub fn get_offset_map(map: DashMap<i32, AttrInfo>) -> HashMap<u32, (u32, DbAttri
 //     (correct_offs_map, correct_offs_vec)
 // }
 
-// match a.att_type {
-// DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION
-// |DbAttributeType::DOUBLEVEC| DbAttributeType::Vec3Type=> {
-// if let Some(o)=correct_offset_map.get(&a.offset) {
-// correct_offset_map.insert(a.offset,a.offset-vec3_type_times*3);
-// }
-// vec3_type_times+=1;
-// }
-// _ => {}
-// }
 ///通过offset获取某个隐式属性的长度
 pub fn get_implicit_len_by_offset(count: &Vec<u32>, offset: u32) -> usize {
     if let Some(index) = count.iter().position(|o| *o == offset) {

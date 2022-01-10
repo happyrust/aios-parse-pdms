@@ -1,7 +1,7 @@
 use crate::parse::{parse_db, parse_ele_data};
 use crate::test_cases::read_attr_info_config;
 
-fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
+pub fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
      data_str.trim().split_whitespace().map(|s| u8::from_str_radix(s, 16).unwrap())
         .collect()
 }
@@ -129,14 +129,50 @@ pub fn test_branch_sample_23584_5585(){
 1C 00 00 02 00 00 00 01 00 00 00 00";
 
     let data = convert_str_to_bytes(data_str);
-    // println!("{:#4X?}", &data);
 
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    // dbg!(&pdms_database_info);
-
 
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
 
     dbg!(&ele_data);
 
 }
+
+#[test]
+pub fn test_ptax_aba_10552_1156() {
+    let data_str="
+00 00 00 21 00 00 29 38 00 00 04 84 00 0F 56 3E
+00 00 29 38 00 00 04 82 00 00 00 7B 00 34 C0 01
+00 00 00 00 00 00 00 00 00 0F 00 00 00 00 00 02
+00 00 00 04 00 00 00 28 00 00 00 07 00 00 02 17
+00 00 03 93 00 00 00 04 00 00 00 28 00 00 00 01
+FF FF FF 38 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 01 00 00 00 01 00 00 00 00 00 00 00 00
+00 00 00 00 00 01 00 41 00 00 29 38 00 00 04 84
+00 00 00 00 00 00 00 00 FF F2 15 19 1C 00 00 3A
+00 00 00 39 00 00 00 39 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 60 00 00 00 00 00 00 00 00 02
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 50 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 08 9C 41
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 00 65 00 00 00 06 00 00 80 00
+00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 06
+00 00 03 25 00 00 03 23 00 00 00 65 00 00 00 06
+00 00 60 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 08 9C 41
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 03 23 00";
+    let data=convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    if let Some(map)=pdms_database_info.noun_attr_info_map.get(&0xF563Ei32){
+        dbg!(map.value());
+    }
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
+    dbg!(&ele_data);
+}
+
+
