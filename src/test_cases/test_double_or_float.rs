@@ -57,7 +57,7 @@ fn test_sample_15192_238890() {
 }
 
 #[test]
-fn test_aba_14352_102824() {
+fn test_aba_14352_38281() {
     let data_str="
 00 00 00 17 00 00 38 10 00 00 95 89 00 0C A7 8C
 00 00 38 10 00 00 95 88 00 00 10 B5 00 26 A0 01
@@ -85,9 +85,6 @@ fn test_aba_14352_102824() {
 00 00 B0 03 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x34F774i32) {
-    //     dbg!(map.value());
-    // }
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
     dbg!(&ele_data);
 }
