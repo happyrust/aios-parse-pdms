@@ -192,8 +192,8 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 // 存放所有的refno对应的db_name和type_name
                 let table_db = client.database("PdmsRefnoDB");
                 for (key, mut ele_data_vec) in eles_data_map {
-                    println!("Curren elements len={:?}", ele_data_vec.len());
-                    let table_name = db1_dehash(key as u32);
+                    let type_name = db1_dehash(key as u32);
+                    println!("Curren {} elements len={:?}", &type_name, ele_data_vec.len());
                     let mut ele_table = Vec::new();
                     let mut ele_nodes = Vec::new();
                     for e in &ele_data_vec {
@@ -213,7 +213,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                         });
                     }
                     // 属性值
-                    let collection = db.collection::<ElementData>(&table_name);
+                    let collection = db.collection::<ElementData>(&type_name);
                     collection.create_index(
                         IndexModel::builder()
                             .keys(doc! {"ref_no":1})

@@ -194,7 +194,7 @@ pub struct ElementData {
     pub noun_name: String,
     pub noun_hash: i32,
     //子节点, 临时存储children
-    #[serde(skip_serializing)]
+    // #[serde(skip_serializing)]
     pub children: Vec<RefNoTuple>,
     //父节点
     pub owner: String,

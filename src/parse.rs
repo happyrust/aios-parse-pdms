@@ -139,6 +139,14 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         }else{
             cur_len = implicit_len / 4 - cur_offset;  //最后的数据应该准确，数据才ok
         }
+        if  (cur_offset + cur_len) * 4 > implicit_data.len(){
+            println!("{:#4X?}", &input[0..100]);
+            println!("{:#4X?}", implicit_data);
+            dbg!(refno);
+            dbg!(cur_len);
+            dbg!(cur_offset);
+        }
+
         if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset*4..(cur_offset + cur_len) * 4], &attr_info, refno, 0) {
             if advance == 0 {    //nullref的处理
                 if att_will_change {
@@ -147,7 +155,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             }else{
                 cur_offset += advance;
             }
-            dbg!(&att_val);
+            // dbg!(&att_val);
             ele_data.attr_data_map.entry(attr_info.name.clone())
                 .or_insert(att_val);
         }
@@ -926,7 +934,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
         match &tmp_input[4..8] {
             &[0x0, 0x0, 0x0, 0x1] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
-                dbg!(&value);
+                // dbg!(&value);
                 if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
@@ -1366,16 +1374,19 @@ pub fn process_type_hash<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (R
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
-            let (_, refno_entry) = get_refno_entry(input, p).unwrap_or_default();
-            type_hash.entry(refno_entry.1.noun_hash).or_insert((refno_entry.0, file_name.clone()));
+            if let Ok((_,Some(refno_entry))) = get_refno_entry(input, p){
+                type_hash.entry(refno_entry.1.noun_hash).or_insert((refno_entry.0, file_name.clone()));
+            }
         }
     });
+    dbg!(type_hash.len());
     Ok((input, ()))
 }
 
 ///获取所有不同的 refno_0
 pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
     let mut refno_0_set = HashSet::new();
+    //todo 把 [0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00, 0x00] 命名
     let mut pos_iter = rfind_iter(&input, [0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00, 0x00].as_slice());
     while let Some(i) = pos_iter.next() {
         let mut j = i + 0x6 * 4;   //偏移6 dword
@@ -1386,7 +1397,6 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
             d = &input[j..j + 4];
         }
     }
-    //dbg!(&refno_0_set);
     refno_0_set
 }
 
@@ -1399,19 +1409,24 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 #[inline]
-fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], (RefNoTuple, EleDataEntry)> {
+fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoTuple, EleDataEntry)>> {
     let (_, ref_type) = be_i32(&input[offset + 8..offset + 12])?;
-    let mut refno_entry = ((0, 0), EleDataEntry::default());
-    if NOUN_TYPES_MAP.contains_key(&ref_type) {
-        let (_, (refno_0, refno_1, noun_hash)) = tuple((
+    let (_, owner_ref_0) = be_i32(&input[offset + 12..offset + 16])?;  //check parent ref 0
+    let mut refno_entry = None;
+    let mut is_world = ref_type ==  0xBEB83;
+    if NOUN_TYPES_MAP.contains_key(&ref_type){
+        let (_, (len, refno_0, refno_1, noun_hash)) = tuple((
+            be_i32,
             be_i32,
             be_i32,
             be_i32, //type hash
-        ))(&input[offset..offset + 12])?;
-        refno_entry = ((refno_0, refno_1), EleDataEntry {
-            pos: offset as usize,
-            noun_hash,
-        });
+        ))(&input[offset-4..offset + 12])?;
+        if (is_world && owner_ref_0 == 0) ||  (len!=0 && (len & 0xFFFF000 == 0) )  {   //todo 完善这个定位问题
+            refno_entry =Some(((refno_0, refno_1), EleDataEntry {
+                pos: offset as usize,
+                noun_hash,
+            }));
+        }
     }
     Ok((input, refno_entry))
 }
@@ -1617,18 +1632,18 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefNoTuple, EleDataEntry
         let world_refno_clone = world_refno.clone();
         let mut w_refno = world_refno_clone.lock().unwrap();
         for p in pos_iter {
-            let (_, refno_entry) = get_refno_entry(input, p).unwrap_or_default();
-            //check if world element
-            if w_refno.0 == 0 && refno_entry.1.noun_hash == 0xBEB83 {
-                w_refno.0 = refno_entry.0.0;
-                w_refno.1 = refno_entry.0.1;
-            }
-            //取得 ref_0
-            if refno_entry.0.0 != 0 {
-                refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
+            if let Ok((_,Some(refno_entry))) = get_refno_entry(input, p){
+                if w_refno.0 == 0 && refno_entry.1.noun_hash == 0xBEB83 {
+                    w_refno.0 = refno_entry.0.0;
+                    w_refno.1 = refno_entry.0.1;
+                }
+                if refno_entry.0.0 != 0 {  //取得 ref_0
+                    refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
+                }
             }
         }
     });
+    dbg!(refno_table.len());
     let lock = Arc::try_unwrap(world_refno).expect("Lock still has multiple owners");
     (refno_table, lock.into_inner().expect("Mutex cannot be locked"))
 }

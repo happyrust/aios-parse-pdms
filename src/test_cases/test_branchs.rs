@@ -1,10 +1,7 @@
 use crate::parse::{parse_db, parse_ele_data};
-use crate::test_cases::read_attr_info_config;
+use crate::test_cases::{convert_str_to_bytes, read_attr_info_config};
 
-pub fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
-     data_str.trim().split_whitespace().map(|s| u8::from_str_radix(s, 16).unwrap())
-        .collect()
-}
+
 
 
 #[test]
