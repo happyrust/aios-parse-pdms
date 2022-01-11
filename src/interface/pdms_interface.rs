@@ -303,6 +303,14 @@ impl PdmsInterface {
 }
 
 #[test]
+fn get_ele_attr_map_test() {
+    let mut interface = PdmsInterface::new("mongodb://localhost:27017");
+    if let Some(v) = interface.get_ele_attr_map("15392/2") {
+        dbg!(v);
+    }
+}
+
+#[test]
 pub fn test_get_cata_geoms() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
     dbg!(interface.get_cata_ele_geoms("15192/43621"));

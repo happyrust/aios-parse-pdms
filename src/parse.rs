@@ -58,7 +58,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let mut impl_len = i32::from_be_bytes(input[0..4].try_into().unwrap()) as usize * 4;  //隐含数据长度  0-4
     let refno = (i32::from_be_bytes(input[4..8].try_into().unwrap()), i32::from_be_bytes(input[8..12].try_into().unwrap()));  //4-12
     ele_data.ref_no = convert_ref_to_string(&refno);
-    // dbg!(&ele_data.ref_no);
     let type_hash = i32::from_be_bytes(input[12..16].try_into().unwrap());   //类型hash  12-16
     ele_data.noun_hash = type_hash;
     ele_data.noun_name = db1_dehash(type_hash as u32);
@@ -98,9 +97,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
     let mut explicit_bytes_len = 0;
     let implicit_len = implicit_data.len();
-    let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
+    let _origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
     let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
-    // println!("{:?}", &sorted_noun_hash);
     let mut cur_offset = 0;
     let _last_is_bool = false;
 
@@ -139,13 +137,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         }else{
             cur_len = implicit_len / 4 - cur_offset;  //最后的数据应该准确，数据才ok
         }
-        if  (cur_offset + cur_len) * 4 > implicit_data.len(){
-            println!("{:#4X?}", &input[0..100]);
-            println!("{:#4X?}", implicit_data);
-            dbg!(refno);
-            dbg!(cur_len);
-            dbg!(cur_offset);
-        }
 
         if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset*4..(cur_offset + cur_len) * 4], &attr_info, refno, 0) {
             if advance == 0 {    //nullref的处理
@@ -155,11 +146,11 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             }else{
                 cur_offset += advance;
             }
-            // dbg!(&att_val);
             ele_data.attr_data_map.entry(attr_info.name.clone())
                 .or_insert(att_val);
         }
     }
+
     //增加一些默认值情况
     ele_data.attr_data_map.entry("PARA".to_string()).or_insert(StringType("0".to_string()));
     if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
@@ -417,10 +408,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                     } else if attr_type_num == 0x0C00 {
                         attr_info.att_type = DbAttributeType::WORD;
                     }
-                    // DESP 特殊处理
-                    // if explict_num == 0xD20C7 {
-                    //     attr_info.att_type = DbAttributeType::INTVEC;
-                    // }
                     // 根据获取到的type hash值，拿到需要的类型
                     match attr_info.att_type {
                         DbAttributeType::INTEGER => {
@@ -480,7 +467,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                             for i in 0..3 {
                                 if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
                                     // 保留两位精度
-                                    data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
+                                    data[i] = (f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0;
                                 }
                             }
                             explict_attrs.insert(attr_info.name.clone(), Vec3Type(data));
@@ -526,14 +513,28 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                         DbAttributeType::INTVEC => {
                             let (tmp_input, len) = be_u32(tmp_input)?;
                             let len = len as usize;
+                            let b_double = ( tmp_input.len() / len /4 ) == 2;
                             let mut tmp_input = tmp_input;
-                            let mut data = vec![];
-                            for _ in 0..len {
-                                let (remain_input, val) = be_i32(tmp_input)?;
-                                data.push(val);
-                                tmp_input = remain_input;
+                            if b_double {
+                                let mut data = vec![];
+                                for _ in 0..len {
+                                    let (_,refno_0) = be_u32(&tmp_input[..4])?;
+                                    let (remain_input,refno_1) = be_u32(&tmp_input[4..])?;
+                                    let refno= format!("{}/{}",refno_0,refno_1);
+                                    data.push(refno);
+                                    tmp_input = remain_input;
+                                }
+                                explict_attrs.insert(attr_info.name.clone(), StringArrayType(data));
+                            } else {
+                                let mut data = vec![];
+                                for _ in 0..len {
+                                    let (remain_input, val) = be_i32(tmp_input)?;
+                                    data.push(val);
+                                    tmp_input = remain_input;
+                                }
+                                explict_attrs.insert(attr_info.name.clone(), IntArrayType(data));
                             }
-                            explict_attrs.insert(attr_info.name.clone(), IntArrayType(data));
+
                         }
 
                         _ => {}
@@ -610,9 +611,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 let array_len = tmp_input.len() / 4;
                                 let (mut tmp_input, data_len) = be_i32(tmp_input)?;
                                 let len = data_len as usize;
-                                let double_or_float = array_len / len;
+                                let double_or_float = ( array_len - 1 ) / len;
                                 // let mut tmp_input = tmp_input;
-                                if double_or_float == 2 {
+                                if tmp_input.len() >= 8 && double_or_float == 2 {
                                     let mut data = vec![];
                                     for _ in 0..len {
                                         if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {

@@ -11,6 +11,8 @@ pub fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
 mod test_branchs;
 #[cfg(test)]
 mod test_double_or_float;
+#[cfg(test)]
+mod test_data;
 
 
 fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
