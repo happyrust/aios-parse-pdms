@@ -8,12 +8,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use dashmap::DashMap;
-use futures::{StreamExt, TryFutureExt};
+use futures::TryFutureExt;
 use memchr::memmem;
-use memchr::memmem::rfind_iter;
+use memchr::memmem::{find, find_iter, rfind_iter};
 use mongodb::Client;
 use mongodb::options::ClientOptions;
-use nom::bytes::complete::take_until;
+use nom::bytes::complete::{take_till, take_until, take_while};
 use nom::character::complete::alpha1;
 use nom::IResult;
 use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u8};
@@ -98,7 +98,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
     let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
     let mut explicit_bytes_len = 0;
-    let implicit_len = implicit_data.len();
     let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
     let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
     // println!("{:?}", &sorted_noun_hash);
@@ -137,15 +136,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         } else {
             cur_len = origin_impl_len / 4 - cur_offset;  //最后的数据应该准确，数据才ok
         }
-        if  (cur_offset + cur_len) * 4 > implicit_data.len(){
-            println!("{:#4X?}", &input[0..100]);
-            println!("{:#4X?}", implicit_data);
-            dbg!(refno);
-            dbg!(cur_len);
-            dbg!(cur_offset);
-        }
-
-        if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset*4..(cur_offset + cur_len) * 4], &attr_info, refno, 0) {
+        if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset * 4..(cur_offset + cur_len) * 4], &attr_info, refno, is_double, 0) {
             if advance == 0 {    //nullref的处理
                 if att_will_change {
                     cur_offset += 1;   //如果不是Element了，就可以继续向前
@@ -298,7 +289,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                         is_f32 = true
                     }else if data_len >=8 {
                         if !double_flag {
-                           is_f32 = true;
+                            is_f32 = true;
                         }
                     }
                     if is_f32{
