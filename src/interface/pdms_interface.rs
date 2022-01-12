@@ -311,7 +311,7 @@ pub fn test_get_cata_geoms() {
 #[test]
 pub fn test_get_des_geoms() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
-    let geoms = interface.get_des_ele_geoms("23584/7902");
+    let geoms = interface.get_des_ele_geoms("23584/5531");
     dbg!(geoms);
     // let mat = interface.get_des_matrix("23584/5457");
     // dbg!(mat);

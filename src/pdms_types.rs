@@ -195,7 +195,9 @@ pub struct ElementData {
     pub noun_hash: i32,
     //子节点, 临时存储children
     // #[serde(skip_serializing)]
-    pub children: Vec<RefNoTuple>,
+    // pub children_refnos: Vec<RefNoTuple>,
+
+    pub children: Vec<String>,
     //父节点
     pub owner: String,
     pub attr_data_map: DashMap<String, AttrVal>,
