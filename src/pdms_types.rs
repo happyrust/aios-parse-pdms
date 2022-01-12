@@ -193,6 +193,7 @@ pub struct ElementData {
     pub name: String,
     pub noun_name: String,
     pub noun_hash: i32,
+    pub version:u32,
     //子节点, 临时存储children
     // #[serde(skip_serializing)]
     // pub children_refnos: Vec<RefNoTuple>,
@@ -250,6 +251,7 @@ pub struct PDMSDBInfo {
     pub name: String,
     pub db_no: i32,
     pub db_type: String,
+    pub version: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
