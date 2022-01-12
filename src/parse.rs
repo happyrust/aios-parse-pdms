@@ -66,11 +66,16 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     ele_data.noun_hash = type_hash;
     ele_data.noun_name = db1_dehash(type_hash as u32);
     let attr_info_map = &*attr_info_map.get(&type_hash).unwrap();
-
+    // if refno == (8193,90707){
+    //     dbg!("hello");
+    // }
     let (_, owner) = parse_attr_owner(&input[16..24]).unwrap();  // owner: position+16
     ele_data.owner = owner.clone();
     //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
-    let mut tmp_value = i32::from_be_bytes(input[actual_impl_len..actual_impl_len + 4].try_into().unwrap());
+    let mut tmp_value =1;
+    if input.len() >= actual_impl_len + 4 {
+        tmp_value=i32::from_be_bytes(input[actual_impl_len..actual_impl_len + 4].try_into().unwrap());
+    }
     //todo 调整为 多个0和一个7结束
     while tmp_value == 0 || tmp_value == 7 {
         actual_impl_len += 4;
@@ -98,9 +103,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
     let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
     let mut explicit_bytes_len = 0;
-    let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
+    let _origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
     let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
-    // println!("{:?}", &sorted_noun_hash);
     let mut cur_offset = 0;
     let mut is_double = true;
 
@@ -1442,20 +1446,20 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                         }
                     }
                 }
-                if !is_ok {
-                    dbg!(noun_hash);
-                    dbg!(is_ok);
-                    dbg!(tmp_pos);
-                    dbg!(end_pos);
-                    dbg!(diff_len);
-                }
+                // if !is_ok {
+                //     dbg!(noun_hash);
+                //     dbg!(is_ok);
+                //     dbg!(tmp_pos);
+                //     dbg!(end_pos);
+                //     dbg!(diff_len);
+                // }
                 // dbg!(is_ok);
             }else{
                 let next_len = be_u32(&input[tmp_pos..tmp_pos+4])?.1;
                 is_ok = next_len & 0xFFFFFF00 == 0;
-                if !is_ok {
-                    dbg!(next_len);
-                }
+                // if !is_ok {
+                //     dbg!(next_len);
+                // }
             }
         }
         if is_ok {
@@ -1463,10 +1467,11 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                 pos: offset as usize,
                 noun_hash,
             }));
-        }else{
-            dbg!(offset);
-            dbg!((refno_0, refno_1));
         }
+        // else{
+        //     dbg!(offset);
+        //     dbg!((refno_0, refno_1));
+        // }
     }
     Ok((input, refno_entry))
 }
