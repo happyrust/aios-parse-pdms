@@ -48,6 +48,7 @@ use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
+use parse_pdms_db::notify_file_change::notify_file;
 
 const ATT_MDB:i32 = 0x8221C;
 const ATT_DB:i32  = 0x81C2B;
@@ -55,6 +56,10 @@ const ATT_DB:i32  = 0x81C2B;
 #[tokio::test]
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
+}
+
+fn main_1() {
+    notify_file();
 }
 
 #[tokio::main]

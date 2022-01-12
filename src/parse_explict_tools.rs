@@ -861,6 +861,8 @@ pub fn match_expression_type(input: &[u8]) -> String {
         &[0xFF, 0xF3, 0xEE, 0xF8] => { expression_type = "PTDM".to_string(); }
         &[0xFF, 0xF3, 0xF0, 0xDE] => { expression_type = "PBDM".to_string(); }
         &[0xFF, 0xF6, 0x04, 0x02] => { expression_type = "POFF".to_string(); }
+        &[0xFF, 0xF7, 0xE1, 0x83] => { expression_type = "DX".to_string(); }
+        &[0xFF, 0xF7, 0xE1, 0x68] => { expression_type = "DY".to_string(); }
         _ => {}
     }
     expression_type

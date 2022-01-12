@@ -6,7 +6,7 @@ use std::error::Error;
 use dashmap::DashMap;
 use crate::query::{query_scom_info, resolve_cata_comp_async, resolve_desi_comp};
 use crate::parsed_data::GeomsInfo;
-use crate::pdms_types::{AttrMap, AttrVal, EleDataNode, ElementData, PdmsRefno};
+use crate::pdms_types::{AttrMap, AttrVal, EleDataNode, ElementData, PDMSDBInfo, PdmsRefno};
 use futures::stream::TryStreamExt;
 use mongodb::options::{FindOneOptions, FindOptions};
 use crate::helper::get_attr_value_f64_vec;
@@ -298,7 +298,17 @@ impl PdmsInterface {
         0.0
     }
 
-
+    /// 获取某个db的大版本
+    pub async fn get_db_version(&mut self,db_no:i32) -> MResult<Option<u32>> {
+        if let Some(conn)=self.connect().await {
+            let db=conn.database("PDMSDBInfos");
+            let t=db.collection::<PDMSDBInfo>("PDMSDBInfos");
+            if let Some(r) = t.find_one(doc! {"db_no":db_no},None).await? {
+                return Ok(Some(r.version))
+            }
+        }
+        return Ok(None)
+    }
 
 }
 
