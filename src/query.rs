@@ -34,7 +34,7 @@ pub async fn resolve_desi_comp(
         scom_ref = spre.get_as_string("CATR").unwrap_or_default();
     }
     let scom_info = interface.get_scom_info_async(scom_ref.as_str()).await?;
-    // dbg!(&scom_info);
+    dbg!(&scom_info);
     if scom_info.is_none() { return Ok(None); }
     let mut context = HashMap::new();
     context.insert(DDHEIGHT_STR.to_string(), attr_map.get_as_string("HEIG").unwrap_or("1.0".to_string()));

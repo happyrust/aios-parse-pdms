@@ -141,7 +141,6 @@ pub fn parse_paragon_gmse_params(
     // dbg!(&gmse_param);
     if let Some(gmse_data) = resolve_gmse_params(gmse_param, context, axis_params) {
         let d = resolve_to_cate_geo_params(gmse_data);
-        // dbg!(&d);
         return d;
     }
     None

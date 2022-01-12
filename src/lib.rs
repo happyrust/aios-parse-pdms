@@ -1,6 +1,7 @@
 #![feature(type_ascription)]
 #![feature(array_methods)]
 #![feature(slice_pattern)]
+#![feature(core_intrinsics)]
 
 #[macro_use]
 extern crate serde;
@@ -107,7 +108,7 @@ lazy_static! {
         s.insert(ATT_PTDI);s.insert(ATT_PBDI);s.insert(ATT_PBTP);s.insert(ATT_PCTP);
         s.insert(ATT_PBBT);s.insert(ATT_PCBT);s.insert(ATT_PXLE);s.insert(ATT_PYLE);
         s.insert(ATT_PZLE);s.insert(ATT_PTDM);s.insert(ATT_PBDM);s.insert(ATT_PTCDI);
-        s.insert(ATT_POFF);s.insert(ATT_DX);s.insert(ATT_DY);
+        s.insert(ATT_POFF);s.insert(ATT_DX);s.insert(ATT_DY);s.insert(ATT_DY);
 
         s.insert(IMP_PAXI);s.insert(IMP_PCON);s.insert(IMP_PDIS);s.insert(IMP_PBOR);
         s.insert(IMP_PDIA);s.insert(IMP_PHEI);s.insert(IMP_PTDI);s.insert(IMP_PTDM);

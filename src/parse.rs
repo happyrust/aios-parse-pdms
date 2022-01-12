@@ -2,6 +2,7 @@ use core::slice::SlicePattern;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::fs::{File, OpenOptions};
+use std::intrinsics::size_of;
 use std::io::{Read, Write};
 use std::ops::Index;
 use std::path::{Path, PathBuf};
@@ -57,8 +58,8 @@ pub fn parse_file(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt:
 ///解析单个Element Data数据
 pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> ElementData {
     let mut ele_data = ElementData::default();
-    let mut origin_impl_len = i32::from_be_bytes(input[0..4].try_into().unwrap()) as usize * 4;  //隐含数据长度  0-4
-    let mut actual_impl_len = origin_impl_len;  //隐含数据长度  0-4
+    let mut origin_impl_len = i32::from_be_bytes(input[0..4].try_into().unwrap()) * 4;  //隐含数据长度  0-4
+    let mut actual_impl_len = origin_impl_len as usize;  //隐含数据长度  0-4
     let refno = (i32::from_be_bytes(input[4..8].try_into().unwrap()), i32::from_be_bytes(input[8..12].try_into().unwrap()));  //4-12
     ele_data.ref_no = convert_ref_to_string(&refno);
     // dbg!(&ele_data.ref_no);
@@ -100,14 +101,18 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let mut explicit_bytes_len = 0;
     let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
     let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
-    // println!("{:?}", &sorted_noun_hash);
-    let mut cur_offset = 0;
+    // println!("{:?}", sorted_noun_hash.iter().map(|x| db1_dehash(*x as u32)).collect::<Vec<_>>() );
+    let mut cur_offset: i32 = 0;
     let mut is_double = true;
 
     if sorted_noun_hash.len() > 0{
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
-        is_double = last_att_info.offset < (actual_impl_len / 4) as u32;
+        // dbg!(&*last_att_info);
+        unsafe {
+            //todo use last_att_info.default_val get len
+            is_double = last_att_info.offset + 1 < (origin_impl_len / 4) as u32;
+        }
     }
 
     // dbg!(&sorted_noun_hash);
@@ -117,13 +122,13 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         // if attr_info.name.as_str() == "RADI"{
         //     dbg!("here");
         // }
-        let mut cur_len = 0;
-        if cur_offset == 0 { cur_offset = attr_info.offset as usize; }
+        let mut cur_len: i32 = 0;
+        if cur_offset == 0 { cur_offset = (attr_info.offset & 0xFFFFF) as i32; }
         let mut att_will_change = false;
         if i != sorted_noun_hash.len() - 1 {
             let next_attr_info = attr_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
             att_will_change = next_attr_info.att_type != attr_info.att_type;
-            cur_len = ((next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as usize;
+            cur_len = ((next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as i32;
             match attr_info.att_type {
                 DbAttributeType::BOOL => { cur_len = 1; }
                 DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
@@ -136,20 +141,30 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         } else {
             cur_len = origin_impl_len / 4 - cur_offset;  //最后的数据应该准确，数据才ok
         }
-        if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset * 4..(cur_offset + cur_len) * 4], &attr_info, refno, is_double, 0) {
-            if advance == 0 {    //nullref的处理
-                if att_will_change {
-                    cur_offset += 1;   //如果不是Element了，就可以继续向前
+        if cur_len > 0 && (cur_offset + cur_len ) <= (implicit_data.len() / 4) as i32 {
+            // cur_len = cur_len.min(origin_impl_len/4 - cur_offset as i32);
+            if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset as usize * 4..(cur_offset + cur_len) as usize * 4], &attr_info, refno, is_double, 0) {
+                if advance == 0 {    //nullref的处理
+                    if att_will_change {
+                        cur_offset += 1;   //如果不是Element了，就可以继续向前
+                    }
+                } else {
+                    cur_offset += advance as i32;
                 }
-            } else {
-                cur_offset += advance;
+                ele_data.attr_data_map.entry(attr_info.name.clone())
+                    .or_insert(att_val);
             }
-            ele_data.attr_data_map.entry(attr_info.name.clone())
-                .or_insert(att_val);
+        }else{
+            // dbg!(&attr_info_map);
+            // dbg!(&ele_data);
+            // dbg!(cur_len);
+            // dbg!(cur_offset);
+            // dbg!(&sorted_noun_hash);
         }
+
     }
     //增加一些默认值情况
-    ele_data.attr_data_map.entry("PARA".to_string()).or_insert(StringType("0".to_string()));
+    // ele_data.attr_data_map.entry("PARA".to_string()).or_insert(StringType("0".to_string()));
     if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
@@ -282,6 +297,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                 DbAttributeType::INTEGER => {
                     let (_, r) = be_i32(input)?;
                     val = AttrVal::IntegerType(r);
+                    advance_offset = 1;
                 }
                 DbAttributeType::DOUBLE => {
                     let mut is_f32 = false;
@@ -314,13 +330,27 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                 DbAttributeType::STRING => {
                     let (_, str_len) = be_i32(input)?;
                     let str_len = str_len as usize;
-                    if str_len < input.len() && input.len() > 4 && str_len > 4 {
+                    //按double 来处理
+                    if data_len == 8 && str_len != 1{
+                        if let [a, b, c, d, e, f, g, h] = input[0..8] {
+                            let d = (f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0;
+                            val = AttrVal::DoubleType(d);
+                            advance_offset = 2;
+                        }
+                    }else if data_len == 4 && str_len !=0 {
+                        let d = ((f32::from_be_bytes(input[0..4].try_into().unwrap()) * 100.0).round() / 100.0) as f64;
+                        val = AttrVal::DoubleType(d);
+                        advance_offset = 1;   //按f32处理
+                    }else if str_len < input.len() && input.len() > 4 && str_len > 4{
                         let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
                         val = AttrVal::StringType(decode_string);
+                        advance_offset = str_len / 4 + 1;
                     } else {
                         val = AttrVal::StringType("unset".to_string());
+                        advance_offset = data_len;
                         //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
                     }
+
                 }
                 DbAttributeType::ELEMENT => {
                     let (_, (ref_0, ref_1)) = tuple((
@@ -332,6 +362,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                     } else {
                         val = AttrVal::ElementType(convert_ref_to_string(&(ref_0, ref_1)));
                     }
+                    advance_offset = 2;
                 }
                 DbAttributeType::WORD => {
                     let (_, v) = be_i32(input)?;
@@ -341,6 +372,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                     } else {
                         val = AttrVal::IntegerType(v);
                     }
+                    advance_offset = 1;
                 }
                 DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
                     let mut data = [0f64; 3];
@@ -410,10 +442,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                     } else if attr_type_num == 0x0C00 {
                         attr_info.att_type = DbAttributeType::WORD;
                     }
-                    // DESP 特殊处理
-                    // if explict_num == 0xD20C7 {
-                    //     attr_info.att_type = DbAttributeType::INTVEC;
-                    // }
                     // 根据获取到的type hash值，拿到需要的类型
                     match attr_info.att_type {
                         DbAttributeType::INTEGER => {
@@ -1464,8 +1492,8 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                 noun_hash,
             }));
         }else{
-            dbg!(offset);
-            dbg!((refno_0, refno_1));
+            // dbg!(offset);
+            // dbg!((refno_0, refno_1));
         }
     }
     Ok((input, refno_entry))
