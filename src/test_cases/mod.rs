@@ -14,6 +14,8 @@ mod test_double_or_float;
 #[cfg(test)]
 mod test_data;
 
+mod test_nom;
+
 
 fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
     let mut file = File::open(config_path).unwrap();

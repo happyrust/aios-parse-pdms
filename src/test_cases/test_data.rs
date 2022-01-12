@@ -3,9 +3,9 @@ use crate::pdms_types::AttrVal;
 use crate::test_cases::{convert_str_to_bytes, read_attr_info_config};
 
 #[test]
-fn test_ahu_sample_15392_7313(){
+fn test_ahu_sample_15392_7313() {
     // issue :https://gitee.com/happydpc/aios-parse-pdms/issues/I4QBEC
-    let data_str="
+    let data_str = "
 00 00 00 2D 00 00 3C 20 00 00 1C 91 00 08 58 97
 00 00 3C 20 00 00 1C 90 00 00 03 D5 00 0A 40 01
 00 00 00 00 00 00 00 00 20 2F 00 00 00 00 00 03
@@ -66,7 +66,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 00 00 00 00 00 08 7B D3 20 00 00 07 00 00 00 03
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 00 00 3C 20 00 00 1C B6 ";
-    let data=convert_str_to_bytes(data_str);
+    let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x85897i32) {
     //     dbg!(map.value());
@@ -78,7 +78,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 #[test]
 fn test_aba_14352_102824() {
     // issue : https://gitee.com/happydpc/aios-parse-pdms/issues/I4QDGE
-    let data_str="
+    let data_str = "
 00 00 00 17 00 00 38 10 00 01 91 A8 00 0C A7 8C
 00 00 38 10 00 01 91 A7 00 00 64 6A 00 03 00 01
 00 00 00 00 00 00 00 00 00 03 00 00 00 00 00 00
@@ -90,14 +90,14 @@ fn test_aba_14352_102824() {
 43 53 5F 32 2F 4D 31 36 78 3A 53 31 36 00 00 00
 00 0D F8 D7 28 00 00 02 00 00 00 04 53 54 55 44
 ";
-    let data=convert_str_to_bytes(data_str);
+    let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
     //     dbg!(map.value());
     // }
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
     let mut value = "";
-    if let Some(m)=ele_data.attr_data_map.get("DETR"){
+    if let Some(m) = ele_data.attr_data_map.get("DETR") {
         match m.value() {
             AttrVal::ElementType(v) => {
                 value = v;
@@ -105,7 +105,7 @@ fn test_aba_14352_102824() {
             _ => {}
         }
     }
-    assert_eq!(value,"30176/6392");
+    assert_eq!(value, "30176/6392");
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn test_aba_8193_90707() {
     // issue : https://gitee.com/happydpc/aios-parse-pdms/issues/I4Q8BO
     // 这个是节点后是后面新增的，数据为800h里面的一部分
     // 这个数据不好截断，最好还是直接解析文件 数据在文件pos：10CDCD8h
-    let data_str="
+    let data_str = "
 00 00 00 1D 00 00 20 01 00 01 62 53 00 0D B0 CC
 00 00 20 01 00 01 62 4B 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03
@@ -166,7 +166,7 @@ fn test_aba_8193_90707() {
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 05 00 CC 47 DF 00 00 00 01
 00 00 00 02";
-    let data=convert_str_to_bytes(data_str);
+    let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
     dbg!(&ele_data);
@@ -174,7 +174,7 @@ fn test_aba_8193_90707() {
 
 #[test]
 fn test_sample_23984_1064() {
-    let data_str="
+    let data_str = "
 00 00 00 29 00 00 5D B0 00 00 04 28 00 0C 6B 50
 00 00 5D B0 00 00 04 27 00 00 03 4F 00 13 60 01
 00 00 00 00 00 00 00 00 20 0B 00 00 00 00 00 00
@@ -198,11 +198,11 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 00 6A 00 00 00 02 00 08 9C 41 FF FF FF FF
 FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 22 00 00 03 24 ";
-    let data=convert_str_to_bytes(data_str);
+    let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
     let mut value = "";
-    if let Some(m)=ele_data.attr_data_map.get("DX"){
+    if let Some(m) = ele_data.attr_data_map.get("DX") {
         match m.value() {
             AttrVal::StringType(v) => {
                 value = v;
@@ -210,5 +210,5 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
             _ => {}
         }
     }
-    assert_eq!(value,"( 0.05 * ( ATTRIB PARA[6] + ATTRIB PARA[28] ) )")
+    assert_eq!(value, "( 0.05 * ( ATTRIB PARA[6] + ATTRIB PARA[28] ) )")
 }

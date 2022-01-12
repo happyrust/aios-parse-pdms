@@ -24,7 +24,8 @@ use phf::phf_map;
 use mongodb::bson::doc;
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
-use nom::combinator::map;
+use nom::combinator::{map, verify};
+use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
 use serde_json::to_string;
 use crate::db_tool;
@@ -161,7 +162,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             // dbg!(cur_offset);
             // dbg!(&sorted_noun_hash);
         }
-
     }
     //增加一些默认值情况
     // ele_data.attr_data_map.entry("PARA".to_string()).or_insert(StringType("0".to_string()));
@@ -1431,11 +1431,6 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 
-// #[inline]
-// fn check_is_refno_entry(input: &[u8]) -> bool{
-//
-// }
-
 
 ///获得参考号对应的Entry
 #[inline]
@@ -1453,21 +1448,16 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
         ))(&input[0..12])?;
         let mut is_ok = is_world && owner_ref_0 == 0;
         if !is_ok && (len != 0 && (len & 0xFFFF000 == 0)) {
-            //need check
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
             if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 100], &input[4..12]){   //允许一定范围去查找
                 let end_pos = (next_pos + 12);      //隐含属性实际结束点
                 let diff_len = end_pos - tmp_pos - 4;
                 is_ok = diff_len == 0;
                 if diff_len > 0 && diff_len % 4 == 0 {
-                    let n = diff_len/4;
-                    is_ok = true;
-                    for j in 0..n {
-                        let a = u32::from_be_bytes(input[tmp_pos..tmp_pos+j*4].try_into().unwrap_or_default());
-                        if a != 0 && a != 7 {
-                            is_ok = false;
-                            break;
-                        }
+                    let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x|x == 0),
+                                                                       verify(be_i32, |&x| x == 7))(&input[tmp_pos..end_pos]);
+                    if s.is_ok(){
+                        is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
                     }
                 }
                 if !is_ok {
@@ -1479,7 +1469,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                 }
                 // dbg!(is_ok);
             }else{
-                let next_len = be_u32(&input[tmp_pos..tmp_pos+4])?.1;
+                let next_len = be_u32(&input[tmp_pos..tmp_pos+4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
                 is_ok = next_len & 0xFFFFFF00 == 0;
                 if !is_ok {
                     dbg!(next_len);
