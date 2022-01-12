@@ -1440,6 +1440,7 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
 ///获得参考号对应的Entry
 #[inline]
 fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoTuple, EleDataEntry)>> {
+    // dbg!(&offset);
     let input = &input[offset-4..];
     let (_, noun_hash) = be_i32(&input[12..16])?;
     let (_, owner_ref_0) = be_i32(&input[16..20])?;  //check parent ref 0
@@ -1463,7 +1464,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                     let n = diff_len/4;
                     is_ok = true;
                     for j in 0..n {
-                        let a = u32::from_be_bytes(input[tmp_pos..tmp_pos+j*4].try_into().unwrap_or_default());
+                        let a = u32::from_be_bytes(input[tmp_pos+j*4..tmp_pos+(j+1)*4].try_into().unwrap_or_default());
                         if a != 0 && a != 7 {
                             is_ok = false;
                             break;
