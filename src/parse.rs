@@ -631,7 +631,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 let array_len = tmp_input.len() / 4;
                                 let (mut tmp_input, data_len) = be_i32(tmp_input)?;
                                 let len = data_len as usize;
-                                let double_or_float = array_len / len;
+                                let double_or_float = ( array_len - 1 ) / len;
                                 // let mut tmp_input = tmp_input;
                                 if double_or_float == 2 {
                                     let mut data = vec![];
