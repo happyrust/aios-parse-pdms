@@ -1,4 +1,5 @@
 use crate::parse::parse_ele_data;
+use crate::pdms_types::AttrVal;
 use crate::test_cases::{convert_str_to_bytes, read_attr_info_config};
 
 #[test]
@@ -91,11 +92,20 @@ fn test_aba_14352_102824() {
 ";
     let data=convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
-        dbg!(map.value());
-    }
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
+    //     dbg!(map.value());
+    // }
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
-    dbg!(&ele_data);
+    let mut value = "";
+    if let Some(m)=ele_data.attr_data_map.get("DETR"){
+        match m.value() {
+            AttrVal::ElementType(v) => {
+                value = v;
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(value,"30176/6392");
 }
 
 #[test]
