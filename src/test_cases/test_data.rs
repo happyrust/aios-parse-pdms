@@ -171,3 +171,44 @@ fn test_aba_8193_90707() {
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
     dbg!(&ele_data);
 }
+
+#[test]
+fn test_sample_23984_1064() {
+    let data_str="
+00 00 00 29 00 00 5D B0 00 00 04 28 00 0C 6B 50
+00 00 5D B0 00 00 04 27 00 00 03 4F 00 13 60 01
+00 00 00 00 00 00 00 00 20 0B 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 02
+00 00 00 00 00 00 00 0A 00 00 00 00 00 00 00 00
+00 00 00 00 00 01 00 31 00 00 5D B0 00 00 04 28
+00 00 00 00 00 00 00 00 FF F7 E1 83 1C 00 00 2A
+00 00 00 29 00 00 00 29 00 00 00 01 00 00 00 65
+00 00 00 06 00 09 99 99 99 99 99 9A 40 00 03 FA
+00 00 00 00 00 00 00 06 00 00 00 65 00 00 00 06
+00 18 00 00 00 00 00 00 40 00 04 01 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 08 9C 41
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 00 65 00 00 00 06 00 1C 00 00
+00 00 00 00 40 00 04 03 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 08 9C 41 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 03 22 00 00 03 24 ";
+    let data=convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
+    let mut value = "";
+    if let Some(m)=ele_data.attr_data_map.get("DX"){
+        match m.value() {
+            AttrVal::StringType(v) => {
+                value = v;
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(value,"( 0.05 * ( ATTRIB PARA[6] + ATTRIB PARA[28] ) )")
+}
