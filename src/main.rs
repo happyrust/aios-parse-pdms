@@ -193,7 +193,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let table_db = client.database("PdmsRefnoDB");
                 for (key, mut ele_data_vec) in eles_data_map {
                     let type_name = db1_dehash(key as u32);
-                    println!("Curren {} elements len={:?}", &type_name, ele_data_vec.len());
+                    // println!("Curren {} elements len={:?}", &type_name, ele_data_vec.len());
                     let mut ele_table = Vec::new();
                     let mut ele_nodes = Vec::new();
                     for e in &ele_data_vec {
@@ -273,7 +273,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         println!("path={:?}", &path);
 
         let mut eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-        // dbg!(&eles_data_map);
         if b_save_to_mongodb {
             let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
             if let Some(name) = db_info_map.get(&db_no) {
