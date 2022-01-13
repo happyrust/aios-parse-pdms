@@ -1,9 +1,11 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
 use dashmap::DashMap;
+use nalgebra_glm::exp;
 use nom::IResult;
-use nom::number::complete::{be_i32, be_u16, be_i16};
+use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
+use crate::db_tool::db1_dehash;
 use crate::parse::{convert_to_explicit_axis_string, convert_to_implicit_axis_string};
 use crate::pdms_types::AttrVal::*;
 use crate::pdms_types::{AttrVal, DbAttributeType};
@@ -98,6 +100,12 @@ pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (St
                 }
                 &[0x0, 0xD, 0x88, 0x79, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
                     let expression = "ATTRIB IPAR";
+                    let value = result_stack.pop().unwrap();
+                    let value = format!("{}[{}]", expression, value);
+                    result_stack.push(value);
+                }
+                &[0x0, 0xD, 0xDF, 0x8A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
+                    let expression="ATTRIB WDESP";
                     let value = result_stack.pop().unwrap();
                     let value = format!("{}[{}]", expression, value);
                     result_stack.push(value);
@@ -353,7 +361,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
             //若后面是6A 则代表该值没完
             while expression_data.len() > 4 && &expression_data[..4] == &[0x0u8, 0x0, 0x0, 0x6A][..] {
                 // 跳6A
-                expression_data = &expression_data[4..];
+                expression_data=&expression_data[4..];
                 match &expression_data[..8] {
                     &[0x0, 0x0, 0x0, 0x1, 0x0, 0xE, 0x95, 0xA5] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
@@ -399,6 +407,28 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
                             result_stack.push(expression);
                         }
                     }
+                    &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0xDF, 0x77] => {
+                        if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                            let expression = "ATTRIB DDESP";
+                            let value = result_stack.pop().unwrap();
+                            let value = format!("{}[{}]", expression, value);
+                            result_stack.push(value);
+                        } else {
+                            let expression = format!("ATTRIB DDESP");
+                            result_stack.push(expression);
+                        }
+                    }
+                    &[0x0, 0x0, 0x0, 0x2, 0x17, 0xEF, 0x4B, 0x61] => {
+                        if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                            let expression = "ATTRIB :HXYsize";
+                            let value = result_stack.pop().unwrap();
+                            let value = format!("{}[{}]", expression, value);
+                            result_stack.push(value);
+                        } else {
+                            let expression = format!("ATTRIB :HXYsize");
+                            result_stack.push(expression);
+                        }
+                    }
                     &[0x0, 0x0, 0x0, 0x6, 0x0, 0xD, 0x88, 0x87] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB WPAR";
@@ -407,6 +437,17 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
                             result_stack.push(value);
                         } else {
                             let expression = format!("ATTRIB WPAR");
+                            result_stack.push(expression);
+                        }
+                    }
+                    &[0x0, 0x0, 0x0, 0x6, 0x0, 0xD, 0xDF, 0x8A] => {
+                        if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                            let expression = "ATTRIB WDESP";
+                            let value = result_stack.pop().unwrap();
+                            let value = format!("{}[{}]", expression, value);
+                            result_stack.push(value);
+                        } else {
+                            let expression = format!("ATTRIB WDESP");
                             result_stack.push(expression);
                         }
                     }
@@ -566,7 +607,17 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
                         }
                     }
 
-                    _ => {}
+                    _ => {
+                        expression_data = &expression_data[4..];
+                        let (_,n)=get_expression_func_name(&expression_data[..8])?;
+                        if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                            let value = result_stack.pop().unwrap();
+                            let value = format!("{}[{}] ", n, value);
+                            result_stack.push(value);
+                        } else {
+                            result_stack.push(n);
+                        }
+                    }
                 }
                 // OF = 类型表达式解析，目前推测是这样 但不肯定
                 if &expression_data[20..24] == &[0x0, 0x0, 0x6, 0x42] {
@@ -579,6 +630,9 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
                             let func = result_stack.pop().unwrap();
                             let result = format!("{} OF {} ", func, expression);
                             result_stack.push(result);
+                            if expression_input.len() < 20 {
+                                break;
+                            }
                             expression_input = &expression_input[20..];
                         }
                         let (expression_tmp, (refno0, refno1, )) = tuple((
@@ -766,6 +820,16 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
         let result = format!("( {} )", result_stack.pop().unwrap());
         Ok((input, (expression_type, result)))
     }
+}
+
+/// 返回ATTRIB PARA类的函数名
+pub fn get_expression_func_name(input:&[u8]) -> IResult<&[u8],String> {
+    let mut result="".to_string();
+    let (_,v)=be_u32(&input[4..8])?;
+    if v > 0x81BF1 {
+        result=format!("ATTRIB {}",db1_dehash(v));
+    }
+    Ok((input,result))
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种

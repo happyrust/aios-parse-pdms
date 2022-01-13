@@ -36,6 +36,7 @@ use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
 use crate::interface::pdms_interface::PdmsInterface;
 
+const INDEX:[u8;8]=[0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
 //todo
 struct DebugParseConfig {
@@ -1365,7 +1366,6 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
         let mut buf = vec![0u8; 36];
         file.read_exact(&mut buf)?;
         let _input = &buf[32..36];
-        //if is_cata_noun(input) || is_desi_noun(input) {
         let start = Instant::now();
         println!("path={:?}", path);
         let mut buf: Vec<u8> = Vec::new();
@@ -1408,8 +1408,7 @@ fn process_type_hash<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (RefNo
 ///获取所有不同的 refno_0
 pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
     let mut refno_0_set = HashSet::new();
-    //todo 把 [0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00, 0x00] 命名
-    let mut pos_iter = rfind_iter(&input, [0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00, 0x00].as_slice());
+    let mut pos_iter = rfind_iter(&input, &INDEX[..]);
     while let Some(i) = pos_iter.next() {
         let mut j = i + 0x6 * 4;   //偏移6 dword
         let mut d = &input[j..j + 4];
@@ -1453,7 +1452,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                 let end_pos = (next_pos + 12);      //隐含属性实际结束点
                 let diff_len = end_pos - tmp_pos - 4;
                 is_ok = diff_len == 0;
-                if diff_len > 0 && diff_len % 4 == 0 {
+                if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
                     let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x|x == 0),
                                                                        verify(be_i32, |&x| x == 7))(&input[tmp_pos..end_pos]);
                     if s.is_ok(){
@@ -1461,18 +1460,18 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                     }
                 }
                 if !is_ok {
-                    dbg!(noun_hash);
-                    dbg!(is_ok);
-                    dbg!(tmp_pos);
-                    dbg!(end_pos);
-                    dbg!(diff_len);
+                    // dbg!(noun_hash);
+                    // dbg!(is_ok);
+                    // dbg!(tmp_pos);
+                    // dbg!(end_pos);
+                    // dbg!(diff_len);
                 }
                 // dbg!(is_ok);
             }else{
                 let next_len = be_u32(&input[tmp_pos..tmp_pos+4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
                 is_ok = next_len & 0xFFFFFF00 == 0;
                 if !is_ok {
-                    dbg!(next_len);
+                    // dbg!(next_len);
                 }
             }
         }
