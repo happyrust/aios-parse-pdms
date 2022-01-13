@@ -305,7 +305,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             let tree_db = client.database(&db_tree_name);
             // 存放所有的refno对应的db_name和type_name
             let table_db = client.database("PdmsRefnoDB");
-            for (noun_hash, mut ele_data_vec) in eles_data_map {
+            for (noun_hash, mut ele_data_vec) in eles_data_map.clone() {
                 let type_name = db1_dehash(noun_hash as u32);
                 println!("Curren {} elements len = {}", &type_name, ele_data_vec.len());
                 let mut ele_table = Vec::new();
@@ -386,6 +386,40 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 dbinfos.to_owned(), None,
             ).await?;
             println!("Save {:?} to db ok", &path);
+        }
+        if b_save_to_exp {
+            // let mut file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
+            // let reader = BufReader::new(file);
+            // let database_info: DashMap<String, Vec<(String, String)>> = serde_json::from_reader(reader).unwrap();
+            let exp_type = HashSet::from(["SSPH".to_string(), "SCTO".to_string(), "PTAX".to_string(), "LINE".to_string(),
+                "SCYL".to_string(), "SCTO".to_string(), "LSNO".to_string(), "LCYL".to_string(), "PTCA".to_string(), "SDSH".to_string(),
+                "BLTP".to_string(), "SSPH".to_string(), "SBOX".to_string(), "SCON".to_string(), "SSLC".to_string(), "NSSL".to_string()]);
+            //let  exp_type = HashSet::from(["DATA".to_string()]);
+            let mut parse_and_pdms_expression = DashMap::new();
+            for (key, ele_data_vec) in eles_data_map {
+                let table_name = db1_dehash(key as u32);
+                if exp_type.contains(&table_name) {
+                    for ele in ele_data_vec {
+                        let refno = ele.ref_no;
+                        // if let Some(map) = database_info.get(&refno) {
+                            let value = ele.attr_data_map;
+                            //let result = map.clone();
+                            let result=vec![];
+                            let new_result = print_refno_expression_data(value, result);
+                            parse_and_pdms_expression.insert(refno, new_result);
+                        // }
+                    }
+                }
+            }
+            let encoded: String = serde_json::to_string_pretty(&parse_and_pdms_expression).unwrap();
+            let file_name = "expression.json";
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(file_name)
+                .unwrap();
+            file.write_all(encoded.as_bytes());
         }
     }
     Ok(())

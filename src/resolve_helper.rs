@@ -17,12 +17,13 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     if input_expr.trim() == "unset" {
         return Some(0.0);
     }
-    // println!("{}",input_expr);
+    dbg!(&input_expr);
     let _has_desparam = false;
     let mut exp = input_expr.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
     if exp.len() < 1 {
         return Some(0.0);
     }
+
     if exp.len() >= 2 && exp.chars().nth(0).unwrap_or_default() == '('
         && exp.chars().nth(exp.len() - 1).unwrap_or_default() == ')' {
         exp = exp[1..exp.len() - 1].to_string();
@@ -57,12 +58,36 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
                 }
                 i += 2;
                 continue;
-            } else {
+            }else {
                 key = convert_to_context_key(s_n, &mut i, &seg_strs).unwrap_or_default();
             }
+        }else if s == "DESIGN" {
+            let dtse_key = format!("{} {}",s,seg_strs[i + 1]);
+            key = convert_to_context_key(&dtse_key, &mut i, &seg_strs).unwrap_or_default();
+
         }
         if context.contains_key(&key) {
-            p_vals.push(context[&key].clone());
+            if key == "ANGL" {
+                key = context[&key].to_string();
+                key = key.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
+                if key.len() >= 2 && key.chars().nth(0).unwrap_or_default() == '('
+                    && key.chars().nth(key.len() - 1).unwrap_or_default() == ')' {
+                    key = key[1..key.len() - 1].to_string();
+                }
+                let seg_strs = key.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
+                if seg_strs.len() == 0 {
+                    return None;
+                }
+                let mut j=0;
+                while  j<seg_strs.len(){
+                    let s = seg_strs[j].as_str();
+                    key = convert_to_context_key(s, &mut j, &seg_strs).unwrap_or_default();
+                    j +=1;
+                }
+                p_vals.push(context[&key].clone());
+            }else {
+                p_vals.push(context[&key].clone());
+            }
             i += 1;
             continue;
         }
@@ -80,6 +105,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     }
     //对TWICE、tanf、tan做单独处理
     let mut need_del_keys = vec![];
+
     for i in 0..p_vals.len() {
         if p_vals[i] == "TWICE" {
             need_del_keys.push(i);
@@ -110,6 +136,21 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
                 }
             }
         }
+        // else if p_vals[i] == "POW"{
+        //     if input_expr == "( SQRT ( ( POW ( ATTRIB DESP [10] , 2 ) + POW ( ATTRIB DESP [11] , 2 ) ) ) )" {
+        //         dbg!(&p_vals);
+        //     }
+        //     dbg!(&i);
+        //     if i + 2 < p_vals.len() {
+        //         need_del_keys.push(i);
+        //         need_del_keys.push(i+1);
+        //         need_del_keys.push(i+2);
+        //         need_del_keys.push(i+3);
+        //         need_del_keys.push(i+4);
+        //         need_del_keys.push(i+5);
+        //         p_vals[i+6]=format!("( {} ^ {} )",p_vals[i+2],p_vals[i+4]);
+        //     }
+        // }
         // 单位处理，mm为基本单位
         if p_vals[i].contains("mm") {
             p_vals[i] = p_vals[i].replace("mm", "");
@@ -149,10 +190,10 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         result_string.push(' ');
         i += 1;
     }
-    // dbg!(&result_string);
     let mut ns = fasteval::EmptyNamespace;
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
-        if let Ok(val) = fasteval::ez_eval(&result_string, &mut ns) {
+        // if let Ok(val) = fasteval::ez_eval(&result_string.to_lowercase(), &mut ns) {
+        if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
             (val * 100.0).round() / 100.0
         } else {
             let mut stack = Stack::new(&result_string);
@@ -162,6 +203,17 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         return Some(f);
     }
     return None;
+}
+
+
+#[test]
+pub fn test_expression(){
+    let mut ns = fasteval::EmptyNamespace;
+    // power ( 0 ,2 )
+    //let r = tinyexpr::interp("2+2*2").unwrap();
+    let s  = tinyexpr::interp("  sqrt (  pow ( 1, 2 )  )");
+    //let s  = fasteval::ez_eval("( 2 ^ 2 )", &mut ns);
+    dbg!(s);
 }
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {

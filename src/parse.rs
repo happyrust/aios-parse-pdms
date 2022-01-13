@@ -956,8 +956,11 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
         match &tmp_input[4..8] {
             &[0x0, 0x0, 0x0, 0x1] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
-                // dbg!(&value);
-                if value >= 0x65 && value < 0x3E9 {
+                if value >= 50 && value < 0x65 {
+                    let value =value -50;
+                    val = format!("DESIGN PARAM {}",value);
+                }
+                else if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
                     val = format!("IPARAM {}", value);

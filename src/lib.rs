@@ -64,6 +64,10 @@ const ATT_POFF: i32 = 0xFFF60402u32 as i32;
 const ATT_PTCDI: i32 = 0x95A34;
 const ATT_DX : i32 = 0xFFF7E183u32 as i32;
 const ATT_DY : i32 = 0xFFF7E168u32 as i32;
+const ATT_PXTS : i32 = 0xFFF1F3AAu32 as i32;
+const ATT_PYTS : i32 = 0xFFF1F38Fu32 as i32;
+const ATT_PXBS : i32 = 0xFFF226ECu32 as i32;
+const ATT_PYBS : i32 = 0xFFF226D1u32 as i32;
 
 const IMP_PAXI: i32 = 0xB146F;
 const IMP_PCON: i32 = 0xC7B73;
@@ -94,6 +98,10 @@ const IMP_POFF: i32 = 0x9FBFE;
 const IMP_DX: i32 = 0x81E7D;
 const IMP_DY: i32 = 0x81E98;
 const IMP_PLAX: i32 = 0xF5566;
+const IMP_PXTS: i32 = 0xE0C56;
+const IMP_PYTS: i32 = 0xE0C71;
+const IMP_PXBS: i32 = 0xDD914;
+const IMP_PYBS: i32 = 0xDD92F;
 
 #[macro_use]
 extern crate lazy_static;
@@ -109,6 +117,7 @@ lazy_static! {
         s.insert(ATT_PBBT);s.insert(ATT_PCBT);s.insert(ATT_PXLE);s.insert(ATT_PYLE);
         s.insert(ATT_PZLE);s.insert(ATT_PTDM);s.insert(ATT_PBDM);s.insert(ATT_PTCDI);
         s.insert(ATT_POFF);s.insert(ATT_DX);s.insert(ATT_DY);s.insert(ATT_DY);
+        s.insert(ATT_PXTS);s.insert(ATT_PYTS);s.insert(ATT_PXBS);s.insert(ATT_PYBS);
 
         s.insert(IMP_PAXI);s.insert(IMP_PCON);s.insert(IMP_PDIS);s.insert(IMP_PBOR);
         s.insert(IMP_PDIA);s.insert(IMP_PHEI);s.insert(IMP_PTDI);s.insert(IMP_PTDM);
@@ -117,7 +126,8 @@ lazy_static! {
         s.insert(IMP_PYLE);s.insert(IMP_PZLE);s.insert(IMP_PCTP);s.insert(IMP_PCBT);
         s.insert(IMP_PBBT);s.insert(IMP_PBOF);s.insert(IMP_PCOF);s.insert(IMP_PBTP);
         s.insert(IMP_PTCDI);s.insert(IMP_POFF);s.insert(IMP_DX);s.insert(IMP_DY);
-        s.insert(IMP_PLAX);
+        s.insert(IMP_PLAX);s.insert(IMP_PXTS);s.insert(IMP_PYTS);s.insert(IMP_PXBS);
+        s.insert(IMP_PYBS);
         s
     };
 }
