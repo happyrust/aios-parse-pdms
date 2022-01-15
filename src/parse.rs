@@ -8,7 +8,7 @@ use std::ops::Index;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use futures::TryFutureExt;
 use memchr::memmem;
 use memchr::memmem::{find, find_iter, rfind_iter};
@@ -35,6 +35,9 @@ use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
 use crate::interface::pdms_interface::PdmsInterface;
+use crossbeam_deque::Steal::{Empty, Success};
+use crossbeam_deque::Worker;
+use crossbeam_queue::SegQueue;
 
 
 //todo
@@ -91,7 +94,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             memb_bytes_len = u16::from_be_bytes(membs_data[2..4].try_into().unwrap()) as usize * 4;
             let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
             if let Ok((_, children)) = parse_attr_members(&merged_data) {
-                ele_data.children = children.iter().map(|x| convert_ref_to_string(x)).collect();
+                // ele_data.children = children.iter().map(|x| convert_ref_to_string(x)).collect();
+                ele_data.children = children;
             }
         }
     }
@@ -197,8 +201,24 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 }
 
 
+#[test]
+pub fn test_queue(){
+    use crossbeam_deque::{Steal, Worker};
+
+    let w = Worker::new_lifo();
+    w.push("String1".to_string());
+    w.push("String2".to_string());
+
+    let s = w.stealer();
+    dbg!(s.steal());
+    // assert_eq!(s.steal(), Steal::Success(1));
+    // assert_eq!(s.steal(), Steal::Success(2));
+    // assert_eq!(s.steal(), Steal::Empty);
+}
+
+
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> DashMap<i32, Vec<ElementData>> {
-    let mut all_ref_no = HashSet::new();
+    let mut all_ref_no = DashSet::new();
     let time_start = std::time::Instant::now();
 
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
@@ -212,43 +232,51 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
         let target_refno = convert_string_to_ref(target_refno_str);
         root_refno = target_refno;
     }
-    let mut pending_refnos = vec![root_refno];
-    let mut count = 0;
+    // let mut pending_refnos = DashSet::new();
+    let mut pending_refnos = SegQueue::new();
+    // pending_refnos.push(convert_ref_to_string(&root_refno));
+    pending_refnos.push(vec![root_refno]);
+    // let mut count = 0;
     while !pending_refnos.is_empty() {
-        let refno = pending_refnos.pop().unwrap();
-        if !refno_table_map.contains_key(&refno) {
-            continue;
-        }
-        let entry = &*refno_table_map.get(&refno).unwrap();
-        let pos = entry.pos;
-        let type_hash = entry.noun_hash;
-        // 判断反序列话的DashMap中有无对应的type
-        if !noun_attr_info_map.contains_key(&type_hash) {
-            continue;
-        }
-        let mut ele_data = parse_ele_data(&input[pos - 4..], noun_attr_info_map);
-        // dbg!(&ele_data);
-        for i in 0..ele_data.children.len() {
-            ele_order_map.insert(ele_data.children[i].clone(), i as i32);
-        }
-        pending_refnos.extend_from_slice(&ele_data.children.iter().map(|x| convert_string_to_ref(x)).collect::<Vec<_>>() );
-        if !print_refno_str.is_empty() && print_refno_str == ele_data.ref_no {
-            println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_data);
-        }
-        if !all_ref_no.contains(&ele_data.ref_no) {
-            all_ref_no.insert(ele_data.ref_no.clone());
-            noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
-            count += 1;
-            if count >= limited_cnt {
-                break;
+        let refnos = pending_refnos.pop().unwrap();
+        refnos.par_iter().for_each(|refno| {
+            if refno_table_map.contains_key(&refno) {
+                let entry = &*refno_table_map.get(&refno).unwrap();
+                let pos = entry.pos;
+                let type_hash = entry.noun_hash;
+                // 判断反序列话的DashMap中有无对应的type
+                if noun_attr_info_map.contains_key(&type_hash) {
+                    let mut ele_data = parse_ele_data(&input[pos - 4..], noun_attr_info_map);
+                    // dbg!(&ele_data);
+                    for i in 0..ele_data.children.len() {
+                        ele_order_map.insert(ele_data.children[i], i as i32);
+                    }
+                    // pending_refnos.push(ele_data.children.iter().map(|x| convert_string_to_ref(x)).collect::<Vec<_>>() );
+                    pending_refnos.push(ele_data.children.clone());
+                    if !print_refno_str.is_empty() && print_refno_str == ele_data.ref_no {
+                        println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_data);
+                    }
+                    if !all_ref_no.contains(&ele_data.ref_no) {
+                        all_ref_no.insert(ele_data.ref_no.clone());
+                        noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
+                        // count += 1;
+                        // if count >= limited_cnt {
+                        //     break;
+                        // }
+                    }
+                }
             }
-        }
+        });
     }
+
+
+
+
     noun_type_ele_data_map.iter_mut().for_each(|mut eles| {
         for mut ele in eles.iter_mut() {
-            let refno = &ele.ref_no;
-            if ele_order_map.contains_key(refno) {
-                ele.order = *ele_order_map.get(refno).unwrap();
+            let refno = convert_string_to_ref(&ele.ref_no);
+            if ele_order_map.contains_key(&refno) {
+                ele.order = *ele_order_map.get(&refno).unwrap();
             }
             // let mut name_val = AttrVal::StringType("unset".to_string());
             if let Some(v) = ele.attr_data_map.get("NAME") {
@@ -1028,7 +1056,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("IPARAM {}", value1);
                 } else if value1 >= 0x1F5 {
                     let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PATAM {}", value1);
+                    val = format!("TWICE PARAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     // let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value1);
@@ -1041,7 +1069,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     result = format!("IPARAM {}", value2);
                 } else if value2 >= 0x1F5 {
                     let value2 = value2 - 0x1F4;
-                    result = format!("TWICE PATAM {}", value2);
+                    result = format!("TWICE PARAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
                     let value = match_angle_or_return_number(value2);
                     result = value;
@@ -1068,7 +1096,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("IPARAM {}", value1);
                 } else if value1 >= 0x1F5 {
                     let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PATAM {}", value1);
+                    val = format!("TWICE PARAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     let value = match_angle_or_return_number(value1);
                     val = value.to_string();
@@ -1080,7 +1108,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     result = format!("IPARAM {}", value2);
                 } else if value2 >= 0x1F5 {
                     let value2 = value2 - 0x1F4;
-                    val = format!("TWICE PATAM {}", value2);
+                    val = format!("TWICE PARAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
                     let value = match_angle_or_return_number(value2);
                     result = value.to_string();
@@ -1112,7 +1140,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("IPARAM {}", value1);
                 } else if value1 >= 0x1F5 && value1 < 0x1F5 {
                     let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PATAM {}", value1);
+                    val = format!("TWICE PARAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     let value = match_angle_or_return_number(value1);
                     val = value.to_string();
@@ -1124,7 +1152,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     result = format!("IPARAM {}", value2);
                 } else if value2 >= 0x1F5 {
                     let value2 = value2 - 0x1F4;
-                    result = format!("TWICE PATAM {}", value2);
+                    result = format!("TWICE PARAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
                     let value = match_angle_or_return_number(value2);
                     result = value.to_string();
@@ -1150,7 +1178,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     val = format!("IPARAM {}", value1);
                 } else if value1 >= 0x1F5 {
                     let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PATAM {}", value1);
+                    val = format!("TWICE PARAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
                     let value = match_angle_or_return_number(value1);
                     val = value.to_string();
@@ -1162,7 +1190,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     result = format!("IPARAM {}", value2);
                 } else if value2 >= 0x1F5 {
                     let value2 = value2 - 0x1F4;
-                    result = format!("TWICE PATAM {}", value2);
+                    result = format!("TWICE PARAM {}", value2);
                 } else if value2 <= 0xFFFFFFFFu32 as i32 {
                     let value = match_angle_or_return_number(value2);
                     result = value.to_string();
@@ -1461,18 +1489,18 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                     }
                 }
                 if !is_ok {
-                    dbg!(noun_hash);
-                    dbg!(is_ok);
-                    dbg!(tmp_pos);
-                    dbg!(end_pos);
-                    dbg!(diff_len);
+                    // dbg!(noun_hash);
+                    // dbg!(is_ok);
+                    // dbg!(tmp_pos);
+                    // dbg!(end_pos);
+                    // dbg!(diff_len);
                 }
                 // dbg!(is_ok);
             }else{
                 let next_len = be_u32(&input[tmp_pos..tmp_pos+4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
                 is_ok = next_len & 0xFFFFFF00 == 0;
                 if !is_ok {
-                    dbg!(next_len);
+                    // dbg!(next_len);
                 }
             }
         }

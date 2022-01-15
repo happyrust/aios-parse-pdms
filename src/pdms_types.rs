@@ -198,7 +198,7 @@ pub struct ElementData {
     // #[serde(skip_serializing)]
     // pub children_refnos: Vec<RefNoTuple>,
 
-    pub children: Vec<String>,
+    pub children: Vec<RefNoTuple>,
     //父节点
     pub owner: String,
     pub attr_data_map: DashMap<String, AttrVal>,
