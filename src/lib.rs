@@ -16,8 +16,10 @@ use crate::pdms_types::{AttrMap, EleDataNode, ElementData, PdmsRefno};
 use futures::stream::TryStreamExt;
 use crate::interface::pdms_interface::PdmsInterface;
 
+
 pub mod pdms_types;
 pub mod db_tool;
+pub use db_tool::{ db1_dehash };
 pub mod parse_explict_tools;
 pub mod query;
 pub mod helper;
@@ -28,9 +30,12 @@ pub mod polish_notation;
 pub mod direction_parse;
 pub mod axis_param;
 pub mod parse;
+pub use parse::{parse_db,parse_file};
+
 pub mod interface;
 pub mod mesh_helper;
 pub mod test_cases;
+pub use test_cases::{ read_attr_info_config };
 pub mod notify_file_change;
 
 const ATT_PAXI: i32 = 0xB146F;
@@ -144,15 +149,5 @@ pub fn create_pdms_interface(url: &str){
 
 
 
-// #[bean(lazy)]
-// fn build_interface() -> PdmsInterface {
-//     PdmsInterface::default()
-// }
-//
-//
-// #[test]
-// fn test_create_interface(){
-//     let interface = create_pdms_interface("mongodb://localhost:27017");
-// }
 
 

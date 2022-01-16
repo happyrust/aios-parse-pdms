@@ -88,6 +88,10 @@ impl AttrMap {
         affine
     }
 
+    pub fn get_mat4(&self) -> glam::f32::Mat4{
+        glam::f32::Mat4::from(self.get_matrix())
+    }
+
     pub fn get_transform(&self) -> Transform{
         let matrix = self.get_matrix();
         let x = &matrix.matrix3.col(0);
@@ -175,6 +179,23 @@ impl AttrVal {
             _ => {
                 return 0;
             }
+        }
+    }
+    pub fn double_value(&self) -> Option<f64> {
+        match self {
+            DoubleType(v) => {
+                return Some (*v)
+            }
+            _ => { return None }
+        }
+    }
+
+    pub fn double_vec_value(&self) -> Option<Vec<f64>> {
+        match self {
+            DoubleArrayType(v) => {
+                return Some(v.to_vec())
+            }
+            _ => { return None }
         }
     }
 }
