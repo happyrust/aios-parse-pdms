@@ -13,6 +13,8 @@ mod test_branchs;
 mod test_double_or_float;
 #[cfg(test)]
 mod test_data;
+#[cfg(test)]
+mod test_expression;
 
 mod test_nom;
 

@@ -27,16 +27,22 @@ pub async fn resolve_desi_comp(
     let attr_map = interface.get_ele_attr_map_async(refno).await?;
     if attr_map.is_none() { return Ok(None); }
     let attr_map = attr_map.unwrap();
-    let desp = get_attr_value_int_vec(&attr_map, "DESP");
+    let mut desp = get_attr_value_int_vec(&attr_map, "DESP");
+
     let spre_ref = attr_map.get_as_string("SPRE").unwrap_or_default();
     let mut scom_ref = "unset".to_string();
     if let Some(spre) = interface.get_ele_attr_map_async(spre_ref.as_str()).await?{
         scom_ref = spre.get_as_string("CATR").unwrap_or_default();
     }
     let scom_info = interface.get_scom_info_async(scom_ref.as_str()).await?;
-    dbg!(&scom_info);
     if scom_info.is_none() { return Ok(None); }
     let mut context = HashMap::new();
+    for i in 0..desp.len() {
+        context.insert(
+            format!("DESP{}", i + 1),
+            desp[i].to_string(),
+        );
+    }
     context.insert(DDHEIGHT_STR.to_string(), attr_map.get_as_string("HEIG").unwrap_or("1.0".to_string()));
     context.insert(DDANGLE_STR.to_string(), attr_map.get_as_string("ANGL").unwrap_or("90.0".to_string()));
     context.insert(DDRADIUS_STR.to_string(), attr_map.get_as_string("RADI").unwrap_or("1.0".to_string()));
@@ -51,6 +57,13 @@ pub async fn resolve_desi_comp(
     }
     let mut geom_info = resolve_cata_comp_async(scom_info.as_ref().unwrap(), interface, Some(context)).await?;
     Ok(Some(geom_info))
+}
+
+#[tokio::test]
+async fn test_resolve_desi_comp() {
+    let mut interface= PdmsInterface::new("mongodb://localhost:27017");
+    let refno="16476/51";
+    resolve_desi_comp(refno,&mut interface).await;
 }
 
 ///整合SCOM对应的临时数据
@@ -153,6 +166,7 @@ pub async fn resolve_cata_comp_async(
         .or_insert("90.0".to_string());
     //获取DTSE的expression
     query_dtse_params(&scomp_info.attr_map, interface, &mut cur_context).await;
+
     cur_context.insert("IPARAM0".to_string(), "0".to_string());
     let params = get_attr_value_f64_vec(&scomp_info.attr_map, "PARA").unwrap_or_default();
     for i in 0..params.len() {

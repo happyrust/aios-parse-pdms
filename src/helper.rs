@@ -74,6 +74,11 @@ pub fn get_attr_value_int_vec(ele: &AttrMap, attr: &str) -> Vec<i32> {
             AttrVal::IntArrayType(data) => {
                 value = data.to_vec();
             }
+            AttrVal::DoubleArrayType(data) => {
+                value = data.iter().map(|v| {
+                    *v as i32 })
+                    .collect::<Vec<i32>>();
+            }
             _ => {}
         }
     }
@@ -301,15 +306,19 @@ pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<String>) -> 
             Some(format!("PARAM{}", strs[*i]))
         }
         "ANGL" => {
-            Some("DDANGLE".to_string())
+            Some("ANGL".to_string())
         }
         "IPAR" | "IPARAM" => {
             *i += 1;
             //先忽略保温层厚度
             Some(format!("IPARAM{}", strs[*i]))
         }
-        "DESP" => {
+        "DESP" | "DDESP"  => {
             *i += 1;
+            Some(format!("DESP{}", strs[*i]))
+        }
+        "DESIGN PARAM" => {
+            *i += 2;
             Some(format!("DESP{}", strs[*i]))
         }
         _ => {
