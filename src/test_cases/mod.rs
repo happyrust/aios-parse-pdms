@@ -19,7 +19,7 @@ mod test_expression;
 mod test_nom;
 
 
-fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
+pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
     let mut file = File::open(config_path).unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);

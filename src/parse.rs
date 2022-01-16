@@ -28,7 +28,7 @@ use nom::combinator::{map, verify};
 use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
 use serde_json::to_string;
-use crate::db_tool;
+use crate::{db_tool, read_attr_info_config};
 use crate::db_tool::{db1_dehash, decode_chars_data};
 use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, times_keep_f32_two_decimal_place};
 use crate::pdms_types::*;
@@ -59,6 +59,13 @@ pub fn parse_file(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt:
     parse_db(input, database_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
 }
 
+#[test]
+fn parse_file_test() {
+    let database_info = read_attr_info_config("D:/GodotProject/aios-parse-pdms/all_attr_info.bin");
+    let _db_info_map = &database_info.db_names_map;
+    let r=parse_file(&PathBuf::from("D:/ABA(12.0)/ABA/ABA000/aba0002_0001"),&database_info,u64::MAX,false,"","");
+    dbg!(r.len());
+}
 
 ///解析单个Element Data数据
 pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> ElementData {

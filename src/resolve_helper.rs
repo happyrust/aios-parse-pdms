@@ -17,7 +17,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
     if input_expr.trim() == "unset" {
         return Some(0.0);
     }
-    dbg!(&input_expr);
+    // dbg!(&input_expr);
     let _has_desparam = false;
     let mut exp = input_expr.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
     if exp.len() < 1 {
@@ -66,6 +66,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
             key = convert_to_context_key(&dtse_key, &mut i, &seg_strs).unwrap_or_default();
 
         }
+        // dbg!(&context);
         if context.contains_key(&key) {
             if key == "ANGL" {
                 key = context[&key].to_string();
@@ -136,21 +137,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
                 }
             }
         }
-        // else if p_vals[i] == "POW"{
-        //     if input_expr == "( SQRT ( ( POW ( ATTRIB DESP [10] , 2 ) + POW ( ATTRIB DESP [11] , 2 ) ) ) )" {
-        //         dbg!(&p_vals);
-        //     }
-        //     dbg!(&i);
-        //     if i + 2 < p_vals.len() {
-        //         need_del_keys.push(i);
-        //         need_del_keys.push(i+1);
-        //         need_del_keys.push(i+2);
-        //         need_del_keys.push(i+3);
-        //         need_del_keys.push(i+4);
-        //         need_del_keys.push(i+5);
-        //         p_vals[i+6]=format!("( {} ^ {} )",p_vals[i+2],p_vals[i+4]);
-        //     }
-        // }
         // 单位处理，mm为基本单位
         if p_vals[i].contains("mm") {
             p_vals[i] = p_vals[i].replace("mm", "");
