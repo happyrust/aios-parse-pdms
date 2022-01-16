@@ -2,11 +2,63 @@ use dashmap::DashMap;
 use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
 use serde::{Serialize, Deserialize};
+use smol_str::SmolStr;
 use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, StringArrayType, StringType, Vec3Type, WordType};
 use crate::helper::get_attr_value_f64_vec;
 
 
-pub type RefNoTuple = (i32, i32);
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Copy, Eq, PartialEq, Hash)]
+pub struct RefNoTuple(pub (i32, i32));
+
+impl Into<SmolStr> for RefNoTuple {
+    fn into(self) -> SmolStr {
+        SmolStr::from(format!("{}/{}", self.get_0(), self.get_1()))
+    }
+}
+
+impl Into<String> for RefNoTuple {
+    fn into(self) -> String {
+        format!("{}/{}", self.get_0(), self.get_1())
+    }
+}
+
+impl From<&str> for RefNoTuple{
+    fn from(s: &str) -> Self {
+        let x: Vec<i32> = s.split('/').map(|x| x.parse::<i32>().unwrap_or_default()).collect();
+        Self::new(x[0], x[1])
+    }
+}
+
+// #[inline]
+// fn convert_string_to_ref(refno: &str) -> RefNoTuple {
+//     let x: Vec<i32> = refno.split('/').map(|x| x.parse::<i32>().unwrap_or_default()).collect();
+//     RefNoTuple::new(x[0], x[1])
+// }
+
+// impl From<s: IntoRef<String>> for RefNoTuple{
+//     fn from(s: String) -> Self {
+//         todo!()
+//     }
+// }
+
+// format!("{}/{}", refno.0, refno.1)
+
+impl RefNoTuple {
+
+    #[inline]
+    pub fn new(ref_0: i32, ref_1: i32) -> Self{
+        Self{
+            0: (ref_0, ref_1)
+        }
+    }
+
+    #[inline]
+    pub fn get_0(&self) -> i32 { self.0.0 }
+
+    #[inline]
+    pub fn get_1(&self) -> i32 { self.0.1 }
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct AttrMap{
@@ -157,16 +209,16 @@ impl AttrMap {
 pub enum AttrVal {
     InvalidType,
     IntegerType(i32),
-    StringType(String),
+    StringType(SmolStr),
     DoubleType(f64),
     DoubleArrayType(Vec<f64>),
-    StringArrayType(Vec<String>),
+    StringArrayType(Vec<SmolStr>),
     BoolArrayType(Vec<bool>),
     IntArrayType(Vec<i32>),
     BoolType(bool),
     Vec3Type([f64; 3]),
-    ElementType(String),
-    WordType(String),
+    ElementType(SmolStr),
+    WordType(SmolStr),
 
 }
 
@@ -191,11 +243,11 @@ impl AttrVal {
     }
 
     pub fn double_vec_value(&self) -> Option<Vec<f64>> {
-        match self {
+        return match self {
             DoubleArrayType(v) => {
-                return Some(v.to_vec())
+                Some(v.to_vec())
             }
-            _ => { return None }
+            _ => { None }
         }
     }
 }
@@ -210,9 +262,9 @@ pub struct PdmsDatabaseInfo {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ElementData {
     //当前节点
-    pub ref_no: String,
+    pub ref_no: SmolStr,
     pub name: String,
-    pub noun_name: String,
+    pub noun_name: SmolStr,
     pub noun_hash: i32,
     pub version:u32,
     //子节点, 临时存储children
@@ -221,12 +273,13 @@ pub struct ElementData {
 
     pub children: Vec<RefNoTuple>,
     //父节点
-    pub owner: String,
-    pub attr_data_map: DashMap<String, AttrVal>,
+    pub owner: SmolStr,
+    // pub attr_data_map: DashMap<String, AttrVal>,
     pub order: i32,
 }
 
-impl ElementData {}
+
+
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleDataNode {

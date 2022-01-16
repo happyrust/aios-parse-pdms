@@ -5,6 +5,7 @@ use nalgebra_glm::exp;
 use nom::IResult;
 use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
+use smol_str::SmolStr;
 use crate::db_tool::db1_dehash;
 use crate::parse::{convert_to_explicit_axis_string, convert_to_implicit_axis_string};
 use crate::pdms_types::AttrVal::*;
@@ -288,7 +289,7 @@ fn get_expression_attr_test() {
     println!("type={},result={}", types, result);
 }
 
-pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
+pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> {
     let expression_type_input = &input[..4];
     let expression_type = match_expression_type(expression_type_input);
     if expression_type == "PTCDI" {
@@ -297,7 +298,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
         let (_, axis) = convert_to_explicit_axis_string(expression_data)?;
-        let mut result = " ".to_string();
+        let mut result:SmolStr = "".into();
         match axis {
             StringType(value) => {
                 result = value;
@@ -651,7 +652,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
                             let refno = format!("{}/{}", refno0, refno1);
                             let func = result_stack.pop().unwrap();
                             let result = format!("( {} OF = {} )", func, refno);
-                            return Ok((input, (expression_type, result)));
+                            return Ok((input, (expression_type, result.into())));
                         }
                     }
                     expression_data = &expression_data[length..];
@@ -813,12 +814,12 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, String)> {
                     expression_data = &expression_data[4..];
                 } else {
                     let result = format!("( {} )", result_stack.pop().unwrap());
-                    return Ok((input, (expression_type, result)));
+                    return Ok((input, (expression_type, result.into())));
                 }
             }
         }
         let result = format!("( {} )", result_stack.pop().unwrap());
-        Ok((input, (expression_type, result)))
+        Ok((input, (expression_type, result.into())))
     }
 }
 
@@ -938,20 +939,22 @@ pub fn match_expression_type(input: &[u8]) -> String {
 
 /// 只打印表达式的值，为了测试表达式准确性
 pub fn print_refno_expression_data(value: DashMap<String, AttrVal>, mut result: Vec<(String, String)>) -> Vec<(String, String)> {
-    let data_vec = vec!["PPRO", "PDIA", "PDIS", "PCON", "PBOR", "PHEI", "PTDI", "PBDI", "PBDM", "PTDM",
-                        "PX", "PY", "PZ", "PRAD", "BDIA", "BTHK", "PXLE", "PYLE", "PZLE","PTDM","PBDM","POFF",
-                        "DX","DY","PXTS","PYTS","PXBS","PXBS"];
-    for data in data_vec {
-        if let Some(value) = value.get(data) {
-            match value.clone() {
-                StringType(value) => {
-                    result.push((data.to_string(), value))
-                }
-                _ => {}
-            }
-        }
-    }
-    result
+    // let data_vec = vec!["PPRO", "PDIA", "PDIS", "PCON", "PBOR", "PHEI", "PTDI", "PBDI", "PBDM", "PTDM",
+    //                     "PX", "PY", "PZ", "PRAD", "BDIA", "BTHK", "PXLE", "PYLE", "PZLE","PTDM","PBDM","POFF",
+    //                     "DX","DY","PXTS","PYTS","PXBS","PXBS"];
+    // for data in data_vec {
+    //     if let Some(value) = value.get(data) {
+    //         match value.clone() {
+    //             StringType(value) => {
+    //                 result.push((data.to_string(), value))
+    //             }
+    //             _ => {}
+    //         }
+    //     }
+    // }
+    // result
+
+    Default::default()
 }
 
 #[test]

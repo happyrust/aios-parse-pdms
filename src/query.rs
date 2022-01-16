@@ -1,6 +1,6 @@
 use crate::db_tool::db1_dehash;
 use crate::helper::*;
-use crate::interface::pdms_interface::PdmsInterface;
+// use crate::interface::pdms_interface::PdmsInterface;
 use crate::pdms_data::{AxisParam, DesCompInfo, GmseParam, ScomInfo};
 use crate::parsed_data::geo_params_data::CateGeoParam::TubeImplied;
 use crate::parsed_data::{CateTubeImpliedParam, GeoParamsData, GeomsInfo};

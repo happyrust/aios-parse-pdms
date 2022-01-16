@@ -2,6 +2,7 @@
 #![feature(array_methods)]
 #![feature(slice_pattern)]
 #![feature(core_intrinsics)]
+#![feature(associated_type_bounds)]
 
 #[macro_use]
 extern crate serde;
@@ -14,14 +15,14 @@ use autowired::Autowired;
 use crate::parsed_data::GeomsInfo;
 use crate::pdms_types::{AttrMap, EleDataNode, ElementData, PdmsRefno};
 use futures::stream::TryStreamExt;
-use crate::interface::pdms_interface::PdmsInterface;
+// use crate::interface::pdms_interface::PdmsInterface;
 
 
 pub mod pdms_types;
 pub mod db_tool;
 pub use db_tool::{ db1_dehash };
 pub mod parse_explict_tools;
-pub mod query;
+// pub mod query;
 pub mod helper;
 pub mod parsed_data;
 pub mod pdms_data;
@@ -143,9 +144,7 @@ lazy_static! {
 //todo 数据分层，尽可能的用缓存
 
 
-pub fn create_pdms_interface(url: &str){
-    let interface = Autowired::<PdmsInterface>::new();
-}
+
 
 
 

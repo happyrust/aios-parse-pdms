@@ -49,4 +49,7 @@ notify = "4.0.17"
 crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
 
+id_tree = "1.8.0"
+smol_str = "0.1.21"
+
 gdnative = {git="https://github.com/godot-rust/godot-rust"}
