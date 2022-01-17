@@ -181,7 +181,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let db_no_bytes = &buf[8..12];
                 let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
                 let mut db_info = PDMSDBInfo::default();
-                // let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                dbg!(&eles_data_map);
+
                 // db_name_map = get_numberdb(eles_data_map.clone());
                 // db_info.name = file_name.to_string();
                 // db_info.db_no = db_no;
@@ -281,7 +283,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let mut db_info = PDMSDBInfo::default();
         println!("path={:?}", &path);
 
-        // let mut eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+        let mut eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
 
         // if b_save_to_mongodb {
         //     let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();

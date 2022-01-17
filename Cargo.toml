@@ -3,7 +3,11 @@ name = "parse_pdms_db"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+#[profile.release]
+#debug = true
+#[profile.release]
+## or "z"
+#opt-level = 2
 
 [dependencies]
 #nom = "7.0.0"
@@ -48,6 +52,7 @@ hex = "0.4.3"
 notify = "4.0.17"
 crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
+#rug = "1.14.0"
 
 id_tree = "1.8.0"
 smol_str = "0.1.21"

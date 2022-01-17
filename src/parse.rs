@@ -28,21 +28,24 @@ use mongodb::options::IndexOptions;
 use nom::combinator::{map, verify};
 use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
-use serde_json::to_string;
 use crate::{db_tool, read_attr_info_config};
 use crate::db_tool::{db1_dehash, decode_chars_data};
-use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr,  parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, times_keep_f32_two_decimal_place};
+use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, times_keep_f32_two_decimal_place};
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
 // use crate::interface::pdms_interface::PdmsInterface;
 use crossbeam_deque::Steal::{Empty, Success};
-use crossbeam_deque::Worker;
 use crossbeam_queue::SegQueue;
-use id_tree::Tree;
+use id_tree::{Node, NodeId, Tree};
+use id_tree::InsertBehavior::{AsRoot, UnderNode};
+use nalgebra_glm::{e, round};
+use serde_json::Value::Bool;
 use smol_str::SmolStr;
+use crate::consts::{ATT_LEVE, ATT_PTS};
+use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
 
-const INDEX:[u8;8]=[0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
+const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
 //todo 改成使用调试信息蚕食
 struct DebugParseConfig {
@@ -51,15 +54,15 @@ struct DebugParseConfig {
 }
 
 ///一个pdms db的整体数据
-pub struct PdmsDbData{
+#[derive(Debug, Clone)]
+pub struct PdmsDbData {
     /// 按noun类型分类的参考号
-    pub type_ele_map: DashMap<i32, Vec<SmolStr>>,
+    pub type_ele_map: DashMap<SmolStr, Vec<SmolStr>>,
     /// 基本数据的Tree
-    pub ele_id_tree: Tree<ElementData>,
+    pub ele_id_tree: Tree<EleNode>,
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
 }
-
 
 
 pub fn parse_file(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData /*DashMap<i32, Vec<ElementData>>*/ {
@@ -70,7 +73,6 @@ pub fn parse_file(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt:
     let input = &buf[..];
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
-
     parse_db(input, database_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
 }
 
@@ -78,154 +80,147 @@ pub fn parse_file(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt:
 fn parse_file_test() {
     let database_info = read_attr_info_config("D:/GodotProject/aios-parse-pdms/all_attr_info.bin");
     let _db_info_map = &database_info.db_names_map;
-    let r=parse_file(&PathBuf::from("D:/ABA(12.0)/ABA/ABA000/aba0002_0001"),&database_info,u64::MAX,false,"","");
+    let r = parse_file(&PathBuf::from("D:/ABA(12.0)/ABA/ABA000/aba0002_0001"), &database_info, u64::MAX, false, "", "");
     dbg!(r.len());
 }
 
+
+
+#[derive(Debug, Clone, )]
+pub struct EleData{
+    pub ele_node: EleNode,
+    pub attr_data_map: AttrMap,
+    pub children: Vec<RefNoTuple>,
+}
+
 ///解析单个Element Data数据
-pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> ElementData {
-    let mut ele_data = ElementData::default();
-    // let mut origin_impl_len = i32::from_be_bytes(input[0..4].try_into().unwrap()) * 4;  //隐含数据长度  0-4
-    // let mut actual_impl_len = origin_impl_len as usize;  //隐含数据长度  0-4
-    // let refno = (i32::from_be_bytes(input[4..8].try_into().unwrap()), i32::from_be_bytes(input[8..12].try_into().unwrap()));  //4-12
-    // ele_data.ref_no = convert_ref_to_string(&refno);
-    // // dbg!(&ele_data.ref_no);
-    // let type_hash = i32::from_be_bytes(input[12..16].try_into().unwrap());   //类型hash  12-16
-    // ele_data.noun_hash = type_hash;
-    // ele_data.noun_name = db1_dehash(type_hash as u32);
-    // let attr_info_map = &*attr_info_map.get(&type_hash).unwrap();
-    //
-    // let (_, owner) = parse_attr_owner(&input[16..24]).unwrap();  // owner: position+16
-    // ele_data.owner = owner.clone();
-    // //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
-    // let mut tmp_value = i32::from_be_bytes(input[actual_impl_len..actual_impl_len + 4].try_into().unwrap());
-    // //todo 调整为 多个0和一个7结束
-    // while tmp_value == 0 || tmp_value == 7 {
-    //     actual_impl_len += 4;
-    //     tmp_value = i32::from_be_bytes(input[actual_impl_len..actual_impl_len + 4].try_into().unwrap());
-    // }
-    // //隐藏属性得数据切片
-    // let implicit_data = &input[0..actual_impl_len];
-    // let membs_pos = actual_impl_len;
-    // let membs_data = &input[membs_pos..];
-    // let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
-    // let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
-    // let mut memb_bytes_len = 0;
-    //
-    // if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
-    //     if &membs_data[0..2] == [0x0, 0x2].as_slice() {
-    //         memb_bytes_len = u16::from_be_bytes(membs_data[2..4].try_into().unwrap()) as usize * 4;
-    //         let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
-    //         if let Ok((_, children)) = parse_attr_members(&merged_data) {
-    //             // ele_data.children = children.iter().map(|x| convert_ref_to_string(x)).collect();
-    //             ele_data.children = children;
-    //         }
-    //     }
-    // }
-    // let explicit_start = actual_impl_len + memb_bytes_len;
-    // let explicit_data = &input[explicit_start..];
-    // let maybe_refno_0 = i32::from_be_bytes(membs_data[4..8].try_into().unwrap());
-    // let maybe_refno_1 = i32::from_be_bytes(membs_data[8..12].try_into().unwrap());
-    // let mut explicit_bytes_len = 0;
-    // let origin_implicit_len = u32::from_be_bytes(implicit_data[..4].try_into().unwrap()); //pdms文件中,参考号前写明的隐式属性长度
-    // let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
-    // // println!("{:?}", sorted_noun_hash.iter().map(|x| db1_dehash(*x as u32)).collect::<Vec<_>>() );
-    // let mut cur_offset: i32 = 0;
-    // let mut is_double = true;
-    //
-    // if sorted_noun_hash.len() > 0{
-    //     let last_key = sorted_noun_hash.last().unwrap();
-    //     let last_att_info = attr_info_map.get(&last_key).unwrap();
-    //     // dbg!(&*last_att_info);
-    //     unsafe {
-    //         //todo use last_att_info.default_val get len
-    //         is_double = last_att_info.offset + 1 < (origin_impl_len / 4) as u32;
-    //     }
-    // }
-    //
-    // // dbg!(&sorted_noun_hash);
-    // for i in 0..sorted_noun_hash.len() {
-    //     let noun_hash = sorted_noun_hash[i];
-    //     let attr_info = attr_info_map.get(&noun_hash).unwrap();
-    //     // if attr_info.name.as_str() == "RADI"{
-    //     //     dbg!("here");
-    //     // }
-    //     let mut cur_len: i32 = 0;
-    //     if cur_offset == 0 { cur_offset = (attr_info.offset & 0xFFFFF) as i32; }
-    //     let mut att_will_change = false;
-    //     if i != sorted_noun_hash.len() - 1 {
-    //         let next_attr_info = attr_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
-    //         att_will_change = next_attr_info.att_type != attr_info.att_type;
-    //         cur_len = ((next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as i32;
-    //         match attr_info.att_type {
-    //             DbAttributeType::BOOL => { cur_len = 1; }
-    //             DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
-    //                 if !is_double {
-    //                     cur_len = (cur_len - 1) / 2 + 1;
-    //                 }
-    //             }
-    //             _ => {}
-    //         };
-    //     } else {
-    //         cur_len = origin_impl_len / 4 - cur_offset;  //最后的数据应该准确，数据才ok
-    //     }
-    //     if cur_len > 0 && (cur_offset + cur_len ) <= (implicit_data.len() / 4) as i32 {
-    //         // cur_len = cur_len.min(origin_impl_len/4 - cur_offset as i32);
-    //         if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset as usize * 4..(cur_offset + cur_len) as usize * 4], &attr_info, refno, is_double, 0) {
-    //             if advance == 0 {    //nullref的处理
-    //                 if att_will_change {
-    //                     cur_offset += 1;   //如果不是Element了，就可以继续向前
-    //                 }
-    //             } else {
-    //                 cur_offset += advance as i32;
-    //             }
-    //             ele_data.attr_data_map.entry(attr_info.name.clone())
-    //                 .or_insert(att_val);
-    //         }
-    //     }else{
-    //         // dbg!(&attr_info_map);
-    //         // dbg!(&ele_data);
-    //         // dbg!(cur_len);
-    //         // dbg!(cur_offset);
-    //         // dbg!(&sorted_noun_hash);
-    //     }
-    // }
-    // //增加一些默认值情况
-    // // ele_data.attr_data_map.entry("PARA".to_string()).or_insert(StringType("0".to_string()));
-    // if maybe_refno_0 == refno.0 && maybe_refno_1 == refno.1 {
-    //     if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
-    //         explicit_bytes_len = u16::from_be_bytes(explicit_data[2..4].try_into().unwrap()) as usize * 4;
-    //         let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
-    //         let (_, explicit_attr_map) = parse_explict_attrs(&merged_data, &attr_info_map, ele_data.attr_data_map.clone(), refno, explicit_start).unwrap();
-    //         for (key, val) in explicit_attr_map {
-    //             ele_data.attr_data_map.insert(key, val);
-    //         }
-    //     }
-    // }
-    //
-    // attr_info_map.iter().for_each(|pair|{
-    //     let name = &pair.value().name;
-    //     if !ele_data.attr_data_map.contains_key(name) {
-    //         if  name == "PTCDI" {
-    //             ele_data.attr_data_map.insert(name.to_owned(), StringType("Y".to_string()));
-    //         }else if name == "PARA"{
-    //             ele_data.attr_data_map.insert(name.to_owned(), DoubleArrayType(vec![]));
-    //         }else{
-    //             ele_data.attr_data_map.insert(name.to_owned(), pair.value().default_val.clone());
-    //         }
-    //     }
-    // });
-    //
-    // //添加遗漏的属性
-    // ele_data.attr_data_map.insert("OWNER".to_string(), ElementType(owner));
-    // ele_data.attr_data_map.insert("REFNO".to_string(), StringType(ele_data.ref_no.clone()));
-    // ele_data.attr_data_map.insert("TYPE".to_string(), WordType(db_tool::db1_dehash(type_hash as u32)));
-    ele_data
+pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>, indx: usize) -> EleData {
+    let mut ele_node = EleNode::default();
+    let mut attr_data_map = AttrMap::default();
+    let mut children = Vec::new();
+    let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4;  //隐含数据长度  0-4
+    let mut actual_impl_len = origin_impl_len as usize;  //隐含数据长度  0-4
+    let refno = RefNoTuple::from(&input[4..12]);
+    ele_node.ref_no = refno.into();
+
+    //todo wrapper i32 to type_hash type
+    let type_hash = parse_to_i32(&input[12..16]);
+    ele_node.noun_name = convert_u32_to_noun(&input[12..16]);  //类型hash  12-16
+    let attr_info_map = &*attr_info_map.get(&type_hash).unwrap();
+
+    ele_node.owner = RefNoTuple::from(&input[16..24]).into();
+    ele_node.version = parse_to_u32(&input[32..36]);
+    //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
+    let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
+    //todo 调整为 多个0和一个7结束
+    while tmp_value == 0 || tmp_value == 7 {
+        actual_impl_len += 4;
+        tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
+    }
+    //隐藏属性得数据切片
+    let implicit_data = &input[0..actual_impl_len];
+    let membs_pos = actual_impl_len;
+    let membs_data = &input[membs_pos..];
+    let maybe_refno: RefNoTuple =  (&membs_data[4..12]).into();
+    let mut memb_bytes_len = 0;
+
+    if maybe_refno == refno{
+        if &membs_data[0..2] == [0x0, 0x2].as_slice() {
+            memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
+            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
+            if let Ok((_, c)) = parse_attr_members(&merged_data) {
+                children = c;
+            }
+        }
+    }
+    let explicit_start = actual_impl_len + memb_bytes_len;
+    let explicit_data = &input[explicit_start..];
+    let maybe_refno = RefNoTuple::from(&membs_data[4..12]);
+    let mut explicit_bytes_len = 0;
+    let origin_implicit_len = parse_to_u32(&implicit_data[..4]); //pdms文件中,参考号前写明的隐式属性长度
+    let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
+    // println!("{:?}", sorted_noun_hash.iter().map(|x| db1_dehash(*x as u32)).collect::<Vec<_>>() );
+    let mut cur_offset: i32 = 0;
+    let mut is_double = true;
+
+    if sorted_noun_hash.len() > 0 {
+        let last_key = sorted_noun_hash.last().unwrap();
+        let last_att_info = attr_info_map.get(&last_key).unwrap();
+        is_double = last_att_info.offset + 1 < (origin_impl_len / 4) as u32;
+    }
+    for i in 0..sorted_noun_hash.len() {
+        let noun_hash = sorted_noun_hash[i];
+        let attr_info = attr_info_map.get(&noun_hash).unwrap();
+        let mut cur_len: i32 = 0;
+        if cur_offset == 0 { cur_offset = (attr_info.offset & 0xFFFFF) as i32; }
+        let mut att_will_change = false;
+        if i != sorted_noun_hash.len() - 1 {
+            let next_attr_info = attr_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
+            att_will_change = next_attr_info.att_type != attr_info.att_type;
+            cur_len = ((next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as i32;
+            match attr_info.att_type {
+                DbAttributeType::BOOL => { cur_len = 1; }
+                DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
+                    if !is_double {
+                        cur_len = (cur_len - 1) / 2 + 1;
+                    }
+                }
+                _ => {}
+            };
+        } else {
+            cur_len = origin_impl_len / 4 - cur_offset;  //最后的数据应该准确，数据才ok
+        }
+        if cur_len > 0 && (cur_offset + cur_len) <= (implicit_data.len() / 4) as i32 {
+            if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(&implicit_data[cur_offset as usize * 4..(cur_offset + cur_len) as usize * 4], &attr_info, refno, is_double, 0) {
+                if advance == 0 {    //nullref的处理
+                    if att_will_change {
+                        cur_offset += 1;   //如果不是Element了，就可以继续向前
+                    }
+                } else {
+                    cur_offset += advance as i32;
+                }
+                attr_data_map.insert(attr_info.name.clone(), att_val);
+            }
+        } else {
+            // dbg!(&attr_info_map);
+            // dbg!(&ele_data);
+            // dbg!(cur_len);
+            // dbg!(cur_offset);
+            // dbg!(&sorted_noun_hash);
+        }
+    }
+    if maybe_refno == refno{
+        if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
+            explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
+            let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
+            parse_explict_attrs(&merged_data, &attr_info_map, &mut attr_data_map, refno, explicit_start);
+        }
+    }
+    attr_info_map.iter().for_each(|pair| {
+        let name = &pair.value().name;
+        if !attr_data_map.map.contains_key(name) {
+            match name.as_str() {
+                "PTCDI" => attr_data_map.insert(name.to_owned(), StringType("Y".into())),
+                "PARA" =>  attr_data_map.insert(name.to_owned(), DoubleArrayType(vec![])),
+                "OWNER" =>  attr_data_map.insert(name.to_owned(), ElementType(ele_node.owner.clone())),
+                "TYPE" =>  attr_data_map.insert(name.to_owned(), WordType(ele_node.noun_name.clone())),
+                "NAME" => attr_data_map.insert(name.to_owned(), StringType(format!("{} {indx}", &ele_node.noun_name).into())),
+                _ => {}
+            }
+        }
+    });
+    //添加遗漏的属性
+    attr_data_map.insert("REFNO".into(), ElementType(ele_node.ref_no.clone()));
+    EleData{
+        ele_node,
+        attr_data_map,
+        children
+    }
 }
 
 
 #[test]
-pub fn test_queue(){
+pub fn test_queue() {
     use crossbeam_deque::{Steal, Worker};
 
     let w = Worker::new_lifo();
@@ -241,56 +236,63 @@ pub fn test_queue(){
 
 
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData {
-
-    let mut type_ele_map: DashMap<i32, Vec<SmolStr>> = DashMap::new();
+    let mut type_ele_map: DashMap<SmolStr, Vec<SmolStr>> = DashMap::new();
     /// 基本数据的Tree
-    let mut ele_id_tree: Tree<ElementData> = Tree::new();
+    let mut ele_id_tree: Tree<EleNode> = Tree::new();
     /// 完整属性数据的存储
     let mut all_attr_map: DashMap<SmolStr, AttrMap> = DashMap::new();
 
-    // // let mut all_ref_no = DashSet::new();
-    // let time_start = std::time::Instant::now();
-    //
-    // let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
-    // let elapsed = time_start.elapsed();
-    //
-    // let noun_type_ele_data_map = DashMap::new();
-    // let noun_attr_info_map = &database_info.noun_attr_info_map;
-    // let ele_order_map = DashMap::new();
-    // let mut root_refno = world_refno;
-    // if !target_refno_str.is_empty() {
-    //     let target_refno = convert_string_to_ref(target_refno_str);
-    //     root_refno = target_refno;
-    // }
-    // let mut pending_refnos = SegQueue::new();
-    // pending_refnos.push(vec![root_refno]);
-    // while !pending_refnos.is_empty() {
-    //     let refnos = pending_refnos.pop().unwrap();
-    //     refnos.par_iter().for_each(|refno| {
-    //         if refno_table_map.contains_key(&refno) {
-    //             let entry = &*refno_table_map.get(&refno).unwrap();
-    //             let pos = entry.pos;
-    //             let type_hash = entry.noun_hash;
-    //             // 判断反序列话的DashMap中有无对应的type
-    //             if noun_attr_info_map.contains_key(&type_hash) {
-    //                 let mut ele_data = parse_ele_data(&input[pos - 4..], noun_attr_info_map);
-    //                 // dbg!(&ele_data);
-    //                 for i in 0..ele_data.children.len() {
-    //                     ele_order_map.insert(ele_data.children[i], i as i32);
-    //                 }
-    //                 // pending_refnos.push(ele_data.children.iter().map(|x| convert_string_to_ref(x)).collect::<Vec<_>>() );
-    //                 pending_refnos.push(ele_data.children.clone());
-    //                 if !print_refno_str.is_empty() && print_refno_str == ele_data.ref_no {
-    //                     println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_data);
-    //                 }
-    //                 if !all_attr_map.contains(&ele_data.ref_no) {
-    //                     all_attr_map.insert(ele_data.ref_no.clone());
-    //                     noun_type_ele_data_map.entry(type_hash).or_insert_with(Vec::new).push(ele_data);
-    //                 }
-    //             }
-    //         }
-    //     });
-    // }
+    // let mut all_ref_no = DashSet::new();
+    let time_start = std::time::Instant::now();
+
+    let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
+
+    let noun_attr_info_map = &database_info.noun_attr_info_map;
+    let mut root_refno = world_refno;
+    if !target_refno_str.is_empty() {
+        root_refno = target_refno_str.into();
+    }
+    let entry = &*refno_table_map.get(&root_refno).unwrap();
+    let EleData{
+        ele_node,
+        attr_data_map,
+        children,
+    } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, 0);
+    all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
+    type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
+    let mut parent_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
+    // dbg!(children.len());
+    // children.par_iter().for_each(|root|{  //todo opt parallel
+        let mut pending_refnos = vec![children];
+        while !pending_refnos.is_empty() {
+            let refnos = pending_refnos.pop().unwrap();
+            refnos.iter().enumerate().for_each(|(indx, refno)| {
+                if refno_table_map.contains_key(&refno) {
+                    let entry = &*refno_table_map.get(&refno).unwrap();
+                    let pos = entry.pos;
+                    let type_hash = entry.noun_hash;
+                    // 判断反序列话的DashMap中有无对应的type
+                    if noun_attr_info_map.contains_key(&type_hash) {
+                        let EleData{
+                            ele_node,
+                            attr_data_map,
+                            children,
+                        } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, indx);
+                        if !print_refno_str.is_empty() && print_refno_str == &ele_node.ref_no {
+                            println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_node);
+                        }
+                        pending_refnos.push(children);
+                        if !all_attr_map.contains_key(&ele_node.ref_no) {
+                            all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
+                            type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
+                            parent_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
+                        }
+                    }
+                }
+            });
+        }
+    // });
+
     // // noun_type_ele_data_map.iter_mut().for_each(|mut eles| {
     // //     for mut ele in eles.iter_mut() {
     // //         let refno = convert_string_to_ref(&ele.ref_no);
@@ -308,184 +310,175 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
     // //         ele.attr_data_map.insert("NAME".to_string(), StringType(ele.name.to_string()));
     // //     }
     // // });
-    // println!("解析db所耗时间: {:?}", elapsed);
-    PdmsDbData{
+    let elapsed = time_start.elapsed();
+    println!("解析db所耗时间: {:?}", elapsed);
+    PdmsDbData {
         type_ele_map,
         ele_id_tree,
-        all_attr_map
+        all_attr_map,
     }
 }
-
-const ATT_LEVE: i32 = 0x9DB99;
-const ATT_PTS: i32 = 0x85438;
 
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefNoTuple, double_flag: bool, pos: usize) -> IResult<&'a [u8], (usize, AttrVal)> {
     let mut val = AttrVal::InvalidType;
-    // use nom::bytes::complete::take;
-    // let b_expr = check_is_expr(attr_info.hash);
-    // let data_len = input.len();
-    // let mut advance_offset = data_len / 4;
-    // if b_expr {
-    //     let (_, attr_val) = convert_to_implicit_axis_string(input)?;
-    //     val = attr_val;
-    // } else {
-    //     // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
-    //     if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS {
-    //         let (mut tmp_input, length) = be_i32(input)?;
-    //         let mut result = vec![];
-    //         let mut length = length as usize;
-    //         while tmp_input.len() >= 4 && length > 0 {
-    //             let (input, value) = be_i32(tmp_input)?;
-    //             result.push(value);
-    //             tmp_input = input;
-    //             length -= 1;
-    //         }
-    //         val = AttrVal::IntArrayType(result);
-    //     } else {
-    //         match attr_info.att_type {
-    //             DbAttributeType::INTEGER => {
-    //                 let (_, r) = be_i32(input)?;
-    //                 val = AttrVal::IntegerType(r);
-    //                 advance_offset = 1;
-    //             }
-    //             DbAttributeType::DOUBLE => {
-    //                 let mut is_f32 = false;
-    //                 if data_len >= 4 && data_len < 8 {   //允许当作f32
-    //                     is_f32 = true
-    //                 }else if data_len >=8 {
-    //                     if !double_flag {
-    //                         is_f32 = true;
-    //                     }
-    //                 }
-    //                 if is_f32{
-    //                     let d = ((f32::from_be_bytes(input[0..4].try_into().unwrap()) * 100.0).round() / 100.0) as f64;
-    //                     val = AttrVal::DoubleType(d);
-    //                     advance_offset = 1;
-    //                 }else{
-    //                     if let [a, b, c, d, e, f, g, h] = input[0..8] {
-    //                         let d = (f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0;
-    //                         val = AttrVal::DoubleType(d);
-    //                         advance_offset = 2;
-    //                     }
-    //                 }
-    //             }
-    //             DbAttributeType::BOOL => {
-    //                 let o = (attr_info.offset >> 0x14) as usize;
-    //                 let (_, r) = be_u32(input)?;
-    //                 let result = r >> o & 1;
-    //                 val = AttrVal::BoolType(result == 1);
-    //                 advance_offset = 0;
-    //             }
-    //             DbAttributeType::STRING => {
-    //                 let (_, str_len) = be_i32(input)?;
-    //                 let str_len = str_len as usize;
-    //                 //按double 来处理
-    //                 if data_len == 8 && str_len != 1{
-    //                     if let [a, b, c, d, e, f, g, h] = input[0..8] {
-    //                         let d = (f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0;
-    //                         val = AttrVal::DoubleType(d);
-    //                         advance_offset = 2;
-    //                     }
-    //                 }else if data_len == 4 && str_len !=0 {
-    //                     let d = ((f32::from_be_bytes(input[0..4].try_into().unwrap()) * 100.0).round() / 100.0) as f64;
-    //                     val = AttrVal::DoubleType(d);
-    //                     advance_offset = 1;   //按f32处理
-    //                 }else if str_len < input.len() && input.len() > 4 && str_len > 4{
-    //                     let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
-    //                     val = AttrVal::StringType(decode_string);
-    //                     advance_offset = str_len / 4 + 1;
-    //                 } else {
-    //                     val = AttrVal::StringType("unset".to_string());
-    //                     advance_offset = data_len;
-    //                     //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
-    //                 }
-    //
-    //             }
-    //             DbAttributeType::ELEMENT => {
-    //                 let (_, (ref_0, ref_1)) = tuple((
-    //                     be_i32,
-    //                     be_i32,
-    //                 ))(input)?;
-    //                 if ref_0 == 0 {
-    //                     val = AttrVal::ElementType(RefNoTuple::default().into());
-    //                 } else {
-    //                     val = AttrVal::ElementType(RefNoTuple::new(ref_0, ref_1).into());
-    //                 }
-    //                 advance_offset = 2;
-    //             }
-    //             DbAttributeType::WORD => {
-    //                 let (_, v) = be_i32(input)?;
-    //                 if v > 0x81BF1 {
-    //                     val = AttrVal::WordType(db1_dehash(v as u32).into());
-    //                 } else {
-    //                     val = AttrVal::IntegerType(v);
-    //                 }
-    //                 advance_offset = 1;
-    //             }
-    //             DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
-    //                 let mut data = [0f64; 3];
-    //                 let (input, cnt) = be_i32(input)?;
-    //                 let l = input;
-    //                 let tmp_len = l.len() / 4;   //WORD个数
-    //                 let mut is_f32 = false;
-    //                 if tmp_len >= 3 && cnt == 3 {
-    //                     if tmp_len < 3 * 2{     //长度不够double
-    //                         is_f32 = true;
-    //                     }else if !double_flag{   //指定为f32
-    //                         is_f32 = true;
-    //                     }
-    //                     if !is_f32 {
-    //                         for i in 0..3 {
-    //                             if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
-    //                                 data[i] = (f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0;
-    //                             }
-    //                         }
-    //                         advance_offset = 7;
-    //                     } else {
-    //                         for i in 0..3 {
-    //                             data[i] = ((f32::from_be_bytes(l[i * 4..i * 4 + 4].try_into().unwrap()) * 100.0).round() / 100.0) as f64;
-    //                         }
-    //                         advance_offset = 4;
-    //                     }
-    //                 }
-    //                 val = AttrVal::Vec3Type(data);
-    //             }
-    //             DbAttributeType::DATETIME => {}
-    //             _ => {}
-    //         }
-    //     }
-    // }
+    use nom::bytes::complete::take;
+    let b_expr = check_is_expr(attr_info.hash);
+    let data_len = input.len();
+    let mut advance_offset = data_len / 4;
+    if b_expr {
+        let (_, attr_val) = convert_to_implicit_axis_string(input)?;
+        val = attr_val;
+    } else {
+        // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
+        if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS {
+            let (mut tmp_input, length) = be_i32(input)?;
+            let mut result = vec![];
+            let mut length = length as usize;
+            while tmp_input.len() >= 4 && length > 0 {
+                let (input, value) = be_i32(tmp_input)?;
+                result.push(value);
+                tmp_input = input;
+                length -= 1;
+            }
+            val = AttrVal::IntArrayType(result);
+        } else {
+            match attr_info.att_type {
+                DbAttributeType::INTEGER => {
+                    let (_, r) = be_i32(input)?;
+                    val = AttrVal::IntegerType(r);
+                    advance_offset = 1;
+                }
+                DbAttributeType::DOUBLE => {
+                    let mut is_f32 = false;
+                    if data_len >= 4 && data_len < 8 {   //允许当作f32
+                        is_f32 = true
+                    } else if data_len >= 8 {
+                        if !double_flag {
+                            is_f32 = true;
+                        }
+                    }
+                    if is_f32 {
+                        let d = parse_to_f32(&input[..4]) as f64;
+                        val = AttrVal::DoubleType(d);
+                        advance_offset = 1;
+                    } else {
+                        let d = parse_to_f64(&input[..8]);
+                        val = AttrVal::DoubleType(d);
+                        advance_offset = 2;
+                    }
+                }
+                DbAttributeType::BOOL => {
+                    let o = (attr_info.offset >> 0x14) as usize;
+                    let (_, r) = be_u32(input)?;
+                    let result = r >> o & 1;
+                    val = AttrVal::BoolType(result == 1);
+                    advance_offset = 0;
+                }
+                DbAttributeType::STRING => {
+                    let (_, str_len) = be_i32(input)?;
+                    let str_len = str_len as usize;
+                    //按double 来处理
+                    if data_len == 8 && str_len != 1 {
+                        let d = parse_to_f64(&input[..8]);
+                        val = AttrVal::DoubleType(d);
+                        advance_offset = 2;
+                    } else if data_len == 4 && str_len != 0 {
+                        let d = parse_to_f32(&input[..4]) as f64;
+                        val = AttrVal::DoubleType(d);
+                        advance_offset = 1;   //按f32处理
+                    } else if str_len < input.len() && input.len() > 4 && str_len > 4 {
+                        let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
+                        val = AttrVal::StringType(decode_string.into());
+                        advance_offset = str_len / 4 + 1;
+                    } else {
+                        val = AttrVal::StringType("unset".to_string().into());
+                        //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
+                    }
+                }
+                DbAttributeType::ELEMENT => {
+                    let (_, (ref_0, ref_1)) = tuple((
+                        be_i32,
+                        be_i32,
+                    ))(input)?;
+                    if ref_0 == 0 {
+                        val = AttrVal::ElementType(RefNoTuple::default().into());
+                    } else {
+                        val = AttrVal::ElementType(RefNoTuple::new(ref_0, ref_1).into());
+                    }
+                    advance_offset = 2;
+                }
+                DbAttributeType::WORD => {
+                    let (_, v) = be_i32(input)?;
+                    if v > 0x81BF1 {
+                        val = AttrVal::WordType(db1_dehash(v as u32).into());
+                    } else {
+                        val = AttrVal::IntegerType(v);
+                    }
+                    advance_offset = 1;
+                }
+                DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
+                    let mut data = [0f64; 3];
+                    let (input, cnt) = be_i32(input)?;
+                    let l = input;
+                    let tmp_len = l.len() / 4;   //WORD个数
+                    let mut is_f32 = false;
+                    if tmp_len >= 3 && cnt == 3 {
+                        if tmp_len < 3 * 2 {     //长度不够double
+                            is_f32 = true;
+                        } else if !double_flag {   //指定为f32
+                            is_f32 = true;
+                        }
+                        if !is_f32 {
+                            data = parse_to_f64_arr(l);
+                            advance_offset = 7;
+                        } else {
+                            data = parse_to_f32_arr(l);
+                            advance_offset = 4;
+                        }
+                    }
+                    val = AttrVal::Vec3Type(data);
+                }
+                DbAttributeType::DATETIME => {}
+                _ => {}
+            }
+        }
+    }
     // Ok((input, (advance_offset, val)))
-    Ok((input, (0, val)))
+    Ok((input, (advance_offset, val)))
 }
 
 /// 获取已知显式属性
-pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, AttrInfo>, implicit_data: DashMap<String, AttrVal>, refno: RefNoTuple, pos: usize) -> IResult<&'a [u8], DashMap<String, AttrVal>> {
-    let mut explict_attrs = DashMap::new();
+pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, AttrInfo>, attr_data_map: &mut AttrMap, refno: RefNoTuple, pos: usize) -> IResult<&'a [u8], bool> {
     let mut residual = input;
     let total_len = input.len();
+
     while residual.len() >= 8 {
+        let mut att_name = None;
+        let mut att_value = None;
         let debug_pos = total_len - residual.len();
-        let hash_val = i32::from_be_bytes(residual[..4].try_into().unwrap());
+        // let hash_val = i32::from_be_bytes(residual[..4].try_into().unwrap());
+        let hash_val = parse_to_i32(&residual[..4]);
         if check_is_expr(hash_val) {
             // let (input, (expression_type, value)) = parse_expression_attr(residual).unwrap();
             // explict_attrs.insert(expression_type, StringType(value));
             residual = input;
         } else {
-            let (l, (explict_num, attr_type_num, type_len)) = tuple((
+            let (l, (explict_hash, attr_type_num, type_len)) = tuple((
                 be_i32,
-                be_u16,//这个是属性的类型
-                be_u16,//这个就是一个属性的长度
+                be_u16, //属性的类型
+                be_u16, //属性的长度
             ))(&residual[..])?;
             let type_len = type_len as usize;
+
             if type_len * 4 <= l.len() {
                 residual = &l[type_len * 4..];
                 // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
                 let tmp_input = &l[..type_len * 4];
-                if attr_info_map.contains_key(&explict_num) {
-                    let mut attr_info = attr_info_map.get(&explict_num).unwrap().value().clone();
+                if attr_info_map.contains_key(&explict_hash) {
+                    let mut attr_info = attr_info_map.get_mut(&explict_hash).unwrap();
+                    att_name = Some(attr_info.name.clone());
                     if attr_type_num == 0x1800 {
                         attr_info.att_type = DbAttributeType::DOUBLEVEC;
                     } else if attr_type_num == 0x1C00 || attr_type_num == 0x2000 {
@@ -497,31 +490,28 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                     match attr_info.att_type {
                         DbAttributeType::INTEGER => {
                             let (_, val) = be_i32(tmp_input)?;
-                            explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
+                            att_value = Some(IntegerType(val));
                         }
                         DbAttributeType::DOUBLE => {
                             let dou_len = tmp_input.len() / 4;
                             if dou_len == 1 {
                                 let (_, val) = be_i32(tmp_input)?;
-                                explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
+                                att_value = Some(IntegerType(val));
                             } else {
-                                if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                    let val = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                    explict_attrs.insert(attr_info.name.clone(), DoubleType(val));
-                                }
+                                let val = parse_to_f64(&tmp_input[..8]);
+                                att_value = Some(DoubleType(val));
                             }
                         }
                         DbAttributeType::BOOL => {
                             let (_, val) = be_u32(tmp_input)?;
-                            explict_attrs.insert(attr_info.name.clone(), BoolType(val != 0));
+                            att_value = Some(BoolType(val != 0));
                         }
                         DbAttributeType::STRING => {
                             let (_, a) = be_u32(tmp_input)?;
                             let len_a = a as usize;
                             if tmp_input.len() > 4 {
                                 let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
-                                // dbg!(&decode_string);
-                                explict_attrs.insert(attr_info.name.clone(), AttrVal::StringType(decode_string.into()));
+                                att_value = Some(StringType(decode_string.into()));
                             } else {
                                 println!("len_a={:#04X?}", len_a);
                                 println!("error refno={:?}", refno);
@@ -533,29 +523,22 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 be_i32,
                                 be_i32,
                             ))(tmp_input)?;
-                            explict_attrs.insert(attr_info.name.clone(), ElementType(RefNoTuple::new(ref_0, ref_1).into()));
-                            //explict_attrs.entry(attr_info.name.clone()).or_insert( ElementType((ref_0, ref_1)));
+                            att_value = Some(ElementType(RefNoTuple((ref_0, ref_1)).into()));
                         }
                         DbAttributeType::WORD => {
                             let (_, val) = be_i32(tmp_input)?;
                             if val >= 0x81BF1 {
                                 let val_word = db1_dehash(val as u32);
-                                explict_attrs.insert(attr_info.name.clone(), WordType(val_word.into()));
+                                att_value = Some(WordType(val_word.into()));
                             } else {
-                                explict_attrs.insert(attr_info.name.clone(), IntegerType(val));
+                                att_value = Some(IntegerType(val));
                             }
                         }
                         DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
                             let (l, v) = be_i32(tmp_input)?;
                             let _len = v as usize;
-                            let mut data = [0f64; 3];
-                            for i in 0..3 {
-                                if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
-                                    // 保留两位精度
-                                    data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                }
-                            }
-                            explict_attrs.insert(attr_info.name.clone(), Vec3Type(data));
+                            let data = parse_to_f64_arr(l);
+                            att_value = Some(Vec3Type(data));
                         }
                         DbAttributeType::DATETIME => {}
 
@@ -570,28 +553,23 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 if tmp_input.len() >= 8 {
                                     let mut data = vec![];
                                     for _ in 0..len {
-                                        if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                            data.push((f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0);
-                                            tmp_input = &tmp_input[8..];
-                                        }
+                                        data.push(parse_to_f64(&tmp_input[..8]));
+                                        tmp_input = &tmp_input[8..];
                                     }
-                                    explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(data));
+                                    att_value = Some(DoubleArrayType(data));
                                 } else {
-                                    explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(vec![0.0]));
+                                    att_value = Some(DoubleArrayType(vec![0.0]));
                                 }
                             } else if double_or_float == 1 {
                                 if tmp_input.len() > 4 {
                                     let mut data = vec![];
                                     for _ in 0..len {
-                                        if let [a, b, c, d] = tmp_input[..4] {
-                                            let val = f32::from_be_bytes([a, b, c, d]) as f64;
-                                            data.push((val * 100.0).round() / 100.0);
-                                            tmp_input = &tmp_input[4..];
-                                        }
+                                        data.push(parse_to_f32(&tmp_input[..4]) as f64);
+                                        tmp_input = &tmp_input[4..];
                                     }
-                                    explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(data));
+                                    att_value = Some(DoubleArrayType(data));
                                 } else {
-                                    explict_attrs.insert(attr_info.name.clone(), DoubleArrayType(vec![0.0]));
+                                    att_value = Some(DoubleArrayType(vec![0.0]));
                                 }
                             }
                         }
@@ -605,7 +583,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 data.push(val);
                                 tmp_input = remain_input;
                             }
-                            explict_attrs.insert(attr_info.name.clone(), IntArrayType(data));
+                            att_value = Some(IntArrayType(data));
                         }
 
                         _ => {}
@@ -614,34 +592,32 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                     // 这里的逻辑改了一下，先判断是否为表达式，所以之前在这里的表达式判断就注释掉了
                     // 如果DashMap没有对应属性的hash 则调用get_explicit_attr_type进行解析
                     if let Some(attr_type) = get_explicit_attr_type(attr_type_num, debug_pos + pos) {
-                        let attr_name = db1_dehash(explict_num as u32);
+                        let attr_name = db1_dehash(explict_hash as u32);
                         // 根据获取到的type hash值，拿到需要的类型
                         match attr_type {
                             DbAttributeType::INTEGER => {
                                 let (_, val) = be_i32(tmp_input)?;
-                                explict_attrs.insert(attr_name, IntegerType(val));
+                                att_value = Some(IntegerType(val));
                             }
                             DbAttributeType::DOUBLE => {
                                 if tmp_input.len() >= 8 {
-                                    if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                        let val = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                        explict_attrs.insert(attr_name, DoubleType(val));
-                                    }
+                                    let val = parse_to_f64(&tmp_input[..8]);
+                                    att_value = Some(DoubleType(val));
                                 } else {
                                     let (_, val) = be_i32(tmp_input)?;
-                                    explict_attrs.insert(attr_name, IntegerType(val));
+                                    att_value = Some(IntegerType(val));
                                 }
                             }
                             DbAttributeType::BOOL => {
                                 let (_, val) = be_u32(tmp_input)?;
-                                explict_attrs.insert(attr_name, BoolType(val != 0));
+                                att_value = Some(BoolType(val != 0));
                             }
                             DbAttributeType::STRING => {
                                 let (_, a) = be_u32(tmp_input)?;
                                 let len_a = a as usize;
                                 if tmp_input.len() > 4 {
                                     let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
-                                    explict_attrs.insert(attr_name, AttrVal::StringType(decode_string.into()));
+                                    att_value = Some(StringType(decode_string.into()));
                                 } else {
                                     println!("len_a={:#04X?}", len_a);
                                     println!("error refno={:?}", refno);
@@ -653,28 +629,22 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                     be_i32,
                                     be_i32,
                                 ))(tmp_input)?;
-                                explict_attrs.insert(attr_name, ElementType(RefNoTuple::new(ref_0, ref_1).into()));
+                                att_value = Some(ElementType(RefNoTuple((ref_0, ref_1)).into()));
                             }
                             DbAttributeType::WORD => {
                                 let (_, val) = be_i32(tmp_input)?;
                                 if val >= 0x81BF1 {
                                     let val_word = db1_dehash(val as u32);
-                                    explict_attrs.insert(attr_name, WordType(val_word.into()));
+                                    att_value = Some(WordType(val_word.into()));
                                 } else {
-                                    explict_attrs.insert(attr_name, IntegerType(val));
+                                    att_value = Some(IntegerType(val));
                                 }
                             }
                             DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION => {
                                 let (l, v) = be_i32(tmp_input)?;
                                 let _len = v as usize;
-                                let mut data = [0f64; 3];
-                                for i in 0..3 {
-                                    if let [a, b, c, d, e, f, g, h] = l[i * 8..i * 8 + 8] {
-                                        // 保留两位精度
-                                        data[i] = f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0;
-                                    }
-                                }
-                                explict_attrs.insert(attr_name, Vec3Type(data));
+                                let data = parse_to_f64_arr(l);
+                                att_value = Some(Vec3Type(data));
                             }
 
                             DbAttributeType::DOUBLEVEC => {
@@ -686,22 +656,17 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                 if double_or_float == 2 {
                                     let mut data = vec![];
                                     for _ in 0..len {
-                                        if let [a, b, c, d, e, f, g, h] = tmp_input[..8] {
-                                            data.push(f64::trunc(f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 10000.0) / 10000.0);
-                                            tmp_input = &tmp_input[8..];
-                                        }
+                                        data.push(parse_to_f64(&tmp_input[..8]));
+                                        tmp_input = &tmp_input[8..];
                                     }
-                                    explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                    att_value = Some(DoubleArrayType(data));
                                 } else if double_or_float == 1 {
                                     let mut data = vec![];
                                     for _ in 0..len {
-                                        if let [a, b, c, d] = tmp_input[..4] {
-                                            let val = f32::from_be_bytes([a, b, c, d]) as f64;
-                                            data.push(f64::trunc(val * 10000.0) / 10000.0);
-                                            tmp_input = &tmp_input[4..];
-                                        }
+                                        data.push(parse_to_f32(&tmp_input[..4]) as f64);
+                                        tmp_input = &tmp_input[4..];
                                     }
-                                    explict_attrs.insert(attr_name, DoubleArrayType(data));
+                                    att_value = Some(DoubleArrayType(data));
                                 }
                             }
                             DbAttributeType::INTVEC => {
@@ -714,14 +679,15 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                                     data.push(val);
                                     tmp_input = remain_input;
                                 }
-                                explict_attrs.insert(attr_name, IntArrayType(data));
+                                att_value = Some(IntArrayType(data));
                             }
                             DbAttributeType::TYPEX => {
                                 let (tmp_input, len) = be_u32(tmp_input)?;
                                 if len == 1 {
                                     let (_, typex) = be_u32(&tmp_input[..4])?;
                                     let typex = db1_dehash(typex);
-                                    explict_attrs.entry("TYPE".to_string()).or_insert(StringType(typex.into()));
+                                    att_name = Some(SmolStr::new("TYPE"));
+                                    att_value = Some(StringType(typex.into()));
                                 } else {
                                     println!("undefined TYPE len {} position={:#04X?}", len, pos);
                                 }
@@ -734,8 +700,13 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &'a DashMap<i32, 
                 break;
             }
         }
+        if let Some(n) = att_name {
+            if let Some(v) = att_value {
+                attr_data_map.insert(n, v);
+            }
+        }
     }
-    Ok((input, explict_attrs))
+    Ok((input, true))
 }
 
 /// 获取所有的members
@@ -765,7 +736,7 @@ pub fn parse_attr_owner(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 #[inline]
-pub fn trunc_f32_two(input: f32) -> f32 {
+pub fn round_f32(input: f32) -> f32 {
     (input * 100.0).round() / 100.0
 }
 
@@ -1006,10 +977,9 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             &[0x0, 0x0, 0x0, 0x1] => {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
                 if value >= 50 && value < 0x65 {
-                    let value =value -50;
-                    val = format!("DESIGN PARAM {}",value);
-                }
-                else if value >= 0x65 && value < 0x3E9 {
+                    let value = value - 50;
+                    val = format!("DESIGN PARAM {}", value);
+                } else if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
                     val = format!("IPARAM {}", value);
@@ -1025,14 +995,14 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     let (_, t) = be_i32(&tmp_input[..4])?;
                     // times是除以0x28的倍数
                     if t == 0x28 {
-                        val = match_angle_or_return_number(i32::from_be_bytes(tmp_input[8..12].try_into().unwrap()));
+                        val = match_angle_or_return_number(parse_to_i32(&tmp_input[8..12]));
                     } else {
                         let mut value = "".to_string();
                         let v = t as f32 / 40.0;
-                        let times = trunc_f32_two(v);
+                        let times = round_f32(v);
                         value = get_implicit_angle_expression(&tmp_input[8..12]);
                         if value == "" {
-                            let v = i32::from_be_bytes(tmp_input[8..12].try_into().unwrap());
+                            let v = parse_to_i32(&tmp_input[8..12]);
                             if v != 0 {
                                 value = (-v as f32 / 10.0).to_string();
                             }
@@ -1077,13 +1047,12 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 ))(&tmp_input[8..16])?;
                 let mut result = String::from("PARAM");
                 if value1 >= 0x65 && value1 < 0x1F5 {
-                    let value1 = f32::trunc(((value1 - 0x64) as f32 + 0.005) * 100.0).ceil() / 100.0;
+                    let value1 = (((value1 - 0x64) as f32 + 0.005) * 100.0).round() / 100.0;
                     val = format!("IPARAM {}", value1);
                 } else if value1 >= 0x1F5 {
                     let value1 = value1 - 0x1F4;
                     val = format!("TWICE PARAM {}", value1);
                 } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    // let value = f32::trunc(((0xFFFFFFFFu32 as i32 - value1) as f32 / 0xA as f32 + 0.1) * 10.0) / 10.0;
                     let value = match_angle_or_return_number(value1);
                     val = value.to_string();
                 } else {
@@ -1361,7 +1330,7 @@ pub fn check_is_expr(input: i32) -> bool {
 }
 
 /// 获取所有的DB对应的参考号、name和numberDb
-pub fn get_sys_db_ref_no(db_eles_data_map: &DashMap<i32, Vec<ElementData>>) -> DashMap<String, (AttrVal, String)> {
+pub fn get_sys_db_ref_no(db_eles_data_map: &DashMap<i32, Vec<EleNode>>) -> DashMap<String, (AttrVal, String)> {
     let mut result = DashMap::new();
     // if let Some(db_data_map) = db_eles_data_map.get(&0x81C2B) {
     //     for ele in db_data_map.value() {
@@ -1425,7 +1394,7 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
         let input = &buf[..];
         let time = start.elapsed();
         println!("read {:?} finished in {:?}", path, time);
-        let (_input, _) = process_type_hash(input, &mut unique_hash_refno_map, &path).unwrap_or_default();
+        process_type_hash(input, &mut unique_hash_refno_map, &path);
         println!("noun_hash_refnos len = {:?}", unique_hash_refno_map.len());
         let encode = bincode::serialize(&unique_hash_refno_map).unwrap();
         let mut file = OpenOptions::new()
@@ -1441,10 +1410,10 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
 }
 
 ///处理type_hash对应的refno位置信息
-fn process_type_hash<'a>(input: &'a [u8], type_hash: &'a mut DashMap<i32, (RefNoTuple, String)>, path: &PathBuf) -> IResult<&'a [u8], ()> {
+fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefNoTuple, SmolStr)>, path: &PathBuf) -> IResult<&'a [u8], ()> {
     let refno_0_set = get_total_refno_0s(input);
     let path = Path::new(path);
-    let file_name = path.file_name().unwrap().to_owned().to_string_lossy().to_string();
+    let file_name: SmolStr = path.file_name().unwrap().to_owned().to_string_lossy().to_string().into();
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
@@ -1482,32 +1451,30 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 
-
 ///获得参考号对应的Entry
 #[inline]
 fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoTuple, EleDataEntry)>> {
-    let input = &input[offset-4..];
+    let input = &input[offset - 4..];
     let (_, noun_hash) = be_i32(&input[12..16])?;
-    let (_, owner_ref_0) = be_i32(&input[16..20])?;  //check parent ref 0
     let mut refno_entry = None;
     let mut is_world = noun_hash == 0xBEB83;
+    let mut is_ok = false;
     if NOUN_TYPES_MAP.contains_key(&noun_hash) {
         let (_, (len, refno_0, refno_1)) = tuple((
             be_i32,   //len
             be_i32,
             be_i32,
         ))(&input[0..12])?;
-        let mut is_ok = is_world && owner_ref_0 == 0;
-        if !is_ok && (len != 0 && (len & 0xFFFF000 == 0)) {
+        if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
-            if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 100], &input[4..12]){   //允许一定范围去查找
+            if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 100], &input[4..12]) {   //允许一定范围去查找
                 let end_pos = (next_pos + 12);      //隐含属性实际结束点
                 let diff_len = end_pos - tmp_pos - 4;
                 is_ok = diff_len == 0;
                 if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
-                    let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x|x == 0),
+                    let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x| x == 0),
                                                                        verify(be_i32, |&x| x == 7))(&input[tmp_pos..end_pos]);
-                    if s.is_ok(){
+                    if s.is_ok() {
                         is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
                     }
                 }
@@ -1519,8 +1486,8 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                     // dbg!(diff_len);
                 }
                 // dbg!(is_ok);
-            }else{
-                let next_len = be_u32(&input[tmp_pos..tmp_pos+4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
+            } else {
+                let next_len = be_u32(&input[tmp_pos..tmp_pos + 4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
                 is_ok = next_len & 0xFFFFFF00 == 0;
                 if !is_ok {
                     // dbg!(next_len);
@@ -1532,7 +1499,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefNoT
                 pos: offset as usize,
                 noun_hash,
             }));
-        }else{
+        } else {
             // dbg!(offset);
             // dbg!((refno_0, refno_1));
         }
@@ -1664,7 +1631,7 @@ pub fn match_angle_or_return_number(input: i32) -> String {
 // }
 
 /// 返回 k:DBnumber v:Dbname
-pub fn get_numberdb(map: DashMap<i32, Vec<ElementData>>) -> DashMap<String, String> {
+pub fn get_numberdb(map: DashMap<i32, Vec<EleNode>>) -> DashMap<String, String> {
     let mut result = DashMap::new();
     // for (_, v) in map {
     //     for node in v {
@@ -1708,12 +1675,11 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefNoTuple, EleDataEntry
         let mut w_refno = world_refno_clone.lock().unwrap();
         for p in pos_iter {
             if let Ok((_, Some(refno_entry))) = get_refno_entry(input, p) {
-                if w_refno.get_0() == 0 && refno_entry.1.noun_hash == 0xBEB83 {
+                //判断是否试World
+                if refno_entry.1.noun_hash == 0xBEB83 {
                     *w_refno = refno_entry.0;
                 }
-                if refno_entry.0.get_0() != 0 {  //取得 ref_0
-                    refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
-                }
+                refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
             }
         }
     });
@@ -1721,11 +1687,6 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefNoTuple, EleDataEntry
     let lock = Arc::try_unwrap(world_refno).expect("Lock still has multiple owners");
     (refno_table, lock.into_inner().expect("Mutex cannot be locked"))
 }
-
-
-
-
-
 
 
 fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
@@ -1736,7 +1697,7 @@ fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
     let mut tmp_offset = *len;
     while tmp_offset + 4 <= input.len() && &input[tmp_offset..tmp_offset + 4] == &[0x0, 0x0, 0x0, 0x7] {
         // println!("{:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
-        let seg_len = u16::from_be_bytes(input[tmp_offset + 6..tmp_offset + 8].try_into().unwrap()) as usize * 4;
+        let seg_len = parse_to_u16(&input[tmp_offset + 6 .. tmp_offset + 8 ]) as usize * 4;
         let mut seg_offset = tmp_offset + 16;
         let mut i = 0;
         while &input[seg_offset..seg_offset + 4] == &[0x0, 0x0, 0x0, 0x0] {
@@ -1759,7 +1720,7 @@ pub fn get_project_name_from_filename(filename: &str) -> IResult<&str, &str> {
 }
 
 /// 返回 k:DBnumber v:Dbname
-pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<ElementData>>) -> DashMap<String, String> {
+pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<EleNode>>) -> DashMap<String, String> {
     let mut result = DashMap::new();
     // for (_, v) in map {
     //     for node in v {

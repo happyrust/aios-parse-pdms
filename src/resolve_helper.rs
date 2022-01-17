@@ -8,8 +8,8 @@ use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam,
                          CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam,
                          CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam,
                          CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam,
-                         CateSphereParam, CateSverParam, CateTorusParam, GeoParamsData, GmseParamData};
-use crate::pdms_types::ElementData;
+                         CateSphereParam, CateSverParam, CateTorusParam, GmseParamData};
+use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
 
 

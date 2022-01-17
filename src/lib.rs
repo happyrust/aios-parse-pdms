@@ -3,6 +3,7 @@
 #![feature(slice_pattern)]
 #![feature(core_intrinsics)]
 #![feature(associated_type_bounds)]
+#[allow(dead_code)]
 
 #[macro_use]
 extern crate serde;
@@ -13,7 +14,7 @@ use std::collections::HashSet;
 use std::error::Error;
 use autowired::Autowired;
 use crate::parsed_data::GeomsInfo;
-use crate::pdms_types::{AttrMap, EleDataNode, ElementData, PdmsRefno};
+use crate::pdms_types::{AttrMap, EleNode, PdmsRefno};
 use futures::stream::TryStreamExt;
 // use crate::interface::pdms_interface::PdmsInterface;
 
@@ -31,6 +32,8 @@ pub mod polish_notation;
 pub mod direction_parse;
 pub mod axis_param;
 pub mod parse;
+pub mod consts;
+
 pub use parse::{parse_db,parse_file};
 
 pub mod interface;

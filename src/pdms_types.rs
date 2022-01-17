@@ -3,10 +3,16 @@ use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
 use serde::{Serialize, Deserialize};
 use smol_str::SmolStr;
+use crate::consts::UNSET_STR;
 use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, StringArrayType, StringType, Vec3Type, WordType};
 use crate::helper::get_attr_value_f64_vec;
 
 
+
+//todo wrap noun hash
+pub struct NounHash(pub i32);
+
+///pdms的参考号
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Copy, Eq, PartialEq, Hash)]
 pub struct RefNoTuple(pub (i32, i32));
 
@@ -22,26 +28,18 @@ impl Into<String> for RefNoTuple {
     }
 }
 
+impl From<&[u8]> for RefNoTuple {
+    fn from(input: &[u8]) -> Self {
+        Self::new(i32::from_be_bytes(input[0..4].try_into().unwrap()), i32::from_be_bytes(input[4..8].try_into().unwrap()))
+    }
+}
+
 impl From<&str> for RefNoTuple{
     fn from(s: &str) -> Self {
         let x: Vec<i32> = s.split('/').map(|x| x.parse::<i32>().unwrap_or_default()).collect();
         Self::new(x[0], x[1])
     }
 }
-
-// #[inline]
-// fn convert_string_to_ref(refno: &str) -> RefNoTuple {
-//     let x: Vec<i32> = refno.split('/').map(|x| x.parse::<i32>().unwrap_or_default()).collect();
-//     RefNoTuple::new(x[0], x[1])
-// }
-
-// impl From<s: IntoRef<String>> for RefNoTuple{
-//     fn from(s: String) -> Self {
-//         todo!()
-//     }
-// }
-
-// format!("{}/{}", refno.0, refno.1)
 
 impl RefNoTuple {
 
@@ -60,47 +58,55 @@ impl RefNoTuple {
 }
 
 
+///PDMS的属性数据Map
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct AttrMap{
-    pub map: DashMap<String, AttrVal>
+    pub map: DashMap<SmolStr, AttrVal>
 }
+
+
 
 impl AttrMap {
 
     #[inline]
-    pub fn get_name(&self) -> String{
-        self.get_as_string("NAME").unwrap_or("unset".to_string())
+    pub fn insert(&mut self, k: SmolStr, v: AttrVal){
+        self.map.entry(k).or_insert(v);
     }
 
     #[inline]
-    pub fn get_refno(&self) -> String{
-        self.get_as_string("REFNO").unwrap_or("unset".to_string())
+    pub fn get_name(&self) -> SmolStr{
+        self.get_as_string("NAME").unwrap_or(UNSET_STR.into())
     }
 
     #[inline]
-    pub fn get_owner(&self) -> String{
-        self.get_as_string("OWNER").unwrap_or("unset".to_string())
+    pub fn get_refno(&self) -> SmolStr{
+        self.get_as_string("REFNO").unwrap_or(UNSET_STR.into())
     }
 
     #[inline]
-    pub fn get_type(&self) -> String{
-        self.get_as_string("TYPE").unwrap_or("unset".to_string())
+    pub fn get_owner(&self) -> SmolStr{
+        self.get_as_string("OWNER").unwrap_or(UNSET_STR.into())
     }
 
     #[inline]
-    pub fn get_as_string(&self, key: &str) -> Option<String>{
+    pub fn get_type(&self) -> SmolStr{
+        self.get_as_string("TYPE").unwrap_or(UNSET_STR.into())
+    }
+
+    #[inline]
+    pub fn get_as_string(&self, key: &str) -> Option<SmolStr>{
         if let Some(v) = self.map.get(key){
             let s = match v.value() {
-                StringType(s) | WordType(s) | ElementType(s) => s.trim().to_string(),
-                IntegerType(d)  => d.to_string(),
-                DoubleType(d)  => d.to_string(),
-                BoolType(d)  => d.to_string(),
-                DoubleArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
-                StringArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
-                IntArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
-                BoolArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
-                Vec3Type(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>(),
-                _ => { "unset".to_string() }
+                StringType(s) | WordType(s) | ElementType(s) => s.clone(),
+                IntegerType(d)  => d.to_string().into(),
+                DoubleType(d)  => d.to_string().into(),
+                BoolType(d)  => d.to_string().into(),
+                DoubleArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
+                StringArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
+                IntArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
+                BoolArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
+                Vec3Type(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
+                _ => { UNSET_STR.into() }
             };
             return Some(s);
         }
@@ -260,37 +266,16 @@ pub struct PdmsDatabaseInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct ElementData {
-    //当前节点
+pub struct EleNode {
     pub ref_no: SmolStr,
-    pub name: String,
-    pub noun_name: SmolStr,
-    pub noun_hash: i32,
-    pub version:u32,
-    //子节点, 临时存储children
-    // #[serde(skip_serializing)]
-    // pub children_refnos: Vec<RefNoTuple>,
-
-    pub children: Vec<RefNoTuple>,
-    //父节点
     pub owner: SmolStr,
-    // pub attr_data_map: DashMap<String, AttrVal>,
-    pub order: i32,
+    pub name: SmolStr,
+    pub noun_name: SmolStr,
+    pub version:u32,
+    // pub order: i32,
 }
 
 
-
-
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct EleDataNode {
-    pub ref_no: String,
-    pub children: Vec<String>,
-    pub owner: String,
-    pub name: String,
-    pub order: i32,
-    pub db_name: String,
-    pub type_name: String,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum DbAttributeType {
@@ -313,7 +298,7 @@ pub enum DbAttributeType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AttrInfo {
-    pub name: String,
+    pub name: SmolStr,
     pub hash: i32,
     pub offset: u32,
     pub default_val: AttrVal,

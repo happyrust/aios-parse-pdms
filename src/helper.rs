@@ -3,24 +3,14 @@ use std::ops::Neg;
 use dashmap::DashMap;
 use itertools::Itertools;
 use mongodb::{Database, bson::doc, Client};
+use smol_str::SmolStr;
 use crate::AttrMap;
 use crate::db_tool::db1_dehash;
 use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params};
 use crate::pdms_data::{AxisParam, GmseParam, ScomInfo};
-use crate::parsed_data::{CateAxisParam, GeoParamsData, GmseParamData};
+use crate::parsed_data::{CateAxisParam, GmseParamData};
 use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::pdms_types::{AttrVal, EleDataNode, ElementData};
-
-
-// pub async fn get_attr_string_db(ele: EleDataNode, db: &Database, _db_tree: &Database) -> mongodb::error::Result<ElementData> {
-//     let table = db.collection::<ElementData>(&ele.type_name);
-//     let value = table.find_one(doc! { "ref_no":ele.ref_no }, None).await?;
-//     if let Some(value) = value {
-//         Ok(value)
-//     } else {
-//         Ok(ElementData::default())
-//     }
-// }
+use crate::pdms_types::{AttrVal, EleNode};
 
 pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
     if let Some(value) = ele.get(attr) {
@@ -33,7 +23,6 @@ pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &s
     };
     "unset".to_string()
 }
-
 
 
 pub fn get_attr_value_f64_vec(attr_map: &AttrMap, att: &str) -> Option<Vec<f64>> {
@@ -325,4 +314,57 @@ pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<String>) -> 
             Some("".to_string())
         }
     }
+}
+
+#[inline]
+pub fn parse_to_u16(input: &[u8]) -> u16 {
+    u16::from_be_bytes(input.try_into().unwrap())
+}
+
+#[inline]
+pub fn parse_to_i32(input: &[u8]) -> i32 {
+    i32::from_be_bytes(input.try_into().unwrap())
+}
+
+#[inline]
+pub fn parse_to_u32(input: &[u8]) -> u32 {
+    u32::from_be_bytes(input.try_into().unwrap())
+}
+
+#[inline]
+pub fn parse_to_f32(input: &[u8]) -> f32 {
+    (f32::from_be_bytes(input.try_into().unwrap()) * 100.0).round() / 100.0
+}
+
+#[inline]
+pub fn parse_to_f64(input: &[u8]) -> f64 {
+    if let [a, b, c, d, e, f, g, h] = input[..8] {
+        return (f64::from_be_bytes([e, f, g, h, a, b, c, d]) * 100.0).round() / 100.0;
+    } else {
+        return 0.0;
+    }
+}
+
+
+#[inline]
+pub fn convert_u32_to_noun(input: &[u8]) -> SmolStr {
+    db1_dehash(parse_to_u32(input.try_into().unwrap())).into()
+}
+
+#[inline]
+pub fn parse_to_f64_arr(input: &[u8]) -> [f64; 3] {
+    let mut data = [0f64; 3];
+    for i in 0..3 {
+        data[i] = parse_to_f64(&input[i * 8..i * 8 + 8]);
+    }
+    data
+}
+
+#[inline]
+pub fn parse_to_f32_arr(input: &[u8]) -> [f64; 3] {
+    let mut data = [0f64; 3];
+    for i in 0..3 {
+        data[i] = parse_to_f32(&input[i * 4..i * 4 + 4]) as f64;
+    }
+    data
 }
