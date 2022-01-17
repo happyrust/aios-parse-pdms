@@ -30,7 +30,7 @@ use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
 use crate::{db_tool, read_attr_info_config};
 use crate::db_tool::{db1_dehash, decode_chars_data};
-use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, times_keep_f32_two_decimal_place};
+use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, parse_expression_attr, times_keep_f32_two_decimal_place};
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
@@ -445,7 +445,6 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
             }
         }
     }
-    // Ok((input, (advance_offset, val)))
     Ok((input, (advance_offset, val)))
 }
 
@@ -461,8 +460,10 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         // let hash_val = i32::from_be_bytes(residual[..4].try_into().unwrap());
         let hash_val = parse_to_i32(&residual[..4]);
         if check_is_expr(hash_val) {
-            // let (input, (expression_type, value)) = parse_expression_attr(residual).unwrap();
-            // explict_attrs.insert(expression_type, StringType(value));
+            let (input, (expression_type, value)) = parse_expression_attr(residual)?;
+            att_name = Some(expression_type.into());
+            att_value = Some(StringType(value));
+            // attr_data_map.insert(expression_type.into(), StringType(value));
             residual = input;
         } else {
             let (l, (explict_hash, attr_type_num, type_len)) = tuple((
