@@ -42,7 +42,7 @@ use id_tree::InsertBehavior::{AsRoot, UnderNode};
 use nalgebra_glm::{e, round};
 use serde_json::Value::Bool;
 use smol_str::SmolStr;
-use crate::consts::{ATT_LEVE, ATT_PTS};
+use crate::consts::{ATT_LEVE, ATT_PTS, UNSET_STR};
 use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
@@ -54,7 +54,7 @@ struct DebugParseConfig {
 }
 
 ///一个pdms db的整体数据
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PdmsDbData {
     /// 按noun类型分类的参考号
     pub type_ele_map: DashMap<SmolStr, Vec<SmolStr>>,
@@ -65,7 +65,7 @@ pub struct PdmsDbData {
 }
 
 
-pub fn parse_file(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData /*DashMap<i32, Vec<ElementData>>*/ {
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData /*DashMap<i32, Vec<ElementData>>*/ {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -73,7 +73,13 @@ pub fn parse_file(path: &PathBuf, database_info: &PdmsDatabaseInfo, limited_cnt:
     let input = &buf[..];
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
-    parse_db(input, database_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
+
+    if database_info.is_none(){
+        if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")){
+            return parse_db(input, &db_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str);
+        }
+    }
+    parse_db(input, database_info.as_ref().unwrap(), limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
 }
 
 #[test]
@@ -202,15 +208,20 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             match name.as_str() {
                 "PTCDI" => attr_data_map.insert(name.to_owned(), StringType("Y".into())),
                 "PARA" =>  attr_data_map.insert(name.to_owned(), DoubleArrayType(vec![])),
-                "OWNER" =>  attr_data_map.insert(name.to_owned(), ElementType(ele_node.owner.clone())),
-                "TYPE" =>  attr_data_map.insert(name.to_owned(), WordType(ele_node.noun_name.clone())),
-                "NAME" => attr_data_map.insert(name.to_owned(), StringType(format!("{} {indx}", &ele_node.noun_name).into())),
                 _ => {}
             }
         }
     });
     //添加遗漏的属性
+    attr_data_map.insert("OWNER".into(), ElementType(ele_node.owner.clone()));
+    attr_data_map.insert("TYPE".into(), WordType(ele_node.noun_name.clone()));
     attr_data_map.insert("REFNO".into(), ElementType(ele_node.ref_no.clone()));
+    if !attr_data_map.map.contains_key("NAME") || attr_data_map.get_name() == UNSET_STR {
+        ele_node.name = format!("{} {indx}", &ele_node.noun_name).into();
+        attr_data_map.insert("NAME".into(), StringType(ele_node.name.clone()));
+    }else{
+        ele_node.name = attr_data_map.get_name().clone();
+    }
     EleData{
         ele_node,
         attr_data_map,
@@ -260,12 +271,14 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
     } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, 0);
     all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
     type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
-    let mut parent_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
+    let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
+    // let mut node_id_map = HashMap::new();
+    // node_id_map.insert(root_refno, root_id);
     // dbg!(children.len());
     // children.par_iter().for_each(|root|{  //todo opt parallel
-        let mut pending_refnos = vec![children];
+        let mut pending_refnos = vec![(root_id.clone(), children)];
         while !pending_refnos.is_empty() {
-            let refnos = pending_refnos.pop().unwrap();
+            let (parent_id, refnos) = pending_refnos.pop().unwrap();
             refnos.iter().enumerate().for_each(|(indx, refno)| {
                 if refno_table_map.contains_key(&refno) {
                     let entry = &*refno_table_map.get(&refno).unwrap();
@@ -281,11 +294,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
                         if !print_refno_str.is_empty() && print_refno_str == &ele_node.ref_no {
                             println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_node);
                         }
-                        pending_refnos.push(children);
                         if !all_attr_map.contains_key(&ele_node.ref_no) {
                             all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
                             type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
-                            parent_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
+                            let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
+                            pending_refnos.push((cur_id, children));
                         }
                     }
                 }

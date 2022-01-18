@@ -48,6 +48,7 @@ use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
+use futures::TryStreamExt;
 use parse_pdms_db::notify_file_change::notify_file;
 
 const ATT_MDB:i32 = 0x8221C;
@@ -99,7 +100,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         filter_file_names = filter_files_str.split(',').map(|x| x.trim().to_string()).collect();
     }
     println!("PDMS文件为: {:?}", filter_file_names);
-    let config_path = matches.value_of("CONFIG").unwrap();
+    let config_path = matches.value_of("CONFIG").unwrap_or("");
     println!("配置文件路径为: {}", config_path);
 
     let server_ip = matches.value_of("SERVER_IP").unwrap_or("localhost");  //10.30.230.146
@@ -151,11 +152,18 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let mut file = File::open(config_path).unwrap();
-    let mut attr_buf: Vec<u8> = Vec::new();
-    file.read_to_end(&mut attr_buf);
-    let database_info: PdmsDatabaseInfo = bincode::deserialize(&attr_buf).unwrap();
-    let db_info_map = &database_info.db_names_map;
+
+    let mut database_info = None;
+    if let Ok(mut file) = File::open(config_path){
+        let mut attr_buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut attr_buf);
+        database_info = bincode::deserialize(&attr_buf).ok();
+    }
+
+
+    if database_info.is_none() {
+        return Ok(());
+    }
 
     target_files.sort_by(|a, b|
         fs::metadata(b).unwrap().len()
@@ -182,7 +190,6 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
                 let mut db_info = PDMSDBInfo::default();
                 let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-                dbg!(&eles_data_map);
 
                 // db_name_map = get_numberdb(eles_data_map.clone());
                 // db_info.name = file_name.to_string();

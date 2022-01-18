@@ -1,3 +1,4 @@
+use std::fmt;
 use dashmap::DashMap;
 use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
@@ -258,7 +259,7 @@ impl AttrVal {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct PdmsDatabaseInfo {
     pub db_names_map: DashMap<i32, String>,
     // 第一个i32是refno ，第二个i32是type的hash
@@ -273,6 +274,25 @@ pub struct EleNode {
     pub noun_name: SmolStr,
     pub version:u32,
     // pub order: i32,
+}
+
+// impl ToString for EleNode {
+//     fn to_string(&self) -> String {
+//         self.name.to_string()
+//     }
+// }
+
+impl EleNode {
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
+
+impl fmt::Display for EleNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.name().fmt(f)
+    }
 }
 
 
