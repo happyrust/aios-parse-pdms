@@ -66,6 +66,9 @@ pub struct PdmsDbData {
     ///数据文件名
     pub filename: SmolStr,
 
+    ///数据文件的版本号
+    pub version: u32,
+
     ///数据文件的db type（DESI、CATA、SYS等等）
     pub db_type: SmolStr,
 
