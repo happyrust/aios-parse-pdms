@@ -62,54 +62,62 @@ pub struct PdmsDbData {
     pub ele_id_tree: Tree<EleNode>,
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
+
+    ///数据文件名
+    pub filename: SmolStr,
+
+    ///数据文件的db type（DESI、CATA、SYS等等）
+    pub db_type: SmolStr,
+
+    /// 数据文件的db 名称（SYS里用的名称）
+    pub db_name: SmolStr,
 }
 
 #[test]
-fn parse_files_test(){
-    let dir=r"D:\ABA(12.0)\ABA\ABA000\debug_files";
-    parse_files(&dir,"");
+fn parse_files_test() {
+    let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
+    parse_pdms_dir(&dir, None);
 }
 
-pub fn parse_files(dir: &str, config_path: &str) ->core::result::Result<Vec<PdmsDbData>, Box<dyn std::error::Error>>{
+///解析pdms的目录
+pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Result<Vec<PdmsDbData>, Box<dyn std::error::Error>> {
+
     let dir = PathBuf::from(dir);
-    let mut pdms_attrs=vec![];
+    let mut pdms_attrs = vec![];
     let parent_files = fs::read_dir(dir)?.into_iter().map(|entry| {
         let entry = entry.unwrap();
         entry.path()
     }).collect::<Vec<PathBuf>>();
     let mut database_info = None;
 
-    if let Ok(mut file) = File::open(config_path) {
-        let mut attr_buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut attr_buf);
-        database_info = bincode::deserialize(&attr_buf).ok();
-    } else {
-        let mut file = File::open("all_attr_info.bin")?;
-        let mut attr_buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut attr_buf);
-        database_info = bincode::deserialize(&attr_buf).ok();
-    }
-
-
-    if database_info.is_none() {
-        return Ok(pdms_attrs);
-    }
-    for path in &parent_files {
-        if let Some(file_name) = path.file_name().unwrap().to_str() {
-            if file_name.to_string().ends_with("sys") {
-                let mut file = File::open(&path).unwrap();
-                let mut buf = vec![0u8; 36];
-                file.read_exact(&mut buf)?;
-                let db_type_bytes = &buf[32..36];
-                let db_no_bytes = &buf[8..12];
-                let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
-                let mut db_info = PDMSDBInfo::default();
-                let eles_data_map = parse_file(&path, &database_info, 0, false, "", "");
-                pdms_attrs.push(eles_data_map);
-            }
+    if config_path.is_some() {
+        if let Ok(mut file) = File::open(config_path.unwrap()) {
+            let mut attr_buf: Vec<u8> = Vec::new();
+            file.read_to_end(&mut attr_buf);
+            database_info = bincode::deserialize(&attr_buf).ok();
         }
     }
+
     for path in &parent_files {
+        if path.file_name().unwrap().to_str().unwrap().ends_with("sys"){
+            let mut file = File::open(&path).unwrap();
+            let mut buf = vec![0u8; 36];
+            file.read_exact(&mut buf)?;
+            let db_type_bytes = &buf[32..36];
+            let db_no_bytes = &buf[8..12];
+            let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
+            let mut db_info = PDMSDBInfo::default();
+            let eles_data_map = parse_file(&path, &database_info, 0, false, "", "");
+            pdms_attrs.push(eles_data_map);
+            break;
+        }
+    }
+
+    for path in &parent_files {
+        let filename = path.file_name().unwrap().to_str().unwrap();
+        if filename.ends_with("com") || filename.ends_with("mis"){
+            continue;
+        }
         let mut file = File::open(path).unwrap();
         let mut buf = vec![0u8; 36];
         file.read_exact(&mut buf)?;
@@ -122,7 +130,7 @@ pub fn parse_files(dir: &str, config_path: &str) ->core::result::Result<Vec<Pdms
         let mut eles_data_map = parse_file(&path, &database_info, 0, false, "", "");
         pdms_attrs.push(eles_data_map);
     }
-    return Ok(pdms_attrs)
+    return Ok(pdms_attrs);
 }
 
 pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData /*DashMap<i32, Vec<ElementData>>*/ {
