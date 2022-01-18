@@ -70,7 +70,7 @@ fn parse_files_test(){
     parse_files(&dir,"");
 }
 
-pub fn parse_files(dir: &str, config_path: &str) ->core::result::Result<(), Box<dyn std::error::Error>>{
+pub fn parse_files(dir: &str, config_path: &str) ->core::result::Result<Vec<PdmsDbData>, Box<dyn std::error::Error>>{
     let dir = PathBuf::from(dir);
     let mut pdms_attrs=vec![];
     let parent_files = fs::read_dir(dir)?.into_iter().map(|entry| {
@@ -92,7 +92,7 @@ pub fn parse_files(dir: &str, config_path: &str) ->core::result::Result<(), Box<
 
 
     if database_info.is_none() {
-        return Ok(());
+        return Ok(pdms_attrs);
     }
     for path in &parent_files {
         if let Some(file_name) = path.file_name().unwrap().to_str() {
@@ -122,8 +122,7 @@ pub fn parse_files(dir: &str, config_path: &str) ->core::result::Result<(), Box<
         let mut eles_data_map = parse_file(&path, &database_info, 0, false, "", "");
         pdms_attrs.push(eles_data_map);
     }
-    dbg!(pdms_attrs.len());
-    return Ok(())
+    return Ok(pdms_attrs)
 }
 
 pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData /*DashMap<i32, Vec<ElementData>>*/ {
