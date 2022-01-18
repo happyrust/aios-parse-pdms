@@ -24,6 +24,7 @@ use std::option::Option::Some;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use serde::Serializer;
 
 extern crate clap;
 
@@ -49,10 +50,12 @@ use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
 use futures::TryStreamExt;
+use id_tree::Tree;
+use smol_str::SmolStr;
 use parse_pdms_db::notify_file_change::notify_file;
 
-const ATT_MDB:i32 = 0x8221C;
-const ATT_DB:i32  = 0x81C2B;
+const ATT_MDB: i32 = 0x8221C;
+const ATT_DB: i32 = 0x81C2B;
 
 #[tokio::test]
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -154,7 +157,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
 
     let mut database_info = None;
-    if let Ok(mut file) = File::open(config_path){
+    if let Ok(mut file) = File::open(config_path) {
         let mut attr_buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut attr_buf);
         database_info = bincode::deserialize(&attr_buf).ok();
@@ -170,16 +173,18 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
     // let mut dbinfos = Vec::new();
 
-    // let mut db_name_map=DashMap::new();
     let parent_files = fs::read_dir(dir)?.into_iter().map(|entry| {
         let entry = entry.unwrap();
         entry.path()
     }).collect::<Vec<PathBuf>>();
-    let mut project_name = "";
+    let mut pdms_refnos = vec![];
+    let mut pdms_tree = vec![];
+    let mut pdms_attrs = vec![];
+    let mut project_name = SmolStr::new("");
     for path in parent_files {
         if let Some(file_name) = path.file_name().unwrap().to_str() {
             if file_name.to_string().ends_with("sys") {
-                project_name = parse_db_name(file_name).unwrap().1;
+                project_name = SmolStr::from(parse_db_name(file_name).unwrap().1);
                 let mut client_options = ClientOptions::parse(&mongodb_url).await?;
                 client_options.app_name = Some("AIOS".to_string());
                 let client = mongodb::Client::with_options(client_options.clone())?;
@@ -192,95 +197,12 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
                 let mut db_info = PDMSDBInfo::default();
                 let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-
-                // db_name_map = get_numberdb(eles_data_map.clone());
-                // db_info.name = file_name.to_string();
-                // db_info.db_no = db_no;
-                // db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
-                // dbinfos.push(db_info);
-                // dbg!(&file_name);
-
-                // let db = client.database(file_name);
-                // db.drop(None).await?;
-                // let db_tree_name = format!("{}_tree", &file_name);
-                // let tree_db = client.database(&db_tree_name);
-                // tree_db.drop(None).await?;
-                // // 存放所有的refno对应的db_name和type_name
-                // let table_db = client.database("PdmsRefnoDB");
-                // for (key, mut ele_data_vec) in eles_data_map {
-                //     let type_name = db1_dehash(key as u32);
-                //     let mut ele_table = Vec::new();
-                //     let mut ele_nodes = Vec::new();
-                //     for e in &ele_data_vec {
-                //         ele_nodes.push(EleDataNode {
-                //             ref_no: e.ref_no.clone(),
-                //             children: vec![],
-                //             owner: e.owner.clone(),
-                //             name: e.name.clone(),
-                //             order: e.order,
-                //             db_name: file_name.to_string(),
-                //             type_name: e.noun_name.clone(),
-                //         });
-                //         ele_table.push(PdmsRefno {
-                //             ref_no: e.ref_no.clone(),
-                //             db: file_name.to_string(),
-                //             type_name: e.noun_name.clone(),
-                //         });
-                //     }
-                //     // 属性值
-                //     let collection = db.collection::<ElementData>(&type_name);
-                //     collection.create_index(
-                //         IndexModel::builder()
-                //             .keys(doc! {"ref_no":1})
-                //             .options(IndexOptions::builder().unique(true).build())
-                //             .build(),
-                //         None,
-                //     ).await?;
-                //     for chunk in ele_data_vec.chunks(10000) {
-                //         collection.insert_many(
-                //             chunk.to_owned(), None,
-                //         ).await?;
-                //     }
-                //     // 参考号的tree
-                //     let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
-                //     collection.create_index(
-                //         IndexModel::builder()
-                //             .keys(doc! {"ref_no":1})
-                //             .options(IndexOptions::builder().unique(true).build())
-                //             .build(),
-                //         None,
-                //     ).await?;
-                //     for tree_chunk in ele_nodes.chunks(10000) {
-                //         tree_collection.insert_many(
-                //             tree_chunk.to_owned(), None,
-                //         ).await?;
-                //     }
-                //     // 所有refno的dbname和typename
-                //     let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
-                //     for table_chunk in ele_table.chunks(10000) {
-                //         table_collection.insert_many(
-                //             table_chunk.to_owned(), None,
-                //         ).await?;
-                //     }
-                // }
-                // //commit db infos data
-                // let client = mongodb::Client::with_options(client_options)?;
-                // let db = client.database("PDMSDbInfos");
-                // let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
-                // collection.insert_many(
-                //     dbinfos.to_owned(), None,
-                // ).await?;
-                // println!("Save {:?} to db ok", &file);
-
-
-
-
-
+                pdms_refnos.push(eles_data_map.type_ele_map);
+                pdms_tree.push(EleNodeDb::new(file_name, eles_data_map.ele_id_tree));
+                pdms_attrs.push(eles_data_map.all_attr_map);
             }
         }
     };
-
-
 
     for path in target_files {
         let mut file = File::open(&path).unwrap();
@@ -291,9 +213,11 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
         let mut db_info = PDMSDBInfo::default();
         println!("path={:?}", &path);
-
-        let mut eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+        let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+        pdms_refnos.push(eles_data_map.type_ele_map);
+        pdms_tree.push(EleNodeDb::new(file_name, eles_data_map.ele_id_tree));
+        pdms_attrs.push(eles_data_map.all_attr_map);
         // if b_save_to_mongodb {
         //     let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
         //     if let Some(name) = db_info_map.get(&db_no) {
@@ -441,6 +365,27 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         // }
         //
         //
+    }
+
+    if b_save_to_mongodb {
+        let pdms_nodes = PdmsNode::new(pdms_refnos, pdms_tree, pdms_attrs);
+        let pdms_refnos = pdms_nodes.type_ele_map;
+        let pdms_tree = pdms_nodes.ele_id_tree;
+        let pdms_attrs = pdms_nodes.all_attr_map;
+        let client = mongodb::Client::with_uri_str("mongodb://localhost:27017").await?;
+        let db = client.database(&format!("{}Project", project_name));
+        let t_refnos = db.collection::< DashMap<SmolStr, Vec<SmolStr>> >("PdmsRefnos");
+
+        let t_tree = db.collection::<EleNodeDb>("PdmsTree");
+        let t_attrs = db.collection::< DashMap<SmolStr, AttrMap> >("PdmsAttrs");
+
+        t_refnos.insert_one(pdms_refnos, None).await?;
+        for table_chunk in pdms_tree.chunks(10000) {
+            t_tree.insert_many(
+                table_chunk.to_owned(), None,
+            ).await?;
+        }
+        t_attrs.insert_one(pdms_attrs, None ).await?;
     }
     Ok(())
 }
