@@ -2,6 +2,7 @@ use std::fmt;
 use dashmap::DashMap;
 use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
+use id_tree::Tree;
 use serde::{Serialize, Deserialize};
 use smol_str::SmolStr;
 use crate::consts::UNSET_STR;
@@ -281,11 +282,50 @@ pub struct EleNode {
     // pub order: i32,
 }
 
-// impl ToString for EleNode {
-//     fn to_string(&self) -> String {
-//         self.name.to_string()
-//     }
-// }
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct EleNodeDb {
+    pub db_name : SmolStr,
+    pub tree : Vec<u8>,
+}
+
+impl EleNodeDb {
+    pub fn new(db_name:&str,tree:Tree<EleNode>) -> Self {
+        Self {
+            db_name: SmolStr::from(db_name),
+            tree: bincode::serialize(&tree).unwrap(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct PdmsNode {
+    pub type_ele_map: DashMap<SmolStr, Vec<SmolStr>>,
+    pub ele_id_tree: Vec<EleNodeDb>,
+    pub all_attr_map: DashMap<SmolStr, AttrMap>,
+}
+
+impl PdmsNode {
+    pub fn new(type_ele_maps:Vec<DashMap<SmolStr,Vec<SmolStr>>>,ele_id_tree:Vec<EleNodeDb>,all_attr_maps:Vec<DashMap<SmolStr,AttrMap>>) -> Self{
+        let mut type_ele_map=DashMap::new();
+        type_ele_maps.iter().for_each(|e|{
+            e.iter().for_each(|m|{
+                type_ele_map.insert(m.key().clone(),m.value().clone());
+            })
+        });
+        let mut all_attr_map=DashMap::new();
+        all_attr_maps.iter().for_each(|m|{
+            m.iter().for_each(|m|{
+                all_attr_map.insert(m.key().clone(),m.value().clone());
+            })
+        });
+        Self {
+            type_ele_map,
+            ele_id_tree,
+            all_attr_map
+        }
+    }
+}
+
 
 impl EleNode {
     pub fn name(&self) -> &str {
@@ -300,6 +340,17 @@ impl fmt::Display for EleNode {
     }
 }
 
+#[test]
+fn test_dashmap() {
+    let mut dashmap_1 = DashMap::new();
+    dashmap_1.insert("1","hello");
+    let mut dashmap_2 = DashMap::new();
+    dashmap_2.insert("2","world");
+    let mut dashmap_3=DashMap::new();
+    dashmap_1.iter().for_each(|m|{ dashmap_3.insert(m.key().clone(),m.value().clone()); });
+    dashmap_2.iter().for_each(|m|{ dashmap_3.insert(m.key().clone(),m.value().clone()); });
+    dbg!(&dashmap_3);
+}
 
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
