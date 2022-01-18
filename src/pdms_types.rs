@@ -230,26 +230,31 @@ pub enum AttrVal {
 }
 
 impl AttrVal {
-    pub fn get_attrval_value_in_integer_type(&self) -> i32 {
-        match self {
+
+    #[inline]
+    pub fn i32_value(&self) -> i32 {
+        return match self {
             IntegerType(v) => {
-                return *v;
+                *v
             }
             _ => {
-                return 0;
+                0
             }
-        }
-    }
-    pub fn double_value(&self) -> Option<f64> {
-        match self {
-            DoubleType(v) => {
-                return Some (*v)
-            }
-            _ => { return None }
         }
     }
 
-    pub fn double_vec_value(&self) -> Option<Vec<f64>> {
+    #[inline]
+    pub fn double_value(&self) -> Option<f64> {
+        return match self {
+            DoubleType(v) => {
+                Some(*v)
+            }
+            _ => { None }
+        }
+    }
+
+    #[inline]
+    pub fn dvec_value(&self) -> Option<Vec<f64>> {
         return match self {
             DoubleArrayType(v) => {
                 Some(v.to_vec())
