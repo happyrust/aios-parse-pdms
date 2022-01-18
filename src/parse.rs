@@ -62,6 +62,7 @@ pub struct PdmsDbData {
     pub ele_id_tree: Tree<EleNode>,
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
+
 }
 
 #[test]
