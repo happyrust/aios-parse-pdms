@@ -64,6 +64,7 @@ impl RefNoTuple {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct AttrMap{
     pub map: DashMap<SmolStr, AttrVal>
+
 }
 
 
@@ -283,12 +284,13 @@ pub struct EleNode {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct EleNodeDb {
+pub struct EleNodeMongoDb {
     pub db_name : SmolStr,
+    /// 序列化后的 tree
     pub tree : Vec<u8>,
 }
 
-impl EleNodeDb {
+impl EleNodeMongoDb {
     pub fn new(db_name:&str,tree:Tree<EleNode>) -> Self {
         Self {
             db_name: SmolStr::from(db_name),
@@ -300,12 +302,18 @@ impl EleNodeDb {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PdmsNode {
     pub type_ele_map: DashMap<SmolStr, Vec<SmolStr>>,
-    pub ele_id_tree: Vec<EleNodeDb>,
+    pub ele_id_tree: Vec<EleNodeMongoDb>,
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct PdmsAttrs {
+    pub refno:SmolStr,
+    pub attr:AttrMap,
+}
+
 impl PdmsNode {
-    pub fn new(type_ele_maps:Vec<DashMap<SmolStr,Vec<SmolStr>>>,ele_id_tree:Vec<EleNodeDb>,all_attr_maps:Vec<DashMap<SmolStr,AttrMap>>) -> Self{
+    pub fn new(type_ele_maps:Vec<DashMap<SmolStr,Vec<SmolStr>>>, ele_id_tree:Vec<EleNodeMongoDb>, all_attr_maps:Vec<DashMap<SmolStr,AttrMap>>) -> Self{
         let mut type_ele_map=DashMap::new();
         type_ele_maps.iter().for_each(|e|{
             e.iter().for_each(|m|{

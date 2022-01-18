@@ -63,17 +63,22 @@ pub struct PdmsDbData {
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
 
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PdmsMongoData{
     ///数据文件名
     pub filename: SmolStr,
-
     ///数据文件的版本号
     pub version: u32,
-
     ///数据文件的db type（DESI、CATA、SYS等等）
     pub db_type: SmolStr,
-
     /// 数据文件的db 名称（SYS里用的名称）
     pub db_name: SmolStr,
+    /// 该文件下所有的参考号
+    pub ref_nos: Vec<SmolStr>,
+    /// 基本数据的Tree
+    pub tree: Vec<u8>,
 }
 
 #[test]
@@ -136,7 +141,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     return Ok(pdms_attrs);
 }
 
-pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData /*DashMap<i32, Vec<ElementData>>*/ {
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -145,14 +150,37 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limi
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
 
+
     if database_info.is_none() {
         if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")) {
-            return parse_db(input, &db_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str);
+            let db_data= parse_db(input, &db_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str);
+
+            return db_data;
         }
     }
     parse_db(input, database_info.as_ref().unwrap(), limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
 }
 
+/// 获取PdmsMongoData
+pub fn get_mongo_data(path:&PathBuf,db_name:SmolStr,type_ele_map:&DashMap<SmolStr, Vec<SmolStr>>,tree:&Vec<u8>) -> PdmsMongoData{
+    let mut file = File::open(path).unwrap();
+    let mut buf = [0;50];
+    file.read_exact(&mut buf);
+    let (db_type,version)=parse_file_version_type(&buf);
+    let refnos:Vec<Vec<SmolStr>>=type_ele_map.clone().iter().map(|x|{
+        x.value().to_vec()
+    }).collect();
+    let refnos:Vec<SmolStr>=refnos.into_iter().flatten().collect();
+    let tree=tree.clone();
+    PdmsMongoData {
+        filename: SmolStr::new(path.file_name().unwrap().to_str().unwrap()),
+        version,
+        db_type,
+        db_name,
+        ref_nos: refnos,
+        tree,
+    }
+}
 
 #[derive(Debug, Clone, )]
 pub struct EleData {
@@ -1510,6 +1538,16 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
     Ok((input, value))
 }
 
+/// 获取文件的type和version
+pub fn parse_file_version_type(input:&[u8]) -> (SmolStr,u32) {
+    let t=parse_to_u32(&input[32..36]);
+    let mut file_type = SmolStr::new("");
+    if t >= 0x81BF1 {
+        file_type = db1_dehash(t).into();
+    }
+    let version = parse_to_u32(&input[40..44]);
+    (file_type,version)
+}
 
 ///获得参考号对应的Entry
 #[inline]
@@ -1803,19 +1841,19 @@ pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<EleNode>>) -> DashMap<Stri
     result
 }
 
-pub fn get_dbname<'a>(name: &'a [u8], map: &'a DashMap<String, String>) -> IResult<&'a [u8], String> {
+pub fn get_dbname<'a>(name: &'a [u8], map: &'a DashMap<SmolStr, SmolStr>) -> IResult<&'a [u8], SmolStr> {
     let mut result = from_utf8_lossy(name).to_string();
     if name.len() > 5 {
         let (_input, (_, n, )) = tuple((
             alpha1,
             take_until("_"),
         ))(name)?;
-        let db_number = from_utf8_lossy(n).to_string();
+        let db_number:SmolStr = from_utf8_lossy(n).to_string().into();
         if let Some(db_name) = map.get(&db_number) {
-            result = db_name.value().clone();
+            result = db_name.value().clone().into();
         }
     }
-    Ok((name, result))
+    Ok((name, result.into()))
 }
 
 static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
