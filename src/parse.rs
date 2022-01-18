@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use dashmap::{DashMap, DashSet};
-use futures::TryFutureExt;
+use futures::{AsyncReadExt, TryFutureExt};
 use memchr::memmem;
 use memchr::memmem::{find, find_iter, rfind_iter};
 use mongodb::Client;
@@ -64,6 +64,67 @@ pub struct PdmsDbData {
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
 }
 
+#[test]
+fn parse_files_test(){
+    let dir=r"D:\ABA(12.0)\ABA\ABA000\debug_files";
+    parse_files(&dir,"");
+}
+
+pub fn parse_files(dir: &str, config_path: &str) ->core::result::Result<(), Box<dyn std::error::Error>>{
+    let dir = PathBuf::from(dir);
+    let mut pdms_attrs=vec![];
+    let parent_files = fs::read_dir(dir)?.into_iter().map(|entry| {
+        let entry = entry.unwrap();
+        entry.path()
+    }).collect::<Vec<PathBuf>>();
+    let mut database_info = None;
+
+    if let Ok(mut file) = File::open(config_path) {
+        let mut attr_buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut attr_buf);
+        database_info = bincode::deserialize(&attr_buf).ok();
+    } else {
+        let mut file = File::open("all_attr_info.bin")?;
+        let mut attr_buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut attr_buf);
+        database_info = bincode::deserialize(&attr_buf).ok();
+    }
+
+
+    if database_info.is_none() {
+        return Ok(());
+    }
+    for path in &parent_files {
+        if let Some(file_name) = path.file_name().unwrap().to_str() {
+            if file_name.to_string().ends_with("sys") {
+                let mut file = File::open(&path).unwrap();
+                let mut buf = vec![0u8; 36];
+                file.read_exact(&mut buf)?;
+                let db_type_bytes = &buf[32..36];
+                let db_no_bytes = &buf[8..12];
+                let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
+                let mut db_info = PDMSDBInfo::default();
+                let eles_data_map = parse_file(&path, &database_info, 0, false, "", "");
+                pdms_attrs.push(eles_data_map);
+            }
+        }
+    }
+    for path in &parent_files {
+        let mut file = File::open(path).unwrap();
+        let mut buf = vec![0u8; 36];
+        file.read_exact(&mut buf)?;
+        let db_type_bytes = &buf[32..36];
+        let db_no_bytes = &buf[8..12];
+        let db_no = parse_to_i32(db_no_bytes);
+        let mut db_info = PDMSDBInfo::default();
+        println!("path={:?}", &path);
+
+        let mut eles_data_map = parse_file(&path, &database_info, 0, false, "", "");
+        pdms_attrs.push(eles_data_map);
+    }
+    dbg!(pdms_attrs.len());
+    return Ok(())
+}
 
 pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData /*DashMap<i32, Vec<ElementData>>*/ {
     let time_start = std::time::Instant::now();
@@ -74,26 +135,17 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limi
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
 
-    if database_info.is_none(){
-        if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")){
+    if database_info.is_none() {
+        if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")) {
             return parse_db(input, &db_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str);
         }
     }
     parse_db(input, database_info.as_ref().unwrap(), limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
 }
 
-#[test]
-fn parse_file_test() {
-    let database_info = read_attr_info_config("D:/GodotProject/aios-parse-pdms/all_attr_info.bin");
-    let _db_info_map = &database_info.db_names_map;
-    let r = parse_file(&PathBuf::from("D:/ABA(12.0)/ABA/ABA000/aba0002_0001"), &database_info, u64::MAX, false, "", "");
-    dbg!(r.len());
-}
-
-
 
 #[derive(Debug, Clone, )]
-pub struct EleData{
+pub struct EleData {
     pub ele_node: EleNode,
     pub attr_data_map: AttrMap,
     pub children: Vec<RefNoTuple>,
@@ -127,10 +179,10 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let implicit_data = &input[0..actual_impl_len];
     let membs_pos = actual_impl_len;
     let membs_data = &input[membs_pos..];
-    let maybe_refno: RefNoTuple =  (&membs_data[4..12]).into();
+    let maybe_refno: RefNoTuple = (&membs_data[4..12]).into();
     let mut memb_bytes_len = 0;
 
-    if maybe_refno == refno{
+    if maybe_refno == refno {
         if &membs_data[0..2] == [0x0, 0x2].as_slice() {
             memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
@@ -195,7 +247,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             // dbg!(&sorted_noun_hash);
         }
     }
-    if maybe_refno == refno{
+    if maybe_refno == refno {
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
@@ -207,7 +259,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         if !attr_data_map.map.contains_key(name) {
             match name.as_str() {
                 "PTCDI" => attr_data_map.insert(name.to_owned(), StringType("Y".into())),
-                "PARA" =>  attr_data_map.insert(name.to_owned(), DoubleArrayType(vec![])),
+                "PARA" => attr_data_map.insert(name.to_owned(), DoubleArrayType(vec![])),
                 _ => {}
             }
         }
@@ -219,30 +271,14 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     if !attr_data_map.map.contains_key("NAME") || attr_data_map.get_name() == UNSET_STR {
         ele_node.name = format!("{} {indx}", &ele_node.noun_name).into();
         attr_data_map.insert("NAME".into(), StringType(ele_node.name.clone()));
-    }else{
+    } else {
         ele_node.name = attr_data_map.get_name().clone();
     }
-    EleData{
+    EleData {
         ele_node,
         attr_data_map,
-        children
+        children,
     }
-}
-
-
-#[test]
-pub fn test_queue() {
-    use crossbeam_deque::{Steal, Worker};
-
-    let w = Worker::new_lifo();
-    w.push("String1".to_string());
-    w.push("String2".to_string());
-
-    let s = w.stealer();
-    dbg!(s.steal());
-    // assert_eq!(s.steal(), Steal::Success(1));
-    // assert_eq!(s.steal(), Steal::Success(2));
-    // assert_eq!(s.steal(), Steal::Empty);
 }
 
 
@@ -264,7 +300,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
         root_refno = target_refno_str.into();
     }
     let entry = &*refno_table_map.get(&root_refno).unwrap();
-    let EleData{
+    let EleData {
         ele_node,
         attr_data_map,
         children,
@@ -276,34 +312,34 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
     // node_id_map.insert(root_refno, root_id);
     // dbg!(children.len());
     // children.par_iter().for_each(|root|{  //todo opt parallel
-        let mut pending_refnos = vec![(root_id.clone(), children)];
-        while !pending_refnos.is_empty() {
-            let (parent_id, refnos) = pending_refnos.pop().unwrap();
-            refnos.iter().enumerate().for_each(|(indx, refno)| {
-                if refno_table_map.contains_key(&refno) {
-                    let entry = &*refno_table_map.get(&refno).unwrap();
-                    let pos = entry.pos;
-                    let type_hash = entry.noun_hash;
-                    // 判断反序列话的DashMap中有无对应的type
-                    if noun_attr_info_map.contains_key(&type_hash) {
-                        let EleData{
-                            ele_node,
-                            attr_data_map,
-                            children,
-                        } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, indx);
-                        if !print_refno_str.is_empty() && print_refno_str == &ele_node.ref_no {
-                            println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_node);
-                        }
-                        if !all_attr_map.contains_key(&ele_node.ref_no) {
-                            all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
-                            type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
-                            let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
-                            pending_refnos.push((cur_id, children));
-                        }
+    let mut pending_refnos = vec![(root_id.clone(), children)];
+    while !pending_refnos.is_empty() {
+        let (parent_id, refnos) = pending_refnos.pop().unwrap();
+        refnos.iter().enumerate().for_each(|(indx, refno)| {
+            if refno_table_map.contains_key(&refno) {
+                let entry = &*refno_table_map.get(&refno).unwrap();
+                let pos = entry.pos;
+                let type_hash = entry.noun_hash;
+                // 判断反序列话的DashMap中有无对应的type
+                if noun_attr_info_map.contains_key(&type_hash) {
+                    let EleData {
+                        ele_node,
+                        attr_data_map,
+                        children,
+                    } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, indx);
+                    if !print_refno_str.is_empty() && print_refno_str == &ele_node.ref_no {
+                        println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_node);
+                    }
+                    if !all_attr_map.contains_key(&ele_node.ref_no) {
+                        all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
+                        type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
+                        let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
+                        pending_refnos.push((cur_id, children));
                     }
                 }
-            });
-        }
+            }
+        });
+    }
     // });
 
     // // noun_type_ele_data_map.iter_mut().for_each(|mut eles| {
@@ -1564,6 +1600,11 @@ pub fn match_angle_or_return_number(input: i32) -> String {
     result
 }
 
+pub fn parse_db_name(input: &str) -> IResult<&str, &str> {
+    let (_, name) = take_until("sys")(input)?;
+    Ok((input, name))
+}
+
 /// 生成sys的数据库
 // pub async fn gen_sys_to_db(eles_data_map: DashMap<i32, Vec<ElementData>>, file_name: &str, client: &Client) -> mongodb::error::Result<()> {
 //     let mut dbinfos = vec![];
@@ -1711,7 +1752,7 @@ fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
     let mut tmp_offset = *len;
     while tmp_offset + 4 <= input.len() && &input[tmp_offset..tmp_offset + 4] == &[0x0, 0x0, 0x0, 0x7] {
         // println!("{:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
-        let seg_len = parse_to_u16(&input[tmp_offset + 6 .. tmp_offset + 8 ]) as usize * 4;
+        let seg_len = parse_to_u16(&input[tmp_offset + 6..tmp_offset + 8]) as usize * 4;
         let mut seg_offset = tmp_offset + 16;
         let mut i = 0;
         while &input[seg_offset..seg_offset + 4] == &[0x0, 0x0, 0x0, 0x0] {

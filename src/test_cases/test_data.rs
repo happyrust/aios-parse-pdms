@@ -1,3 +1,4 @@
+use smol_str::SmolStr;
 use crate::parse::parse_ele_data;
 use crate::pdms_types::AttrVal;
 use crate::test_cases::{convert_str_to_bytes, read_attr_info_config};
@@ -71,7 +72,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x85897i32) {
     //     dbg!(map.value());
     // }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     dbg!(&ele_data);
 }
 
@@ -95,10 +96,10 @@ fn test_aba_14352_102824() {
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
     //     dbg!(map.value());
     // }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
-    let mut value = "";
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
+    let mut value = SmolStr::new("");
     if let Some(m) = ele_data.attr_data_map.get("DETR") {
-        match m.value() {
+        match m {
             AttrVal::ElementType(v) => {
                 value = v;
             }
@@ -168,7 +169,7 @@ fn test_aba_8193_90707() {
 00 00 00 02";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     dbg!(&ele_data);
 }
 
@@ -200,12 +201,12 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 22 00 00 03 24 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map);
-    let mut value = "";
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
+    let mut value = SmolStr::new("");
     if let Some(m) = ele_data.attr_data_map.get("DX") {
-        match m.value() {
+        match m {
             AttrVal::StringType(v) => {
-                value = v;
+                value = v.into();
             }
             _ => {}
         }

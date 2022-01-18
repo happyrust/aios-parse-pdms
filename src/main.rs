@@ -43,7 +43,7 @@ use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
-use parse_pdms_db::parse::{DbInfo, get_dbname, get_dbname_from_dbnumber, get_numberdb, get_project_name_from_filename, parse_db, parse_file, save_type_hash_file};
+use parse_pdms_db::parse::{DbInfo, get_dbname, get_dbname_from_dbnumber, get_numberdb, get_project_name_from_filename, parse_db, parse_db_name, parse_file, save_type_hash_file};
 use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
@@ -175,9 +175,11 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let entry = entry.unwrap();
         entry.path()
     }).collect::<Vec<PathBuf>>();
+    let mut project_name = "";
     for path in parent_files {
         if let Some(file_name) = path.file_name().unwrap().to_str() {
             if file_name.to_string().ends_with("sys") {
+                project_name = parse_db_name(file_name).unwrap().1;
                 let mut client_options = ClientOptions::parse(&mongodb_url).await?;
                 client_options.app_name = Some("AIOS".to_string());
                 let client = mongodb::Client::with_options(client_options.clone())?;
@@ -276,7 +278,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
             }
         }
-    }
+    };
 
 
 

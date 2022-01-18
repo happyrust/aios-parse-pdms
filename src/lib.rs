@@ -32,6 +32,7 @@ pub mod polish_notation;
 pub mod direction_parse;
 pub mod axis_param;
 pub mod parse;
+pub use parse::parse_files;
 pub mod consts;
 
 pub use parse::{parse_db,parse_file};
