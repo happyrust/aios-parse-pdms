@@ -41,13 +41,16 @@ impl PdmsInterface {
     pub async fn get_ele_attr_map_async(&mut self,refno:&str) -> MResult<Option<AttrMap>> {
         if let Some(client) = self.connect().await {
             let db = client.database(&self.project);
-            let t = db.collection::< DashMap<SmolStr, AttrMap> >("PdmsAttrs");
-            let mut opt= FindOptions::builder().projection(doc! { refno:1 }).build();
-            if let Some(d) = t.find(None,opt).await?.try_next().await?{
-                if let Some(v) = d.get(refno) {
-                    return Ok(Some(v.value()).cloned())
-                }
-            }
+            // let t = db.collection::< DashMap<SmolStr, AttrMap> >("PdmsAttrs");
+            // // let mut opt= FindOptions::builder().projection(doc! { refno:1 ,"map" : 1 }).build();
+            // if let Ok(Some(d)) = t.find_one(doc! { "refno" : refno}, None){
+            //
+            // }
+            // if let Some(d) = t.find(None,None).await?.try_next().await?{
+            //     if let Some(v) = d.get(refno) {
+            //         return Ok(Some(v.value()).cloned())
+            //     }
+            // }
         }
         Ok(None)
     }

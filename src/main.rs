@@ -44,8 +44,8 @@ use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
-use parse_pdms_db::parse::{DbInfo, get_dbname, get_dbname_from_dbnumber, get_numberdb, get_project_name_from_filename, parse_db, parse_db_name, parse_file, save_type_hash_file};
-use parse_pdms_db::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, print_refno_expression_data, times_keep_f32_two_decimal_place};
+use parse_pdms_db::parse::*;
+use parse_pdms_db::parse_explict_tools::*;
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
@@ -180,7 +180,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     let mut pdms_refnos = vec![];
     let mut pdms_tree = vec![];
     let mut pdms_attrs = vec![];
+    let mut pdms_mong = vec![];
     let mut project_name = SmolStr::new("");
+    let mut db_name_map=DashMap::new();
     for path in parent_files {
         if let Some(file_name) = path.file_name().unwrap().to_str() {
             if file_name.to_string().ends_with("sys") {
@@ -197,8 +199,16 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
                 let mut db_info = PDMSDBInfo::default();
                 let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                eles_data_map.all_attr_map.clone().iter().for_each(|m|{
+                    let map = m.value();
+                    if let Some(num)=map.get_as_string("NUMBDB"){
+                        if let Some(name)=map.get_as_string("NAME"){
+                            db_name_map.insert(num,name);
+                        }
+                    }
+                });
                 pdms_refnos.push(eles_data_map.type_ele_map);
-                pdms_tree.push(EleNodeDb::new(file_name, eles_data_map.ele_id_tree));
+                pdms_tree.push(EleNodeMongoDb::new(file_name, eles_data_map.ele_id_tree));
                 pdms_attrs.push(eles_data_map.all_attr_map);
             }
         }
@@ -214,10 +224,16 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let mut db_info = PDMSDBInfo::default();
         println!("path={:?}", &path);
         let file_name = path.file_name().unwrap().to_str().unwrap();
+        let (_,db_name) = get_dbname(file_name.clone().as_bytes(),&db_name_map).unwrap();
         let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+
+
+        let ele_node_db= EleNodeMongoDb::new(file_name, eles_data_map.ele_id_tree);
+        let mongo_db=get_mongo_data(&path,db_name,&eles_data_map.type_ele_map,&ele_node_db.tree);
         pdms_refnos.push(eles_data_map.type_ele_map);
-        pdms_tree.push(EleNodeDb::new(file_name, eles_data_map.ele_id_tree));
+        pdms_tree.push(ele_node_db);
         pdms_attrs.push(eles_data_map.all_attr_map);
+        pdms_mong.push(mongo_db);
         // if b_save_to_mongodb {
         //     let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
         //     if let Some(name) = db_info_map.get(&db_no) {
@@ -368,24 +384,45 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     }
 
     if b_save_to_mongodb {
-        let pdms_nodes = PdmsNode::new(pdms_refnos, pdms_tree, pdms_attrs);
-        let pdms_refnos = pdms_nodes.type_ele_map;
-        let pdms_tree = pdms_nodes.ele_id_tree;
-        let pdms_attrs = pdms_nodes.all_attr_map;
         let client = mongodb::Client::with_uri_str("mongodb://localhost:27017").await?;
         let db = client.database(&format!("{}Project", project_name));
         let t_refnos = db.collection::< DashMap<SmolStr, Vec<SmolStr>> >("PdmsRefnos");
 
-        let t_tree = db.collection::<EleNodeDb>("PdmsTree");
-        let t_attrs = db.collection::< DashMap<SmolStr, AttrMap> >("PdmsAttrs");
+        let t_tree = db.collection::<EleNodeMongoDb>("PdmsTree");
+        let t_attrs = db.collection::< PdmsAttrs >("PdmsAttrs");
+        let t_mong = db.collection::<PdmsMongoData>("PdmsMongoData");
 
-        t_refnos.insert_one(pdms_refnos, None).await?;
+        for table_chunk in pdms_refnos.chunks(10000) {
+            t_refnos.insert_many(
+                table_chunk.to_owned(), None,
+            ).await?;
+        }
         for table_chunk in pdms_tree.chunks(10000) {
             t_tree.insert_many(
                 table_chunk.to_owned(), None,
             ).await?;
         }
-        t_attrs.insert_one(pdms_attrs, None ).await?;
+
+        let attrs:Vec<Vec<PdmsAttrs>>=pdms_attrs.iter().map(|v|{
+            let map:Vec<PdmsAttrs>=v.iter().map(|m|{
+                PdmsAttrs{
+                    refno: SmolStr::new(m.key().as_str()),
+                    attr:  m.value().clone()
+                }
+            }).collect();
+            map
+        }).collect();
+        let pdms_attrs = attrs.iter().flatten().collect::<Vec<_>>();
+        for table_chunk in pdms_attrs.chunks(10000) {
+            t_attrs.insert_many(
+                table_chunk.to_owned(), None,
+            ).await?;
+        }
+        for table_chunk in pdms_mong.chunks(10000) {
+            t_mong.insert_many(
+                table_chunk.to_owned(), None,
+            ).await?;
+        }
     }
     Ok(())
 }
