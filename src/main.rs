@@ -171,69 +171,52 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     target_files.sort_by(|a, b|
         fs::metadata(b).unwrap().len()
             .partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
-    // let mut dbinfos = Vec::new();
 
     let parent_files = fs::read_dir(dir)?.into_iter().map(|entry| {
         let entry = entry.unwrap();
         entry.path()
     }).collect::<Vec<PathBuf>>();
-    let mut pdms_refnos = vec![];
-    let mut pdms_tree = vec![];
-    let mut pdms_attrs = vec![];
-    let mut pdms_mong = vec![];
-    let mut project_name = SmolStr::new("");
-    let mut db_name_map=DashMap::new();
+
+    let mut pdms_db_all_refnos = vec![];
+    let mut pdms_db_ele_trees = vec![];
+    let mut pdms_all_attrs = vec![];
+    let mut pdms_db_mongo_infos = vec![];
+    let mut pdms_project_name = SmolStr::new("");
+    let mut pdms_db_name_map = DashMap::new();
     for path in parent_files {
         if let Some(file_name) = path.file_name().unwrap().to_str() {
-            if file_name.to_string().ends_with("sys") {
-                project_name = SmolStr::from(parse_db_name(file_name).unwrap().1);
-                let mut client_options = ClientOptions::parse(&mongodb_url).await?;
-                client_options.app_name = Some("AIOS".to_string());
-                let client = mongodb::Client::with_options(client_options.clone())?;
-
-                let mut file = File::open(&path).unwrap();
-                let mut buf = vec![0u8; 36];
-                file.read_exact(&mut buf)?;
-                let db_type_bytes = &buf[32..36];
-                let db_no_bytes = &buf[8..12];
-                let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
-                let mut db_info = PDMSDBInfo::default();
+            if file_name.ends_with("sys") {
+                pdms_project_name = SmolStr::from(parse_pdms_project_name(file_name).unwrap().1);
                 let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-                eles_data_map.all_attr_map.clone().iter().for_each(|m|{
+                eles_data_map.all_attr_map.iter().for_each(|m| {
                     let map = m.value();
-                    if let Some(num)=map.get_as_string("NUMBDB"){
-                        if let Some(name)=map.get_as_string("NAME"){
-                            db_name_map.insert(num,name);
+                    if let Some(num) = map.get_as_string("NUMBDB") {
+                        if let Some(name) = map.get_as_string("NAME") {
+                            pdms_db_name_map.insert(num, name);
                         }
                     }
                 });
-                pdms_refnos.push(eles_data_map.type_ele_map);
-                pdms_tree.push(EleNodeMongoDb::new(file_name, eles_data_map.ele_id_tree));
-                pdms_attrs.push(eles_data_map.all_attr_map);
+                pdms_db_all_refnos.push(eles_data_map.type_ele_map);
+                pdms_db_ele_trees.push(EleNodeMongoDb::new(file_name, eles_data_map.ele_id_tree));
+                pdms_all_attrs.push(eles_data_map.all_attr_map);
             }
         }
     };
 
     for path in target_files {
-        let mut file = File::open(&path).unwrap();
-        let mut buf = vec![0u8; 36];
-        file.read_exact(&mut buf)?;
-        let db_type_bytes = &buf[32..36];
-        let db_no_bytes = &buf[8..12];
-        let db_no = i32::from_be_bytes(db_no_bytes.try_into().unwrap());
-        let mut db_info = PDMSDBInfo::default();
         println!("path={:?}", &path);
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        let (_,db_name) = get_dbname(file_name.clone().as_bytes(),&db_name_map).unwrap();
-        let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+        let (_, db_name) = get_dbname(file_name.as_bytes(), &pdms_db_name_map).unwrap();
+        let mut pdms_db_data = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+        pdms_db_data.db_name = db_name.clone();
+        pdms_db_data.filename = file_name.into();
 
-
-        let ele_node_db= EleNodeMongoDb::new(file_name, eles_data_map.ele_id_tree);
-        let mongo_db=get_mongo_data(&path,db_name,&eles_data_map.type_ele_map,&ele_node_db.tree);
-        pdms_refnos.push(eles_data_map.type_ele_map);
-        pdms_tree.push(ele_node_db);
-        pdms_attrs.push(eles_data_map.all_attr_map);
-        pdms_mong.push(mongo_db);
+        let ele_node_db = EleNodeMongoDb::new(file_name, pdms_db_data.ele_id_tree);
+        let mongo_db = get_mongo_data(&path, db_name, &pdms_db_data.type_ele_map, &ele_node_db.tree);
+        pdms_db_all_refnos.push(pdms_db_data.type_ele_map);
+        pdms_db_ele_trees.push(ele_node_db);
+        pdms_all_attrs.push(pdms_db_data.all_attr_map);
+        pdms_db_mongo_infos.push(mongo_db);
         // if b_save_to_mongodb {
         //     let mut db_raw_name = path.file_name().unwrap().to_string_lossy().to_string();
         //     if let Some(name) = db_info_map.get(&db_no) {
@@ -385,29 +368,29 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
     if b_save_to_mongodb {
         let client = mongodb::Client::with_uri_str("mongodb://localhost:27017").await?;
-        let db = client.database(&format!("{}Project", project_name));
-        let t_refnos = db.collection::< DashMap<SmolStr, Vec<SmolStr>> >("PdmsRefnos");
+        let db = client.database(&format!("{}Project", pdms_project_name));
+        let t_refnos = db.collection::<DashMap<SmolStr, Vec<SmolStr>>>("PdmsRefnos");
 
         let t_tree = db.collection::<EleNodeMongoDb>("PdmsTree");
-        let t_attrs = db.collection::< PdmsAttrs >("PdmsAttrs");
-        let t_mong = db.collection::<PdmsMongoData>("PdmsMongoData");
+        let t_attrs = db.collection::<PdmsMongoAttr>("PdmsAttrs");
+        let t_mong = db.collection::<PdmsMongoDbInfo>("PdmsMongoData");
 
-        for table_chunk in pdms_refnos.chunks(10000) {
+        for table_chunk in pdms_db_all_refnos.chunks(10000) {
             t_refnos.insert_many(
                 table_chunk.to_owned(), None,
             ).await?;
         }
-        for table_chunk in pdms_tree.chunks(10000) {
+        for table_chunk in pdms_db_ele_trees.chunks(10000) {
             t_tree.insert_many(
                 table_chunk.to_owned(), None,
             ).await?;
         }
 
-        let attrs:Vec<Vec<PdmsAttrs>>=pdms_attrs.iter().map(|v|{
-            let map:Vec<PdmsAttrs>=v.iter().map(|m|{
-                PdmsAttrs{
+        let attrs: Vec<Vec<PdmsMongoAttr>> = pdms_all_attrs.iter().map(|v| {
+            let map: Vec<PdmsMongoAttr> = v.iter().map(|m| {
+                PdmsMongoAttr {
                     refno: SmolStr::new(m.key().as_str()),
-                    attr:  m.value().clone()
+                    attr: m.value().clone(),
                 }
             }).collect();
             map
@@ -418,7 +401,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 table_chunk.to_owned(), None,
             ).await?;
         }
-        for table_chunk in pdms_mong.chunks(10000) {
+        for table_chunk in pdms_db_mongo_infos.chunks(10000) {
             t_mong.insert_many(
                 table_chunk.to_owned(), None,
             ).await?;

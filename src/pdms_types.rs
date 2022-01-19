@@ -299,53 +299,23 @@ impl EleNodeMongoDb {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct PdmsNode {
-    pub type_ele_map: DashMap<SmolStr, Vec<SmolStr>>,
-    pub ele_id_tree: Vec<EleNodeMongoDb>,
-    pub all_attr_map: DashMap<SmolStr, AttrMap>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct PdmsAttrs {
-    pub refno:SmolStr,
-    pub attr:AttrMap,
-}
-
-impl PdmsNode {
-    pub fn new(type_ele_maps:Vec<DashMap<SmolStr,Vec<SmolStr>>>, ele_id_tree:Vec<EleNodeMongoDb>, all_attr_maps:Vec<DashMap<SmolStr,AttrMap>>) -> Self{
-        let mut type_ele_map=DashMap::new();
-        type_ele_maps.iter().for_each(|e|{
-            e.iter().for_each(|m|{
-                type_ele_map.insert(m.key().clone(),m.value().clone());
-            })
-        });
-        let mut all_attr_map=DashMap::new();
-        all_attr_maps.iter().for_each(|m|{
-            m.iter().for_each(|m|{
-                all_attr_map.insert(m.key().clone(),m.value().clone());
-            })
-        });
-        Self {
-            type_ele_map,
-            ele_id_tree,
-            all_attr_map
-        }
-    }
-}
-
-
 impl EleNode {
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
 }
 
-
 impl fmt::Display for EleNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.name().fmt(f)
     }
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct PdmsMongoAttr {
+    pub refno:SmolStr,
+    pub attr:AttrMap,
 }
 
 #[test]
