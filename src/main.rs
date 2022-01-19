@@ -190,12 +190,18 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
                 eles_data_map.all_attr_map.iter().for_each(|m| {
                     let map = m.value();
-                    if let Some(num) = map.get_as_string("NUMBDB") {
+                    if let Some(num) = map.get_u32("NUMBDB") {
                         if let Some(name) = map.get_as_string("NAME") {
                             pdms_db_name_map.insert(num, name);
                         }
                     }
                 });
+                if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                    pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+                }else{
+                    pdms_db_data.db_name = file_name.into();
+                }
+                pdms_db_data.filename = file_name.into();
                 pdms_db_all_refnos.push(eles_data_map.type_ele_map);
                 pdms_db_ele_trees.push(EleNodeMongoDb::new(file_name, eles_data_map.ele_id_tree));
                 pdms_all_attrs.push(eles_data_map.all_attr_map);
@@ -206,10 +212,14 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     for path in target_files {
         println!("path={:?}", &path);
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        let (_, db_name) = get_dbname(file_name.as_bytes(), &pdms_db_name_map).unwrap();
         let mut pdms_db_data = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-        pdms_db_data.db_name = db_name.clone();
+        if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+        }else{
+            pdms_db_data.db_name = file_name.into();
+        }
         pdms_db_data.filename = file_name.into();
+
 
         let ele_node_db = EleNodeMongoDb::new(file_name, pdms_db_data.ele_id_tree);
         let mongo_db = get_mongo_data(&path, db_name, &pdms_db_data.type_ele_map, &ele_node_db.tree);

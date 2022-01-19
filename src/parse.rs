@@ -70,6 +70,8 @@ pub struct PdmsDbData {
     pub db_type: SmolStr,
     /// 数据文件的db 名称（SYS里用的名称）
     pub db_name: SmolStr,
+    ///数据文件的 db number
+    pub db_no: u32,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -86,6 +88,8 @@ pub struct PdmsMongoDbInfo {
     pub ref_nos: Vec<SmolStr>,
     /// 基本数据的Tree
     pub tree: Vec<u8>,
+    ///数据文件的 db number
+    pub db_no: u32,
 }
 
 #[test]
@@ -119,31 +123,39 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
         if file_name.ends_with("sys") {
             println!("path={:?}", &path);
             // let pdms_project_name = SmolStr::from(parse_pdms_project_name(file_name).unwrap().1);
-            let pdms_db_data = parse_file(&path, &database_info, 0 , false, "", "");
+            let mut pdms_db_data = parse_file(&path, &database_info, 0, false, "", "");
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();
-                if let Some(num) = map.get_as_string("NUMBDB") {
+                if let Some(num) = map.get_u32("NUMBDB") {
                     if let Some(name) = map.get_as_string("NAME") {
                         pdms_db_name_map.insert(num, name);
                     }
                 }
             });
-            pdms_project_data_map.insert(file_name.into(), pdms_db_data);
+            if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+            }else{
+                pdms_db_data.db_name = file_name.into();
+            }
+            pdms_db_data.filename = file_name.into();
+            pdms_project_data_map.insert(pdms_db_data.db_name.clone(), pdms_db_data);
             break;
         }
     }
-
     parent_files.par_iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("com") || file_name.ends_with("mis") {
             return;
         }
         println!("path={:?}", &path);
-        let (_, db_name) = get_dbname(file_name.as_bytes(), &pdms_db_name_map).unwrap();
         let mut pdms_db_data = parse_file(&path, &database_info, 0 , false, "", "");
-        pdms_db_data.db_name = db_name.clone();
         pdms_db_data.filename = file_name.into();
-        pdms_project_data_map.insert(db_name.clone(), pdms_db_data);
+        if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+        } else {
+            pdms_db_data.db_name = file_name.into();
+        }
+        pdms_project_data_map.insert(pdms_db_data.db_name.clone(), pdms_db_data);
     });
 
     return Ok(pdms_project_data_map);
@@ -173,7 +185,7 @@ pub fn get_mongo_data(path: &PathBuf, db_name: SmolStr, type_ele_map: &DashMap<S
     let mut file = File::open(path).unwrap();
     let mut buf = [0; 50];
     file.read_exact(&mut buf);
-    let (db_type, version) = parse_file_version_type(&buf);
+    let (db_type, version, db_no) = parse_file_basic_info(&buf);
     let refnos: Vec<Vec<SmolStr>> = type_ele_map.clone().iter().map(|x| {
         x.value().to_vec()
     }).collect();
@@ -186,6 +198,7 @@ pub fn get_mongo_data(path: &PathBuf, db_name: SmolStr, type_ele_map: &DashMap<S
         db_name,
         ref_nos: refnos,
         tree,
+        db_no
     }
 }
 
@@ -336,7 +349,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
     let mut all_attr_map: DashMap<SmolStr, AttrMap> = DashMap::new();
     let time_start = std::time::Instant::now();
 
-    let (db_type, version) = parse_file_version_type(input);
+    let (db_type, version, db_no) = parse_file_basic_info(input);
 
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
 
@@ -396,6 +409,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
         version,
         db_type,
         db_name: Default::default(),
+        db_no
     }
 }
 
@@ -1531,15 +1545,16 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
     Ok((input, value))
 }
 
-/// 获取文件的type和version
-pub fn parse_file_version_type(input: &[u8]) -> (SmolStr, u32) {
+/// 获取文件的type和version, db number
+pub fn parse_file_basic_info(input: &[u8]) -> (SmolStr, u32, u32) {
     let t = parse_to_u32(&input[32..36]);
     let mut file_type = SmolStr::new("");
     if t >= 0x81BF1 {
         file_type = db1_dehash(t).into();
     }
+    let db_no = parse_to_u32(&input[8..12]);
     let version = parse_to_u32(&input[40..44]);
-    (file_type, version)
+    (file_type, version, db_no)
 }
 
 ///获得参考号对应的Entry
@@ -1834,20 +1849,7 @@ pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<EleNode>>) -> DashMap<Stri
     result
 }
 
-pub fn get_dbname<'a>(name: &'a [u8], map: &'a DashMap<SmolStr, SmolStr>) -> IResult<&'a [u8], SmolStr> {
-    let mut result = from_utf8_lossy(name).to_string();
-    if name.len() > 5 {
-        let (_input, (_, n, )) = tuple((
-            alpha1,
-            take_until("_"),
-        ))(name)?;
-        let db_number: SmolStr = from_utf8_lossy(n).to_string().into();
-        if let Some(db_name) = map.get(&db_number) {
-            result = db_name.value().clone().into();
-        }
-    }
-    Ok((name, result.into()))
-}
+
 
 static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 

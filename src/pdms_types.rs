@@ -98,6 +98,20 @@ impl AttrMap {
     }
 
     #[inline]
+    pub fn get_u32(&self, key: &str) -> Option<u32>{
+        if let Some(v) = self.map.get(key){
+            match v.value() {
+                IntegerType(d) => {
+                    return Some(*d as u32);
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+
+    #[inline]
     pub fn get_as_string(&self, key: &str) -> Option<SmolStr>{
         if let Some(v) = self.map.get(key){
             let s = match v.value() {
