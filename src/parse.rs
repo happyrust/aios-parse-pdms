@@ -144,18 +144,17 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     }
     parent_files.par_iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        if file_name.ends_with("com") || file_name.ends_with("mis") {
-            return;
+        if !file_name.ends_with("com") && !file_name.ends_with("mis") {
+            println!("path={:?}", &path);
+            let mut pdms_db_data = parse_file(&path, &database_info, 0 , false, "", "");
+            pdms_db_data.filename = file_name.into();
+            if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+            } else {
+                pdms_db_data.db_name = file_name.into();
+            }
+            pdms_project_data_map.insert(pdms_db_data.db_name.clone(), pdms_db_data);
         }
-        println!("path={:?}", &path);
-        let mut pdms_db_data = parse_file(&path, &database_info, 0 , false, "", "");
-        pdms_db_data.filename = file_name.into();
-        if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
-            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
-        } else {
-            pdms_db_data.db_name = file_name.into();
-        }
-        pdms_project_data_map.insert(pdms_db_data.db_name.clone(), pdms_db_data);
     });
 
     return Ok(pdms_project_data_map);
