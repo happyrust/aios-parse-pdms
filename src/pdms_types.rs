@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use dashmap::DashMap;
 use gdnative::prelude::{Transform, Vector3};
@@ -64,7 +65,7 @@ impl RefNoTuple {
 ///PDMS的属性数据Map
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct AttrMap{
-    pub map: DashMap<SmolStr, AttrVal>
+    pub map: HashMap<SmolStr, AttrVal>
 
 }
 
@@ -100,7 +101,7 @@ impl AttrMap {
     #[inline]
     pub fn get_u32(&self, key: &str) -> Option<u32>{
         if let Some(v) = self.map.get(key){
-            match v.value() {
+            match v {
                 IntegerType(d) => {
                     return Some(*d as u32);
                 }
@@ -114,7 +115,7 @@ impl AttrMap {
     #[inline]
     pub fn get_as_string(&self, key: &str) -> Option<SmolStr>{
         if let Some(v) = self.map.get(key){
-            let s = match v.value() {
+            let s = match v {
                 StringType(s) | WordType(s) | ElementType(s) => s.clone(),
                 IntegerType(d)  => d.to_string().into(),
                 DoubleType(d)  => d.to_string().into(),
@@ -134,7 +135,7 @@ impl AttrMap {
     #[inline]
     pub fn get_bool(&self, key: &str) -> bool{
         if let Some(v) = self.map.get(key){
-            match v.value() {
+            match v {
                 BoolType(b)  => *b,
                 _ => false,
             }
@@ -145,9 +146,9 @@ impl AttrMap {
 
 
     #[inline]
-    pub fn get(&self, key: &str) -> Option<AttrVal>{
+    pub fn get(&self, key: &str) -> Option<&AttrVal>{
         if let Some(v) = self.map.get(key) {
-            Some(v.value().clone())
+            Some(v)
         }else{
             None
         }
@@ -184,7 +185,7 @@ impl AttrMap {
     pub fn get_f64_vec(&self, att: &str) -> Option<Vec<f64>> {
         let mut v = vec![];
         if let Some(val) = self.map.get(att) {
-            match val.value() {
+            match val {
                 AttrVal::DoubleArrayType(data) => {
                     v = data.clone();
                     return Some(v);

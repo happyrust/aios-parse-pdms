@@ -48,7 +48,7 @@ pub fn get_attr_value_int(ele: &AttrMap, attr: &str) -> i32 {
     if let Some(ele_value) = ele.get(attr) {
         match ele_value {
             AttrVal::IntegerType(data) => {
-                value = data;
+                value = *data;
             }
             _ => {}
         }

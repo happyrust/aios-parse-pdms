@@ -187,8 +187,8 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         if let Some(file_name) = path.file_name().unwrap().to_str() {
             if file_name.ends_with("sys") {
                 pdms_project_name = SmolStr::from(parse_pdms_project_name(file_name).unwrap().1);
-                let eles_data_map = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
-                eles_data_map.all_attr_map.iter().for_each(|m| {
+                let mut pdms_db_data = parse_file(&path, &database_info, limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                pdms_db_data.all_attr_map.iter().for_each(|m| {
                     let map = m.value();
                     if let Some(num) = map.get_u32("NUMBDB") {
                         if let Some(name) = map.get_as_string("NAME") {
@@ -202,9 +202,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                     pdms_db_data.db_name = file_name.into();
                 }
                 pdms_db_data.filename = file_name.into();
-                pdms_db_all_refnos.push(eles_data_map.type_ele_map);
-                pdms_db_ele_trees.push(EleNodeMongoDb::new(file_name, eles_data_map.ele_id_tree));
-                pdms_all_attrs.push(eles_data_map.all_attr_map);
+                pdms_db_all_refnos.push(pdms_db_data.type_ele_map);
+                pdms_db_ele_trees.push(EleNodeMongoDb::new(file_name, pdms_db_data.ele_id_tree));
+                pdms_all_attrs.push(pdms_db_data.all_attr_map);
             }
         }
     };
@@ -222,7 +222,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
 
         let ele_node_db = EleNodeMongoDb::new(file_name, pdms_db_data.ele_id_tree);
-        let mongo_db = get_mongo_data(&path, db_name, &pdms_db_data.type_ele_map, &ele_node_db.tree);
+        let mongo_db = get_mongo_data(&path, pdms_db_data.db_name.clone(), &pdms_db_data.type_ele_map, &ele_node_db.tree);
         pdms_db_all_refnos.push(pdms_db_data.type_ele_map);
         pdms_db_ele_trees.push(ele_node_db);
         pdms_all_attrs.push(pdms_db_data.all_attr_map);
