@@ -12,7 +12,6 @@ use mongodb::Client;
 use mongodb::bson::doc;
 use std::collections::HashSet;
 use std::error::Error;
-use autowired::Autowired;
 use crate::parsed_data::GeomsInfo;
 use crate::pdms_types::{AttrMap, EleNode, PdmsRefno};
 use futures::stream::TryStreamExt;

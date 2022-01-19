@@ -375,6 +375,10 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
         type_ele_map,
         ele_id_tree,
         all_attr_map,
+        filename: Default::default(),
+        version: 0,
+        db_type: Default::default(),
+        db_name: Default::default()
     }
 }
 

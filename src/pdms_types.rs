@@ -8,6 +8,7 @@ use smol_str::SmolStr;
 use crate::consts::UNSET_STR;
 use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, StringArrayType, StringType, Vec3Type, WordType};
 use crate::helper::get_attr_value_f64_vec;
+use bevy_inspector_egui::Inspectable;
 
 
 
@@ -272,14 +273,13 @@ pub struct PdmsDatabaseInfo {
     pub noun_attr_info_map: DashMap<i32, DashMap<i32, AttrInfo>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Inspectable)]
 pub struct EleNode {
     pub ref_no: SmolStr,
     pub owner: SmolStr,
     pub name: SmolStr,
     pub noun_name: SmolStr,
     pub version:u32,
-    // pub order: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
