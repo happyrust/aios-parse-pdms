@@ -103,7 +103,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
 
     let dir = PathBuf::from(dir);
     let mut pdms_project_data_map = DashMap::new();
-    let parent_files = fs::read_dir(dir)?.into_iter().map(|entry| {
+    let mut children_files = fs::read_dir(dir)?.into_iter().map(|entry| {
         let entry = entry.unwrap();
         entry.path()
     }).collect::<Vec<PathBuf>>();
@@ -118,7 +118,8 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     }
 
     let mut pdms_db_name_map = DashMap::new();      //file_name->db_name
-    for path in &parent_files {
+    let mut sys_file = None;
+    for path in &children_files {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
             println!("path={:?}", &path);
@@ -138,11 +139,19 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
                 pdms_db_data.db_name = file_name.into();
             }
             pdms_db_data.filename = file_name.into();
-            pdms_project_data_map.insert(pdms_db_data.db_name.clone(), pdms_db_data);
+            pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
+            sys_file = Some(path);
             break;
         }
     }
-    parent_files.par_iter().for_each(|path| {
+
+    if let Some(sys_file) = sys_file {
+        children_files.remove(children_files.iter().position(|x| x == sys_file).unwrap());
+    }
+
+    dbg!(&pdms_db_name_map);
+
+    children_files.par_iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
@@ -153,7 +162,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
             } else {
                 pdms_db_data.db_name = file_name.into();
             }
-            pdms_project_data_map.insert(pdms_db_data.db_name.clone(), pdms_db_data);
+            pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
         }
     });
 

@@ -10,6 +10,7 @@ use crate::consts::UNSET_STR;
 use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, StringArrayType, StringType, Vec3Type, WordType};
 use crate::helper::get_attr_value_f64_vec;
 use bevy_inspector_egui::Inspectable;
+use bevy::prelude::*;
 
 
 
@@ -63,10 +64,9 @@ impl RefNoTuple {
 
 
 ///PDMS的属性数据Map
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct AttrMap{
     pub map: HashMap<SmolStr, AttrVal>
-
 }
 
 
