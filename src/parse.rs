@@ -147,7 +147,6 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
             println!("path={:?}", &path);
-            // let pdms_project_name = SmolStr::from(parse_pdms_project_name(file_name).unwrap().1);
             let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),0, false, "", "");
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();

@@ -81,14 +81,14 @@ pub fn get_world_matrix_f64_db(ele: &AttrMap) -> Vec<f64> {
     ]
 }
 
-pub fn get_attr_strings_db(ele: &AttrMap, attrs: &[&str]) -> Vec<String> {
+pub fn get_attr_strings_db(ele: &AttrMap, attrs: &[&str]) -> Vec<SmolStr> {
     let mut results = vec![];
     for &attr_name in attrs {
         if let Some(result) = ele.get(attr_name) {
             match result {
                 AttrVal::StringType(value) => {
                     if value != "" {
-                        results.push(value.trim_matches('\0').to_owned().clone());
+                        results.push(value.trim_matches('\0').to_owned().clone().into());
                     }
                 }
                 _ => {}

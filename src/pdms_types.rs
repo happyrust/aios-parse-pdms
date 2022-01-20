@@ -301,7 +301,7 @@ pub struct EleNode {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleNodeMongoDb {
-    pub db_name : SmolStr,
+    pub file_name : SmolStr,
     /// 序列化后的 tree
     pub tree : Vec<u8>,
 }
@@ -309,7 +309,7 @@ pub struct EleNodeMongoDb {
 impl EleNodeMongoDb {
     pub fn new(db_name:&str,tree:Tree<EleNode>) -> Self {
         Self {
-            db_name: SmolStr::from(db_name),
+            file_name: SmolStr::from(db_name),
             tree: bincode::serialize(&tree).unwrap(),
         }
     }
