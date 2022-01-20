@@ -63,7 +63,7 @@ pub struct PdmsDbData {
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
     /// 所有的refno在tree里面对应的node_id
-    pub refno_node_id : Vec<RefnoNodeId>,
+    pub refno_info_map: HashMap<SmolStr, RefnoInfo>,
     ///数据文件名
     pub filename: SmolStr,
     ///数据文件的版本号
@@ -95,17 +95,17 @@ pub struct PdmsMongoDbInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RefnoNodeId {
-    /// 文件名
-    pub file_name: SmolStr,
+pub struct RefnoInfo {
     /// 参考号
     pub refno: SmolStr,
+    /// 文件名
+    pub file_name: SmolStr,
     /// 参考号对应的node_id
     pub node_id: NodeId,
 }
 
 
-impl RefnoNodeId {
+impl RefnoInfo {
     pub fn new(file_name:SmolStr,refno:SmolStr,node_id:NodeId) -> Self {
         Self {
             file_name,
@@ -389,7 +389,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
     if !target_refno_str.is_empty() {
         root_refno = target_refno_str.into();
     }
-    let mut refno_node_id = vec![];
+    let mut refno_info_map = HashMap::new();
     let entry = &*refno_table_map.get(&root_refno).unwrap();
     let EleData {
         ele_node,
@@ -400,7 +400,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
     all_attr_map.insert(refno.clone(), attr_data_map);
     type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(refno.clone());
     let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
-    refno_node_id.push(RefnoNodeId::new(file_name.clone(),refno, root_id.clone()));
+    refno_info_map.insert(refno.clone(), RefnoInfo::new(file_name.clone(), refno.clone(), root_id.clone()));
     // let mut node_id_map = HashMap::new();
     // node_id_map.insert(root_refno, root_id);
     // dbg!(children.len());
@@ -429,7 +429,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
                         type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
                         let refno=ele_node.ref_no.clone();
                         let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
-                        refno_node_id.push(RefnoNodeId::new(file_name.clone(),refno, cur_id.clone()));
+                        refno_info_map.insert(refno.clone(), RefnoInfo::new(file_name.clone(), refno, cur_id.clone()));
                         pending_refnos.push((cur_id, children));
                     }
                 }
@@ -443,7 +443,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
         type_ele_map,
         ele_id_tree,
         all_attr_map,
-        refno_node_id,
+        refno_info_map,
         filename: Default::default(),
         version,
         db_type,

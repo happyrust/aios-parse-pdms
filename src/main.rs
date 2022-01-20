@@ -181,7 +181,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     let mut pdms_db_ele_trees = vec![];
     let mut pdms_all_attrs = vec![];
     let mut pdms_db_mongo_infos = vec![];
-    let mut pdms_refno_node_id = vec![];
+    let mut pdms_refno_info_maps = vec![];
     let mut pdms_project_name = SmolStr::new("");
     let mut pdms_db_name_map = DashMap::new();
 
@@ -223,8 +223,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 db_name = file_name.into();
             }
             pdms_db_data.filename = file_name.into();
-            let refno_node_id = pdms_db_data.refno_node_id;
-            pdms_refno_node_id.push(refno_node_id);
+            pdms_refno_info_maps.push(pdms_db_data.refno_info_map);
             let ele_node_db = EleNodeMongoDb::new(file_name, pdms_db_data.ele_id_tree);
             let mongo_db = get_mongo_data(&path, pdms_db_data.db_name.clone(), &pdms_db_data.type_ele_map, &ele_node_db.tree);
             pdms_db_all_refnos.push(pdms_db_data.type_ele_map);
@@ -389,7 +388,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         let t_tree = db.collection::<EleNodeMongoDb>("PdmsTree");
         let t_attrs = db.collection::<PdmsMongoAttr>("PdmsAttrs");
         let t_mong = db.collection::<PdmsMongoDbInfo>("PdmsMongoData");
-        let t_id = db.collection::<RefnoNodeId>("PdmsNodeId");
+        let t_id = db.collection::<RefnoInfo>("PdmsNodeId");
 
         for table_chunk in pdms_db_all_refnos.chunks(10000) {
             t_refnos.insert_many(
@@ -412,7 +411,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
             map
         }).collect();
         let pdms_attrs = attrs.iter().flatten().collect::<Vec<_>>();
-        let pdms_refno_node_id = pdms_refno_node_id.iter().flatten().collect::<Vec<_>>();
+        // let pdms_refno_infos_vec = pdms_refno_info_maps.iter()
+        //     .flat_map(|x| x.iter().map(|x| x.value())).collect::<Vec<_>>();
+        let pdms_refno_infos_vec: Vec<RefnoInfo> = pdms_refno_info_maps.into_iter().flat_map(|x| x.into_values()).collect();
         for table_chunk in pdms_attrs.chunks(10000) {
             t_attrs.insert_many(
                 table_chunk.to_owned(), None,
@@ -423,7 +424,7 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                 table_chunk.to_owned(), None,
             ).await?;
         }
-        for table_chunk in pdms_refno_node_id.chunks(10000) {
+        for table_chunk in pdms_refno_infos_vec.chunks(10000) {
             t_id.insert_many(
                 table_chunk.to_owned(), None,
             ).await?;

@@ -5,7 +5,7 @@ use mongodb::Client;
 use mongodb::bson::doc;
 use mongodb::options::{FindOptions, FindOneOptions};
 use smol_str::SmolStr;
-use crate::parse::RefnoNodeId;
+use crate::parse::RefnoInfo;
 use crate::parsed_data::GeomsInfo;
 use crate::pdms_types::{AttrMap, EleNode, EleNodeMongoDb, PdmsMongoAttr};
 
@@ -55,7 +55,7 @@ impl PdmsInterface {
     pub async fn get_node_id (&mut self,file_name:SmolStr,refno:SmolStr) -> MResult<Option<NodeId>> {
         if let Some(client) = self.connect().await {
             let db = client.database(&self.project);
-            let t = db.collection::<RefnoNodeId>("PdmsNodeId");
+            let t = db.collection::<RefnoInfo>("PdmsNodeId");
             let file_name = file_name.as_str();
             let refno = refno.as_str();
             if let Some(t) = t.find_one(doc! {"file_name":file_name,"refno":refno},None).await? {
