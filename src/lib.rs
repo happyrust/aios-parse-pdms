@@ -22,7 +22,7 @@ pub mod pdms_types;
 pub mod db_tool;
 pub use db_tool::{ db1_dehash };
 pub mod parse_explict_tools;
-// pub mod query;
+pub mod query;
 pub mod helper;
 pub mod parsed_data;
 pub mod pdms_data;

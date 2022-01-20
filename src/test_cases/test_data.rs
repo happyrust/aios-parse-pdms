@@ -101,7 +101,7 @@ fn test_aba_14352_102824() {
     if let Some(m) = ele_data.attr_data_map.get("DETR") {
         match m {
             AttrVal::ElementType(v) => {
-                value = v;
+                value = v.clone();
             }
             _ => {}
         }
@@ -206,7 +206,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     if let Some(m) = ele_data.attr_data_map.get("DX") {
         match m {
             AttrVal::StringType(v) => {
-                value = v.into();
+                value = v.clone();
             }
             _ => {}
         }

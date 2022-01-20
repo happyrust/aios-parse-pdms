@@ -5,9 +5,9 @@ use mongodb::bson::doc;
 use mongodb::options::{FindOptions, FindOneOptions };
 use smol_str::SmolStr;
 use crate::parsed_data::GeomsInfo;
-use crate::pdms_types::AttrMap;
+use crate::pdms_types::{AttrMap, PdmsMongoAttr };
 
-type MResult<T> = mongodb::error::Result<T>;
+pub type MResult<T> = mongodb::error::Result<T>;
 
 #[derive(Debug, Default)]
 pub struct PdmsInterface {
@@ -38,19 +38,18 @@ impl PdmsInterface {
         self.client.clone()
     }
 
-    pub async fn get_ele_attr_map_async(&mut self,refno:&str) -> MResult<Option<AttrMap>> {
+    // pub async fn get_children_async(&mut self,refno:SmolStr) -> MResult<Option<Vec<SmolStr>>> {
+    //
+    // }
+
+    pub async fn get_ele_attr_map_async(&mut self,refno:SmolStr) -> MResult<Option<AttrMap>> {
         if let Some(client) = self.connect().await {
             let db = client.database(&self.project);
-            // let t = db.collection::< DashMap<SmolStr, AttrMap> >("PdmsAttrs");
-            // // let mut opt= FindOptions::builder().projection(doc! { refno:1 ,"map" : 1 }).build();
-            // if let Ok(Some(d)) = t.find_one(doc! { "refno" : refno}, None){
-            //
-            // }
-            // if let Some(d) = t.find(None,None).await?.try_next().await?{
-            //     if let Some(v) = d.get(refno) {
-            //         return Ok(Some(v.value()).cloned())
-            //     }
-            // }
+            let t = db.collection::<PdmsMongoAttr>("PdmsAttrs");
+            let refno = refno.as_str();
+            if let Some(m)=t.find_one(doc! {"refno":refno },None).await?{
+                return Ok(Some(m.attr))
+            }
         }
         Ok(None)
     }
@@ -61,7 +60,7 @@ impl PdmsInterface {
 #[tokio::test]
 async fn get_ele_attr_map_async() -> MResult<()>{
     let mut interface=PdmsInterface::new("mongodb://localhost:27017","apsProject");
-    let node=interface.get_ele_attr_map_async("24575/4").await?;
+    let node=interface.get_ele_attr_map_async(SmolStr::new("24575/4")).await?;
     dbg!(node);
     Ok(())
 }
