@@ -1,3 +1,4 @@
+use smol_str::SmolStr;
 use crate::AttrMap;
 
 #[derive(Clone, Debug, Default)]
@@ -68,18 +69,18 @@ pub struct DatasetParamStr {
 pub struct GmseParam {
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     pub attr_map: AttrMap,
-    pub radius: String,
+    pub radius: SmolStr,
     /// 顺序 pdiameter pbdiameter ptdiameter, 先bottom, 后top
-    pub diameters: Vec<String>,
+    pub diameters: Vec<SmolStr>,
     /// 顺序 pdistance pbdistance ptdistance, 先bottom, 后top
-    pub distances: Vec<String>,
-    pub height: String,
-    pub offset: String,
+    pub distances: Vec<SmolStr>,
+    pub height: SmolStr,
+    pub offset: SmolStr,
     /// 顺序 x y z
-    pub box_lengths: Vec<String>,
-    pub xyz: Vec<String>,
+    pub box_lengths: Vec<SmolStr>,
+    pub xyz: Vec<SmolStr>,
     /// 顺序 paxis pa_axis pb_axis pc_axis
-    pub paxises: Vec<String>,
+    pub paxises: Vec<SmolStr>,
     pub centre_line_flag: bool,
     pub tube_flag: bool,
 }

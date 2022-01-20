@@ -62,6 +62,8 @@ pub struct PdmsDbData {
     pub ele_id_tree: Tree<EleNode>,
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<SmolStr, AttrMap>,
+    /// 所有的refno在tree里面对应的node_id
+    pub refno_node_id : Vec<RefnoNodeId>,
     ///数据文件名
     pub filename: SmolStr,
     ///数据文件的版本号
@@ -91,6 +93,28 @@ pub struct PdmsMongoDbInfo {
     ///数据文件的 db number
     pub db_no: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefnoNodeId {
+    /// 文件名
+    pub file_name: SmolStr,
+    /// 参考号
+    pub refno: SmolStr,
+    /// 参考号对应的node_id
+    pub node_id: NodeId,
+}
+
+
+impl RefnoNodeId {
+    pub fn new(file_name:SmolStr,refno:SmolStr,node_id:NodeId) -> Self {
+        Self {
+            file_name,
+            refno,
+            node_id
+        }
+    }
+}
+
 
 #[test]
 fn parse_files_test() {
@@ -123,8 +147,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
             println!("path={:?}", &path);
-            // let pdms_project_name = SmolStr::from(parse_pdms_project_name(file_name).unwrap().1);
-            let mut pdms_db_data = parse_file(&path, &database_info, 0, false, "", "");
+            let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),0, false, "", "");
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();
                 if let Some(num) = map.get_u32("NUMBDB") {
@@ -155,7 +178,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
-            let mut pdms_db_data = parse_file(&path, &database_info, 0 , false, "", "");
+            let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),0 , false, "", "");
             pdms_db_data.filename = file_name.into();
             if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
                 pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
@@ -169,7 +192,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     return Ok(pdms_project_data_map);
 }
 
-pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>,file_name:SmolStr, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -180,12 +203,12 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, limi
 
     if database_info.is_none() {
         if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")) {
-            let db_data = parse_db(input, &db_info, limited_cnt, b_save_to_log, print_refno_str, target_refno_str);
+            let db_data = parse_db(input, &db_info, file_name,limited_cnt, b_save_to_log, print_refno_str, target_refno_str);
 
             return db_data;
         }
     }
-    parse_db(input, database_info.as_ref().unwrap(), limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
+    parse_db(input, database_info.as_ref().unwrap(),file_name, limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
 }
 
 /// 获取PdmsMongoData
@@ -348,7 +371,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 }
 
 
-pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData {
+pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolStr,limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData {
 
     let mut type_ele_map: DashMap<SmolStr, Vec<SmolStr>> = DashMap::new();
     /// 基本数据的Tree
@@ -366,20 +389,23 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
     if !target_refno_str.is_empty() {
         root_refno = target_refno_str.into();
     }
+    let mut refno_node_id = vec![];
     let entry = &*refno_table_map.get(&root_refno).unwrap();
     let EleData {
         ele_node,
         attr_data_map,
         children,
     } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, 0);
-    all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
-    type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
+    let refno = ele_node.ref_no.clone();
+    all_attr_map.insert(refno.clone(), attr_data_map);
+    type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(refno.clone());
     let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
+    refno_node_id.push(RefnoNodeId::new(file_name.clone(),refno, root_id.clone()));
     // let mut node_id_map = HashMap::new();
     // node_id_map.insert(root_refno, root_id);
     // dbg!(children.len());
     // children.par_iter().for_each(|root|{  //todo opt parallel
-    let mut pending_refnos = vec![(root_id.clone(), children)];
+    let mut pending_refnos = vec![(root_id, children)];
     while !pending_refnos.is_empty() {
         let (parent_id, refnos) = pending_refnos.pop().unwrap();
         refnos.iter().enumerate().for_each(|(indx, refno)| {
@@ -394,13 +420,16 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
                         attr_data_map,
                         children,
                     } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, indx);
+
                     if !print_refno_str.is_empty() && print_refno_str == &ele_node.ref_no {
                         println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_node);
                     }
                     if !all_attr_map.contains_key(&ele_node.ref_no) {
                         all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
                         type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
+                        let refno=ele_node.ref_no.clone();
                         let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
+                        refno_node_id.push(RefnoNodeId::new(file_name.clone(),refno, cur_id.clone()));
                         pending_refnos.push((cur_id, children));
                     }
                 }
@@ -408,11 +437,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, limited_cnt: u32
         });
     }
     let elapsed = time_start.elapsed();
+
     println!("解析db所耗时间: {:?}", elapsed);
     PdmsDbData {
         type_ele_map,
         ele_id_tree,
         all_attr_map,
+        refno_node_id,
         filename: Default::default(),
         version,
         db_type,

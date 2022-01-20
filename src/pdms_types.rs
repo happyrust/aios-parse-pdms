@@ -3,7 +3,7 @@ use std::fmt;
 use dashmap::DashMap;
 use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
-use id_tree::Tree;
+use id_tree::{NodeId, Tree, TreeBuilder};
 use serde::{Serialize, Deserialize};
 use smol_str::SmolStr;
 use crate::consts::UNSET_STR;
@@ -311,7 +311,8 @@ pub struct PdmsDatabaseInfo {
     pub noun_attr_info_map: DashMap<i32, DashMap<i32, AttrInfo>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, Inspectable)]
+// #[derive(Serialize, Deserialize, Clone, Debug, Default, Inspectable)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleNode {
     pub ref_no: SmolStr,
     pub owner: SmolStr,
@@ -322,7 +323,7 @@ pub struct EleNode {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleNodeMongoDb {
-    pub db_name : SmolStr,
+    pub file_name : SmolStr,
     /// 序列化后的 tree
     pub tree : Vec<u8>,
 }
@@ -330,7 +331,7 @@ pub struct EleNodeMongoDb {
 impl EleNodeMongoDb {
     pub fn new(db_name:&str,tree:Tree<EleNode>) -> Self {
         Self {
-            db_name: SmolStr::from(db_name),
+            file_name: SmolStr::from(db_name),
             tree: bincode::serialize(&tree).unwrap(),
         }
     }
@@ -411,3 +412,29 @@ pub struct PdmsRefno {
     pub type_name: String,
 }
 
+use id_tree::InsertBehavior::*;
+
+#[test]
+fn test_id_tree() {
+
+
+    let mut tree: Tree<i32> = TreeBuilder::new()
+        .with_node_capacity(5)
+        .build();
+
+    //      0
+    //     / \
+    //    1   2
+    //   / \
+    //  3   4
+    let root_id: NodeId = tree.insert(id_tree::Node::new(0), AsRoot).unwrap();
+    let child_id: NodeId = tree.insert(id_tree::Node::new(1), UnderNode(&root_id)).unwrap();
+    tree.insert(id_tree::Node::new(2), UnderNode(&root_id)).unwrap();
+    tree.insert(id_tree::Node::new(3), UnderNode(&child_id)).unwrap();
+    tree.insert(id_tree::Node::new(4), UnderNode(&child_id)).unwrap();
+
+    println!("Pre-order:");
+    for node in tree.children(&root_id).unwrap() {
+        print!("{}, ", node.data());
+    }
+}
