@@ -154,6 +154,28 @@ impl AttrMap {
         }
     }
 
+    #[inline]
+    pub fn get_translation(&self) -> Vec3{
+        if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
+             return glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
+        }
+
+        Vec3::ZERO
+    }
+
+    #[inline]
+    pub fn get_rotation(&self) -> Quat{
+        if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
+            let mat3 = Mat3::from_rotation_z(ang[2].to_radians() as f32)
+                * Mat3::from_rotation_y(ang[1].to_radians() as f32)
+                * Mat3::from_rotation_x(ang[0].to_radians() as f32);
+
+            return Quat::from_mat3(&mat3);
+        }
+
+        Quat::IDENTITY
+    }
+
     pub fn get_matrix(&self) -> glam::f32::Affine3A{
         let mut affine = glam::f32::Affine3A::IDENTITY;
         if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
