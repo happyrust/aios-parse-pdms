@@ -164,9 +164,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     }
 
 
-    if database_info.is_none() {
-        return Ok(());
-    }
+    // if database_info.is_none() {
+    //     return Ok(());
+    // }
 
     target_files.sort_by(|a, b|
         fs::metadata(b).unwrap().len()
@@ -189,7 +189,10 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         if let Some(file_name) = path.file_name().unwrap().to_str() {
             if file_name.ends_with("sys") {
                 pdms_project_name = SmolStr::from(parse_pdms_project_name(file_name).unwrap().1);
-                let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+                let mut pdms_db_data = parse_file(&path, &database_info,
+                                                  SmolStr::new(file_name),
+                                                  limited_count as u32, false, "", target_refno_str);
+                dbg!(&pdms_db_data);
                 pdms_db_data.all_attr_map.iter().for_each(|m| {
                     let map = m.value();
                     if let Some(num) = map.get_u32("NUMBDB") {
@@ -215,7 +218,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         println!("path={:?}", &path);
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if !file_name.ends_with("sys") {
-            let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+            let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),
+                                              limited_count as u32, b_save_to_log, print_refno_str, target_refno_str);
+            dbg!(&pdms_db_data);
             let mut db_name = SmolStr::new("");
             if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
                 db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();

@@ -102,15 +102,18 @@ pub struct RefnoInfo {
     pub file_name: SmolStr,
     /// 参考号对应的node_id
     pub node_id: NodeId,
+    // /// 构件名称
+    // pub name: SmolStr,
 }
 
 
 impl RefnoInfo {
-    pub fn new(file_name:SmolStr,refno:SmolStr,node_id:NodeId) -> Self {
+    pub fn new(file_name: SmolStr, refno: SmolStr, node_id: NodeId) -> Self {
         Self {
             file_name,
             refno,
-            node_id
+            node_id,
+            // name,
         }
     }
 }
@@ -172,7 +175,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
         children_files.remove(children_files.iter().position(|x| x == sys_file).unwrap());
     }
 
-    dbg!(&pdms_db_name_map);
+    // dbg!(&pdms_db_name_map);
 
     children_files.par_iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
@@ -192,7 +195,8 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     return Ok(pdms_project_data_map);
 }
 
-pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>,file_name:SmolStr, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>,file_name:SmolStr, limited_cnt: u32, b_save_to_log: bool,
+                  print_refno_str: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -253,6 +257,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     //todo wrapper i32 to type_hash type
     let type_hash = parse_to_i32(&input[12..16]);
     ele_node.noun_name = convert_u32_to_noun(&input[12..16]);  //类型hash  12-16
+    // dbg!(db1_dehash(type_hash as u32));
     let attr_info_map = &*attr_info_map.get(&type_hash).unwrap();
 
     ele_node.owner = RefNoTuple::from(&input[16..24]).into();
@@ -400,7 +405,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
     all_attr_map.insert(refno.clone(), attr_data_map);
     type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(refno.clone());
     let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
-    refno_info_map.insert(refno.clone(), RefnoInfo::new(file_name.clone(), refno.clone(), root_id.clone()));
+    refno_info_map.insert(refno.clone(),
+                          RefnoInfo::new(file_name.clone(), refno.clone(), root_id.clone()));
     // let mut node_id_map = HashMap::new();
     // node_id_map.insert(root_refno, root_id);
     // dbg!(children.len());
@@ -424,11 +430,12 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
                     if !print_refno_str.is_empty() && print_refno_str == &ele_node.ref_no {
                         println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_node);
                     }
+                    //有可能重复利用的节点，所以需要放在外面
+                    let cur_id = ele_id_tree.insert(Node::new(ele_node.clone()), UnderNode(&parent_id)).unwrap();
                     if !all_attr_map.contains_key(&ele_node.ref_no) {
                         all_attr_map.insert(ele_node.ref_no.clone(), attr_data_map);
                         type_ele_map.entry(ele_node.noun_name.clone()).or_insert_with(Vec::new).push(ele_node.ref_no.clone());
-                        let refno=ele_node.ref_no.clone();
-                        let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
+                        let refno= ele_node.ref_no.clone();
                         refno_info_map.insert(refno.clone(), RefnoInfo::new(file_name.clone(), refno, cur_id.clone()));
                         pending_refnos.push((cur_id, children));
                     }

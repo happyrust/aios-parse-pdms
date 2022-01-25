@@ -133,6 +133,28 @@ impl AttrMap {
     }
 
     #[inline]
+    pub fn get_as_vec_string(&self, key: &str) -> Vec<SmolStr>{
+        if let Some(v) = self.map.get(key){
+            return match v {
+                StringArrayType(d) => d.clone(),
+                _ => { vec![] }
+            };
+        }
+        vec![]
+    }
+
+    #[inline]
+    pub fn get_as_vec_refnos(&self, key: &str) -> Vec<SmolStr>{
+        if let Some(v) = self.map.get(key){
+            return match v {
+                IntArrayType(d) => d.chunks_exact(2).map(|x| format!("{}/{}", x[0], x[1]).into()).collect(),
+                _ => { vec![] }
+            };
+        }
+        vec![]
+    }
+
+    #[inline]
     pub fn get_bool(&self, key: &str) -> bool{
         if let Some(v) = self.map.get(key){
             match v {
@@ -252,7 +274,7 @@ impl AttrMap {
 
 
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Inspectable)]
 pub enum AttrVal {
     InvalidType,
     IntegerType(i32),
@@ -288,6 +310,16 @@ impl AttrVal {
         return match self {
             DoubleType(v) => {
                 Some(*v)
+            }
+            _ => { None }
+        }
+    }
+
+    #[inline]
+    pub fn f32_value(&self) -> Option<f32> {
+        return match self {
+            DoubleType(v) => {
+                Some(*v as f32)
             }
             _ => { None }
         }
