@@ -74,6 +74,8 @@ pub struct PdmsDbData {
     pub db_name: SmolStr,
     ///数据文件的 db number
     pub db_no: u32,
+///数据文件的field no
+    pub filed_no: u32,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -154,9 +156,13 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();
                 if let Some(num) = map.get_u32("NUMBDB") {
-                    if let Some(name) = map.get_as_string("NAME") {
-                        pdms_db_name_map.insert(num, name);
+                    if let Some(fnum) = map.get_u32("FINO"){
+                        if let Some(name) = map.get_as_string("NAME") {
+                            let db_no = if fnum == 0 { num}  else { fnum };
+                            pdms_db_name_map.insert(db_no, name);
+                        }
                     }
+
                 }
             });
             if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
@@ -183,11 +189,25 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
             println!("path={:?}", &path);
             let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),0 , false, "", "");
             pdms_db_data.filename = file_name.into();
-            if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
-                pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
-            } else {
-                pdms_db_data.db_name = file_name.into();
+            let cur_dbno = pdms_db_data.db_no.to_string();
+            if pdms_db_data.filename.contains(&cur_dbno) {
+                if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                    pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+                }
+            }else{
+                let chars_len = cur_dbno.len();
+                dbg!(cur_dbno);
+                let l = pdms_db_data.filename.len();
+                dbg!(&pdms_db_data.filename);
+                pdms_db_data.filed_no = pdms_db_data.filename[l-chars_len..].parse::<u32>().unwrap();
+                dbg!(pdms_db_data.filed_no);
+                if pdms_db_name_map.contains_key(&pdms_db_data.filed_no) {
+                    pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+                } else {
+                    pdms_db_data.db_name = file_name.into();
+                }
             }
+
             pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
         }
     });
@@ -455,7 +475,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
         version,
         db_type,
         db_name: Default::default(),
-        db_no
+        db_no,
+        filed_no: 0
     }
 }
 
