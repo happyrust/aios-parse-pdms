@@ -11,7 +11,8 @@ use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, Doubl
 use crate::helper::get_attr_value_f64_vec;
 use bevy_inspector_egui::Inspectable;
 use bevy::prelude::*;
-
+use bonsaidb::core::Error;
+use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Schematic};
 
 
 //todo wrap noun hash
@@ -19,34 +20,44 @@ pub struct NounHash(pub i32);
 
 ///pdms的参考号
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Copy, Eq, PartialEq, Hash)]
-pub struct RefNoTuple(pub (i32, i32));
+pub struct Refi32Tuple(pub (i32, i32));
 
-impl Into<SmolStr> for RefNoTuple {
+impl Into<SmolStr> for Refi32Tuple {
     fn into(self) -> SmolStr {
         SmolStr::from(format!("{}/{}", self.get_0(), self.get_1()))
     }
 }
 
-impl Into<String> for RefNoTuple {
+impl Into<String> for Refi32Tuple {
     fn into(self) -> String {
         format!("{}/{}", self.get_0(), self.get_1())
     }
 }
 
-impl From<&[u8]> for RefNoTuple {
+impl From<&[u8]> for Refi32Tuple {
     fn from(input: &[u8]) -> Self {
         Self::new(i32::from_be_bytes(input[0..4].try_into().unwrap()), i32::from_be_bytes(input[4..8].try_into().unwrap()))
     }
 }
 
-impl From<&str> for RefNoTuple{
+impl From<&str> for Refi32Tuple {
     fn from(s: &str) -> Self {
         let x: Vec<i32> = s.split('/').map(|x| x.parse::<i32>().unwrap_or_default()).collect();
         Self::new(x[0], x[1])
     }
 }
 
-impl RefNoTuple {
+impl From<RefU64> for Refi32Tuple {
+    fn from(n: RefU64) -> Self {
+        let n = n.0.to_be_bytes();
+        Self((
+            i32::from_be_bytes(n[..4].try_into().unwrap()),
+            i32::from_be_bytes(n[4..].try_into().unwrap())
+        ))
+    }
+}
+
+impl Refi32Tuple {
 
     #[inline]
     pub fn new(ref_0: i32, ref_1: i32) -> Self{
@@ -62,12 +73,69 @@ impl RefNoTuple {
     pub fn get_1(&self) -> i32 { self.0.1 }
 }
 
+//把Refno当作u64
+#[derive(Hash, Serialize, Deserialize, Clone, Copy, Debug, Default, Component, Eq, PartialEq)]
+pub struct RefU64(pub u64);
+
+impl From<Refi32Tuple> for RefU64 {
+    fn from(n: Refi32Tuple) -> Self {
+        let bytes: Vec<u8> = [n.get_0().to_be_bytes(), n.get_1().to_be_bytes()].concat();
+        let v = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+        Self(v)
+    }
+}
+
+
+impl From<&[u8]> for RefU64 {
+    fn from(input: &[u8]) -> Self {
+        Self(u64::from_be_bytes(input[0..8].try_into().unwrap()))
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
+pub struct RefU64Vec(pub Vec<RefU64>);
+
+//存储children，也可以这么去存储
+impl Collection for RefU64Vec {
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "refnos")
+    }
+
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl DefaultSerialization for RefU64Vec {}
+
+impl RefU64Vec{
+    #[inline]
+    pub fn push(&mut self, v: RefU64){
+        self.0.push(v);
+    }
+}
+
+//parent可以存到一直到root
+
 
 ///PDMS的属性数据Map
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct AttrMap{
     pub map: HashMap<SmolStr, AttrVal>
 }
+
+impl Collection for AttrMap {
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "attrs")
+    }
+
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl DefaultSerialization for AttrMap {}
 
 
 
@@ -274,7 +342,7 @@ impl AttrMap {
 
 
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Inspectable)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum AttrVal {
     InvalidType,
     IntegerType(i32),
@@ -288,6 +356,8 @@ pub enum AttrVal {
     Vec3Type([f64; 3]),
     ElementType(SmolStr),
     WordType(SmolStr),
+
+    RefU64Type(RefU64),
 
 }
 
@@ -343,6 +413,8 @@ pub struct PdmsDatabaseInfo {
     pub noun_attr_info_map: DashMap<i32, DashMap<i32, AttrInfo>>,
 }
 
+
+//todo node 不需要多大，这些数据也不用缓存
 // #[derive(Serialize, Deserialize, Clone, Debug, Default, Inspectable)]
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleNode {
@@ -445,6 +517,7 @@ pub struct PdmsRefno {
 }
 
 use id_tree::InsertBehavior::*;
+use itertools::Itertools;
 
 #[test]
 fn test_id_tree() {

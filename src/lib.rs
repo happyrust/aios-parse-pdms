@@ -34,6 +34,8 @@ pub mod parse;
 pub use parse::parse_pdms_dir;
 pub mod consts;
 
+pub mod local_db;
+
 pub use parse::{parse_db,parse_file};
 
 pub mod interface;
