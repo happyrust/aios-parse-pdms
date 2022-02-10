@@ -6,11 +6,14 @@ use std::ptr::eq;
 use bonsaidb::core::circulate::Message;
 use bonsaidb::core::connection::Connection;
 use bonsaidb::core::schema::{Collection, CollectionName, Schematic, SerializedCollection};
+use bonsaidb::core::transaction;
+use bonsaidb::core::transaction::Transaction;
 use bonsaidb::local::config::{Builder, StorageConfiguration};
 use bonsaidb::local::Database;
 use nom::AsBytes;
 use smol_str::SmolStr;
 use crate::{AttrMap, db1_dehash, parse_pdms_dir};
+use crate::local_db::helper::combine_to_u64;
 use crate::parse::PdmsDbData;
 use crate::pdms_types::{Refi32Tuple, RefU64, RefU64Vec};
 
@@ -60,18 +63,31 @@ pub async fn save_local() -> Result<(), bonsaidb::core::Error> {
                 let mut file_name = &k;
                 dbg!(&db_name);
                 //属性全部插入
+                let mut tx = Transaction::default();
                 for (refno, v) in all_attr_map {
-                    // let bytes = bincode::serialize(&v).unwrap();
-                    // attr_db.insert(refno.0.to_be_bytes(), bytes.as_bytes());
-                    v.insert_into(refno.0, &attr_db).await?;
+                    tx.push(transaction::Operation::insert_serialized::<AttrMap>(
+                            None,
+                            &v,
+                        ).unwrap());
                 }
-                // for (type_noun, v) in type_ele_map {
-                //     v.insert_into(type_noun as u64, &type_refs_db).await?;
-                //     //和db_code 组合一个
-                //     // let type_name = db1_dehash(type_noun);
-                //     // let format_str = format!("{type_name}_{db_no}");
-                //     // let bytes = bincode::serialize(&v).unwrap();
-                //     // type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
+                attr_db.apply_transaction(tx).await.unwrap();
+
+                let mut tx = Transaction::default();
+                for (type_noun, v) in type_ele_map {
+                    //和db_code 组合一个
+                    let k = combine_to_u64(type_noun, db_no);
+                    tx.push(transaction::Operation::insert_serialized::<RefU64Vec>(
+                        Some(k),
+                        &v,
+                    ).unwrap());
+                }
+                type_refs_db.apply_transaction(tx).await.unwrap();
+
+                // for (k, v) in refno_info_map {
+                //     let refno = k.0;
+                //     let format_str = format!("{refno}_children");
+                //     let bytes = bincode::serialize(&v).unwrap();
+                //     type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
                 // }
 
                 //cache the mesh attributes first
@@ -105,27 +121,33 @@ pub async fn save_local() -> Result<(), bonsaidb::core::Error> {
 //     attrs
 // }
 //
-// //test the equip data, default cache all the element
-// pub async fn cache_geos_data() -> Result<(), sled::Error> {
-//     let db_code = 7200;
-//     let equip_type = format!("EQUI_{db_code}");
-//     let project = "Sample";
-//     if let Ok(attr_db) = sled::open(format!("./{project}/attrs.db")) {
-//         dbg!(attr_db.len());
-//         if let Ok(type_refs_db) = sled::open(format!("./{project}/type_refs.db")) {
-//             dbg!(type_refs_db.len());
-//             //get the equip refnos
-//             if let Some(d) = type_refs_db.get(equip_type).unwrap(){
-//                 let refnos = bincode::deserialize::<RefU64Vec>(&d).unwrap();
-//                 // dbg!(refnos.0.iter().map(|x| Refi32Tuple::from(x)).collect::<Vec<_>>());
-//                 // dbg!(refnos.0.iter().map(|x| get_attr(x, &attr_db)).collect::<Vec<_>>());
-//                 let first = refnos.0.first().unwrap();
-//                 let ancestors = get_ancestors_attrs(first, &attr_db);
-//                 dbg!(&ancestors);
-//
-//
-//             }
-//         }
-//     }
-//     Ok(())
-// }
+pub async fn cache_equip_geos_data() -> Result<(), bonsaidb::core::Error> {
+    let db_code = 7200;
+    let equip_hash = 0x9CBFA;
+    let equip_key = combine_to_u64(equip_hash, db_code);
+    // let equip_type = format!("EQUI_{db_code}");
+    let project = "Sample";
+    let attr_db = Database::open::<AttrMap>(StorageConfiguration::new(format!("./{project}/attrs.adb"))).await?;
+    let type_refs_db = Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./{project}/type_refs.adb"))).await?;
+    //get the equip refnos
+    //Message::get(document.header.id, &db)
+    //         .await?
+    //         .expect("couldn't retrieve stored item");
+    if let Some(d) = RefU64Vec::get(equip_key, &attr_db).await? {
+        let refnos = d.contents;
+        // let refnos = bincode::deserialize::<RefU64Vec>(&d).unwrap();
+        // dbg!(refnos.0.len());
+        // // dbg!(refnos.0.iter().map(|x| Refi32Tuple::from(x)).collect::<Vec<_>>());
+        // // dbg!(refnos.0.iter().map(|x| get_attr(x, &attr_db)).collect::<Vec<_>>());
+        // let first = refnos.0.first().unwrap();
+        // let ancestors = get_ancestors_attrs(first, &attr_db);
+        // dbg!(&ancestors);
+        //
+        // let world_mat = get_world_matrix(first,&attr_db);
+        // dbg!(world_mat);
+
+        //get the equip's geoms node
+
+    }
+    Ok(())
+}

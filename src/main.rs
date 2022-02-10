@@ -78,7 +78,8 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
     bonsaidb_local::save_local().await;
     // sled_local::save_local().await;
-    // sled_local::cache_geos_data().await;
+    // sled_local::cache_room_geos_data().await;
+    bonsaidb_local::cache_equip_geos_data().await;
 
     return Ok(());
 }

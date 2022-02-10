@@ -73,6 +73,9 @@ impl Refi32Tuple {
     pub fn get_1(&self) -> i32 { self.0.1 }
 }
 
+
+
+
 //把Refno当作u64
 #[derive(Hash, Serialize, Deserialize, Clone, Copy, Debug, Default, Component, Eq, PartialEq)]
 pub struct RefU64(pub u64);

@@ -11,7 +11,7 @@ use nom::AsBytes;
 use smol_str::SmolStr;
 use crate::{AttrMap, db1_dehash, parse_pdms_dir};
 use crate::parse::PdmsDbData;
-use crate::pdms_types::{Refi32Tuple, RefU64, RefU64Vec};
+use crate::pdms_types::{EleGeoData, Refi32Tuple, RefU64, RefU64Vec};
 // sanakirja 不支持动态大小
 // use sanakirja::*;
 
@@ -53,6 +53,7 @@ pub async fn save_local() -> Result<(), sled::Error> {
                         type_ele_map,
                         db_name,
                         db_no,
+                        refno_info_map,
                         ..
                     }) in r {
                         dbg!(all_attr_map.len());
@@ -71,6 +72,12 @@ pub async fn save_local() -> Result<(), sled::Error> {
                             type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
                         }
 
+                        for (k, v) in refno_info_map {
+                            let refno = k.0;
+                            let format_str = format!("{refno}_children");
+                            let bytes = bincode::serialize(&v).unwrap();
+                            type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
+                        }
 
                         //cache the mesh attributes first
 
@@ -104,6 +111,22 @@ pub fn get_ancestors_attrs(refno: &RefU64, attr_db: &sled::Db) -> Vec<AttrMap>{
     attrs
 }
 
+///获取子孙后代的几何节点
+pub fn get_descendant_attrs(refno: &RefU64, attr_db: &sled::Db) -> Vec<EleGeoData>{
+    let mut geoms = vec![];
+    //从一个节点开始层级遍历
+    let mut cur_refno = *refno;
+    while let Some(attr) = get_attr(&cur_refno, attr_db){
+        // if let Some(owner) = attr.get_owner(){
+        //     cur_refno = owner;
+        //     attrs.push(attr);
+        // }else{
+        //     break;
+        // }
+    }
+    geoms
+}
+
 pub fn get_world_matrix(refno: &RefU64, attr_db: &sled::Db) -> Mat4{
     let mut world_mat = Mat4::IDENTITY;
     let mut cur_refno = *refno;
@@ -120,7 +143,7 @@ pub fn get_world_matrix(refno: &RefU64, attr_db: &sled::Db) -> Mat4{
 
 
 //test the equip data, default cache all the element
-pub async fn cache_geos_data() -> Result<(), sled::Error> {
+pub async fn cache_room_geos_data() -> Result<(), sled::Error> {
     let db_code = 7200;
     let equip_type = format!("EQUI_{db_code}");
     let project = "Sample";
@@ -131,6 +154,7 @@ pub async fn cache_geos_data() -> Result<(), sled::Error> {
             //get the equip refnos
             if let Some(d) = type_refs_db.get(equip_type).unwrap(){
                 let refnos = bincode::deserialize::<RefU64Vec>(&d).unwrap();
+                dbg!(refnos.0.len());
                 // dbg!(refnos.0.iter().map(|x| Refi32Tuple::from(x)).collect::<Vec<_>>());
                 // dbg!(refnos.0.iter().map(|x| get_attr(x, &attr_db)).collect::<Vec<_>>());
                 let first = refnos.0.first().unwrap();
@@ -139,6 +163,8 @@ pub async fn cache_geos_data() -> Result<(), sled::Error> {
 
                 let world_mat = get_world_matrix(first,&attr_db);
                 dbg!(world_mat);
+
+                //get the equip's geoms node
 
             }
         }
