@@ -8,7 +8,7 @@ use crate::pdms_types::AttrMap;
 ///查询gmse的参数
 pub async fn query_gmse_params(attr_map: &AttrMap, interface: &mut PdmsInterface, file_name:SmolStr) -> MResult<Vec<GmseParam>> {
     let mut gmses = vec![];
-    let refno = attr_map.get_refno();
+    let refno = attr_map.get_refno_as_string();
     if let Some(children) = interface.get_children_attr_map(refno,file_name).await? {
         for child in children {
             gmses.push(query_gmse_param(&child.attr).await);

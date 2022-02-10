@@ -52,7 +52,8 @@ use std::ffi::OsString;
 use futures::TryStreamExt;
 use id_tree::Tree;
 use smol_str::SmolStr;
-use parse_pdms_db::local_db::save::save_local;
+use parse_pdms_db::local_db::{bonsaidb_local, sled_local};
+// use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
 
 const ATT_MDB: i32 = 0x8221C;
@@ -75,7 +76,9 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         ]
     ).unwrap();
 
-    save_local().await;
+    bonsaidb_local::save_local().await;
+    // sled_local::save_local().await;
+    // sled_local::cache_geos_data().await;
 
     return Ok(());
 }

@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 use std::fmt;
 use dashmap::DashMap;
-use gdnative::prelude::{Transform, Vector3};
+// use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
 use id_tree::{NodeId, Tree, TreeBuilder};
 use serde::{Serialize, Deserialize};
 use smol_str::SmolStr;
 use crate::consts::UNSET_STR;
-use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, StringArrayType, StringType, Vec3Type, WordType};
+use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, RefU64Type, StringArrayType, StringType, Vec3Type, WordType};
 use crate::helper::get_attr_value_f64_vec;
 use bevy_inspector_egui::Inspectable;
 use bevy::prelude::*;
 use bonsaidb::core::Error;
-use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Schematic};
+use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Schematic, SerializedCollection};
 
 
 //todo wrap noun hash
@@ -47,8 +47,8 @@ impl From<&str> for Refi32Tuple {
     }
 }
 
-impl From<RefU64> for Refi32Tuple {
-    fn from(n: RefU64) -> Self {
+impl From<&RefU64> for Refi32Tuple {
+    fn from(n: &RefU64) -> Self {
         let n = n.0.to_be_bytes();
         Self((
             i32::from_be_bytes(n[..4].try_into().unwrap()),
@@ -76,6 +76,14 @@ impl Refi32Tuple {
 //把Refno当作u64
 #[derive(Hash, Serialize, Deserialize, Clone, Copy, Debug, Default, Component, Eq, PartialEq)]
 pub struct RefU64(pub u64);
+
+impl From<&Refi32Tuple> for RefU64 {
+    fn from(n: &Refi32Tuple) -> Self {
+        let bytes: Vec<u8> = [n.get_0().to_be_bytes(), n.get_1().to_be_bytes()].concat();
+        let v = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+        Self(v)
+    }
+}
 
 impl From<Refi32Tuple> for RefU64 {
     fn from(n: Refi32Tuple) -> Self {
@@ -107,7 +115,16 @@ impl Collection for RefU64Vec {
     }
 }
 
-impl DefaultSerialization for RefU64Vec {}
+impl SerializedCollection for RefU64Vec {
+    type Format = transmog_bincode::Bincode;
+    type Contents = Self;
+
+    fn format() -> Self::Format {
+        // The bincode options can be set on this type
+        transmog_bincode::Bincode::default()
+    }
+}
+
 
 impl RefU64Vec{
     #[inline]
@@ -125,6 +142,8 @@ pub struct AttrMap{
     pub map: HashMap<SmolStr, AttrVal>
 }
 
+// direct_repr!(AttrMap);
+
 impl Collection for AttrMap {
     fn collection_name() -> CollectionName {
         CollectionName::new("aios", "attrs")
@@ -135,8 +154,17 @@ impl Collection for AttrMap {
     }
 }
 
-impl DefaultSerialization for AttrMap {}
+// impl DefaultSerialization for AttrMap {}
 
+impl SerializedCollection for AttrMap {
+    type Format = transmog_bincode::Bincode;
+    type Contents = Self;
+
+    fn format() -> Self::Format {
+        // The bincode options can be set on this type
+        transmog_bincode::Bincode::default()
+    }
+}
 
 
 impl AttrMap {
@@ -152,12 +180,30 @@ impl AttrMap {
     }
 
     #[inline]
-    pub fn get_refno(&self) -> SmolStr{
+    pub fn get_refno_as_string(&self) -> SmolStr{
         self.get_as_string("REFNO").unwrap_or(UNSET_STR.into())
     }
 
+
+
     #[inline]
-    pub fn get_owner(&self) -> SmolStr{
+    pub fn get_refno(&self) -> Option<RefU64>{
+        if let Some(RefU64Type(d)) = self.map.get("REFNO"){
+            return Some(*d);
+        }
+        None
+    }
+
+    #[inline]
+    pub fn get_owner(&self) -> Option<RefU64>{
+        if let Some(RefU64Type(d)) = self.map.get("OWNER"){
+            return Some(*d);
+        }
+        None
+    }
+
+    #[inline]
+    pub fn get_owner_as_string(&self) -> SmolStr{
         self.get_as_string("OWNER").unwrap_or(UNSET_STR.into())
     }
 
@@ -193,6 +239,7 @@ impl AttrMap {
                 IntArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
                 BoolArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
                 Vec3Type(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
+                RefU64Type(d) => Refi32Tuple::from(d).into(),
                 _ => { UNSET_STR.into() }
             };
             return Some(s);
@@ -266,6 +313,7 @@ impl AttrMap {
         Quat::IDENTITY
     }
 
+
     pub fn get_matrix(&self) -> glam::f32::Affine3A{
         let mut affine = glam::f32::Affine3A::IDENTITY;
         if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
@@ -277,22 +325,23 @@ impl AttrMap {
         affine
     }
 
+    #[inline]
     pub fn get_mat4(&self) -> glam::f32::Mat4{
         glam::f32::Mat4::from(self.get_matrix())
     }
-
-    pub fn get_transform(&self) -> Transform{
-        let matrix = self.get_matrix();
-        let x = &matrix.matrix3.col(0);
-        let y = &matrix.matrix3.col(1);
-        let z = &matrix.matrix3.col(2);
-        let p = &matrix.translation;
-        Transform::from_basis_origin(
-            Vector3::new(x[0], x[1], x[2]),
-            Vector3::new(y[0], y[1], y[2]),
-            Vector3::new(z[0], z[1], z[2]),
-            Vector3::new(p[0], p[1], p[2]))
-    }
+    //
+    // pub fn get_transform(&self) -> Transform{
+    //     let matrix = self.get_matrix();
+    //     let x = &matrix.matrix3.col(0);
+    //     let y = &matrix.matrix3.col(1);
+    //     let z = &matrix.matrix3.col(2);
+    //     let p = &matrix.translation;
+    //     Transform::from_basis_origin(
+    //         Vector3::new(x[0], x[1], x[2]),
+    //         Vector3::new(y[0], y[1], y[2]),
+    //         Vector3::new(z[0], z[1], z[2]),
+    //         Vector3::new(p[0], p[1], p[2]))
+    // }
 
     pub fn get_f64_vec(&self, att: &str) -> Option<Vec<f64>> {
         let mut v = vec![];
@@ -414,8 +463,30 @@ pub struct PdmsDatabaseInfo {
 }
 
 
+///可以缩放的类型
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ScaledGeom{
+    Box(Vec3),
+    Cylinder(Vec3),
+    Sphere(f32),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum GeoData{
+    Scaled(ScaledGeom),  //可以用Unit Shape缩放的类型
+    Primitive(PdmsPrimShape),  //基本体，但是不可拉伸
+    // Raw(Mesh),          //原生的Mesh
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct EleGeoData{
+    pub geo: GeoData,
+    pub global_transform: Mat4,    //世界坐标系的变换
+}
+
+
 //todo node 不需要多大，这些数据也不用缓存
-// #[derive(Serialize, Deserialize, Clone, Debug, Default, Inspectable)]
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleNode {
     pub ref_no: SmolStr,
@@ -518,6 +589,7 @@ pub struct PdmsRefno {
 
 use id_tree::InsertBehavior::*;
 use itertools::Itertools;
+use crate::prim_geo::pdms_shape::PdmsPrimShape;
 
 #[test]
 fn test_id_tree() {

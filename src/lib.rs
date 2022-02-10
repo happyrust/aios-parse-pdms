@@ -33,6 +33,7 @@ pub mod axis_param;
 pub mod parse;
 pub use parse::parse_pdms_dir;
 pub mod consts;
+pub mod prim_geo;
 
 pub mod local_db;
 

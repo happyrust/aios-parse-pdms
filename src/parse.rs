@@ -188,36 +188,36 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     if let Some(sys_file) = sys_file {
         children_files.remove(children_files.iter().position(|x| x == sys_file).unwrap());
     }
-
-    // dbg!(&pdms_db_name_map);
-
     children_files.par_iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        if !file_name.ends_with("com") && !file_name.ends_with("mis") {
-            println!("path={:?}", &path);
-            let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name),0 , false, "", "");
-            pdms_db_data.filename = file_name.into();
-            let cur_dbno = pdms_db_data.db_no.to_string();
-            if pdms_db_data.filename.contains(&cur_dbno) {
-                if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
-                    pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
-                }
-            }else{
-                let chars_len = cur_dbno.len();
-                dbg!(cur_dbno);
-                let l = pdms_db_data.filename.len();
-                dbg!(&pdms_db_data.filename);
-                pdms_db_data.filed_no = pdms_db_data.filename[l-chars_len..].parse::<u32>().unwrap();
-                dbg!(pdms_db_data.filed_no);
-                if pdms_db_name_map.contains_key(&pdms_db_data.filed_no) {
-                    pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+        // if file_name == "sam7200_0001" {
+            if !file_name.ends_with("com") && !file_name.ends_with("mis") {
+                println!("path={:?}", &path);
+                let mut pdms_db_data = parse_file(&path, &database_info, SmolStr::new(file_name), 0, false, "", "");
+                pdms_db_data.filename = file_name.into();
+                let cur_dbno = pdms_db_data.db_no.to_string();
+                if pdms_db_data.filename.contains(&cur_dbno) {
+                    if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                        pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+                    }
                 } else {
-                    pdms_db_data.db_name = file_name.into();
+                    let chars_len = cur_dbno.len();
+                    dbg!(cur_dbno);
+                    let l = pdms_db_data.filename.len();
+                    dbg!(&pdms_db_data.filename);
+                    pdms_db_data.filed_no = pdms_db_data.filename[l - chars_len..].parse::<u32>().unwrap();
+                    dbg!(pdms_db_data.filed_no);
+                    if pdms_db_name_map.contains_key(&pdms_db_data.filed_no) {
+                        pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+                    } else {
+                        pdms_db_data.db_name = file_name.into();
+                    }
                 }
-            }
 
-            pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
-        }
+                pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
+                // return;
+            }
+        // }
     });
 
     return Ok(pdms_project_data_map);
@@ -449,7 +449,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name:SmolSt
     while !pending_refnos.is_empty() {
         let (parent_id, refnos) = pending_refnos.pop().unwrap();
         refnos.0.iter().enumerate().for_each(|(indx, r)| {
-            let refno: Refi32Tuple = (*r).into();
+            let refno: Refi32Tuple = r.into();
             if refno_table_map.contains_key(&refno) {
                 let entry = &*refno_table_map.get(&refno).unwrap();
                 let pos = entry.pos;
@@ -1642,7 +1642,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(Refi32
     let input = &input[offset - 4..];
     let (_, noun_hash) = be_i32(&input[12..16])?;
     let mut refno_entry = None;
-    let mut is_world = noun_hash == 0xBEB83;
+    // let mut is_world = noun_hash == 0xBEB83;
     let mut is_ok = false;
     if NOUN_TYPES_MAP.contains_key(&noun_hash) {
         let (_, (len, refno_0, refno_1)) = tuple((
@@ -1654,23 +1654,17 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(Refi32
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
             if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 100], &input[4..12]) {   //允许一定范围去查找
                 let end_pos = (next_pos + 12);      //隐含属性实际结束点
-                let diff_len = end_pos - tmp_pos - 4;
-                is_ok = diff_len == 0;
-                if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
-                    let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x| x == 0),
-                                                                       verify(be_i32, |&x| x == 7))(&input[tmp_pos..end_pos]);
-                    if s.is_ok() {
-                        is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
+                if end_pos >= tmp_pos + 4{
+                    let diff_len = end_pos - tmp_pos - 4;
+                    is_ok = diff_len == 0;
+                    if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
+                        let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x| x == 0),
+                                                                           verify(be_i32, |&x| x == 7))(&input[tmp_pos..end_pos]);
+                        if s.is_ok() {
+                            is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
+                        }
                     }
                 }
-                if !is_ok {
-                    // dbg!(noun_hash);
-                    // dbg!(is_ok);
-                    // dbg!(tmp_pos);
-                    // dbg!(end_pos);
-                    // dbg!(diff_len);
-                }
-                // dbg!(is_ok);
             } else {
                 let next_len = be_u32(&input[tmp_pos..tmp_pos + 4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
                 is_ok = next_len & 0xFFFFFF00 == 0;
@@ -1855,8 +1849,10 @@ pub struct DbInfo {
 /// 获取 ref_no + type 的索引位置表  和 world的参考号
 /// 根据get_last_index_position返回的hashset获取所有的ref_no + type的位置
 /// 返回值是hashmap k:所有的ref_no v:(ref_no的position,type的hash)
+/// 利用这个层级关系去解析数据，加快速度
 pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<Refi32Tuple, EleDataEntry>, Refi32Tuple) {
     let refno_0_set = get_total_refno_0s(input);
+    // dbg!(refno_0_set.len());
     let mut world_refno = Arc::new(Mutex::new(Refi32Tuple::default()));
     let mut refno_table = DashMap::new();
     refno_0_set.par_iter().for_each(|ref_0| {
@@ -1865,7 +1861,7 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<Refi32Tuple, EleDataEntr
         let mut w_refno = world_refno_clone.lock().unwrap();
         for p in pos_iter {
             if let Ok((_, Some(refno_entry))) = get_refno_entry(input, p) {
-                //判断是否试World
+                //判断是否是World
                 if refno_entry.1.noun_hash == 0xBEB83 {
                     *w_refno = refno_entry.0;
                 }

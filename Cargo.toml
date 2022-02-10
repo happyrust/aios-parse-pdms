@@ -24,7 +24,13 @@ fasteval = "0.2.4"
 regex = "1.5.4"
 futures = "0.3.19"
 
-bonsaidb = { path="../bonsaidb/crates/bonsaidb", version = "0.1.0", features = ["local"] }
+#rocksdb = "0.18.0"
+sanakirja = "1.2.16"
+
+sled = { version = "0.34.7", features = ["compression"] }
+#sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
+
+bonsaidb = { path="D:/db-projects/bonsaidb/crates/bonsaidb", version = "0.1.0", features = ["local"] }
 #bonsaidb = { git = "https://github.com/khonsulabs/bonsaidb.git", default-features = false, features = "local-full" }
 
 tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }
@@ -57,9 +63,23 @@ crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
 #rug = "1.14.0"
 bevy-inspector-egui = { path = "../bevy-inspector-egui" }
-bevy = { version = "0.6", default-features = false }
+bevy = { path = "../bevy", default-features = false }
 
 id_tree = { version = "1.8.0", features=["serde_support"] }
 smol_str = "0.1.21"
+ncollide3d = "0.32.0"
+lyon = "0.17.10"
+
+transmog-bincode = "0.1"
 
 gdnative = {git="https://github.com/godot-rust/godot-rust"}
+
+truck-base = { version = "0.2.0", path = "../truck/truck-base" }
+truck-geotrait = { version = "0.1.0", path = "../truck/truck-geotrait" }
+truck-geometry = { version = "0.2.0", path = "../truck/truck-geometry" }
+truck-polymesh = { version = "0.3.0", path = "../truck/truck-polymesh" }
+truck-topology = { version = "0.3.0", path = "../truck/truck-topology" }
+truck-modeling = { version = "0.3.0", path = "../truck/truck-modeling" }
+truck-meshalgo = { version = "0.1.0", path = "../truck/truck-meshalgo" }
+truck-platform = { version = "0.3.0", path = "../truck/truck-platform" }
+truck-rendimpl = { version = "0.3.0", path = "../truck/truck-rendimpl" }
