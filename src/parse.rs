@@ -66,7 +66,7 @@ pub struct PdmsDbData {
     /// 按noun类型分类的参考号
     pub type_ele_map: DashMap<u32, RefU64Vec>,
     /// 基本数据的Tree
-    pub ele_id_tree: Tree<RefU64>,
+    pub ele_id_tree: Tree<EleNode>,
     //todo 改成EleNode
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<RefU64, AttrMap>,
@@ -104,19 +104,7 @@ pub struct PdmsMongoDbInfo {
     pub db_no: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RefnoInfo {
-    /// 参考号
-    pub refno: RefU64,
-    /// 文件名
-    pub file_name: SmolStr,
-    /// 参考号对应的node_id
-    pub node_id: NodeId,
 
-    pub children: RefU64Vec,
-    // /// 构件名称
-    // pub name: SmolStr,
-}
 
 
 #[test]
@@ -255,14 +243,17 @@ pub fn get_mongo_data(path: &PathBuf, db_name: SmolStr, type_ele_map: &DashMap<S
 #[derive(Debug, Clone, )]
 pub struct EleData {
     pub refno: RefU64,
+    pub owner: RefU64,
     pub noun: u32,
     pub attr_data_map: AttrMap,
     pub children: RefU64Vec,
+    pub name: SmolStr,
+    pub version: u32,
 }
 
 ///解析单个Element Data数据
 pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>, indx: usize) -> EleData {
-    // let mut ele_node = EleNode::default();
+    let mut ele_node = EleNode::default();
     let mut attr_data_map = AttrMap::default();
     let mut children = RefU64Vec::default();
     let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4;  //隐含数据长度  0-4
@@ -309,7 +300,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let mut explicit_bytes_len = 0;
     let origin_implicit_len = parse_to_u32(&implicit_data[..4]); //pdms文件中,参考号前写明的隐式属性长度
     let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
-    // println!("{:?}", sorted_noun_hash.iter().map(|x| db1_dehash(*x as u32)).collect::<Vec<_>>() );
     let mut cur_offset: i32 = 0;
     let mut is_double = true;
 
@@ -351,12 +341,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
                 }
                 attr_data_map.insert(attr_info.name.clone(), att_val);
             }
-        } else {
-            // dbg!(&attr_info_map);
-            // dbg!(&ele_data);
-            // dbg!(cur_len);
-            // dbg!(cur_offset);
-            // dbg!(&sorted_noun_hash);
         }
     }
     if maybe_refno == refno {
@@ -380,18 +364,19 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     attr_data_map.insert("OWNER".into(), RefU64Type(owner));
     attr_data_map.insert("TYPE".into(), WordType(noun_name.clone()));
     attr_data_map.insert("REFNO".into(), RefU64Type(refno.into()));
+    let mut name: SmolStr =  attr_data_map.get_name().clone();
     if !attr_data_map.map.contains_key("NAME") || attr_data_map.get_name() == UNSET_STR {
-        let name = format!("{} {indx}", &noun_name).into();
-        attr_data_map.insert("NAME".into(), StringType(name));
+        name = format!("{} {indx}", &noun_name).into();
+        attr_data_map.insert("NAME".into(), StringType(name.clone()));
     }
-    // else {
-    //     ele_node.name = attr_data_map.get_name().clone();
-    // }
     EleData {
         refno: refno.into(),
+        owner,
         noun,
         attr_data_map,
         children,
+        name,
+        version
     }
 }
 
@@ -399,7 +384,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData {
     let mut type_ele_map = DashMap::new();
     /// 基本数据的Tree
-    let mut ele_id_tree: Tree<RefU64> = Tree::new();
+    let mut ele_id_tree: Tree<EleNode> = Tree::new();
     /// 完整属性数据的存储
     let mut all_attr_map: DashMap<RefU64, AttrMap> = DashMap::new();
     let time_start = std::time::Instant::now();
@@ -417,18 +402,30 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let entry = &*refno_table_map.get(&root_refno).unwrap();
     let EleData {
         refno,
+        owner,
         noun,
         attr_data_map,
         children,
+        version,
+        name,
     } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, 0);
+
+    let ele_node = EleNode{
+        refno,
+        owner,
+        name,
+        noun,
+        version
+    };
+
     all_attr_map.insert(refno, attr_data_map);
     // type_ele_map.entry(noun.clone()).or_insert_with(Vec::new).push(refno.clone());
     type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
-    let mut root_id: NodeId = ele_id_tree.insert(Node::new(refno), AsRoot).unwrap();
+    let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
     refno_info_map.insert(refno.clone(),
                           RefnoInfo {
                               refno,
-                              file_name: file_name.into(),
+                              // file_name: file_name.into(),
                               node_id: root_id.clone(),
                               children: children.clone(),
                           });
@@ -449,23 +446,34 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                 if noun_attr_info_map.contains_key(&type_hash) {
                     let EleData {
                         refno,
+                        owner,
                         noun,
                         attr_data_map,
                         children,
+                        version,
+                        name,
                     } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, indx);
+
+                    let ele_node = EleNode{
+                        refno,
+                        owner,
+                        name,
+                        noun,
+                        version
+                    };
 
                     // if !print_refno_str.is_empty() && print_refno_str == &ele_node.ref_no {
                     //     println!("查看的Refno {}的位置：{:#4X}\n, 属性配置参数为：{:#4X?}\n, 结果为: {:#4X?}\n", print_refno_str, 0, &noun_attr_info_map, &ele_node);
                     // }
                     //有可能重复利用的节点，所以需要放在外面
-                    let cur_id = ele_id_tree.insert(Node::new(refno), UnderNode(&parent_id)).unwrap();
+                    let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
                     if !all_attr_map.contains_key(&refno) {
                         all_attr_map.insert(refno, attr_data_map);
                         type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
                         // refno_info_map.insert(refno, RefnoInfo::new(file_name.clone(), refno, cur_id.clone()));
                         refno_info_map.insert(refno, RefnoInfo {
                             refno,
-                            file_name: file_name.into(),
+                            // file_name: file_name.into(),
                             node_id: cur_id.clone(),
                             children: children.clone(),
                         });

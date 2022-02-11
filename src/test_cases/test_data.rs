@@ -98,7 +98,7 @@ fn test_aba_14352_102824() {
     // }
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     let mut value = SmolStr::new("");
-    if let Some(m) = ele_data.attr_data_map.get("DETR") {
+    if let Some(m) = ele_data.attr_data_map.get_val("DETR") {
         match m {
             AttrVal::ElementType(v) => {
                 value = v.clone();
@@ -203,7 +203,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     let mut value = SmolStr::new("");
-    if let Some(m) = ele_data.attr_data_map.get("DX") {
+    if let Some(m) = ele_data.attr_data_map.get_val("DX") {
         match m {
             AttrVal::StringType(v) => {
                 value = v.clone();

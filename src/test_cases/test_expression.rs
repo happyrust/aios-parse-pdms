@@ -29,7 +29,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     let mut result="".to_string();
-    if let Some(r)=ele_data.attr_data_map.get("PPRO") {
+    if let Some(r)=ele_data.attr_data_map.get_val("PPRO") {
         match r {
             AttrVal::StringType(v) => {
                 result=v.to_string();
@@ -65,7 +65,7 @@ fn test_dbp_5194_136() {
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     let mut result="".to_string();
-    if let Some(r)=ele_data.attr_data_map.get("PPRO") {
+    if let Some(r)=ele_data.attr_data_map.get_val("PPRO") {
         match r {
             AttrVal::StringType(v) => {
                 result=v.to_string();
@@ -108,7 +108,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     // dbg!(ele_data);
     let mut result="".to_string();
-    if let Some(r)=ele_data.attr_data_map.get("PPRO") {
+    if let Some(r)=ele_data.attr_data_map.get_val("PPRO") {
         match r {
             AttrVal::StringType(v) => {
                 result=v.to_string();
@@ -148,7 +148,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     // dbg!(ele_data);
     let mut result="".to_string();
-    if let Some(r)=ele_data.attr_data_map.get("PZLE") {
+    if let Some(r)=ele_data.attr_data_map.get_val("PZLE") {
         match r {
             AttrVal::StringType(v) => {
                 result=v.to_string();
@@ -194,7 +194,7 @@ fn test_gdp_15194_8039(){
     // }
     // dbg!(ele_data);
     let mut result="".to_string();
-    if let Some(r)=ele_data.attr_data_map.get("PZLE") {
+    if let Some(r)=ele_data.attr_data_map.get_val("PZLE") {
         match r {
             AttrVal::StringType(v) => {
                 result=v.to_string();
@@ -277,7 +277,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
     let mut result="".to_string();
-    if let Some(r)=ele_data.attr_data_map.get("PZ") {
+    if let Some(r)=ele_data.attr_data_map.get_val("PZ") {
         match r {
             AttrVal::StringType(v) => {
                 result=v.to_string();
@@ -342,7 +342,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
     // }
     // dbg!(ele_data);
     let mut result="".to_string();
-    if let Some(r)=ele_data.attr_data_map.get("PYTS") {
+    if let Some(r)=ele_data.attr_data_map.get_val("PYTS") {
         match r {
             AttrVal::StringType(v) => {
                 result=v.to_string();

@@ -97,6 +97,7 @@ pub fn get_attr(refno: &RefU64, attr_db: &sled::Db) -> Option<AttrMap>{
     None
 }
 
+///是否需要提前缓存下来，如果速度慢，可以提前缓存
 pub fn get_ancestors_attrs(refno: &RefU64, attr_db: &sled::Db) -> Vec<AttrMap>{
     let mut attrs = vec![];
     let mut cur_refno = *refno;

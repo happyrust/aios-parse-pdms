@@ -147,8 +147,8 @@ impl BrepShape for SCylinder {
 
 impl From<&AttrMap> for SCylinder {
     fn from(m: &AttrMap) -> Self {
-        let phei = m.get("HEIG").unwrap().double_value().unwrap() as f32 ;
-        let pdia = m.get("DIAM").unwrap().double_value().unwrap() as f32 ;
+        let phei = m.get_val("HEIG").unwrap().double_value().unwrap() as f32 ;
+        let pdia = m.get_val("DIAM").unwrap().double_value().unwrap() as f32 ;
         SCylinder {
             paxi_expr: "Z".to_string(),
             paxi_pt: Default::default() ,

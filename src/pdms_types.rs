@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::ops::Deref;
 use dashmap::DashMap;
 // use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
@@ -80,6 +81,14 @@ impl Refi32Tuple {
 #[derive(Hash, Serialize, Deserialize, Clone, Copy, Debug, Default, Component, Eq, PartialEq)]
 pub struct RefU64(pub u64);
 
+impl Deref for RefU64{
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl From<&Refi32Tuple> for RefU64 {
     fn from(n: &Refi32Tuple) -> Self {
         let bytes: Vec<u8> = [n.get_0().to_be_bytes(), n.get_1().to_be_bytes()].concat();
@@ -96,16 +105,31 @@ impl From<Refi32Tuple> for RefU64 {
     }
 }
 
-
 impl From<&[u8]> for RefU64 {
     fn from(input: &[u8]) -> Self {
         Self(u64::from_be_bytes(input[0..8].try_into().unwrap()))
     }
 }
 
+impl RefU64 {
+    #[inline]
+    pub fn to_refno_str(&self) -> SmolStr{
+        let refno: Refi32Tuple = self.into();
+        refno.into()
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct RefU64Vec(pub Vec<RefU64>);
+
+impl Deref for RefU64Vec{
+    type Target = Vec<RefU64>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 //存储children，也可以这么去存储
 impl Collection for RefU64Vec {
@@ -144,32 +168,6 @@ impl RefU64Vec{
 pub struct AttrMap{
     pub map: HashMap<SmolStr, AttrVal>
 }
-
-// direct_repr!(AttrMap);
-
-impl Collection for AttrMap {
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "attrs")
-    }
-
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-// impl DefaultSerialization for AttrMap {}
-
-impl SerializedCollection for AttrMap {
-    type Format = transmog_bincode::Bincode;
-    type Contents = Self;
-
-    fn format() -> Self::Format {
-        // The bincode options can be set on this type
-        transmog_bincode::Bincode::default()
-    }
-}
-
-
 impl AttrMap {
 
     #[inline]
@@ -280,13 +278,13 @@ impl AttrMap {
                 _ => false,
             }
         }else{
-           false
+            false
         }
     }
 
 
     #[inline]
-    pub fn get(&self, key: &str) -> Option<&AttrVal>{
+    pub fn get_val(&self, key: &str) -> Option<&AttrVal>{
         if let Some(v) = self.map.get(key) {
             Some(v)
         }else{
@@ -297,7 +295,7 @@ impl AttrMap {
     #[inline]
     pub fn get_translation(&self) -> Vec3{
         if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
-             return glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
+            return glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
         }
 
         Vec3::ZERO
@@ -391,6 +389,75 @@ impl AttrMap {
     }
 
 }
+
+
+
+// direct_repr!(AttrMap);
+
+impl Collection for AttrMap {
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "attrs")
+    }
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+impl SerializedCollection for AttrMap {
+    type Contents = Self;
+    type Format = transmog_bincode::Bincode;
+    fn format() -> Self::Format {
+        // The bincode options can be set on this type
+        transmog_bincode::Bincode::default()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
+pub struct PdmsTree(pub Tree<EleNode>);
+
+impl Collection for PdmsTree {
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "tree")
+    }
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+impl SerializedCollection for PdmsTree {
+    type Contents = Self;
+    type Format = transmog_bincode::Bincode;
+    fn format() -> Self::Format {
+        transmog_bincode::Bincode::default()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefnoInfo {
+    /// 参考号
+    pub refno: RefU64,
+    /// 文件名
+    // pub file_name: SmolStr,         //todo if need, make it use index
+    /// 参考号对应的node_id
+    pub node_id: NodeId,
+    /// 子节点
+    pub children: RefU64Vec,
+}
+
+impl Collection for RefnoInfo {
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "info")
+    }
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+impl SerializedCollection for RefnoInfo {
+    type Contents = Self;
+    type Format = transmog_bincode::Bincode;
+    fn format() -> Self::Format {
+        transmog_bincode::Bincode::default()
+    }
+}
+
 
 
 
@@ -492,11 +559,11 @@ pub struct EleGeoData{
 //todo node 不需要多大，这些数据也不用缓存
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct EleNode {
-    pub ref_no: SmolStr,
-    pub owner: SmolStr,
-    pub name: SmolStr,
-    pub noun_name: SmolStr,
-    pub version:u32,
+    pub refno: RefU64,
+    pub owner: RefU64,
+    pub name: SmolStr,   //todo make it as a index of name table
+    pub noun: u32,
+    pub version: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

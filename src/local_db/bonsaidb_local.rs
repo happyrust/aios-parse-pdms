@@ -1,4 +1,5 @@
 use std::cell::Ref;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::Path;
@@ -10,12 +11,19 @@ use bonsaidb::core::transaction;
 use bonsaidb::core::transaction::Transaction;
 use bonsaidb::local::config::{Builder, StorageConfiguration};
 use bonsaidb::local::Database;
+use id_tree::NodeId;
 use nom::AsBytes;
 use smol_str::SmolStr;
 use crate::{AttrMap, db1_dehash, parse_pdms_dir};
+use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
-use crate::parse::PdmsDbData;
-use crate::pdms_types::{Refi32Tuple, RefU64, RefU64Vec};
+use crate::parse::{PdmsDbData};
+use crate::pdms_types::{PdmsTree, Refi32Tuple, RefnoInfo, RefU64, RefU64Vec};
+
+pub const ATT_DB_NAME: &'static str = "attr";
+pub const REFS_DB_NAME: &'static str = "refs";
+pub const TREE_DB_NAME: &'static str = "tree";
+pub const INFO_DB_NAME: &'static str = "info";
 
 #[derive(Default, Debug)]
 pub struct PdmsConfig {
@@ -26,128 +34,235 @@ pub struct PdmsConfig {
     pub mdb_name: String,
 }
 
+///MDB数据库管理
+#[derive(Default)]
+pub struct AiosDBManager {
+    pub db_map: HashMap<String, AiosDB>,
+}
 
-pub async fn save_local() -> Result<(), bonsaidb::core::Error> {
-    let pdms_config = PdmsConfig {
-        // dir: "D:/AVEVA/Projects/E3D2.1/AvevaPlantSample/aps000".to_string(),
-        // project_name: "aps000".to_string()
-        data_dir: "D:/AVEVA/Plant/Projects12.1.SP4".to_string(),    //sam7200_0001
-        project_name: "SAM".to_string(),
-        all_projects: vec!["Sample".to_string(), "Master".to_string()],   //配置所有需要读取的project
-        mdb_name: "SAMPLE".to_string(),
-    };
+impl AiosDBManager {
+    pub async fn init(dir: &str, projects: Vec<String>, sync: bool) ->  Result<AiosDBManager, bonsaidb::core::Error>{
+        let mut adb_manager = AiosDBManager::default();
+        for project in projects {
+            let mut adb = AiosDB::init(project.as_str(), dir).await?;
+            //如果已经保存过了，不需要重新保存
+            if sync { adb.save().await?; }
+            adb_manager.db_map.insert(project, adb);
+        }
+        Ok(adb_manager)
+    }
+}
 
-    let mut data_dir = Path::new(&pdms_config.data_dir);
-    for project in &pdms_config.all_projects {
+/// DB 单个数据库管理
+pub struct AiosDB {
+    pub project: String,
+    pub dir: String,
+    //pdms data directory
+    pub att_db: Database,
+    pub refs_db: Database,
+    pub tree_db: Database,
+    pub info_db: Database,
+    pub mdb_name: Option<String>,
+}
+
+impl AiosDB {
+    pub async fn init(project: &str, dir: &str) -> Result<Self, bonsaidb::core::Error> {
+        Ok(Self {
+            project: project.to_string(),
+            dir: dir.to_string(),
+            att_db: Database::open::<AttrMap>(StorageConfiguration::new(format!("./{project}/{ATT_DB_NAME}"))).await?,
+            refs_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./{project}/{REFS_DB_NAME}"))).await?,
+            tree_db: Database::open::<PdmsTree>(StorageConfiguration::new(format!("./{project}/{TREE_DB_NAME}"))).await?,
+            info_db: Database::open::<RefnoInfo>(StorageConfiguration::new(format!("./{project}/{INFO_DB_NAME}"))).await?,
+            mdb_name: None,
+        })
+    }
+
+    #[inline]
+    pub async fn get_attr(&self, refno: &RefU64) -> Option<AttrMap> {
+        if let Ok(Some(d)) = AttrMap::get(refno.0, &self.att_db).await {
+            return Some(d.contents);
+        }
+        None
+    }
+
+    #[inline]
+    pub async fn get_node_id(&self, refno: &RefU64) -> Option<NodeId> {
+        if let Ok(Some(d)) = RefnoInfo::get(refno.0, &self.info_db).await {
+            return Some(d.contents.node_id);
+        }
+        None
+    }
+
+    pub async fn save(&mut self) -> Result<(), bonsaidb::core::Error> {
+        let mut data_dir = Path::new(&self.dir);
+        let project = &self.project;
+
+        //todo 暂时全部删除，再创建
+        // if Path::new(project).exists() {
+        //     fs::remove_dir_all(project).unwrap();
+        // } else {
         fs::create_dir_all(project).unwrap();
+        // }
+        dbg!("here");
         let project_dir = data_dir.join(&project);
         let mut target_dir = fs::read_dir(project_dir).unwrap().into_iter().map(|entry| {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
-        dbg!(&target_dir);
         //todo have a test on versioned database, make a custom version
-        let attr_db = Database::open::<AttrMap>(StorageConfiguration::new(format!("./{project}/attrs.adb"))).await?;
-        dbg!(attr_db.name());
-        let type_refs_db = Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./{project}/type_refs.adb"))).await?;
+        let mut tmp_set = HashSet::new();
+        let mut tmp_set1 = HashSet::new();
+        let mut tmp_set2 = HashSet::new();
+        let mut tmp_set3 = HashSet::new();
+        dbg!(&target_dir);
         if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), None) {
             for (k, PdmsDbData {
                 all_attr_map,
                 ele_id_tree,
                 type_ele_map,
+                refno_info_map,
                 db_name,
                 db_no,
+                filed_no,
                 ..
             }) in r {
                 dbg!(all_attr_map.len());
                 let mut file_name = &k;
                 dbg!(&db_name);
+                //save the db tree
+                let mut target_dbno = db_no as u64;
+                if filed_no != 0 {
+                    target_dbno = filed_no as u64;
+                }
+                // dbg!(self.tree_db.name());
+                if !tmp_set.contains(&target_dbno) {
+                    tmp_set.insert(target_dbno);
+                    let mut tx = Transaction::default();
+                    tx.push(transaction::Operation::insert_serialized::<PdmsTree>(
+                        Some(target_dbno),
+                        &PdmsTree(ele_id_tree),
+                    ).unwrap());
+                    self.tree_db.apply_transaction(tx).await.unwrap();
+                }
+
                 //属性全部插入
                 let mut tx = Transaction::default();
                 for (refno, v) in all_attr_map {
-                    tx.push(transaction::Operation::insert_serialized::<AttrMap>(
-                            None,
+                    if !tmp_set1.contains(&refno.0) {
+                        tmp_set1.insert(refno.0);
+                        tx.push(transaction::Operation::insert_serialized::<AttrMap>(
+                            Some(refno.0),
                             &v,
                         ).unwrap());
+                    }
                 }
-                attr_db.apply_transaction(tx).await.unwrap();
+                self.att_db.apply_transaction(tx).await.unwrap();
 
                 let mut tx = Transaction::default();
                 for (type_noun, v) in type_ele_map {
-                    //和db_code 组合一个
-                    let k = combine_to_u64(type_noun, db_no);
-                    tx.push(transaction::Operation::insert_serialized::<RefU64Vec>(
-                        Some(k),
-                        &v,
-                    ).unwrap());
+                    if filed_no != 0 {
+                        continue;
+                    }
+                    let k = combine_to_u64(type_noun, target_dbno as u32);
+                    if !tmp_set2.contains(&k) {
+                        tmp_set2.insert(k);
+                        tx.push(transaction::Operation::insert_serialized::<RefU64Vec>(
+                            Some(k),
+                            &v,
+                        ).unwrap());
+                    }
                 }
-                type_refs_db.apply_transaction(tx).await.unwrap();
+                self.refs_db.apply_transaction(tx).await.unwrap();
 
-                // for (k, v) in refno_info_map {
-                //     let refno = k.0;
-                //     let format_str = format!("{refno}_children");
-                //     let bytes = bincode::serialize(&v).unwrap();
-                //     type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
-                // }
-
-                //cache the mesh attributes first
+                let mut tx = Transaction::default();
+                for (refno, v) in refno_info_map {
+                    if !tmp_set3.contains(&refno.0) {
+                        tmp_set3.insert(refno.0);
+                        tx.push(transaction::Operation::insert_serialized::<RefnoInfo>(
+                            Some(refno.0),
+                            &v,
+                        ).unwrap());
+                    }
+                }
+                self.info_db.apply_transaction(tx).await.unwrap();
             }
         }
-        // attr_db.compact().await?;
-        // break;
+        Ok(())
     }
-    Ok(())
+
+    //缓存设备得几何体
+    pub async fn cache_equip_geos_data(&mut self) -> Result<(), bonsaidb::core::Error> {
+        let db_code = 7200;
+        let equip_hash = db1_hash("EQUI");
+        dbg!(db1_dehash(equip_hash));
+        let equip_key = combine_to_u64(equip_hash, db_code);
+        let project = "Sample";
+        //for test
+        // let test_refno: RefU64 = Refi32Tuple((23584, 10204)).into();
+        // let attr = self.get_attr(&test_refno).await;
+        if let Some(d) = RefU64Vec::get(equip_key, &self.refs_db).await? {
+            // if let Some(d) = AttrMap::get(test_refno.0, &attr_db).await? {
+            let refnos = d.contents;
+            // dbg!(refnos.0.iter().map(|x| Refi32Tuple::from(x)).collect::<Vec<_>>());
+            dbg!(refnos.len());
+
+            if let Some(d) = PdmsTree::get(db_code as u64, &self.tree_db).await? {
+                let tree = d.contents.0;
+                dbg!(tree.height());
+                let root_node_id = tree.root_node_id().unwrap();
+                // if let Ok(mut nodes) = tree.traverse_level_order(&root_node_id){
+                //     let mut index = 0;
+                //     while let Some(mut cur_node) = nodes.next() {
+                //         dbg!(&cur_node.data().name);
+                //         index += 1;
+                //         if index >= 1000{
+                //             break;
+                //         }
+                //     }
+                // }
+
+                for refno in refnos.0 {
+                    if let Some(node_id) = self.get_node_id(&refno).await{
+                        dbg!(&node_id);
+                        if let Ok(mut nodes) = tree.traverse_level_order(&node_id){
+                            while let Some(mut cur_node) = nodes.next() {
+                                dbg!(&cur_node.data().name);
+                            }
+                        }
+
+                    }
+                }
+            }
+
+
+        }
+        Ok(())
+    }
+
 }
 
-// #[inline]
-// pub fn get_attr(refno: &RefU64, attr_db: &sled::Db) -> Option<AttrMap>{
-//     if let Some(d) = attr_db.get(refno.0.to_be_bytes()).unwrap() {
-//         return bincode::deserialize::<AttrMap>(&d).ok();
-//     }
-//     None
-// }
-//
-// pub fn get_ancestors_attrs(refno: &RefU64, attr_db: &sled::Db) -> Vec<AttrMap>{
+
+pub fn get_children_attrs() -> Vec<AttrMap> {
+    vec![]
+}
+
+
+
+
+
+// pub async fn get_ancestors_attrs(refno: &RefU64, attr_db: &Database) -> Vec<AttrMap> {
 //     let mut attrs = vec![];
 //     let mut cur_refno = *refno;
-//     while let Some(attr) = get_attr(&cur_refno, attr_db){
-//         if let Some(owner) = attr.get_owner(){
+//     while let Some(attr) = get_attr(&cur_refno, attr_db).await {
+//         if let Some(owner) = attr.get_owner() {
 //             cur_refno = owner;
 //             attrs.push(attr);
-//         }else{
+//         } else {
 //             break;
 //         }
 //     }
 //     attrs
 // }
-//
-pub async fn cache_equip_geos_data() -> Result<(), bonsaidb::core::Error> {
-    let db_code = 7200;
-    let equip_hash = 0x9CBFA;
-    let equip_key = combine_to_u64(equip_hash, db_code);
-    // let equip_type = format!("EQUI_{db_code}");
-    let project = "Sample";
-    let attr_db = Database::open::<AttrMap>(StorageConfiguration::new(format!("./{project}/attrs.adb"))).await?;
-    let type_refs_db = Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./{project}/type_refs.adb"))).await?;
-    //get the equip refnos
-    //Message::get(document.header.id, &db)
-    //         .await?
-    //         .expect("couldn't retrieve stored item");
-    if let Some(d) = RefU64Vec::get(equip_key, &attr_db).await? {
-        let refnos = d.contents;
-        // let refnos = bincode::deserialize::<RefU64Vec>(&d).unwrap();
-        // dbg!(refnos.0.len());
-        // // dbg!(refnos.0.iter().map(|x| Refi32Tuple::from(x)).collect::<Vec<_>>());
-        // // dbg!(refnos.0.iter().map(|x| get_attr(x, &attr_db)).collect::<Vec<_>>());
-        // let first = refnos.0.first().unwrap();
-        // let ancestors = get_ancestors_attrs(first, &attr_db);
-        // dbg!(&ancestors);
-        //
-        // let world_mat = get_world_matrix(first,&attr_db);
-        // dbg!(world_mat);
 
-        //get the equip's geoms node
 
-    }
-    Ok(())
-}

@@ -21,10 +21,25 @@ pub fn db1_dehash(hash: u32) -> String{
     result
 }
 
+#[inline]
+pub fn db1_hash(hash_str: &str) -> u32{
+    let mut chars = hash_str.bytes().rev();
+    let mut val = 0u32;
+    while let Some(n) = chars.next() {
+        val = val*27 + (n as u32 - 64);
+    }
+
+    0x81BF1 + val
+    // u32::from_be_bytes(bytes.try_into().unwrap())
+}
+
 #[test]
 fn db1_dehash_test(){
     let name=db1_dehash(0x95B0C);
     println!("name={:?}",name);
+
+    let val = db1_hash(name.as_str());
+    println!("{:#4X}",val);
 }
 
 use std::io::Read;

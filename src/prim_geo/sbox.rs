@@ -121,9 +121,9 @@ impl From<&AttrMap> for SBox {
     fn from(m: &AttrMap) -> Self {
         SBox {
             center: Default::default(),
-            size: Vec3::new(m.get("XLEN").unwrap().double_value().unwrap() as f32 ,
-                            m.get("YLEN").unwrap().double_value().unwrap() as f32 ,
-                            m.get("ZLEN").unwrap().double_value().unwrap() as f32 ),
+            size: Vec3::new(m.get_val("XLEN").unwrap().double_value().unwrap() as f32,
+                            m.get_val("YLEN").unwrap().double_value().unwrap() as f32,
+                            m.get_val("ZLEN").unwrap().double_value().unwrap() as f32 ),
         }
     }
 }

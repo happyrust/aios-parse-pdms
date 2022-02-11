@@ -27,7 +27,7 @@ pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &s
 
 pub fn get_attr_value_f64_vec(attr_map: &AttrMap, att: &str) -> Option<Vec<f64>> {
     let mut v = vec![];
-    if let Some(val) = attr_map.get(att) {
+    if let Some(val) = attr_map.get_val(att) {
         match val {
             AttrVal::DoubleArrayType(data) => {
                 v = data.clone();
@@ -45,7 +45,7 @@ pub fn get_attr_value_f64_vec(attr_map: &AttrMap, att: &str) -> Option<Vec<f64>>
 
 pub fn get_attr_value_int(ele: &AttrMap, attr: &str) -> i32 {
     let mut value = 0;
-    if let Some(ele_value) = ele.get(attr) {
+    if let Some(ele_value) = ele.get_val(attr) {
         match ele_value {
             AttrVal::IntegerType(data) => {
                 value = *data;
@@ -58,7 +58,7 @@ pub fn get_attr_value_int(ele: &AttrMap, attr: &str) -> i32 {
 
 pub fn get_attr_value_int_vec(ele: &AttrMap, attr: &str) -> Vec<i32> {
     let mut value = vec![];
-    if let Some(ele_value) = ele.get(attr) {
+    if let Some(ele_value) = ele.get_val(attr) {
         match ele_value {
             AttrVal::IntArrayType(data) => {
                 value = data.to_vec();
@@ -84,7 +84,7 @@ pub fn get_world_matrix_f64_db(ele: &AttrMap) -> Vec<f64> {
 pub fn get_attr_strings_db(ele: &AttrMap, attrs: &[&str]) -> Vec<SmolStr> {
     let mut results = vec![];
     for &attr_name in attrs {
-        if let Some(result) = ele.get(attr_name) {
+        if let Some(result) = ele.get_val(attr_name) {
             match result {
                 AttrVal::StringType(value) => {
                     if value != "" {

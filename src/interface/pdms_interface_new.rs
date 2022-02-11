@@ -5,9 +5,8 @@ use mongodb::Client;
 use mongodb::bson::doc;
 use mongodb::options::{FindOptions, FindOneOptions};
 use smol_str::SmolStr;
-use crate::parse::RefnoInfo;
 use crate::parsed_data::GeomsInfo;
-use crate::pdms_types::{AttrMap, EleNode, EleNodeMongoDb, PdmsMongoAttr};
+use crate::pdms_types::{AttrMap, EleNode, EleNodeMongoDb, PdmsMongoAttr, RefnoInfo};
 
 pub type MResult<T> = mongodb::error::Result<T>;
 
@@ -72,7 +71,7 @@ impl PdmsInterface {
                 let mut r = vec![];
                 for c in children {
                     let child = c.data();
-                    if let Some(attr) = self.get_ele_attr_map_async(child.ref_no.clone()).await? {
+                    if let Some(attr) = self.get_ele_attr_map_async(child.refno.to_refno_str()).await? {
                         r.push(attr);
                     }
                 }
@@ -93,6 +92,9 @@ impl PdmsInterface {
         }
         Ok(None)
     }
+
+
+
 }
 
 #[tokio::test]

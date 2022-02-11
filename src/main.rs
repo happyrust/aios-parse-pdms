@@ -53,6 +53,7 @@ use futures::TryStreamExt;
 use id_tree::Tree;
 use smol_str::SmolStr;
 use parse_pdms_db::local_db::{bonsaidb_local, sled_local};
+use parse_pdms_db::local_db::bonsaidb_local::AiosDBManager;
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
 
@@ -76,10 +77,16 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         ]
     ).unwrap();
 
-    bonsaidb_local::save_local().await;
-    // sled_local::save_local().await;
-    // sled_local::cache_room_geos_data().await;
-    bonsaidb_local::cache_equip_geos_data().await;
+    let mut db_manager = AiosDBManager::init("D:/AVEVA/Plant/Projects12.1.SP4",
+                                             vec!["Sample".to_string()/*, "Master".to_string()*/], true).await.unwrap();
+    let mut db = db_manager.db_map.get_mut("Sample").unwrap();
+    db.cache_equip_geos_data().await;
+    // bonsaidb_local::cache_equip_geos_data().await;
+
+    #[cfg(feature = "sled")]{
+        sled_local::save_local().await;
+        sled_local::cache_room_geos_data().await;
+    }
 
     return Ok(());
 }
