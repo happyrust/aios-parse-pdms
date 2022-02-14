@@ -49,6 +49,7 @@ use parse_pdms_db::parse_explict_tools::*;
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
+use fixed::types::{I20F12, I24F8};
 use futures::TryStreamExt;
 use id_tree::Tree;
 use smol_str::SmolStr;
@@ -56,6 +57,8 @@ use parse_pdms_db::local_db::{bonsaidb_local, sled_local};
 use parse_pdms_db::local_db::bonsaidb_local::AiosDBManager;
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
+use parse_pdms_db::prim_geo::dish::Dish;
+use parse_pdms_db::prim_geo::pdms_shape::BrepShape;
 
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
@@ -77,11 +80,38 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
         ]
     ).unwrap();
 
-    let mut db_manager = AiosDBManager::init("D:/AVEVA/Plant/Projects12.1.SP4",
-                                             vec!["Sample".to_string()/*, "Master".to_string()*/], false).await.unwrap();
+    let mut db_manager = AiosDBManager::init("C:/AVEVA/Plant/Projects12.1.SP4",
+                                             vec!["Sample".to_string()/*, "Master".to_string()*/], true).await.unwrap();
     let mut db = db_manager.db_map.get_mut("Sample").unwrap();
-    let result = db.cache_equip_geos_data().await?;
-    dbg!(result);
+    let result = db.cache_prim_geos_data().await?;
+    let refnos = vec![RefU64::from_two_nums(23584, 9006),
+                      RefU64::from_two_nums(23584, 9007),
+                      RefU64::from_two_nums(23584, 9008)];
+
+    let mut mgr = CachedMeshes::default();
+    for refno in refnos {
+        let attr = db.get_attr(&refno).await;
+        // dbg!(&attr);
+        let attr = attr.unwrap();
+        let mut dish: Dish = attr.into();
+        dbg!(dish.hash_mesh_params());
+
+        let idx = mgr.get_pdms_mesh_hash_key(&dish);
+        dbg!(idx);
+
+    }
+
+    dbg!(mgr.meshes.len());
+
+    // let result = db.get_world_transform(&refno).await;
+    // dbg!(result.rotation.to_euler(glam::EulerRot::XYZ));
+
+    // let six_and_third = I24F8::from_num(19.23424);
+// four decimal digits for 12 binary digits
+//     dbg!(six_and_third);
+//     assert_eq!(six_and_third.to_string(), "6.3333");
+
+
     // bonsaidb_local::cache_equip_geos_data().await;
 
     #[cfg(feature = "sled")]{

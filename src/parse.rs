@@ -136,7 +136,6 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     for path in &children_files {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
-            println!("path={:?}", &path);
             let mut pdms_db_data = parse_file(&path, &database_info, file_name, 0, false, "", "");
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();
@@ -306,7 +305,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
-        is_double = last_att_info.offset + 1 < (origin_impl_len / 4) as u32;
+        is_double = last_att_info.offset + 1 <= (origin_impl_len / 4) as u32;
     }
     for i in 0..sorted_noun_hash.len() {
         let noun_hash = sorted_noun_hash[i];

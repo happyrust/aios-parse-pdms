@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::fs::File;
+use std::io::Write;
 use std::ops::Deref;
 use dashmap::DashMap;
 // use gdnative::prelude::{Transform, Vector3};
@@ -10,10 +12,11 @@ use smol_str::SmolStr;
 use crate::consts::UNSET_STR;
 use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, RefU64Type, StringArrayType, StringType, Vec3Type, WordType};
 use crate::helper::get_attr_value_f64_vec;
-use bevy_inspector_egui::Inspectable;
+// use bevy_inspector_egui::Inspectable;
 use bevy::prelude::*;
 use bonsaidb::core::Error;
 use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Schematic, SerializedCollection};
+use glam::TransformSRT;
 
 
 //todo wrap noun hash
@@ -116,6 +119,13 @@ impl RefU64 {
     pub fn to_refno_str(&self) -> SmolStr{
         let refno: Refi32Tuple = self.into();
         refno.into()
+    }
+
+    #[inline]
+    pub fn from_two_nums(i: u32, j: u32) -> Self{
+        let bytes: Vec<u8> = [i.to_be_bytes(), j.to_be_bytes()].concat();
+        let v = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+        Self(v)
     }
 }
 
@@ -308,10 +318,25 @@ impl AttrMap {
                 * Mat3::from_rotation_y(ang[1].to_radians() as f32)
                 * Mat3::from_rotation_x(ang[0].to_radians() as f32);
 
+            // let mat3 = Mat3::from_rotation_x(ang[0].to_radians() as f32)
+            //     * Mat3::from_rotation_y(ang[1].to_radians() as f32)
+            //     * Mat3::from_rotation_z(ang[2].to_radians() as f32);
+
             return Quat::from_mat3(&mat3);
         }
 
         Quat::IDENTITY
+    }
+
+    pub fn get_tansformRT(&self) -> glam::TransformRT{
+        let mut tr = glam::TransformRT::IDENTITY;
+        if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
+            tr.translation = glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
+        }
+        if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
+            tr.rotation = self.get_rotation();
+        }
+        tr
     }
 
 
@@ -536,18 +561,48 @@ pub enum ScaledGeom{
     Sphere(f32),
 }
 
+pub type PdmsMeshIdx = u64;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum GeoData{
     Scaled(ScaledGeom),  //可以用Unit Shape缩放的类型
-    Primitive(PdmsPrimShape),  //基本体，但是不可拉伸
+    Primitive((PdmsMeshIdx, Vec3)),  //索引的哪个mesh,和对应的拉伸值， 先从dish开始判断相似性
     // Raw(Mesh),          //原生的Mesh
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct CachedMeshes{
+    pub meshes: HashMap<u64, PdmsMesh>,    //世界坐标系的变换
+}
+
+impl CachedMeshes {
+    //get the mesh index, if not exist, try to create and insert, and return index
+    pub fn get_pdms_mesh_hash_key<T: BrepShape>(&mut self, m: &T) -> (u64, Vec3){
+        let hash = m.hash_mesh_params();
+        if !self.meshes.contains_key(&hash) {
+            let mesh = m.gen_unit_shape();
+            self.meshes.insert(hash, mesh);
+        }
+        let scaled = m.get_scaled_vec3();
+        (hash, scaled)
+    }
+
+    pub fn serialize_to_json_file(&self) -> bool{
+        let mut file = File::create(format!("./cached_meshes.json")).unwrap();
+        let serialized = serde_json::to_string(&self).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
+        true
+    }
+
+}
+
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct EleGeoData{
     pub geo: GeoData,
-    pub global_transform: Mat4,    //世界坐标系的变换
+    // pub bbox: AABB,
+    pub global_transform: (Quat, Vec3),    //世界坐标系的变换
 }
 
 impl Collection for EleGeoData {
@@ -671,7 +726,8 @@ pub struct PdmsRefno {
 
 use id_tree::InsertBehavior::*;
 use itertools::Itertools;
-use crate::prim_geo::pdms_shape::PdmsPrimShape;
+use ncollide3d::bounding_volume::AABB;
+use crate::prim_geo::pdms_shape::{BrepShape, PdmsMesh, PdmsPrimShape};
 
 #[test]
 fn test_id_tree() {

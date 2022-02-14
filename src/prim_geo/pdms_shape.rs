@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use bevy::prelude::{Mesh, Vec3};
 use bevy::prelude::FromWorld;
 use truck_modeling::{Curve, Shell};
-use bevy_inspector_egui::Inspectable;
+// use bevy_inspector_egui::Inspectable;
 use bevy::ecs::component::Component;
 use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -47,25 +47,43 @@ pub fn gen_bounding_box(shell: &Shell) -> BoundingBox<Point3>{
     // let (size, center) = (bdd_box.size(), bdd_box.center());
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Serialize, Deserialize, Component, Debug, Clone, Default)]
 pub struct PdmsMesh{
-    pub mesh: Mesh,
-    pub aabb: AABB<f32>,
+    // pub mesh: Mesh,
+    pub indices: Vec<u32>,
+    pub vertices: Vec<[f32; 3]>,
+    pub normals: Vec<[f32; 3]>,
+    pub aabb: (Vec3, Vec3),
 }
 
 pub trait BrepShape : VerifiedShape + Debug{
 
     fn gen_brep(&self) -> Option<Shell>;
 
+    //todo 实现模型的hash，主要是看比列
+    //通过比例缩放可以更大的共享几何信息
+    fn hash_mesh_params(&self) -> u64{
+        0
+    }
+
+    //生成对应的单位长度的模型，比如Dish，就是以R为1的情况生成模型
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        PdmsMesh::default()
+    }
+
+    fn get_scaled_vec3(&self) -> Vec3{
+        Vec3::ONE
+    }
+
+
+
     //直接使用基本体的快速生成
     fn quick_gen_mesh(&self) -> Option<Mesh>{
         None
     }
 
-
-
     fn gen_mesh(&self, tol: Option<f32>) -> PdmsMesh{
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        // let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         let mut aabb = AABB::new_invalid();
         if let Some(brep) = self.gen_brep() {
             let brep_bbox = gen_bounding_box(&brep);
@@ -74,47 +92,40 @@ pub trait BrepShape : VerifiedShape + Debug{
             aabb = AABB::from_half_extents(
                 Point::<f32>::new(c[0] as f32, c[1] as f32, c[2] as f32),
                 Vector::<f32>::new(d[0] as f32, d[1] as f32, d[2] as f32)
-                /*center: na::Point::<f32>::new(c[0] as f32, c[1] as f32, c[2] as f32),
-                half_extents: na::Vector3::<f32>::new(d[0] as f32, d[1] as f32, d[2] as f32),*/
             );
             if size <= f64::EPSILON{
-                return PdmsMesh{
-                    mesh,
-                    aabb
-                };
+                return PdmsMesh::default();
             }
             let tolerance = tol.unwrap_or((TRIANGLE_TOL * size) as f32) as f64;
             if let Some(s) = brep.triangulation(tolerance) {
                 let polygon = s.to_polygon();
-                let positions = polygon.positions().iter().map(|&x| x.array()).collect::<Vec<_>>();
+                let vertices = polygon.positions().iter().map(|&x| x.array()).collect::<Vec<_>>();
                 let normals = polygon.normals().iter().map(|&x| x.array()).collect::<Vec<_>>();
                 let uvs = polygon.uv_coords().iter().map(|x| [x[0] as f32, x[1] as f32]).collect::<Vec<_>>();
                 let mut indices = vec![];
                 for i in polygon.tri_faces(){
-                    indices.push(i[0].pos as u16);
-                    indices.push(i[1].pos as u16);
-                    indices.push(i[2].pos as u16);
+                    indices.push(i[0].pos as u32);
+                    indices.push(i[1].pos as u32);
+                    indices.push(i[2].pos as u32);
                 }
-                mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-                mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-                mesh.set_indices(Some(Indices::U16(
-                    indices
-                )));
+                // mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+                // mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                // mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                // mesh.set_indices(Some(Indices::U16(
+                //     indices
+                // )));
+                let a = aabb.mins;
+                let b = aabb.maxs;
+                return  PdmsMesh{
+                    indices,
+                    vertices,
+                    normals,
+                    aabb: (Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z))
+                };
             }
         }
-        //生成失败的打印出来
-        if mesh.indices().is_none() {
-            // dbg!(&self);
-        }
-        PdmsMesh{
-            mesh,
-            aabb
-        }
+        PdmsMesh::default()
     }
-
-
-
 }
 
 pub trait ScaledShape{
@@ -168,7 +179,7 @@ impl BevyMathTrait for Point3 {
 }
 
 
-#[derive(Component, Debug, Inspectable, Clone, Serialize, Deserialize,)]
+#[derive(Component, Debug, /*Inspectable,*/ Clone, Serialize, Deserialize,)]
 // #[reflect(Component)]
 pub enum PdmsPrimShape {
     SBoxShape(SBox),

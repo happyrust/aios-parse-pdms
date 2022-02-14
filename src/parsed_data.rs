@@ -9,8 +9,7 @@ use smol_str::SmolStr;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct DesignPipeRequest {
-    
-    pub name: ::prost::alloc::string::String,
+    // pub name: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Debug)]
 pub struct DesignComponentRequest {

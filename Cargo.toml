@@ -20,10 +20,11 @@ itertools = "0.10.1"
 bincode = "1.3.3"
 nalgebra = "0.26.2"
 nalgebra-glm = "0.12.0"
-glam = "0.20.2"
+glam = {version="0.20.2", features=["transform-types"]}
 fasteval = "0.2.4"
 regex = "1.5.4"
 futures = "0.3.19"
+fixed = "1.12"
 
 #rocksdb = "0.18.0"
 sanakirja = "1.2.16"
@@ -31,7 +32,7 @@ sanakirja = "1.2.16"
 sled = { version = "0.34.7", features = ["compression"] }
 #sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
-bonsaidb = { path="D:/db-projects/bonsaidb/crates/bonsaidb", version = "0.2.0", features = ["local-full",
+bonsaidb = { path="../bonsaidb/crates/bonsaidb", version = "0.2.0", features = ["local-full",
     "client-full",
     "server-full",
     "websockets",
@@ -60,15 +61,14 @@ lazy_static = "1.4.0"
 static_init = "1.0.1"
 cached = { version = "0.26.2", default-features = false, features = ["proc_macro"] }
 dashmap =  { version="5.0.0" , features=["serde"] }
-once_cell = "1.9.0"
 #autowired = { path = "D:/autowired-rs" }
 hex = "0.4.3"
 notify = "4.0.17"
 crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
 #rug = "1.14.0"
-bevy-inspector-egui = { path = "../bevy-inspector-egui" }
-bevy = { path = "../bevy", default-features = false }
+#bevy-inspector-egui = { path = "../bevy-inspector-egui" }
+bevy = { path = "../bevy" }
 
 id_tree = { version = "1.8.0", features=["serde_support"] }
 smol_str = "0.1.21"
@@ -92,12 +92,13 @@ truck-meshalgo = { version = "0.1.0", path = "../truck/truck-meshalgo" }
 truck-platform = { version = "0.3.0", path = "../truck/truck-platform" }
 truck-rendimpl = { version = "0.3.0", path = "../truck/truck-rendimpl" }
 
-tonic-ws-transport = { path = "../tonic-ws-transport/transport", features = ["native"] }
-tonic = { version = "0.5.0", features = ["transport", "codegen", "prost"] }
+#tonic-ws-transport = { path = "../tonic-ws-transport/transport", features = ["native"] }
+#tonic = { version = "0.5.0", features = ["transport", "codegen", "prost"] }
 prost = "0.8.0"
-futures-util = "0.3.12"
-tokio-tungstenite = "0.14.0"
-tokio-stream = { version = "0.1.2", features = ["net"] }
+once_cell = "1.9.0"
+#futures-util = "0.3.12"
+#tokio-tungstenite = "0.14.0"
+#tokio-stream = { version = "0.1.2", features = ["net"] }
 
-[build-dependencies]
-tonic-build = "0.5.0"
+#[build-dependencies]
+#tonic-build = "0.5.0"

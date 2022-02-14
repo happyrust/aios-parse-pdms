@@ -3,7 +3,10 @@
 #![feature(slice_pattern)]
 #![feature(core_intrinsics)]
 #![feature(associated_type_bounds)]
+#![feature(once_cell)]
+#![feature(async_closure)]
 #[allow(dead_code)]
+
 
 #[macro_use]
 extern crate serde;

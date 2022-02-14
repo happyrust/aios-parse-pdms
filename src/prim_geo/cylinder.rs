@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
 use truck_modeling::{builder, Shell};
-use bevy_inspector_egui::Inspectable;
+// use bevy_inspector_egui::Inspectable;
 use truck_meshalgo::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
@@ -11,8 +11,8 @@ use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
 use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, ScaledShape, VerifiedShape};
 
-#[derive(Component, Debug, Inspectable, Clone,  Reflect, Serialize, Deserialize)]
-#[reflect(Component)]
+#[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect, Serialize, Deserialize)]
+// #[reflect(Component)]
 pub struct LCylinder {
     pub paxi_expr: String,
     pub paxi_pt: Vec3,   //A Axis point
@@ -78,8 +78,8 @@ impl BrepShape for LCylinder {
     }
 }
 
-#[derive(Component, Debug, Inspectable, Reflect, Clone, Serialize, Deserialize)]
-#[reflect(Component)]
+#[derive(Component, Debug, /*Inspectable,*/ Reflect, Clone, Serialize, Deserialize)]
+// #[reflect(Component)]
 pub struct SCylinder {
     pub paxi_expr: String,
     pub paxi_pt: Vec3,   //A Axis point
@@ -158,5 +158,11 @@ impl From<&AttrMap> for SCylinder {
             pdia,
             negative: false,
         }
+    }
+}
+
+impl From<AttrMap> for SCylinder {
+    fn from(m: AttrMap) -> Self {
+        (&m).into()
     }
 }
