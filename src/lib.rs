@@ -34,6 +34,7 @@ pub mod parse;
 pub use parse::parse_pdms_dir;
 pub mod consts;
 pub mod prim_geo;
+pub mod grpc;
 
 pub mod local_db;
 

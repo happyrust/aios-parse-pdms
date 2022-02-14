@@ -14,16 +14,20 @@
 
 syntax = "proto3";
 
-option java_multiple_files = true;
-option java_package = "io.grpc.examples.helloworld";
-option java_outer_classname = "HelloWorldProto";
+//option java_multiple_files = true;
+//option java_package = "io.grpc.examples.helloworld";
+//option java_outer_classname = "HelloWorldProto";
 
-package helloworld;
+package ele_geoms_rpc;
+
+message Chunk {
+   bytes Content = 1;
+}
 
 // The greeting service definition.
-service Greeter {
+service AIOSGeom {
   // Sends a greeting
-  rpc SayHello (HelloRequest) returns (HelloReply) {}
+  rpc GetCubes (HelloRequest) returns (HelloReply) {}
 }
 
 // The request message containing the user's name.

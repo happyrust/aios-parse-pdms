@@ -9,6 +9,9 @@ edition = "2021"
 ## or "z"
 #opt-level = 2
 
+[features]
+web = []   #compile for just web usage, now it is too heavy now
+
 [dependencies]
 #nom = "7.0.0"
 memchr = "2.4.1"
@@ -17,8 +20,6 @@ itertools = "0.10.1"
 bincode = "1.3.3"
 nalgebra = "0.26.2"
 nalgebra-glm = "0.12.0"
-prost = "0.8"
-tonic = "0.5.0"
 glam = "0.20.2"
 fasteval = "0.2.4"
 regex = "1.5.4"
@@ -30,7 +31,11 @@ sanakirja = "1.2.16"
 sled = { version = "0.34.7", features = ["compression"] }
 #sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
-bonsaidb = { path="D:/db-projects/bonsaidb/crates/bonsaidb", version = "0.1.0", features = ["local"] }
+bonsaidb = { path="D:/db-projects/bonsaidb/crates/bonsaidb", version = "0.2.0", features = ["local-full",
+    "client-full",
+    "server-full",
+    "websockets",
+] }
 #bonsaidb = { git = "https://github.com/khonsulabs/bonsaidb.git", default-features = false, features = "local-full" }
 
 tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }
@@ -69,6 +74,9 @@ id_tree = { version = "1.8.0", features=["serde_support"] }
 smol_str = "0.1.21"
 ncollide3d = "0.32.0"
 lyon = "0.17.10"
+rand = "*"
+anyhow = "*"
+env_logger = "*"
 
 transmog-bincode = "0.1"
 
@@ -83,3 +91,13 @@ truck-modeling = { version = "0.3.0", path = "../truck/truck-modeling" }
 truck-meshalgo = { version = "0.1.0", path = "../truck/truck-meshalgo" }
 truck-platform = { version = "0.3.0", path = "../truck/truck-platform" }
 truck-rendimpl = { version = "0.3.0", path = "../truck/truck-rendimpl" }
+
+tonic-ws-transport = { path = "../tonic-ws-transport/transport", features = ["native"] }
+tonic = { version = "0.5.0", features = ["transport", "codegen", "prost"] }
+prost = "0.8.0"
+futures-util = "0.3.12"
+tokio-tungstenite = "0.14.0"
+tokio-stream = { version = "0.1.2", features = ["net"] }
+
+[build-dependencies]
+tonic-build = "0.5.0"

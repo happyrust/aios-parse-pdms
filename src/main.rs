@@ -78,9 +78,10 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
     ).unwrap();
 
     let mut db_manager = AiosDBManager::init("D:/AVEVA/Plant/Projects12.1.SP4",
-                                             vec!["Sample".to_string()/*, "Master".to_string()*/], true).await.unwrap();
+                                             vec!["Sample".to_string()/*, "Master".to_string()*/], false).await.unwrap();
     let mut db = db_manager.db_map.get_mut("Sample").unwrap();
-    db.cache_equip_geos_data().await;
+    let result = db.cache_equip_geos_data().await?;
+    dbg!(result);
     // bonsaidb_local::cache_equip_geos_data().await;
 
     #[cfg(feature = "sled")]{

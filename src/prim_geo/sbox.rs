@@ -128,4 +128,10 @@ impl From<&AttrMap> for SBox {
     }
 }
 
+impl From<AttrMap> for SBox {
+    fn from(m: AttrMap) -> Self {
+        (&m).into()
+    }
+}
+
 

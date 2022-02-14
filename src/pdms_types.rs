@@ -390,10 +390,6 @@ impl AttrMap {
 
 }
 
-
-
-// direct_repr!(AttrMap);
-
 impl Collection for AttrMap {
     fn collection_name() -> CollectionName {
         CollectionName::new("aios", "attrs")
@@ -477,7 +473,6 @@ pub enum AttrVal {
     WordType(SmolStr),
 
     RefU64Type(RefU64),
-
 }
 
 impl AttrVal {
@@ -555,6 +550,22 @@ pub struct EleGeoData{
     pub global_transform: Mat4,    //世界坐标系的变换
 }
 
+impl Collection for EleGeoData {
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "geoms")
+    }
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+impl SerializedCollection for EleGeoData {
+    type Contents = Self;
+    type Format = transmog_bincode::Bincode;
+    fn format() -> Self::Format {
+        transmog_bincode::Bincode::default()
+    }
+}
+
 
 //todo node 不需要多大，这些数据也不用缓存
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -564,6 +575,7 @@ pub struct EleNode {
     pub name: SmolStr,   //todo make it as a index of name table
     pub noun: u32,
     pub version: u32,
+    // pub global_mat: Mat4,   //全局坐标系下的变换矩阵
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

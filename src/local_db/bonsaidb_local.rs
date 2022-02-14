@@ -1,16 +1,18 @@
 use std::cell::Ref;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::Path;
 use std::ptr::eq;
 use bonsaidb::core::circulate::Message;
-use bonsaidb::core::connection::Connection;
+use bonsaidb::core::connection::{Connection, StorageConnection};
 use bonsaidb::core::schema::{Collection, CollectionName, Schematic, SerializedCollection};
 use bonsaidb::core::transaction;
 use bonsaidb::core::transaction::Transaction;
 use bonsaidb::local::config::{Builder, StorageConfiguration};
-use bonsaidb::local::Database;
+use bonsaidb::local::{Database, Storage};
+use glam::Mat4;
 use id_tree::NodeId;
 use nom::AsBytes;
 use smol_str::SmolStr;
@@ -18,12 +20,15 @@ use crate::{AttrMap, db1_dehash, parse_pdms_dir};
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
 use crate::parse::{PdmsDbData};
-use crate::pdms_types::{PdmsTree, Refi32Tuple, RefnoInfo, RefU64, RefU64Vec};
+use crate::pdms_types::{EleGeoData, GeoData, PdmsTree, Refi32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom};
+use crate::prim_geo::pdms_shape::ScaledShape;
+use crate::prim_geo::sbox::SBox;
 
 pub const ATT_DB_NAME: &'static str = "attr";
 pub const REFS_DB_NAME: &'static str = "refs";
 pub const TREE_DB_NAME: &'static str = "tree";
 pub const INFO_DB_NAME: &'static str = "info";
+pub const GEOM_DB_NAME: &'static str = "geoms";
 
 #[derive(Default, Debug)]
 pub struct PdmsConfig {
@@ -62,6 +67,7 @@ pub struct AiosDB {
     pub refs_db: Database,
     pub tree_db: Database,
     pub info_db: Database,
+    pub geom_db: Storage,
     pub mdb_name: Option<String>,
 }
 
@@ -74,6 +80,7 @@ impl AiosDB {
             refs_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./{project}/{REFS_DB_NAME}"))).await?,
             tree_db: Database::open::<PdmsTree>(StorageConfiguration::new(format!("./{project}/{TREE_DB_NAME}"))).await?,
             info_db: Database::open::<RefnoInfo>(StorageConfiguration::new(format!("./{project}/{INFO_DB_NAME}"))).await?,
+            geom_db: Storage::open(StorageConfiguration::new(format!("./{project}/{GEOM_DB_NAME}")).with_schema::<EleGeoData>()?).await?,
             mdb_name: None,
         })
     }
@@ -92,6 +99,21 @@ impl AiosDB {
             return Some(d.contents.node_id);
         }
         None
+    }
+
+    ///获得世界坐标系
+    pub async fn get_world_matrix(&self, refno: &RefU64) -> Mat4{
+        let mut world_mat = Mat4::IDENTITY;
+        let mut cur_refno = *refno;
+        while let Some(attr) = self.get_attr(&cur_refno).await{
+            if let Some(owner) = attr.get_owner(){
+                cur_refno = owner;
+                world_mat = world_mat * attr.get_mat4();
+            }else{
+                break;
+            }
+        }
+        world_mat
     }
 
     pub async fn save(&mut self) -> Result<(), bonsaidb::core::Error> {
@@ -139,10 +161,17 @@ impl AiosDB {
                 if !tmp_set.contains(&target_dbno) {
                     tmp_set.insert(target_dbno);
                     let mut tx = Transaction::default();
+                    let pdms_tree = PdmsTree(ele_id_tree);
                     tx.push(transaction::Operation::insert_serialized::<PdmsTree>(
                         Some(target_dbno),
-                        &PdmsTree(ele_id_tree),
+                        &pdms_tree,
                     ).unwrap());
+                    
+                    let mut file = File::create(format!("{target_dbno}.json")).unwrap();
+
+                    let serialized = serde_json::to_string(&pdms_tree).unwrap();
+                    file.write_all(serialized.as_bytes()).unwrap();
+
                     self.tree_db.apply_transaction(tx).await.unwrap();
                 }
 
@@ -191,13 +220,20 @@ impl AiosDB {
         Ok(())
     }
 
+
     //缓存设备得几何体
-    pub async fn cache_equip_geos_data(&mut self) -> Result<(), bonsaidb::core::Error> {
+    pub async fn cache_equip_geos_data(&mut self) -> Result<HashMap<RefU64, EleGeoData>, bonsaidb::core::Error> {
         let db_code = 7200;
         let equip_hash = db1_hash("EQUI");
         dbg!(db1_dehash(equip_hash));
         let equip_key = combine_to_u64(equip_hash, db_code);
         let project = "Sample";
+
+        let mut  geo_map = HashMap::new();
+
+        //根据不同种类的几何体，做一下单独的聚集，这样再获取的时候能直接获取需要的几何形状
+        // self.geom_db.create_database::<EleGeoData>("cubes", true).await?;
+        // let cubes_db = storage.database::<Message>("cubes").await?;
         //for test
         // let test_refno: RefU64 = Refi32Tuple((23584, 10204)).into();
         // let attr = self.get_attr(&test_refno).await;
@@ -211,43 +247,58 @@ impl AiosDB {
                 let tree = d.contents.0;
                 dbg!(tree.height());
                 let root_node_id = tree.root_node_id().unwrap();
-                // if let Ok(mut nodes) = tree.traverse_level_order(&root_node_id){
-                //     let mut index = 0;
-                //     while let Some(mut cur_node) = nodes.next() {
-                //         dbg!(&cur_node.data().name);
-                //         index += 1;
-                //         if index >= 1000{
-                //             break;
-                //         }
-                //     }
-                // }
-
+                let mut cubes_tx = Transaction::default();
                 for refno in refnos.0 {
+                    let matrix = self.get_world_matrix(&refno).await;
+                    dbg!(matrix);
                     if let Some(node_id) = self.get_node_id(&refno).await{
                         dbg!(&node_id);
+                        //保存一个数据库，
                         if let Ok(mut nodes) = tree.traverse_level_order(&node_id){
                             while let Some(mut cur_node) = nodes.next() {
                                 dbg!(&cur_node.data().name);
+                                let d = cur_node.data();
+                                //先针对box，生成模型
+                                if d.noun == db1_hash("BOX"){
+                                    let sbox: SBox = self.get_attr(&d.refno).await.unwrap().into();
+                                    let geom_data = EleGeoData{
+                                        geo: GeoData::Scaled(ScaledGeom::Box(sbox.get_scale_vec3())),
+                                        global_transform: self.get_world_matrix(&d.refno).await           //todo 优化global matrix的计算，是否需要统一来一次计算
+                                    };
+
+                                    geo_map.insert(d.refno, geom_data);
+                                    // tx.push(transaction::Operation::insert_serialized::<EleGeoData>(
+                                    //     Some(d.refno.0),
+                                    //     &geom_data,
+                                    // ).unwrap());
+                                }
                             }
                         }
-
                     }
-                }
+                } //end for -equip
+                // cubes_db.apply_transaction(tx).await.unwrap();
             }
-
-
         }
-        Ok(())
+        Ok(geo_map)
     }
 
 }
 
+// pub const
 
 pub fn get_children_attrs() -> Vec<AttrMap> {
     vec![]
 }
 
 
+//直接生成一个HashMap通过tonic返回给wasm, todo 数据库不用重复这样初始化多次
+pub async fn get_just_cubes() -> Result<HashMap<RefU64, EleGeoData>, bonsaidb::core::Error>{
+    let mut db_manager = AiosDBManager::init("D:/AVEVA/Plant/Projects12.1.SP4",
+                                             vec!["Sample".to_string()/*, "Master".to_string()*/], true).await.unwrap();
+    let mut db = db_manager.db_map.get_mut("Sample").unwrap();
+
+    db.cache_equip_geos_data().await
+}
 
 
 
