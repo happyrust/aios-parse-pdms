@@ -13,7 +13,7 @@ use bonsaidb::core::transaction;
 use bonsaidb::core::transaction::Transaction;
 use bonsaidb::local::config::{Builder, StorageConfiguration};
 use bonsaidb::local::{Database, Storage};
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Quat, TransformRT, Vec3};
 use id_tree::NodeId;
 use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
@@ -115,22 +115,62 @@ impl AiosDB {
         None
     }
 
-    ///获得世界坐标系
-    pub async fn get_world_transform(&self, refno: &RefU64) -> glam::TransformRT {
-        let mut world_mat = glam::TransformRT::IDENTITY;
+    //包含自己
+    pub async fn get_ancestors_attrs(&self, refno: &RefU64) -> Vec<AttrMap> {
         let mut cur_refno = *refno;
+        let mut r = vec![];
         while let Some(attr) = self.get_attr(&cur_refno).await {
             if let Some(owner) = attr.get_owner() {
-                let t = attr.get_tansformRT();
-                // println!("{}: {:?}", cur_refno.to_refno_str(), &attr);
-                world_mat = world_mat * attr.get_tansformRT();
+                r.push(attr);
                 cur_refno = owner;
             } else {
                 break;
             }
         }
-        world_mat
+        r
     }
+
+    ///获得世界坐标系
+    pub async fn get_world_transform(&self, refno: &RefU64) -> glam::TransformRT {
+
+        let mut ancestors = self.get_ancestors_attrs(&refno).await;
+        ancestors.reverse();
+        let mut rotation = Quat::IDENTITY;
+        let mut translation = Vec3::ZERO;
+        let mut parent: Option<Quat> = None;
+        for attr in ancestors {
+            let t = attr.get_rotation();
+
+            translation = translation + rotation * attr.get_position();
+            rotation = rotation * t;
+        }
+        glam::TransformRT{
+            rotation,
+            translation,
+        }
+        // world_mat
+    }
+
+    // pub async fn get_world_matrix(&self, refno: &RefU64) -> glam::f32::Affine3A {
+    //     let mut world_mat = glam::f32::Affine3A::IDENTITY;
+    //     let mut cur_refno = *refno;
+    //     let mut mats = vec![];
+    //     while let Some(attr) = self.get_attr(&cur_refno).await {
+    //         if let Some(owner) = attr.get_owner() {
+    //             let t = attr.get_matrix();
+    //             // println!("{}: {:?}", cur_refno.to_refno_str(), &attr);
+    //             // dbg!(t.rotation.to_euler(glam::EulerRot::XYZ));
+    //             // world_mat = world_mat * t;
+    //             mats.insert(0, t);
+    //             // world_mat = attr.get_tansformRT() * world_mat;
+    //             cur_refno = owner;
+    //         } else {
+    //             break;
+    //         }
+    //     }
+    //     mats.iter().for_each(|&x| { world_mat = x * world_mat; });
+    //     world_mat
+    // }
 
 
     pub async fn save(&mut self) -> Result<(), bonsaidb::core::Error> {
@@ -264,7 +304,7 @@ impl AiosDB {
             dbg!(refnos.len());
             let box_hash = db1_hash("BOX");
             let cylinder_hash = db1_hash("CYLI");
-            let sphere_hash = db1_hash("SPHER");
+            let sphere_hash = db1_hash("SPHE");
             let cone_hash = db1_hash("CONE");
             let dish_hash = db1_hash("DISH");
             let ctorus_hash = db1_hash("CTOR");
@@ -288,11 +328,13 @@ impl AiosDB {
                         let d = cur_node.data();
                         //改成check是否是基本体，然后再继续
                         if d.noun == box_hash {
-                            let sbox: SBox = self.get_attr(&d.refno).await.unwrap().into();
+                            let attr = self.get_attr(&d.refno).await.unwrap();
+                            let sbox: SBox = (&attr).into();
                             let tr = self.get_world_transform(&d.refno).await;
                             let geom_data = EleGeoData {
                                 geo: GeoData::Scaled(ScaledGeom::Box(sbox.get_scale_vec3())),
                                 global_transform: (tr.rotation, tr.translation),           //todo 优化global matrix的计算，是否需要统一来一次计算
+                                visible: attr.is_visible(None)
                             };
                             geo_map.insert(d.refno.to_refno_str(), geom_data);
                             // tx.push(transaction::Operation::insert_serialized::<EleGeoData>(
@@ -301,23 +343,18 @@ impl AiosDB {
                             // ).unwrap());
                         }
                         if d.noun == cylinder_hash {
-                            let cyli: SCylinder = self.get_attr(&d.refno).await.unwrap().into();
+                            let attr = self.get_attr(&d.refno).await.unwrap();
+                            let cyli: SCylinder = (&attr).into();
                             let tr = self.get_world_transform(&d.refno).await;
                             let geom_data = EleGeoData {
                                 geo: GeoData::Scaled(ScaledGeom::Cylinder(cyli.get_scale_vec3())),
                                 global_transform: (tr.rotation, tr.translation),            //todo 优化global matrix的计算，是否需要统一来一次计算
+                                visible: attr.is_visible(None)
                             };
                             geo_map.insert(d.refno.to_refno_str(), geom_data);
-                        } else if d.noun == cylinder_hash {
-                            let cyli: SCylinder = self.get_attr(&d.refno).await.unwrap().into();
-                            let tr = self.get_world_transform(&d.refno).await;
-                            let geom_data = EleGeoData {
-                                geo: GeoData::Scaled(ScaledGeom::Cylinder(cyli.get_scale_vec3())),
-                                global_transform: (tr.rotation, tr.translation),            //todo 优化global matrix的计算，是否需要统一来一次计算
-                            };
-                            geo_map.insert(d.refno.to_refno_str(), geom_data);
-                        }else if d.noun == cone_hash {
-                            let snout: LSnout = self.get_attr(&d.refno).await.unwrap().into();
+                        } else if d.noun == cone_hash {
+                            let attr = self.get_attr(&d.refno).await.unwrap();
+                            let snout: LSnout = (&attr).into();
                             let tr = self.get_world_transform(&d.refno).await;
                             //get_pdms_mesh_hash_index()
                             // let pdms_mesh = snout.gen_mesh(None);
@@ -329,7 +366,8 @@ impl AiosDB {
                             // };
                             // geo_map.insert(d.refno.to_refno_str(), geom_data);
                         } else if d.noun == dish_hash {
-                            let dish: Dish = self.get_attr(&d.refno).await.unwrap().into();
+                            let attr = self.get_attr(&d.refno).await.unwrap();
+                            let dish: Dish = (&attr).into();
                             if dish.check_valid() {
                                 dish_refnos.push(d.refno.to_refno_str());
                                 let tr = self.get_world_transform(&d.refno).await;
@@ -339,6 +377,7 @@ impl AiosDB {
                                 let geom_data = EleGeoData {
                                     geo: GeoData::Primitive(result),   //todo use bin-code to transfer data
                                     global_transform: (tr.rotation, tr.translation),            //todo 优化global matrix的计算，是否需要统一来一次计算
+                                    visible: attr.is_visible(None)
                                 };
                                 geo_map.insert(d.refno.to_refno_str(), geom_data);
                             }
@@ -361,7 +400,7 @@ impl AiosDB {
                             let mut loop_verts: Vec<Vec3> = vec![];
                             let children_refs = self.get_children(&d.refno).await?;
                             for x in children_refs.0 {
-                                let v = self.get_attr(&x).await.unwrap().get_translation();
+                                let v = self.get_attr(&x).await.unwrap().get_position();
                                 loop_verts.push(v);
                             }
                             // dbg!(&loop_verts);
@@ -413,7 +452,8 @@ impl AiosDB {
             }
         }
 
-        let mut file = File::create(format!("./{project}/{db_code}_geoms.json")).unwrap();
+        ///{project}
+        let mut file = File::create(format!("./{db_code}_geoms.json")).unwrap();
         let serialized = serde_json::to_string(&geo_map).unwrap();
         file.write_all(serialized.as_bytes()).unwrap();
 

@@ -23,6 +23,7 @@ pub trait VerifiedShape{
     fn check_valid(&self) -> bool{
         true
     }
+
 }
 
 #[inline]
@@ -75,8 +76,6 @@ pub trait BrepShape : VerifiedShape + Debug{
         Vec3::ONE
     }
 
-
-
     //直接使用基本体的快速生成
     fn quick_gen_mesh(&self) -> Option<Mesh>{
         None
@@ -87,7 +86,7 @@ pub trait BrepShape : VerifiedShape + Debug{
         let mut aabb = AABB::new_invalid();
         if let Some(brep) = self.gen_brep() {
             let brep_bbox = gen_bounding_box(&brep);
-            let (size, c) = (brep_bbox.size(), brep_bbox.center());
+            let (size, c) = (brep_bbox.diameter(), brep_bbox.center());
             let d = brep_bbox.diagonal() / 2.0;
             aabb = AABB::from_half_extents(
                 Point::<f32>::new(c[0] as f32, c[1] as f32, c[2] as f32),

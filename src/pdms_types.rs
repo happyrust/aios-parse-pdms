@@ -19,8 +19,7 @@ use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, S
 use glam::TransformSRT;
 
 
-//todo wrap noun hash
-pub struct NounHash(pub i32);
+pub const LEVEL_VISBLE: u32 = 6;
 
 ///pdms的参考号
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Copy, Eq, PartialEq, Hash)]
@@ -196,6 +195,29 @@ impl AttrMap {
     }
 
 
+    pub fn get_obstruction(&self) -> Option<u32>{
+        self.get_u32("OBST")
+    }
+
+    pub fn get_level(&self) -> Option<[u32; 2]>{
+        if let Some(v) = self.get_i32_vec("LEVE"){
+            if v.len() >= 2 {
+                return Some([v[0] as u32, v[1] as u32]);
+            }
+        }
+        None
+    }
+
+
+    ///判断构件是否可见
+    pub fn is_visible(&self, level: Option<u32>) -> bool{
+        let l = level.unwrap_or(LEVEL_VISBLE);
+        if let Some(level) = self.get_level() {
+            return level[1] >= l;
+        }
+        true
+    }
+
 
     #[inline]
     pub fn get_refno(&self) -> Option<RefU64>{
@@ -303,41 +325,40 @@ impl AttrMap {
     }
 
     #[inline]
-    pub fn get_translation(&self) -> Vec3{
+    pub fn get_position(&self) -> Vec3{
         if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
             return glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
         }
-
         Vec3::ZERO
     }
 
     #[inline]
     pub fn get_rotation(&self) -> Quat{
         if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
-            let mat3 = Mat3::from_rotation_z(ang[2].to_radians() as f32)
-                * Mat3::from_rotation_y(ang[1].to_radians() as f32)
-                * Mat3::from_rotation_x(ang[0].to_radians() as f32);
-
-            // let mat3 = Mat3::from_rotation_x(ang[0].to_radians() as f32)
-            //     * Mat3::from_rotation_y(ang[1].to_radians() as f32)
-            //     * Mat3::from_rotation_z(ang[2].to_radians() as f32);
-
-            return Quat::from_mat3(&mat3);
+            // return Quat::from_euler(EulerRot::XYZ, ang[0].to_radians() as f32, ang[1].to_radians() as f32, ang[2].to_radians() as f32);
+            let mat = (glam::f32::Mat3::from_rotation_z(ang[2].to_radians() as f32)
+                * glam::f32::Mat3::from_rotation_y(ang[1].to_radians() as f32)
+                * glam::f32::Mat3::from_rotation_x(ang[0].to_radians() as f32));
+            return Quat::from_mat3(&mat);
         }
-
         Quat::IDENTITY
     }
 
-    pub fn get_tansformRT(&self) -> glam::TransformRT{
-        let mut tr = glam::TransformRT::IDENTITY;
-        if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
-            tr.translation = glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
-        }
-        if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
-            tr.rotation = self.get_rotation();
-        }
-        tr
-    }
+
+
+
+    // pub fn get_tansformRT(&self, parent: Option<Quat>) -> glam::TransformRT{
+    //     let parent = parent.unwrap_or(Quat::IDENTITY);
+    //     let mut tr = glam::TransformRT::IDENTITY;
+    //     if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
+    //         tr.rotation =  self.get_rotation();   //方位需要取逆矩阵
+    //     }
+    //
+    //     if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
+    //         tr.translation = parent.inverse().mul_vec3(glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
+    //     }
+    //     tr
+    // }
 
 
     pub fn get_matrix(&self) -> glam::f32::Affine3A{
@@ -346,7 +367,9 @@ impl AttrMap {
             affine.translation = glam::f32::Vec3A::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
         }
         if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
-            affine.matrix3 = glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32) * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32)  * glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32);
+            affine.matrix3 = (glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32)
+                * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32)
+                * glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32));
         }
         affine
     }
@@ -370,16 +393,25 @@ impl AttrMap {
     // }
 
     pub fn get_f64_vec(&self, att: &str) -> Option<Vec<f64>> {
-        let mut v = vec![];
         if let Some(val) = self.map.get(att) {
             match val {
                 AttrVal::DoubleArrayType(data) => {
-                    v = data.clone();
-                    return Some(v);
+                    return Some(data.clone());
                 }
                 AttrVal::Vec3Type(data) => {
-                    v = data.to_vec();
-                    return Some(v);
+                    return Some(data.to_vec());
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    pub fn get_i32_vec(&self, att: &str) -> Option<Vec<i32>> {
+        if let Some(val) = self.map.get(att) {
+            match val {
+                AttrVal::IntArrayType(data) => {
+                    return Some(data.clone());
                 }
                 _ => {}
             }
@@ -561,7 +593,7 @@ pub enum ScaledGeom{
     Sphere(f32),
 }
 
-pub type PdmsMeshIdx = u64;
+pub type PdmsMeshIdx = String;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum GeoData{
@@ -572,16 +604,16 @@ pub enum GeoData{
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct CachedMeshes{
-    pub meshes: HashMap<u64, PdmsMesh>,    //世界坐标系的变换
+    pub meshes: HashMap<String, PdmsMesh>,    //世界坐标系的变换, 为了js兼容64位，暂时使用String
 }
 
 impl CachedMeshes {
     //get the mesh index, if not exist, try to create and insert, and return index
-    pub fn get_pdms_mesh_hash_key<T: BrepShape>(&mut self, m: &T) -> (u64, Vec3){
-        let hash = m.hash_mesh_params();
+    pub fn get_pdms_mesh_hash_key<T: BrepShape>(&mut self, m: &T) -> (String, Vec3){
+        let hash = m.hash_mesh_params().to_string();
         if !self.meshes.contains_key(&hash) {
             let mesh = m.gen_unit_shape();
-            self.meshes.insert(hash, mesh);
+            self.meshes.insert(hash.clone(), mesh);
         }
         let scaled = m.get_scaled_vec3();
         (hash, scaled)
@@ -603,6 +635,7 @@ pub struct EleGeoData{
     pub geo: GeoData,
     // pub bbox: AABB,
     pub global_transform: (Quat, Vec3),    //世界坐标系的变换
+    pub visible: bool,
 }
 
 impl Collection for EleGeoData {

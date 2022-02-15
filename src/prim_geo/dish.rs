@@ -32,9 +32,9 @@ pub struct Dish {
 impl Default for Dish {
     fn default() -> Self {
         Self {
-            paax_expr: "X".to_string(),
+            paax_expr: "Z".to_string(),
             paax_pt: Default::default(),
-            paax_dir: Vec3::X,
+            paax_dir: Vec3::Z,
             pdis: 0.0,
             pheig: 1.0,
             pdia: 1.0,
@@ -44,6 +44,8 @@ impl Default for Dish {
 
 impl VerifiedShape for Dish {
     fn check_valid(&self) -> bool { self.pdia > EPSILON && self.pheig >= 0.0 }
+
+
 }
 
 impl BrepShape for Dish {
@@ -81,7 +83,7 @@ impl BrepShape for Dish {
         Vec3::new(self.pdia, self.pdia, self.pdia)
     }
 
-    fn gen_brep(& self) -> Option<Shell> {
+    fn gen_brep(&self) -> Option<Shell> {
         use truck_modeling::*;
         let r = self.pdia / 2.0;
         let h = self.pheig;
