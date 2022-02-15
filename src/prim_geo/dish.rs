@@ -76,7 +76,7 @@ impl BrepShape for Dish {
             pdia: 1.0,
             ..Default::default()
         };
-        unit.gen_mesh(None)
+        unit.gen_mesh(Some(0.002))
     }
 
     fn get_scaled_vec3(&self) -> Vec3{

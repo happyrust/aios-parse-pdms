@@ -321,7 +321,6 @@ impl AiosDB {
                 //     dbg!(&node_id);
                 //保存一个数据库，
                 let node_id = tree.root_node_id().unwrap();
-                let mut dish_refnos = Vec::new();
                 if let Ok(mut nodes) = tree.traverse_level_order(node_id) {
                     while let Some(mut cur_node) = nodes.next() {
                         // dbg!(&cur_node.data().name);
@@ -355,48 +354,50 @@ impl AiosDB {
                         } else if d.noun == cone_hash {
                             let attr = self.get_attr(&d.refno).await.unwrap();
                             let snout: LSnout = (&attr).into();
-                            let tr = self.get_world_transform(&d.refno).await;
-                            //get_pdms_mesh_hash_index()
-                            // let pdms_mesh = snout.gen_mesh(None);
-
-                            //need to get the mesh index
-                            // let geom_data = EleGeoData {
-                            //     geo: GeoData::Primitive(()),   //todo use bin-code to transfer data
-                            //     global_transform: (tr.rotation, tr.translation),            //todo 优化global matrix的计算，是否需要统一来一次计算
-                            // };
-                            // geo_map.insert(d.refno.to_refno_str(), geom_data);
+                            if snout.check_valid() {
+                                dbg!(d.refno.to_refno_str());
+                                let tr = self.get_world_transform(&d.refno).await;
+                                let result = cached_mesh_mgr.get_pdms_mesh_hash_key(&snout);
+                                let geom_data = EleGeoData {
+                                    geo: GeoData::Primitive(result),                            //todo use bin-code to transfer data
+                                    global_transform: (tr.rotation, tr.translation),            //todo 优化global matrix的计算，是否需要统一来一次计算
+                                    visible: attr.is_visible(None)
+                                };
+                                geo_map.insert(d.refno.to_refno_str(), geom_data);
+                            }
                         } else if d.noun == dish_hash {
                             let attr = self.get_attr(&d.refno).await.unwrap();
-                            let dish: Dish = (&attr).into();
+                            let dish: Dish = (&attr).into();        //make this to dyn trait
                             if dish.check_valid() {
-                                dish_refnos.push(d.refno.to_refno_str());
                                 let tr = self.get_world_transform(&d.refno).await;
-                                println!("{} {:?}", d.refno.to_refno_str(), &dish );
-
                                 let result = cached_mesh_mgr.get_pdms_mesh_hash_key(&dish);
                                 let geom_data = EleGeoData {
-                                    geo: GeoData::Primitive(result),   //todo use bin-code to transfer data
+                                    geo: GeoData::Primitive(result),                            //todo use bin-code to transfer data
                                     global_transform: (tr.rotation, tr.translation),            //todo 优化global matrix的计算，是否需要统一来一次计算
                                     visible: attr.is_visible(None)
                                 };
                                 geo_map.insert(d.refno.to_refno_str(), geom_data);
                             }
                         }else if d.noun == ctorus_hash {
-                            // let ctor: CTorus = self.get_attr(&d.refno).await.unwrap().into();
-                            // let tr = self.get_world_transform(&d.refno).await;
-                            // let pdms_mesh = ctor.gen_mesh(None);
-                            // let geom_data = EleGeoData {
-                            //     geo: GeoData::Primitive(pdms_mesh),   //todo use bin-code to transfer data
-                            //     global_transform: (tr.rotation, tr.translation),            //todo 优化global matrix的计算，是否需要统一来一次计算
-                            // };
-                            // geo_map.insert(d.refno.to_refno_str(), geom_data);
+                            let attr = self.get_attr(&d.refno).await.unwrap();
+                            let ctorus: CTorus = (&attr).into();        //make this to dyn trait
+                            if ctorus.check_valid() {
+                                let tr = self.get_world_transform(&d.refno).await;
+                                let result = cached_mesh_mgr.get_pdms_mesh_hash_key(&ctorus);
+                                let geom_data = EleGeoData {
+                                    geo: GeoData::Primitive(result),                    //todo use bin-code to transfer data
+                                    global_transform: (tr.rotation, tr.translation),    //todo 优化global matrix的计算，是否需要统一来一次计算
+                                    visible: attr.is_visible(None)
+                                };
+                                geo_map.insert(d.refno.to_refno_str(), geom_data);
+                            }
                         }else if d.noun == loop_hash {
 
                             let parent_node = tree.get(cur_node.parent().unwrap()).unwrap();
                             let parent_refno = parent_node.data().refno.to_refno_str();
-                            dbg!(&parent_refno);
+                            // dbg!(&parent_refno);
                             let type_string = db1_dehash(parent_node.data().noun);
-                            dbg!(&type_string);
+                            // dbg!(&type_string);
                             let mut loop_verts: Vec<Vec3> = vec![];
                             let children_refs = self.get_children(&d.refno).await?;
                             for x in children_refs.0 {
@@ -404,7 +405,7 @@ impl AiosDB {
                                 loop_verts.push(v);
                             }
                             // dbg!(&loop_verts);
-                            //         //todo 旋转类型另外处理
+                            //todo 旋转类型另外处理
                             if type_string.as_str() != "REVO" && type_string.as_str() != "NREV" {
                                 let mut att_map = self.get_attr(&parent_node.data().refno).await.unwrap();
                                 if let Some(v) = att_map.get_val("HEIG") {

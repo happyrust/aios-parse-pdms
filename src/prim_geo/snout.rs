@@ -1,3 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
+use std::f32::EPSILON;
+use std::hash::Hasher;
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -5,8 +8,10 @@ use truck_meshalgo::prelude::*;
 use truck_modeling::Shell;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
+use fixed::types::I24F8;
 use crate::AttrMap;
-use crate::prim_geo::pdms_shape::BrepMathTrait;
+use std::hash::Hash;
+use crate::prim_geo::pdms_shape::{BrepMathTrait, PdmsMesh};
 use crate::prim_geo::pdms_shape::{BrepShape, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
@@ -48,12 +53,46 @@ impl Default for LSnout {
 }
 
 impl VerifiedShape for LSnout {
+    #[inline]
     fn check_valid(&self) -> bool {
-        true
+        self.ptdm > EPSILON && self.pbdm > EPSILON && self.ptdi - self.pbdi > EPSILON
     }
 }
 
 impl BrepShape for LSnout {
+
+    fn hash_mesh_params(&self) -> u64{
+        let mut hasher = DefaultHasher::new();
+        let pheight = self.ptdi - self.pbdi;
+        let alpha = self.ptdm / self.pbdm;
+        let beta = self.poff / pheight;
+        let alpha = I24F8::from_num(alpha);   //上下圆比例
+        let beta = I24F8::from_num(beta);   //形状要相似  offset / h
+        alpha.hash(&mut hasher);
+        beta.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        let ptdm = self.ptdm / self.pbdm;
+        let unit = Self{
+            ptdi: 0.5,
+            pbdi: -0.5,
+            ptdm,
+            pbdm: 1.0,
+            poff: self.poff,
+            ..Default::default()
+        };
+        unit.gen_mesh(Some(0.002))
+    }
+
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3{
+        let pheight = self.ptdi - self.pbdi;
+        Vec3::new(self.pbdm, self.pbdm, pheight)
+    }
+
+    //todo 需要支持Cone 的情况
     fn gen_brep(& self) -> Option<Shell> {
         use truck_modeling::*;
         let rt = self.ptdm/2.0;

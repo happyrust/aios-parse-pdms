@@ -58,6 +58,7 @@ use parse_pdms_db::local_db::{bonsaidb_local, sled_local};
 use parse_pdms_db::local_db::bonsaidb_local::AiosDBManager;
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
+use parse_pdms_db::prim_geo::ctorus::CTorus;
 use parse_pdms_db::prim_geo::dish::Dish;
 use parse_pdms_db::prim_geo::pdms_shape::BrepShape;
 
@@ -85,31 +86,31 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
                                              vec!["Sample".to_string()/*, "Master".to_string()*/], true).await.unwrap();
     let mut db = db_manager.db_map.get_mut("Sample").unwrap();
     let result = db.cache_prim_geos_data().await?;
-    // let refnos = vec![RefU64::from_two_nums(23584, 9006),
-    //                   RefU64::from_two_nums(23584, 9007),
-    //                   RefU64::from_two_nums(23584, 9008)];
-    //
-    // let mut mgr = CachedMeshes::default();
-    // for refno in refnos {
-    //     let attr = db.get_attr(&refno).await;
-    //     let attr = attr.unwrap();
-    //     dbg!(attr.is_visible(None));
-    //     let mut dish: Dish = attr.into();
-    //     dbg!(dish.hash_mesh_params());
-    //
-    //     let idx = mgr.get_pdms_mesh_hash_key(&dish);
-    //     dbg!(idx);
-    // }
-    //
-    // dbg!(mgr.meshes.len());
+    let refnos = vec![RefU64::from_two_nums(23584, 2705),
+                      RefU64::from_two_nums(23584, 2706),
+                      /*RefU64::from_two_nums(23584, 9008)*/];
 
-    let refno = RefU64::from_two_nums(23584, 8839);
-    let attr = db.get_attr(&refno).await.unwrap();
-    dbg!(attr);
-    let trans = db.get_world_transform(&refno).await;
-    dbg!(&trans);
-    let mat3: glam::f32::Mat3 = glam::f32::Mat3::from_quat(trans.rotation);
-    dbg!(mat3);
+    let mut mgr = CachedMeshes::default();
+    for refno in refnos {
+        let attr = db.get_attr(&refno).await;
+        let attr = attr.unwrap();
+        dbg!(attr.is_visible(None));
+        let mut dish: CTorus = attr.into();
+        dbg!(dish.hash_mesh_params());
+
+        let idx = mgr.get_pdms_mesh_hash_key(&dish);
+        dbg!(idx);
+    }
+
+    dbg!(mgr.meshes.len());
+
+    // let refno = RefU64::from_two_nums(23584, 8839);
+    // let attr = db.get_attr(&refno).await.unwrap();
+    // dbg!(attr);
+    // let trans = db.get_world_transform(&refno).await;
+    // dbg!(&trans);
+    // let mat3: glam::f32::Mat3 = glam::f32::Mat3::from_quat(trans.rotation);
+    // dbg!(mat3);
 
     // let result = db.get_world_transform(&refno).await;
     // dbg!(trans.rotation.to_euler(glam::EulerRot::XYZ));

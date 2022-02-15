@@ -1,3 +1,7 @@
+use std::collections::hash_map::DefaultHasher;
+use std::f32::EPSILON;
+use std::hash::Hasher;
+use std::hash::Hash;
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -6,10 +10,11 @@ use truck_modeling::{builder, Shell};
 use truck_meshalgo::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
+use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3};
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, ScaledShape, VerifiedShape};
+use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, ScaledShape, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
 #[reflect(Component)]
@@ -94,6 +99,7 @@ impl VerifiedShape for SCTorus {
 }
 
 impl BrepShape for SCTorus {
+
     fn gen_brep(& self) -> Option<Shell> {
         use truck_modeling::*;
         if let Some(torus_info) = self.cal_torus(){
@@ -131,8 +137,8 @@ pub struct CTorus {
 impl Default for CTorus {
     fn default() -> Self {
         Self{
-            rins: 10.0,
-            rout: 20.0,
+            rins: 0.5,
+            rout: 1.0,
             angle: 90.0,
         }
     }
@@ -140,11 +146,36 @@ impl Default for CTorus {
 
 impl VerifiedShape for CTorus {
     fn check_valid(&self) -> bool {
-        true
+        self.rout > 0.0 && self.angle.abs() > 0.0 && (self.rout - self.rins) > EPSILON
     }
 }
 
 impl BrepShape for CTorus {
+
+    fn hash_mesh_params(&self) -> u64{
+        let mut hasher = DefaultHasher::new();
+        let rins = I24F8::from_num(self.rins / self.rout);
+        let beta = I24F8::from_num(self.angle);
+        rins.hash(&mut hasher);
+        beta.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        let rins = self.rins / self.rout;
+        let unit = Self{
+            rins,
+            rout: 1.0,
+            angle: self.angle
+        };
+        unit.gen_mesh(None)
+    }
+
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3{
+        Vec3::splat(self.rout)
+    }
+
     fn gen_brep(& self) -> Option<Shell> {
         use truck_modeling::*;
 

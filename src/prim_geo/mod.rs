@@ -4,6 +4,7 @@ pub mod pdms_shape;
 pub mod sbox;
 pub mod cylinder;
 pub mod snout;
+pub mod cone;
 pub mod dish;
 pub mod ctorus;
 pub mod extrude;
