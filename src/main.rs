@@ -55,15 +55,16 @@ use id_tree::Tree;
 use nalgebra_glm::Mat3;
 use smol_str::SmolStr;
 use parse_pdms_db::local_db::{bonsaidb_local, sled_local};
-use parse_pdms_db::local_db::bonsaidb_local::AiosDBManager;
+use parse_pdms_db::local_db::bonsaidb_local::{AiosDBManager, DbOption};
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
 use parse_pdms_db::prim_geo::ctorus::CTorus;
 use parse_pdms_db::prim_geo::dish::Dish;
-use parse_pdms_db::prim_geo::pdms_shape::BrepShape;
+use parse_pdms_db::prim_geo::pdms_shape::{BrepShape, VerifiedShape};
 
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
+type AiosDbError = core::result::Result<(), Box<dyn std::error::Error>>;
 
 #[tokio::test]
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
@@ -75,34 +76,66 @@ fn main_1() {
 }
 
 #[tokio::main]
-async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> AiosDbError {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
         ]
     ).unwrap();
 
+    run().await;
+
+    return Ok(());
+}
+
+
+pub async fn run() -> AiosDbError {
     let mut db_manager = AiosDBManager::init("C:/AVEVA/Plant/Projects12.1.SP4",
-                                             vec!["Sample".to_string()/*, "Master".to_string()*/], true).await.unwrap();
-    let mut db = db_manager.db_map.get_mut("Sample").unwrap();
-    let result = db.cache_prim_geos_data().await?;
-    let refnos = vec![RefU64::from_two_nums(23584, 2705),
-                      RefU64::from_two_nums(23584, 2706),
-                      /*RefU64::from_two_nums(23584, 9008)*/];
+                                             vec!["Sample".to_string(), "Master".to_string()],
+                                             Some(DbOption {
+                                                 total_sync: true,
+                                                 incr_sync: false,
+                                             })).await.unwrap();
+    // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
+    let result = db_manager.cache_geos_data().await?;
 
-    let mut mgr = CachedMeshes::default();
-    for refno in refnos {
-        let attr = db.get_attr(&refno).await;
-        let attr = attr.unwrap();
-        dbg!(attr.is_visible(None));
-        let mut dish: CTorus = attr.into();
-        dbg!(dish.hash_mesh_params());
+    // dbg!(db1_dehash(0x743F49));
+    //
+    // let refno = RefU64::from_two_nums(23584, 9898);
+    //
+    // let children = db.get_children(&refno).await?;
+    // dbg!(&children);
 
-        let idx = mgr.get_pdms_mesh_hash_key(&dish);
-        dbg!(idx);
-    }
+    // let refno = RefU64::from_two_nums(23584, 9900);
+    // let mut mgr = CachedMeshes::default();
+    // let attr = db.get_attr(&refno).await.unwrap();
+    // let ctorus: CTorus = (&attr).into();
+    // if ctorus.check_valid() {
+    //     dbg!(&ctorus);
+    //     dbg!(attr.is_visible(None));
+    //     let r = mgr.get_pdms_mesh_hash_key(Box::new(ctorus));
+    //     let geo = Some(GeoData::Primitive(r));
+    // }
+    //
+    // let trans = db.get_world_transform(&refno).await;
+    // dbg!(&trans);
 
-    dbg!(mgr.meshes.len());
+    // let refnos = vec![RefU64::from_two_nums(23584, 2705),
+    //                   RefU64::from_two_nums(23584, 2706),
+    //                   /*RefU64::from_two_nums(23584, 9008)*/];
+    //
+    // for refno in refnos {
+    //     let attr = db.get_attr(&refno).await;
+    //     let attr = attr.unwrap();
+    //     dbg!(attr.is_visible(None));
+    //     let mut dish: CTorus = attr.into();
+    //     dbg!(dish.hash_mesh_params());
+    //
+    //     let idx = mgr.get_pdms_mesh_hash_key(&dish);
+    //     dbg!(idx);
+    // }
+
+    // dbg!(mgr.meshes.len());
 
     // let refno = RefU64::from_two_nums(23584, 8839);
     // let attr = db.get_attr(&refno).await.unwrap();
@@ -135,5 +168,4 @@ async fn main() -> core::result::Result<(), Box<dyn std::error::Error>> {
 
     return Ok(());
 }
-
 

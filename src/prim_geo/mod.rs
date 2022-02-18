@@ -7,7 +7,11 @@ pub mod snout;
 pub mod cone;
 pub mod dish;
 pub mod ctorus;
-pub mod extrude;
+pub mod extrusion;
+pub mod revolution;
+pub mod pyramid;
+pub mod rtorus;
+pub mod facet;
 
 
 //pub mod hash mesh 表

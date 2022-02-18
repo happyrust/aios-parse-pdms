@@ -45,7 +45,7 @@ pub async fn save_local() -> Result<(), sled::Error> {
         //todo have a test on versioned database, make a custom version
         if let Ok(attr_db) = sled::open(format!("./{project}/attrs.db")){
             if let Ok(type_refs_db) = sled::open(format!("./{project}/type_refs.db")) {
-                if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), None) {
+                if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None) {
                     fs::create_dir_all(project).unwrap();
                     for (k, PdmsDbData {
                         all_attr_map,

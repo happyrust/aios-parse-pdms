@@ -22,15 +22,16 @@ pub fn db1_dehash(hash: u32) -> String{
 }
 
 #[inline]
-pub fn db1_hash(hash_str: &str) -> u32{
-    let mut chars = hash_str.bytes().rev();
+pub const fn db1_hash(hash_str: &str) -> u32{
+    let mut chars = hash_str.as_bytes();
     let mut val = 0u32;
-    while let Some(n) = chars.next() {
-        val = val*27 + (n as u32 - 64);
-    }
+    let mut i = (chars.len() - 1) as i32;
 
+    while i>=0 {
+        val = val*27 + (chars[i as usize] as u32 - 64);
+        i -= 1;
+    }
     0x81BF1 + val
-    // u32::from_be_bytes(bytes.try_into().unwrap())
 }
 
 #[test]
@@ -44,6 +45,7 @@ fn db1_dehash_test(){
 
 use std::io::Read;
 use memchr::memmem::{find, find_iter};
+use nom::character::complete::char;
 
 fn convert_to_le_i32(table: &[u8], dw_offset: usize) -> i32 {
     i32::from_le_bytes(table[dw_offset * 4..dw_offset * 4 + 4].try_into().unwrap())

@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 use bevy::prelude::{Mesh, Vec3};
 use bevy::prelude::FromWorld;
 use truck_modeling::{Curve, Shell};
@@ -10,14 +11,29 @@ use truck_base::cgmath64::{Point3, Vector3};
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
 use bevy::reflect::{Reflect, ReflectRef};
 use bevy::ecs::reflect::ReflectComponent;
+use fixed::types::I24F8;
 use ncollide3d::bounding_volume::AABB;
 use ncollide3d::math::{Point, Vector};
 use ncollide3d::na;
 use truck_base::bounding_box::BoundingBox;
+use crate::AttrMap;
+use crate::pdms_types::GeoData;
 use crate::prim_geo::cylinder::{LCylinder, SCylinder};
 use crate::prim_geo::sbox::SBox;
 
 pub const TRIANGLE_TOL: f64 = 0.01;
+
+
+pub fn hash_vec3<T: Hasher>(v: &Vec3, hasher: &mut T){
+    I24F8::from_num(v[0]).hash(hasher);
+    I24F8::from_num(v[1]).hash(hasher);
+    I24F8::from_num(v[2]).hash(hasher);
+}
+
+//三位有效数字的精度
+pub fn hash_f32<T: Hasher>(v: &f32, hasher: &mut T){
+    I24F8::from_num(*v).hash(hasher);
+}
 
 pub trait VerifiedShape{
     fn check_valid(&self) -> bool{
@@ -57,7 +73,7 @@ pub struct PdmsMesh{
     pub aabb: (Vec3, Vec3),
 }
 
-pub trait BrepShape : VerifiedShape + Debug{
+pub trait BrepShape : VerifiedShape + Debug {
 
     fn gen_brep(&self) -> Option<Shell>;
 
@@ -127,9 +143,7 @@ pub trait BrepShape : VerifiedShape + Debug{
     }
 }
 
-pub trait ScaledShape{
-    fn get_scale_vec3(&self) -> Vec3;
-}
+
 
 pub trait BrepMathTrait{
     fn vector3(&self) -> Vector3;
@@ -203,6 +217,16 @@ impl Default for PdmsPrimShape {
 }
 
 impl PdmsPrimShape {
+
+
+    fn from_attr(&self) -> Option<PdmsPrimShape>{
+        None
+    }
+
+    pub fn gen_geo_data(&self) -> Option<GeoData> {
+        None
+    }
+
     pub fn gen_mesh(& self) -> PdmsMesh {
         match self {
             PdmsPrimShape::SBoxShape(s) => s.gen_mesh(None),

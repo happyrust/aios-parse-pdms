@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::Write;
 use std::ops::Deref;
+use std::result::Iter;
+use std::vec::IntoIter;
 use dashmap::DashMap;
 // use gdnative::prelude::{Transform, Vector3};
 use highway::{HighwayHash, HighwayHasher, Key};
@@ -80,7 +83,7 @@ impl Refi32Tuple {
 
 
 //把Refno当作u64
-#[derive(Hash, Serialize, Deserialize, Clone, Copy, Debug, Default, Component, Eq, PartialEq)]
+#[derive(Hash, Serialize, Deserialize, Clone, Copy, Default, Component, Eq, PartialEq)]
 pub struct RefU64(pub u64);
 
 impl Deref for RefU64{
@@ -88,6 +91,12 @@ impl Deref for RefU64{
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Debug for RefU64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(self.to_refno_str().as_str())
     }
 }
 
@@ -140,6 +149,15 @@ impl Deref for RefU64Vec{
     }
 }
 
+impl IntoIterator for RefU64Vec {
+    type Item = RefU64;
+    type IntoIter = IntoIter<RefU64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 //存储children，也可以这么去存储
 impl Collection for RefU64Vec {
     fn collection_name() -> CollectionName {
@@ -188,6 +206,16 @@ impl AttrMap {
     pub fn get_name(&self) -> SmolStr{
         self.get_as_string("NAME").unwrap_or(UNSET_STR.into())
     }
+
+    //获取spref
+    #[inline]
+    pub fn get_foreign_refno(&self, key: &str) -> Option<RefU64>{
+        if let Some(RefU64Type(d)) = self.map.get(key){
+            return Some(*d);
+        }
+        None
+    }
+
 
     #[inline]
     pub fn get_refno_as_string(&self) -> SmolStr{
@@ -244,6 +272,7 @@ impl AttrMap {
     pub fn get_type(&self) -> SmolStr{
         self.get_as_string("TYPE").unwrap_or(UNSET_STR.into())
     }
+
 
     #[inline]
     pub fn get_u32(&self, key: &str) -> Option<u32>{
@@ -323,6 +352,25 @@ impl AttrMap {
             None
         }
     }
+
+    #[inline]
+    pub fn get_f64(&self, key: &str) -> Option<f64>{
+        if let Some(v) = self.map.get(key) {
+            v.double_value()
+        }else{
+            None
+        }
+    }
+
+    #[inline]
+    pub fn get_f32(&self, key: &str) -> Option<f32>{
+        if let Some(v) = self.map.get(key) {
+            v.double_value().map(|x| x as f32)
+        }else{
+            None
+        }
+    }
+
 
     #[inline]
     pub fn get_position(&self) -> Vec3{
@@ -440,10 +488,30 @@ impl AttrMap {
         if let Some(d) = self.get_as_string("ANGL"){
             hasher64.append(d.as_ref());
         }
-
         let id = hasher64.finalize64();
         id
     }
+
+
+
+
+
+    ///生成具有几何属性的element的shape
+    pub fn create_brep_shape(&self) -> Option<Box<dyn BrepShape>> {
+        let type_noun = self.get_type();
+        return match type_noun.as_str() {
+            "BOX" => Some(Box::new(SBox::from(self))),
+            "CYLI" => Some(Box::new(SCylinder::from(self))),
+            // "SPHE" => Some(Box::new(Sphere::from(self))),
+            "CONE" => Some(Box::new(LSnout::from(self))),
+            "DISH" => Some(Box::new(Dish::from(self))),
+            "CTOR" => Some(Box::new(CTorus::from(self))),
+            "RTOR" => Some(Box::new(RTorus::from(self))),
+            "PYRA" => Some(Box::new(LPyramid::from(self))),
+            _ => None,
+        };
+    }
+
 
 }
 
@@ -487,8 +555,8 @@ impl SerializedCollection for PdmsTree {
 pub struct RefnoInfo {
     /// 参考号
     pub refno: RefU64,
-    /// 文件名
-    // pub file_name: SmolStr,         //todo if need, make it use index
+    /// 项目名
+    pub project: SmolStr,
     /// 参考号对应的node_id
     pub node_id: NodeId,
     /// 子节点
@@ -597,7 +665,6 @@ pub type PdmsMeshIdx = String;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum GeoData{
-    Scaled(ScaledGeom),  //可以用Unit Shape缩放的类型
     Primitive((PdmsMeshIdx, Vec3)),  //索引的哪个mesh,和对应的拉伸值， 先从dish开始判断相似性
     // Raw(Mesh),          //原生的Mesh
 }
@@ -609,7 +676,7 @@ pub struct CachedMeshes{
 
 impl CachedMeshes {
     //get the mesh index, if not exist, try to create and insert, and return index
-    pub fn get_pdms_mesh_hash_key<T: BrepShape>(&mut self, m: &T) -> (String, Vec3){
+    pub fn get_pdms_mesh_hash_key(&mut self, m: Box<dyn BrepShape>) -> (String, Vec3){
         let hash = m.hash_mesh_params().to_string();
         if !self.meshes.contains_key(&hash) {
             let mesh = m.gen_unit_shape();
@@ -620,7 +687,7 @@ impl CachedMeshes {
     }
 
     pub fn serialize_to_json_file(&self) -> bool{
-        let mut file = File::create(format!("./cached_meshes.json")).unwrap();
+        let mut file = File::create(format!("D:/bevy_projects/web-aios/cached_meshes.json")).unwrap();
         let serialized = serde_json::to_string(&self).unwrap();
         file.write_all(serialized.as_bytes()).unwrap();
         true
@@ -688,11 +755,11 @@ impl EleNode {
     }
 }
 
-impl fmt::Display for EleNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.name().fmt(f)
-    }
-}
+// impl fmt::Display for EleNode {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         self.name().fmt(f)
+//     }
+// }
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -760,7 +827,15 @@ pub struct PdmsRefno {
 use id_tree::InsertBehavior::*;
 use itertools::Itertools;
 use ncollide3d::bounding_volume::AABB;
+use truck_polymesh::stl::IntoSTLIterator;
+use crate::prim_geo::ctorus::{CTorus, SCTorus};
+use crate::prim_geo::cylinder::SCylinder;
+use crate::prim_geo::dish::Dish;
 use crate::prim_geo::pdms_shape::{BrepShape, PdmsMesh, PdmsPrimShape};
+use crate::prim_geo::pyramid::LPyramid;
+use crate::prim_geo::rtorus::RTorus;
+use crate::prim_geo::sbox::SBox;
+use crate::prim_geo::snout::LSnout;
 
 #[test]
 fn test_id_tree() {

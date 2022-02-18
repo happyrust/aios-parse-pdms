@@ -12,7 +12,7 @@ use log::kv::Source;
 use lyon::math::size;
 use crate::prim_geo::helper::quad_indices;
 use crate::AttrMap;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, ScaledShape, VerifiedShape};
+use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable, Reflect,*/ Clone, Serialize, Deserialize)]
 // #[reflect(Component)]
@@ -30,12 +30,7 @@ impl Default for SBox {
     }
 }
 
-impl ScaledShape for SBox {
-    #[inline]
-    fn get_scale_vec3(&self) -> Vec3 {
-        self.size
-    }
-}
+
 
 impl VerifiedShape for SBox {
     fn check_valid(&self) -> bool {
@@ -44,6 +39,20 @@ impl VerifiedShape for SBox {
 }
 
 impl BrepShape for SBox {
+
+    fn hash_mesh_params(&self) -> u64{
+        1u64            //代表BOX
+    }
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        SBox::default().gen_mesh(None)
+    }
+
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3 {
+        self.size
+    }
+
     fn gen_brep(& self) -> Option<Shell> {
         if !self.check_valid() { return None; }
         let v = builder::vertex((self.center - self.size / 2.0).point3());
@@ -133,5 +142,6 @@ impl From<AttrMap> for SBox {
         (&m).into()
     }
 }
+
 
 

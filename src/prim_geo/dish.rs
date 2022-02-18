@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::f32::EPSILON;
-use std::hash::Hasher;
+use std::hash::{Hasher, Hash};
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -13,9 +13,8 @@ use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
-use std::hash::Hash;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, ScaledShape, VerifiedShape};
+use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug,  Clone,  Reflect)]
 #[reflect(Component)]

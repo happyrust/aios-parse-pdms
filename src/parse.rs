@@ -110,11 +110,11 @@ pub struct PdmsMongoDbInfo {
 #[test]
 fn parse_files_test() {
     let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
-    parse_pdms_dir(&dir, None);
+    parse_pdms_dir(&dir, "", None);
 }
 
 ///解析pdms的目录
-pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Result<DashMap<SmolStr, PdmsDbData>, Box<dyn std::error::Error>> {
+pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> core::result::Result<DashMap<SmolStr, PdmsDbData>, Box<dyn std::error::Error>> {
     let dir = PathBuf::from(dir);
     let mut pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?.into_iter().map(|entry| {
@@ -136,7 +136,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     for path in &children_files {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
-            let mut pdms_db_data = parse_file(&path, &database_info, file_name, 0, false, "", "");
+            let mut pdms_db_data = parse_file(&path, &database_info, file_name, project, false, "", "");
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();
                 if let Some(num) = map.get_u32("NUMBDB") {
@@ -167,7 +167,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
         // if file_name == "sam7200_0001" {
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
-            let mut pdms_db_data = parse_file(&path, &database_info, file_name, 0, false, "", "");
+            let mut pdms_db_data = parse_file(&path, &database_info, file_name, project, false, "", "");
             pdms_db_data.filename = file_name.into();
             let cur_dbno = pdms_db_data.db_no.to_string();
             if pdms_db_data.filename.contains(&cur_dbno) {
@@ -197,7 +197,7 @@ pub fn parse_pdms_dir(dir: &str, config_path: Option<&str>) -> core::result::Res
     return Ok(pdms_project_data_map);
 }
 
-pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, limited_cnt: u32, b_save_to_log: bool,
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, b_save_to_log: bool,
                   print_refno_str: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
@@ -209,12 +209,12 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
 
     if database_info.is_none() {
         if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")) {
-            let db_data = parse_db(input, &db_info, file_name, limited_cnt, b_save_to_log, print_refno_str, target_refno_str);
+            let db_data = parse_db(input, &db_info, file_name, project, b_save_to_log, print_refno_str, target_refno_str);
 
             return db_data;
         }
     }
-    parse_db(input, database_info.as_ref().unwrap(), file_name, limited_cnt, b_save_to_log, print_refno_str, target_refno_str)
+    parse_db(input, database_info.as_ref().unwrap(), file_name, project, b_save_to_log, print_refno_str, target_refno_str)
 }
 
 /// 获取PdmsMongoData
@@ -380,7 +380,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 }
 
 
-pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData {
+pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData {
     let mut type_ele_map = DashMap::new();
     /// 基本数据的Tree
     let mut ele_id_tree: Tree<EleNode> = Tree::new();
@@ -424,7 +424,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     refno_info_map.insert(refno.clone(),
                           RefnoInfo {
                               refno,
-                              // file_name: file_name.into(),
+                              project: project.into(),
                               node_id: root_id.clone(),
                               children: children.clone(),
                           });
@@ -472,7 +472,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         // refno_info_map.insert(refno, RefnoInfo::new(file_name.clone(), refno, cur_id.clone()));
                         refno_info_map.insert(refno, RefnoInfo {
                             refno,
-                            // file_name: file_name.into(),
+                            project: project.into(),
                             node_id: cur_id.clone(),
                             children: children.clone(),
                         });

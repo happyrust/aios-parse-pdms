@@ -5,6 +5,7 @@
 #![feature(associated_type_bounds)]
 #![feature(once_cell)]
 #![feature(async_closure)]
+#![feature(generic_const_exprs)]
 #[allow(dead_code)]
 
 

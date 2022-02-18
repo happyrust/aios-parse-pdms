@@ -9,7 +9,7 @@ use bevy::ecs::reflect::ReflectComponent;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, ScaledShape, VerifiedShape};
+use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect, Serialize, Deserialize)]
 // #[reflect(Component)]
@@ -24,13 +24,7 @@ pub struct LCylinder {
     pub negative: bool,
 }
 
-impl ScaledShape for LCylinder {
-    //默认坐标系下
-    #[inline]
-    fn get_scale_vec3(&self) -> Vec3 {
-         Vec3::new(self.pdia, self.pdia, (self.pbdi - self.ptdi))
-    }
-}
+
 
 impl Default for LCylinder {
     fn default() -> Self {
@@ -54,6 +48,12 @@ impl VerifiedShape for LCylinder {
 
 
 impl BrepShape for LCylinder {
+
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3 {
+        Vec3::new(self.pdia, self.pdia, (self.pbdi - self.ptdi))
+    }
+
     fn gen_brep(& self) -> Option<Shell> {
         use truck_modeling::*;
         if !self.check_valid() { return None; }
@@ -78,6 +78,30 @@ impl BrepShape for LCylinder {
     }
 }
 
+impl From<&AttrMap> for LCylinder {
+    fn from(m: &AttrMap) -> Self {
+        let pdia = m.get_val("DIAM").unwrap().double_value().unwrap() as f32 ;
+        let pbdi = m.get_val("PBDI").unwrap().double_value().unwrap() as f32 ;
+        let ptdi = m.get_val("PTDI").unwrap().double_value().unwrap() as f32 ;
+        LCylinder {
+            paxi_expr: "Z".to_string(),
+            paxi_pt: Default::default() ,
+            paxi_dir: Vec3::Z,
+            pbdi,
+            ptdi,
+            negative: false,
+            pdia
+        }
+    }
+}
+
+impl From<AttrMap> for LCylinder {
+    fn from(m: AttrMap) -> Self {
+        (&m).into()
+    }
+}
+
+
 #[derive(Component, Debug, /*Inspectable,*/ Reflect, Clone, Serialize, Deserialize)]
 // #[reflect(Component)]
 pub struct SCylinder {
@@ -89,14 +113,6 @@ pub struct SCylinder {
     pub phei: f32, // height
     pub pdia: f32, //diameter
     pub negative: bool,
-}
-
-impl ScaledShape for SCylinder {
-    //默认坐标系下
-    #[inline]
-    fn get_scale_vec3(&self) -> Vec3 {
-        Vec3::new(self.pdia, self.pdia, self.phei)
-    }
 }
 
 impl Default for SCylinder {
@@ -120,6 +136,22 @@ impl VerifiedShape for SCylinder {
 }
 
 impl BrepShape for SCylinder {
+
+
+    fn hash_mesh_params(&self) -> u64{
+        2u64 //代表BOX
+    }
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        SCylinder::default().gen_mesh(Some(0.001))
+    }
+
+
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3 {
+        Vec3::new(self.pdia, self.pdia, self.phei)
+    }
+
     fn gen_brep(&self) -> Option<Shell> {
         use truck_modeling::*;
         let dir = self.paxi_dir.normalize();
@@ -144,6 +176,18 @@ impl BrepShape for SCylinder {
     }
 }
 
+#[derive(Component, Debug, /*Inspectable,*/ Reflect, Clone, Serialize, Deserialize)]
+// #[reflect(Component)]
+pub struct Cylinder {
+    pub paxi_expr: String,
+    pub paxi_pt: Vec3,   //A Axis point
+    pub paxi_dir: Vec3,   //A Axis Direction
+
+    pub pdis: f32, //dist to bottom
+    pub phei: f32, // height
+    pub pdia: f32, //diameter
+    pub negative: bool,
+}
 
 impl From<&AttrMap> for SCylinder {
     fn from(m: &AttrMap) -> Self {

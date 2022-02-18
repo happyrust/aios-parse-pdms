@@ -1,3 +1,7 @@
+use std::collections::hash_map::DefaultHasher;
+use std::f32::consts::PI;
+use std::f32::EPSILON;
+use std::hash::{Hasher, Hash};
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -6,10 +10,11 @@ use truck_modeling::{builder, Shell, Surface, Wire};
 use truck_meshalgo::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
+use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, ScaledShape, VerifiedShape};
+use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
 #[reflect(Component)]
@@ -40,7 +45,7 @@ impl Default for Extrusion {
             pbax_dir: Vec3::Z,
 
             loop_verts: vec![Vec3::ZERO, Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 1.0), Vec3::new(0.0, 1.0, 1.0),  Vec3::new(0.0, 1.0, 2.0),  Vec3::new(0.0, 0.0, 2.0)],
-            height: 5.0
+            height: 5.0,
         }
     }
 }
@@ -52,6 +57,32 @@ impl VerifiedShape for Extrusion {
 }
 
 impl BrepShape for Extrusion {
+
+    fn hash_mesh_params(&self) -> u64{
+        let mut hasher = DefaultHasher::new();
+        self.loop_verts.iter().for_each(|v|  {
+            I24F8::from_num(v[0]).hash(&mut hasher);
+            I24F8::from_num(v[1]).hash(&mut hasher);
+            I24F8::from_num(v[2]).hash(&mut hasher);
+        });
+        hasher.finish()
+    }
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        let unit = Self{
+            loop_verts: self.loop_verts.clone(),
+            height: 1.0,
+            ..Default::default()
+        };
+        unit.gen_mesh(None)
+    }
+
+    //沿着指定方向拉伸 pbax_dir
+    fn get_scaled_vec3(&self) -> Vec3{
+        self.height * self.pbax_dir
+    }
+
+
     fn gen_brep(& self) -> Option<Shell> {
         if !self.check_valid() { return None; }
 
@@ -75,5 +106,11 @@ impl BrepShape for Extrusion {
             }
         }
         None
+    }
+}
+
+impl From<AttrMap> for Extrusion {
+    fn from(m: AttrMap) -> Self {
+        Default::default()
     }
 }
