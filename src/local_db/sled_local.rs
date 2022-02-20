@@ -28,7 +28,7 @@ pub async fn save_local() -> Result<(), sled::Error> {
     let pdms_config = PdmsConfig {
         // dir: "D:/AVEVA/Projects/E3D2.1/AvevaPlantSample/aps000".to_string(),
         // project_name: "aps000".to_string()
-        data_dir: "D:/AVEVA/Plant/Projects12.1.SP4".to_string(),    //sam7200_0001
+        data_dir: "C:/AVEVA/Plant/Projects12.1.SP4".to_string(),    //sam7200_0001
         project_name: "SAM".to_string(),
         all_projects: vec!["Sample".to_string(), "Master".to_string()],   //配置所有需要读取的project
         mdb_name: "SAMPLE".to_string(),
@@ -37,6 +37,7 @@ pub async fn save_local() -> Result<(), sled::Error> {
     let mut data_dir = Path::new(&pdms_config.data_dir);
     for project in &pdms_config.all_projects {
         let project_dir = data_dir.join(&project);
+        fs::create_dir_all(&project_dir);
         let mut target_dir = fs::read_dir(project_dir).unwrap().into_iter().map(|entry| {
             let entry = entry.unwrap();
             entry.path()

@@ -21,6 +21,7 @@ struct Message {
 }
 
 impl Collection for Message {
+    type PrimaryKey = u64;
     fn collection_name() -> CollectionName {
         CollectionName::new("khonsulabs", "messages")
     }

@@ -90,14 +90,16 @@ async fn main() -> AiosDbError {
 
 
 pub async fn run() -> AiosDbError {
+
+    let mut time = Instant::now();
     let mut db_manager = AiosDBManager::init("C:/AVEVA/Plant/Projects12.1.SP4",
-                                             vec!["Sample".to_string(), "Master".to_string()],
+                                             vec![/*"Sample".to_string(),*/ "Master".to_string()],
                                              Some(DbOption {
                                                  total_sync: true,
                                                  incr_sync: false,
                                              })).await.unwrap();
     // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
-    let result = db_manager.cache_geos_data().await?;
+    // let result = db_manager.cache_geos_data().await?;
 
     // dbg!(db1_dehash(0x743F49));
     //
@@ -161,10 +163,12 @@ pub async fn run() -> AiosDbError {
 
     // bonsaidb_local::cache_equip_geos_data().await;
 
-    #[cfg(feature = "sled")]{
-        sled_local::save_local().await;
-        sled_local::cache_room_geos_data().await;
-    }
+    // #[cfg(feature = "sled")]{
+
+    // sled_local::save_local().await;
+    dbg!(time.elapsed().as_millis());
+        // sled_local::cache_room_geos_data().await;
+    // }
 
     return Ok(());
 }

@@ -20,6 +20,7 @@ use bevy::prelude::*;
 use bonsaidb::core::Error;
 use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Schematic, SerializedCollection};
 use glam::TransformSRT;
+use hash32::Hasher;
 
 
 pub const LEVEL_VISBLE: u32 = 6;
@@ -83,7 +84,7 @@ impl Refi32Tuple {
 
 
 //把Refno当作u64
-#[derive(Hash, Serialize, Deserialize, Clone, Copy, Default, Component, Eq, PartialEq)]
+#[derive(Hash, Serialize, Deserialize, Clone, Copy, Default, Component, Eq, PartialEq, Hash32)]
 pub struct RefU64(pub u64);
 
 impl Deref for RefU64{
@@ -123,6 +124,15 @@ impl From<&[u8]> for RefU64 {
 }
 
 impl RefU64 {
+
+    #[inline]
+    pub fn get_hash(&self) -> u32{
+        use hash32::{FnvHasher, Hash, Hasher};
+        let mut fnv = FnvHasher::default();
+        self.hash(&mut fnv);
+        fnv.finish()
+    }
+
     #[inline]
     pub fn to_refno_str(&self) -> SmolStr{
         let refno: Refi32Tuple = self.into();
@@ -160,6 +170,8 @@ impl IntoIterator for RefU64Vec {
 
 //存储children，也可以这么去存储
 impl Collection for RefU64Vec {
+    type PrimaryKey = u64;
+
     fn collection_name() -> CollectionName {
         CollectionName::new("aios", "refnos")
     }
@@ -516,18 +528,19 @@ impl AttrMap {
 }
 
 impl Collection for AttrMap {
+    type PrimaryKey = u32;
     fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "attrs")
+        CollectionName::new("aios", "attr")
     }
     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
         Ok(())
     }
 }
+
 impl SerializedCollection for AttrMap {
     type Contents = Self;
     type Format = transmog_bincode::Bincode;
     fn format() -> Self::Format {
-        // The bincode options can be set on this type
         transmog_bincode::Bincode::default()
     }
 }
@@ -536,6 +549,9 @@ impl SerializedCollection for AttrMap {
 pub struct PdmsTree(pub Tree<EleNode>);
 
 impl Collection for PdmsTree {
+
+    type PrimaryKey = u64;
+
     fn collection_name() -> CollectionName {
         CollectionName::new("aios", "tree")
     }
@@ -564,6 +580,8 @@ pub struct RefnoInfo {
 }
 
 impl Collection for RefnoInfo {
+    type PrimaryKey = u64;
+
     fn collection_name() -> CollectionName {
         CollectionName::new("aios", "info")
     }
@@ -706,6 +724,8 @@ pub struct EleGeoData{
 }
 
 impl Collection for EleGeoData {
+    type PrimaryKey = u64;
+
     fn collection_name() -> CollectionName {
         CollectionName::new("aios", "geoms")
     }

@@ -12,6 +12,10 @@
 #[macro_use]
 extern crate serde;
 
+#[macro_use]
+extern crate hash32_derive;
+extern crate hash32;
+
 use mongodb::Client;
 use mongodb::bson::doc;
 use std::collections::HashSet;

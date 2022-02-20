@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::Write;
+use std::mem::size_of;
 use std::path::Path;
 use std::ptr::eq;
 use std::sync::Mutex;
@@ -15,6 +16,7 @@ use bonsaidb::local::config::{Builder, Compression, StorageConfiguration};
 use bonsaidb::local::{Database, Storage};
 use glam::{Mat4, Quat, TransformRT, Vec3};
 use id_tree::NodeId;
+use itertools::Itertools;
 use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
 use once_cell::sync::Lazy;
@@ -82,14 +84,16 @@ impl AiosDBManager {
     pub async fn init(dir: &str, projects: Vec<String>, option: Option<DbOption>) -> Result<AiosDBManager, bonsaidb::core::Error> {
         let option = option.unwrap_or_default();
         let mut db_map = HashMap::default();
+        let info_db = Database::open::<RefnoInfo>(
+            StorageConfiguration::new(format!("./AIOS_DBS/{INFO_DB_NAME}")).default_compression(Compression::Lz4)).await?;
         for project in projects {
-            let mut adb = AiosDB::init(project.as_str(), dir).await?;
+            let mut adb = AiosDB::init(project.as_str(), dir, info_db.clone()).await?;
             //如果已经保存过了，不需要重新保存
             if option.total_sync { adb.sync_total().await?; }  //完全更新
             if option.incr_sync {}    //todo 增量更新
             db_map.insert(project, adb);
         }
-        let info_db = Database::open::<RefnoInfo>(StorageConfiguration::new(format!("./{INFO_DB_NAME}"))).await?;
+
         Ok(AiosDBManager{
             db_map,
             info_db
@@ -128,11 +132,11 @@ impl AiosDBManager {
 
     #[inline]
     pub async fn get_attr(&self, refno: &RefU64) -> Option<AttrMap> {
-        if let Some(db) = self.get_db_of_refno(refno).await {
-            db.get_attr(refno).await
-        }else{
+        // if let Some(db) = self.get_db_of_refno(refno).await {
+        //     db.get_attr(refno).await
+        // }else{
             None
-        }
+        // }
     }
 
     //缓存设备得几何体
@@ -312,7 +316,8 @@ pub struct AiosDB {
     pub project: String,
     pub dir: String,
     //pdms data directory
-    pub att_db: Database,
+    // pub att_db_map: HashMap<SmolStr, Database>,   //att map 需要做分库, db_name -> database
+    pub attr_db:  Database,   //att map 需要做分库, db_name -> database
     pub refs_db: Database,
     pub tree_db: Database,
     pub info_db: Database,
@@ -320,15 +325,23 @@ pub struct AiosDB {
     pub mdb_name: Option<String>,
 }
 
+
 impl AiosDB {
-    pub async fn init(project: &str, dir: &str) -> Result<Self, bonsaidb::core::Error> {
+
+    pub async fn create_att_database(path: &str) -> Result<Database, bonsaidb::local::Error> {
+        //format!("./AIOS_DBS/{project}/{ATT_DB_NAME}")
+        Database::open::<AttrMap>(StorageConfiguration::new(path)
+            .default_compression(Compression::Lz4)).await
+    }
+
+    pub async fn init(project: &str, dir: &str, info_db: Database) -> Result<Self, bonsaidb::core::Error> {
         Ok(Self {
             project: project.to_string(),
             dir: dir.to_string(),
-            att_db: Database::open::<AttrMap>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{ATT_DB_NAME}")).default_compression(Compression::Lz4)).await?,
-            refs_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{REFS_DB_NAME}"))).await?,
+            attr_db: Self::create_att_database(format!("./AIOS_DBS/{project}/{ATT_DB_NAME}").as_str()).await?,
+            refs_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{REFS_DB_NAME}")).default_compression(Compression::Lz4)).await?,
             tree_db: Database::open::<PdmsTree>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{TREE_DB_NAME}")).default_compression(Compression::Lz4)).await?,
-            info_db: Database::open::<RefnoInfo>(StorageConfiguration::new(format!("./AIOS_DBS/{INFO_DB_NAME}"))).await?,
+            info_db,
             geom_db: Storage::open(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{GEOM_DB_NAME}")).with_schema::<EleGeoData>()?).await?,
             mdb_name: None,
         })
@@ -336,9 +349,9 @@ impl AiosDB {
 
     #[inline]
     pub async fn get_attr(&self, refno: &RefU64) -> Option<AttrMap> {
-        if let Ok(Some(d)) = AttrMap::get(refno.0, &self.att_db).await {
-            return Some(d.contents);
-        }
+        // if let Ok(Some(d)) = AttrMap::get(refno.0, &self.att_db).await {
+        //     return Some(d.contents);
+        // }
         None
     }
 
@@ -397,8 +410,6 @@ impl AiosDB {
     pub async fn sync_total(&mut self) -> Result<(), bonsaidb::core::Error> {
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
-
-        fs::create_dir_all(project).unwrap();
         let project_dir = data_dir.join(&project);
         let mut target_dir = fs::read_dir(project_dir).unwrap().into_iter().map(|entry| {
             let entry = entry.unwrap();
@@ -415,9 +426,12 @@ impl AiosDB {
                 filed_no,
                 ..
             }) in r {
+                let mut attr_db = Self::create_att_database(format!("./AIOS_DBS/{project}/{db_no}.db").as_str()).await?;
+
                 dbg!(all_attr_map.len());
                 let mut file_name = &k;
-                dbg!(&db_name);
+                dbg!(&file_name);
+                // continue;
                 //save the db tree
                 let mut target_dbno = db_no as u64;
                 if filed_no != 0 {
@@ -432,19 +446,26 @@ impl AiosDB {
                 ).unwrap());
                 self.tree_db.apply_transaction(tx).await.unwrap();
                 // let mut file = File::create(format!("./{project}/{target_dbno}.json")).unwrap();
-                //
+
                 // let serialized = serde_json::to_string(&pdms_tree).unwrap();
                 // file.write_all(serialized.as_bytes()).unwrap();
 
                 //属性全部插入
-                let mut tx = Transaction::default();
-                for (refno, v) in all_attr_map {
-                    tx.push(transaction::Operation::overwrite_serialized::<AttrMap>(
-                        refno.0,
-                        &v,
-                    ).unwrap());
+                let mut tran_cnt = 0;
+                for chunk in &all_attr_map.iter().chunks(400000usize) {
+                    let mut tx = Transaction::default();
+                    for kv in chunk {
+                        // tx.push(transaction::Operation::insert_serialized::<AttrMap>(
+                        //     Some(kv.key().get_hash()),
+                        //     kv.value(),
+                        // ).unwrap());
+                        tx.push(transaction::Operation::overwrite_serialized::<AttrMap>(
+                            kv.key().get_hash(),
+                            kv.value(),
+                        ).unwrap());
+                    }
+                    attr_db.apply_transaction(tx).await.unwrap();
                 }
-                self.att_db.apply_transaction(tx).await.unwrap();
 
                 let mut tx = Transaction::default();
                 for (type_noun, v) in type_ele_map {
@@ -459,14 +480,14 @@ impl AiosDB {
                 }
                 self.refs_db.apply_transaction(tx).await.unwrap();
 
-                let mut tx = Transaction::default();
-                for (refno, v) in refno_info_map {
-                    tx.push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
-                        refno.0,
-                        &v,
-                    ).unwrap());
-                }
-                self.info_db.apply_transaction(tx).await.unwrap();
+                // let mut tx = Transaction::default();
+                // for (refno, v) in refno_info_map {
+                //     tx.push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
+                //         refno.0,
+                //         &v,
+                //     ).unwrap());
+                // }
+                // self.info_db.apply_transaction(tx).await.unwrap();
             }
         }
         Ok(())

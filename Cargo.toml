@@ -5,9 +5,8 @@ edition = "2021"
 
 #[profile.release]
 #debug = true
-#[profile.release]
-## or "z"
-#opt-level = 2
+[profile.release]
+opt-level = 2
 
 [features]
 web = []   #compile for just web usage, now it is too heavy now
@@ -29,8 +28,8 @@ fixed = "1.12"
 #rocksdb = "0.18.0"
 sanakirja = "1.2.16"
 
-sled = { version = "0.34.7", features = ["compression"] }
-#sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
+#sled = { version = "0.34.7", features = ["compression"] }
+sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
 bonsaidb = { path="../bonsaidb/crates/bonsaidb", version = "0.2.0", features = ["local-full",
     "client-full",
@@ -44,6 +43,8 @@ tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }
 nom = "6.1.2"
 nom-derive = "0.9.0"
 highway = "0.7.0"
+hash32 = "0.2.1"
+hash32-derive = "0.1.1"
 
 serde-name = "0.1.1"
 serde = { version = "1.0.133", features = ["derive"] }
