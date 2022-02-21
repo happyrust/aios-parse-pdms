@@ -79,7 +79,8 @@ impl BrepShape for Extrusion {
 
     //沿着指定方向拉伸 pbax_dir
     fn get_scaled_vec3(&self) -> Vec3{
-        self.height * self.pbax_dir
+        // self.height * self.pbax_dir
+        Vec3::new(1.0, 1.0, self.height)
     }
 
 

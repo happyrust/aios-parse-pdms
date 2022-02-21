@@ -1,4 +1,5 @@
 use core::slice::SlicePattern;
+use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs;
@@ -60,6 +61,9 @@ struct DebugParseConfig {
 // }
 
 
+
+
+
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PdmsDbData {
@@ -72,6 +76,8 @@ pub struct PdmsDbData {
     pub all_attr_map: DashMap<RefU64, AttrMap>,
     /// 所有的refno在tree里面对应的node_id
     pub refno_info_map: HashMap<RefU64, RefnoInfo>,
+    ///字符串查找hash表
+    pub string_lookup: StringLookupTable,
     ///数据文件名
     pub filename: SmolStr,
     ///数据文件的版本号
@@ -83,7 +89,7 @@ pub struct PdmsDbData {
     ///数据文件的 db number
     pub db_no: u32,
     ///数据文件的field no
-    pub filed_no: u32,
+    pub field_no: u32,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -179,9 +185,9 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> co
                 dbg!(cur_dbno);
                 let l = pdms_db_data.filename.len();
                 dbg!(&pdms_db_data.filename);
-                pdms_db_data.filed_no = pdms_db_data.filename[l - chars_len..].parse::<u32>().unwrap();
-                dbg!(pdms_db_data.filed_no);
-                if pdms_db_name_map.contains_key(&pdms_db_data.filed_no) {
+                pdms_db_data.field_no = pdms_db_data.filename[l - chars_len..].parse::<u32>().unwrap();
+                dbg!(pdms_db_data.field_no);
+                if pdms_db_name_map.contains_key(&pdms_db_data.field_no) {
                     pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
                 } else {
                     pdms_db_data.db_name = file_name.into();
@@ -382,13 +388,24 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str) -> PdmsDbData {
     let mut type_ele_map = DashMap::new();
+
+    let mut string_lookup = StringLookupTable::new("AIOS");
     /// 基本数据的Tree
     let mut ele_id_tree: Tree<EleNode> = Tree::new();
     /// 完整属性数据的存储
     let mut all_attr_map: DashMap<RefU64, AttrMap> = DashMap::new();
     let time_start = std::time::Instant::now();
+    let mut field_no = 0;
 
-    let (db_type, version, db_no) = parse_file_basic_info(input);
+    let (db_type, version, mut db_no) = parse_file_basic_info(input);
+    let db_no_str = db_no.to_string();
+    dbg!(&db_type);
+    if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
+        let chars_len = db_no_str.len();
+        let l = file_name.len();
+        dbg!(&file_name);
+        field_no = file_name[l - chars_len..].parse::<u32>().unwrap();
+    }
 
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
 
@@ -423,15 +440,12 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
     refno_info_map.insert(refno.clone(),
                           RefnoInfo {
-                              refno,
-                              project: project.into(),
+                              ref_hash: refno.get_u32_hash(),
+                              project_hash: string_lookup.add_str(project),
+                              db_no: if field_no == 0 {db_no} else{ field_no},  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
                               node_id: root_id.clone(),
-                              children: children.clone(),
+                              children: children.iter().map(|c| c.get_u32_hash()).collect(),
                           });
-    // let mut node_id_map = HashMap::new();
-    // node_id_map.insert(root_refno, root_id);
-    // dbg!(children.len());
-    // children.par_iter().for_each(|root|{  //todo opt parallel
     let mut pending_refnos = vec![(root_id, children)];
     while !pending_refnos.is_empty() {
         let (parent_id, refnos) = pending_refnos.pop().unwrap();
@@ -471,10 +485,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
                         // refno_info_map.insert(refno, RefnoInfo::new(file_name.clone(), refno, cur_id.clone()));
                         refno_info_map.insert(refno, RefnoInfo {
-                            refno,
-                            project: project.into(),
+                            ref_hash: refno.get_u32_hash(),
+                            project_hash: string_lookup.add_str(project),
                             node_id: cur_id.clone(),
-                            children: children.clone(),
+                            db_no: if field_no == 0 {db_no} else{ field_no},
+                            children: children.iter().map(|c| c.get_u32_hash()).collect(),
                         });
                         pending_refnos.push((cur_id, children));
                     }
@@ -490,12 +505,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         ele_id_tree,
         all_attr_map,
         refno_info_map,
-        filename: Default::default(),
+        string_lookup,
+        filename: file_name.into(),
         version,
         db_type,
         db_name: Default::default(),
         db_no,
-        filed_no: 0,
+        field_no,
     }
 }
 

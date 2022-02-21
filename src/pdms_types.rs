@@ -1,8 +1,9 @@
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::ops::Deref;
 use std::result::Iter;
 use std::vec::IntoIter;
@@ -17,6 +18,7 @@ use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, Doubl
 use crate::helper::get_attr_value_f64_vec;
 // use bevy_inspector_egui::Inspectable;
 use bevy::prelude::*;
+use bevy::window::CursorIcon::Default;
 use bonsaidb::core::Error;
 use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Schematic, SerializedCollection};
 use glam::TransformSRT;
@@ -126,7 +128,7 @@ impl From<&[u8]> for RefU64 {
 impl RefU64 {
 
     #[inline]
-    pub fn get_hash(&self) -> u32{
+    pub fn get_u32_hash(&self) -> u32{
         use hash32::{FnvHasher, Hash, Hasher};
         let mut fnv = FnvHasher::default();
         self.hash(&mut fnv);
@@ -567,20 +569,24 @@ impl SerializedCollection for PdmsTree {
     }
 }
 
+// 一个参考号是有可能重复的，project信息可以不用存储，获取信息时必须要带上 db_no
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefnoInfo {
-    /// 参考号
-    pub refno: RefU64,
-    /// 项目名
-    pub project: SmolStr,
+    /// 参考号的u32哈希
+    pub ref_hash: u32,
+    // /// 项目名
+    pub project_hash: u32,
+    // pub project_hash: u32,
+    /// 所属db number
+    pub db_no: u32,
     /// 参考号对应的node_id
     pub node_id: NodeId,
-    /// 子节点
-    pub children: RefU64Vec,
+    /// 子节点的hash
+    pub children: Vec<u32>,
 }
 
 impl Collection for RefnoInfo {
-    type PrimaryKey = u64;
+    type PrimaryKey = u32;
 
     fn collection_name() -> CollectionName {
         CollectionName::new("aios", "info")
@@ -589,6 +595,7 @@ impl Collection for RefnoInfo {
         Ok(())
     }
 }
+
 impl SerializedCollection for RefnoInfo {
     type Contents = Self;
     type Format = transmog_bincode::Bincode;
@@ -681,6 +688,30 @@ pub enum ScaledGeom{
 
 pub type PdmsMeshIdx = String;
 
+
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[repr(C)]
+pub enum GeoType{
+    Box = 0,
+    Cylinder,
+    Dish,
+    Sphere,
+    Snout,
+    CTorus,
+    RTorus,
+    Pyramid,
+    Revo,
+    Extru,
+    Polyhedron,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AiosMaterial{
+    pub color: Vec4,
+}
+
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum GeoData{
     Primitive((PdmsMeshIdx, Vec3)),  //索引的哪个mesh,和对应的拉伸值， 先从dish开始判断相似性
@@ -705,7 +736,7 @@ impl CachedMeshes {
     }
 
     pub fn serialize_to_json_file(&self) -> bool{
-        let mut file = File::create(format!("D:/bevy_projects/web-aios/cached_meshes.json")).unwrap();
+        let mut file = File::create(format!("../web-aios/cached_meshes.json")).unwrap();
         let serialized = serde_json::to_string(&self).unwrap();
         file.write_all(serialized.as_bytes()).unwrap();
         true
@@ -880,4 +911,89 @@ fn test_id_tree() {
     for node in tree.children(&root_id).unwrap() {
         print!("{}, ", node.data());
     }
+}
+
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AiosStr(pub SmolStr);
+
+impl AiosStr {
+
+    #[inline]
+    pub fn get_u32_hash(&self) -> u32{
+        use hash32::{FnvHasher, Hash, Hasher};
+        let mut fnv = FnvHasher::default();
+        self.hash(&mut fnv);
+        fnv.finish()
+    }
+
+}
+
+
+impl hash32::Hash for AiosStr {
+    fn hash<H>(&self, state: &mut H)
+        where
+            H: Hasher,
+    {
+        state.write(self.0.as_str().as_bytes());
+        state.write(&[0xff]);
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct StringLookupTable{
+    pub name: SmolStr,  //表名
+    pub lookup: HashMap<u32, AiosStr>,
+}
+
+
+impl StringLookupTable{
+
+    pub fn new(name: &str) -> Self{
+        Self{
+            name: name.into(),
+            lookup: HashMap::new(),
+        }
+    }
+
+    pub fn get_string(&self, hash: u32) -> Option<SmolStr>{
+        self.lookup.get(&hash).map(|x| x.0.clone())
+    }
+
+    pub fn add_str(&mut self, str_val: &str) -> u32{
+        use hash32::{FnvHasher, Hash, Hasher};
+        let mut fnv = FnvHasher::default();
+        str_val.hash(&mut fnv);
+        let hash = fnv.finish();
+
+        self.lookup.entry(hash).or_insert(AiosStr(str_val.into()));
+        hash
+    }
+
+    pub fn merge(&mut self, other: &Self) -> bool{
+        for (k, v) in &other.lookup {
+            self.lookup.insert(*k, v.clone());
+        }
+        true
+    }
+
+    pub fn serialize_to_default_json_file(&self) -> bool{
+        let name = self.name.as_str();
+        let mut file = File::create(format!("./AIOS_DBS/{name}_lookup.json")).unwrap();
+        let serialized = serde_json::to_string(&self).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
+        true
+    }
+
+    pub fn deserialize_from_default_json_file(name: &str) -> Option<Self>{
+        if let Ok(mut file) = File::open(format!("./AIOS_DBS/{name}_lookup.json")){
+            let mut bytes = vec![];
+            file.read_to_end(&mut bytes);
+            return serde_json::from_slice::<Self>(bytes.as_slice()).ok();
+        }
+        None
+    }
+
+
+
 }

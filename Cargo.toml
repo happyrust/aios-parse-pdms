@@ -31,7 +31,8 @@ sanakirja = "1.2.16"
 #sled = { version = "0.34.7", features = ["compression"] }
 sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
-bonsaidb = { path="../bonsaidb/crates/bonsaidb", version = "0.2.0", features = ["local-full",
+#path="../bonsaidb/crates/bonsaidb",
+bonsaidb = {  version = "0.2.0", features = ["local-full",
     "client-full",
     "server-full",
     "websockets",
@@ -69,7 +70,8 @@ crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
 #rug = "1.14.0"
 #bevy-inspector-egui = { path = "../bevy-inspector-egui" }
-bevy = { path = "../bevy" }
+#bevy = { path = "../bevy" }
+bevy = { version = "0.6.1" }
 
 id_tree = { version = "1.8.0", features=["serde_support"] }
 smol_str = "0.1.21"

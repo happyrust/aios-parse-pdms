@@ -6,8 +6,7 @@
 #![feature(once_cell)]
 #![feature(async_closure)]
 #![feature(generic_const_exprs)]
-#[allow(dead_code)]
-
+#[allow(dead_code, unused_imports)]
 
 #[macro_use]
 extern crate serde;
@@ -28,7 +27,9 @@ use futures::stream::TryStreamExt;
 
 pub mod pdms_types;
 pub mod db_tool;
-pub use db_tool::{ db1_dehash };
+
+pub use db_tool::{db1_dehash};
+
 pub mod parse_explict_tools;
 pub mod query;
 pub mod helper;
@@ -39,19 +40,23 @@ pub mod polish_notation;
 pub mod direction_parse;
 pub mod axis_param;
 pub mod parse;
+
 pub use parse::parse_pdms_dir;
+
 pub mod consts;
 pub mod prim_geo;
 pub mod grpc;
 
 pub mod local_db;
 
-pub use parse::{parse_db,parse_file};
+pub use parse::{parse_db, parse_file};
 
 pub mod interface;
 pub mod mesh_helper;
 pub mod test_cases;
-pub use test_cases::{ read_attr_info_config };
+
+pub use test_cases::{read_attr_info_config};
+
 pub mod notify_file_change;
 
 const ATT_PAXI: i32 = 0xB146F;
@@ -83,12 +88,12 @@ const ATT_PTDM: i32 = 0xFFF3EEF8u32 as i32;
 const ATT_PBDM: i32 = 0xFFF3F0DEu32 as i32;
 const ATT_POFF: i32 = 0xFFF60402u32 as i32;
 const ATT_PTCDI: i32 = 0x95A34;
-const ATT_DX : i32 = 0xFFF7E183u32 as i32;
-const ATT_DY : i32 = 0xFFF7E168u32 as i32;
-const ATT_PXTS : i32 = 0xFFF1F3AAu32 as i32;
-const ATT_PYTS : i32 = 0xFFF1F38Fu32 as i32;
-const ATT_PXBS : i32 = 0xFFF226ECu32 as i32;
-const ATT_PYBS : i32 = 0xFFF226D1u32 as i32;
+const ATT_DX: i32 = 0xFFF7E183u32 as i32;
+const ATT_DY: i32 = 0xFFF7E168u32 as i32;
+const ATT_PXTS: i32 = 0xFFF1F3AAu32 as i32;
+const ATT_PYTS: i32 = 0xFFF1F38Fu32 as i32;
+const ATT_PXBS: i32 = 0xFFF226ECu32 as i32;
+const ATT_PYBS: i32 = 0xFFF226D1u32 as i32;
 
 const IMP_PAXI: i32 = 0xB146F;
 const IMP_PCON: i32 = 0xC7B73;
@@ -152,7 +157,6 @@ lazy_static! {
         s
     };
 }
-
 
 
 //cached functions to get value
