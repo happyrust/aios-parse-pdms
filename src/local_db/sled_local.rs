@@ -11,7 +11,7 @@ use nom::AsBytes;
 use smol_str::SmolStr;
 use crate::{AttrMap, db1_dehash, parse_pdms_dir};
 use crate::parse::PdmsDbData;
-use crate::pdms_types::{EleGeoData, Refi32Tuple, RefU64, RefU64Vec};
+use crate::pdms_types::{EleGeoData, RefI32Tuple, RefU64, RefU64Vec};
 // sanakirja 不支持动态大小
 // use sanakirja::*;
 
@@ -73,12 +73,12 @@ pub async fn save_local() -> Result<(), sled::Error> {
                             type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
                         }
 
-                        for (k, v) in refno_info_map {
-                            let refno = k.0;
-                            let format_str = format!("{refno}_children");
-                            let bytes = bincode::serialize(&v).unwrap();
-                            type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
-                        }
+                        // for (k, v) in refno_info_map {
+                        //     let refno = k.0;
+                        //     let format_str = format!("{refno}_children");
+                        //     let bytes = bincode::serialize(&v).unwrap();
+                        //     type_refs_db.insert(format_str.as_bytes(), bytes.as_bytes());
+                        // }
 
                         //cache the mesh attributes first
 

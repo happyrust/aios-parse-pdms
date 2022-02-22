@@ -32,7 +32,7 @@ sanakirja = "1.2.16"
 sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
 #path="../bonsaidb/crates/bonsaidb",
-bonsaidb = {  version = "0.2.0", features = ["local-full",
+bonsaidb = { path="../bonsaidb/crates/bonsaidb",  version = "0.2.0", features = ["local-full",
     "client-full",
     "server-full",
     "websockets",

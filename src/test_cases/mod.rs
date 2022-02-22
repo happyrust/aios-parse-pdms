@@ -18,6 +18,8 @@ mod test_expression;
 
 mod test_nom;
 
+mod test_string_lookup;
+
 
 pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
     let mut file = File::open(config_path).unwrap();

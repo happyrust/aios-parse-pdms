@@ -59,7 +59,6 @@ pub struct Dataset {
 }
 #[derive(Clone, PartialEq)]
 pub struct GmseParamData {
-    pub name: SmolStr,
     pub refno: SmolStr,
     pub owner: SmolStr,
     /// SCYL  LSNO  SCTO  SDSH  SBOX

@@ -1,3 +1,4 @@
+//todo use LRU cache the mosted used variables
 #[inline]
 pub fn db1_dehash(hash: u32) -> String{
     let mut result = String::new();

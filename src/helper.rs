@@ -215,7 +215,6 @@ pub fn resolve_gmse_params(
     }
     let attr_map = &gmse.attr_map;
     Some(GmseParamData {
-        name: attr_map.get_name(),
         refno: attr_map.get_refno_as_string(),
         owner: attr_map.get_owner_as_string(),
         type_name: attr_map.get_type(),

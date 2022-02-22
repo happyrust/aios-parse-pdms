@@ -95,43 +95,35 @@ pub async fn run() -> AiosDbError {
 
     let mut time = Instant::now();
     // #[cfg(target_arch = "arch64")]
-    let path = "/Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4";
+    let path = "../Projects";
     // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
     // #[cfg(target_arch = "arch64")]
     //     let path = "C:/AVEVA/Plant/Projects12.1.SP4";
 
     let mut db_manager = AiosDBManager::init(path,
-                                             vec!["Sample".to_string()/*,"Master".to_string()*/],
+                                             vec!["Sample".to_string(), "Master".to_string()],
                                              "Sample",
                                              Some(DbOption {
-                                                 total_sync: true,
+                                                 total_sync: false,
                                                  incr_sync: false,
                                              })).await.unwrap();
     // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
-    // let result = db_manager.cache_geos_data(7200).await?;
-    //
-    // // dbg!(db1_dehash(0x743F49));  5207/8922
+    let result = db_manager.cache_geos_data(7200).await?;
     let refno = RefU64::from_two_nums(23584, 9695);
+    let refno = RefU64::from_two_nums(15192, 113114);
 
     //cached 一些常用的取值操作
     let refno_info = db_manager.get_refno_info(&refno).await;
+    dbg!(&refno_info);
 
 
-    let mut lookup = StringLookupTable::new("TEST");
-    lookup.add_str("test");
-    lookup.add_str("test");
-    lookup.add_str("test1");
-    lookup.add_str("test1");
-    lookup.add_str("test2");
-    dbg!(lookup.lookup.len());
-
-    lookup.serialize_to_default_json_file();
-
-    dbg!(refno_info);
-    dbg!(db_manager.get_project_of_refno(&refno).await);
-    dbg!(db_manager.get_attr(&refno).await);
+    //
+    // dbg!(refno_info);
+    // dbg!(db_manager.get_project_of_refno(&refno).await);
+    dbg!(db_manager.get_pretty_attr(&refno).await);
+    // dbg!(db_manager.get_dehashed_attr(&refno).await);
     dbg!(db_manager.get_world_transform(&refno).await);
-    dbg!(db_manager.get_children_hash(refno.get_u32_hash()).await);
+    dbg!(db_manager.get_children(&refno).await);
     // dbg!(db_manager.get_db_of_refno(&refno).await);
 
 

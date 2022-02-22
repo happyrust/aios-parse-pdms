@@ -14,7 +14,7 @@ use id_tree::{NodeId, Tree, TreeBuilder};
 use serde::{Serialize, Deserialize};
 use smol_str::SmolStr;
 use crate::consts::UNSET_STR;
-use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, RefU64Type, StringArrayType, StringType, Vec3Type, WordType};
+use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType, RefU64Type, StringArrayType, StringHashType, StringType, Vec3Type, WordType};
 use crate::helper::get_attr_value_f64_vec;
 // use bevy_inspector_egui::Inspectable;
 use bevy::prelude::*;
@@ -29,34 +29,34 @@ pub const LEVEL_VISBLE: u32 = 6;
 
 ///pdms的参考号
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Copy, Eq, PartialEq, Hash)]
-pub struct Refi32Tuple(pub (i32, i32));
+pub struct RefI32Tuple(pub (i32, i32));
 
-impl Into<SmolStr> for Refi32Tuple {
+impl Into<SmolStr> for RefI32Tuple {
     fn into(self) -> SmolStr {
         SmolStr::from(format!("{}/{}", self.get_0(), self.get_1()))
     }
 }
 
-impl Into<String> for Refi32Tuple {
+impl Into<String> for RefI32Tuple {
     fn into(self) -> String {
         format!("{}/{}", self.get_0(), self.get_1())
     }
 }
 
-impl From<&[u8]> for Refi32Tuple {
+impl From<&[u8]> for RefI32Tuple {
     fn from(input: &[u8]) -> Self {
         Self::new(i32::from_be_bytes(input[0..4].try_into().unwrap()), i32::from_be_bytes(input[4..8].try_into().unwrap()))
     }
 }
 
-impl From<&str> for Refi32Tuple {
+impl From<&str> for RefI32Tuple {
     fn from(s: &str) -> Self {
         let x: Vec<i32> = s.split('/').map(|x| x.parse::<i32>().unwrap_or_default()).collect();
         Self::new(x[0], x[1])
     }
 }
 
-impl From<&RefU64> for Refi32Tuple {
+impl From<&RefU64> for RefI32Tuple {
     fn from(n: &RefU64) -> Self {
         let n = n.0.to_be_bytes();
         Self((
@@ -66,7 +66,7 @@ impl From<&RefU64> for Refi32Tuple {
     }
 }
 
-impl Refi32Tuple {
+impl RefI32Tuple {
 
     #[inline]
     pub fn new(ref_0: i32, ref_1: i32) -> Self{
@@ -81,9 +81,6 @@ impl Refi32Tuple {
     #[inline]
     pub fn get_1(&self) -> i32 { self.0.1 }
 }
-
-
-
 
 //把Refno当作u64
 #[derive(Hash, Serialize, Deserialize, Clone, Copy, Default, Component, Eq, PartialEq, Hash32)]
@@ -103,16 +100,16 @@ impl Debug for RefU64 {
     }
 }
 
-impl From<&Refi32Tuple> for RefU64 {
-    fn from(n: &Refi32Tuple) -> Self {
+impl From<&RefI32Tuple> for RefU64 {
+    fn from(n: &RefI32Tuple) -> Self {
         let bytes: Vec<u8> = [n.get_0().to_be_bytes(), n.get_1().to_be_bytes()].concat();
         let v = u64::from_be_bytes(bytes[..8].try_into().unwrap());
         Self(v)
     }
 }
 
-impl From<Refi32Tuple> for RefU64 {
-    fn from(n: Refi32Tuple) -> Self {
+impl From<RefI32Tuple> for RefU64 {
+    fn from(n: RefI32Tuple) -> Self {
         let bytes: Vec<u8> = [n.get_0().to_be_bytes(), n.get_1().to_be_bytes()].concat();
         let v = u64::from_be_bytes(bytes[..8].try_into().unwrap());
         Self(v)
@@ -128,6 +125,18 @@ impl From<&[u8]> for RefU64 {
 impl RefU64 {
 
     #[inline]
+    pub fn get_0(&self) -> u32{
+        let bytes = self.0.to_be_bytes();
+        u32::from_be_bytes(bytes[0..4].try_into().unwrap())
+    }
+
+    #[inline]
+    pub fn get_1(&self) -> u32{
+        let bytes = self.0.to_be_bytes();
+        u32::from_be_bytes(bytes[4..8].try_into().unwrap())
+    }
+
+    #[inline]
     pub fn get_u32_hash(&self) -> u32{
         use hash32::{FnvHasher, Hash, Hasher};
         let mut fnv = FnvHasher::default();
@@ -137,7 +146,7 @@ impl RefU64 {
 
     #[inline]
     pub fn to_refno_str(&self) -> SmolStr{
-        let refno: Refi32Tuple = self.into();
+        let refno: RefI32Tuple = self.into();
         refno.into()
     }
 
@@ -201,30 +210,97 @@ impl RefU64Vec{
     }
 }
 
-//parent可以存到一直到root
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Component, Eq, Hash, PartialEq)]
+pub struct NounHash(pub u32);
+
+impl Deref for NounHash {
+    type Target = u32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<&SmolStr> for NounHash {
+    fn from(s: &SmolStr) -> Self {
+        Self(db1_hash(s.as_str()))
+    }
+}
+
+impl From<SmolStr> for NounHash {
+    fn from(s: SmolStr) -> Self {
+        Self(db1_hash(s.as_str()))
+    }
+}
+
+impl From<&str> for NounHash {
+    fn from(s: &str) -> Self {
+        Self(db1_hash(s))
+    }
+}
 
 ///PDMS的属性数据Map
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct AttrMap{
-    pub map: HashMap<SmolStr, AttrVal>
+    pub map: HashMap<NounHash, AttrVal>
 }
 impl AttrMap {
 
+
     #[inline]
-    pub fn insert(&mut self, k: SmolStr, v: AttrVal){
-        self.map.entry(k).or_insert(v);
+    pub fn insert(&mut self, k: NounHash, v: AttrVal){
+        self.map.insert(k, v);
     }
 
     #[inline]
-    pub fn get_name(&self) -> SmolStr{
-        self.get_as_string("NAME").unwrap_or(UNSET_STR.into())
+    pub fn insert_by_att_name(&mut self, k: &str, v: AttrVal){
+        self.map.insert(k.into(), v);
+    }
+
+    #[inline]
+    pub fn contains_attr(&self, name: &str) -> bool{
+        self.map.contains_key(&name.into())
+    }
+
+
+    pub fn dehash_value(&self, m: &StringLookupTable) -> AttrMap{
+
+        let mut attr = self.clone();
+        for (k, v) in &self.map {
+            if let StringHashType(h) = v{
+                attr.insert(k.clone(), StringType(m.get_string(*h).unwrap()));
+            }
+        }
+        attr
+    }
+
+    pub fn to_hashmap(&self, m: &StringLookupTable) -> HashMap<String, String>{
+        let mut map = HashMap::new();
+        for (k, v) in &self.map {
+            if let StringHashType(h) = v{
+                map.insert(db1_dehash(k.0), format!("{:?}", m.get_string(*h)));
+            }else{
+                map.insert(db1_dehash(k.0), format!("{:?}", v));
+            }
+        }
+        map
+    }
+
+    #[inline]
+    pub fn get_name_hash(&self) -> AiosStrHash{
+        if let Some(StringHashType(name_hash)) = self.get_val("NAME"){
+            *name_hash
+        }else{
+            0
+        }
+
     }
 
     //获取spref
     #[inline]
     pub fn get_foreign_refno(&self, key: &str) -> Option<RefU64>{
-        if let Some(RefU64Type(d)) = self.map.get(key){
+        if let Some(RefU64Type(d)) = self.map.get(&key.into()){
             return Some(*d);
         }
         None
@@ -263,7 +339,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_refno(&self) -> Option<RefU64>{
-        if let Some(RefU64Type(d)) = self.map.get("REFNO"){
+        if let Some(RefU64Type(d)) = self.map.get(&"REFNO".into()){
             return Some(*d);
         }
         None
@@ -271,7 +347,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_owner(&self) -> Option<RefU64>{
-        if let Some(RefU64Type(d)) = self.map.get("OWNER"){
+        if let Some(RefU64Type(d)) = self.map.get(&"OWNER".into()){
             return Some(*d);
         }
         None
@@ -290,7 +366,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_u32(&self, key: &str) -> Option<u32>{
-        if let Some(v) = self.map.get(key){
+        if let Some(v) = self.map.get(&key.into()){
             match v {
                 IntegerType(d) => {
                     return Some(*d as u32);
@@ -304,7 +380,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_as_string(&self, key: &str) -> Option<SmolStr>{
-        if let Some(v) = self.map.get(key){
+        if let Some(v) = self.map.get(&key.into()){
             let s = match v {
                 StringType(s) | WordType(s) | ElementType(s) => s.clone(),
                 IntegerType(d)  => d.to_string().into(),
@@ -315,7 +391,10 @@ impl AttrMap {
                 IntArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
                 BoolArrayType(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
                 Vec3Type(d) => d.iter().map(|i| format!(" {}", i)).collect::<String>().into(),
-                RefU64Type(d) => Refi32Tuple::from(d).into(),
+
+                RefU64Type(d) => RefI32Tuple::from(d).into(),
+                StringHashType(d) => format!("{d}").into(),
+
                 _ => { UNSET_STR.into() }
             };
             return Some(s);
@@ -325,7 +404,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_as_vec_string(&self, key: &str) -> Vec<SmolStr>{
-        if let Some(v) = self.map.get(key){
+        if let Some(v) = self.map.get(&key.into()){
             return match v {
                 StringArrayType(d) => d.clone(),
                 _ => { vec![] }
@@ -336,7 +415,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_as_vec_refnos(&self, key: &str) -> Vec<SmolStr>{
-        if let Some(v) = self.map.get(key){
+        if let Some(v) = self.map.get(&key.into()){
             return match v {
                 IntArrayType(d) => d.chunks_exact(2).map(|x| format!("{}/{}", x[0], x[1]).into()).collect(),
                 _ => { vec![] }
@@ -347,7 +426,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_bool(&self, key: &str) -> bool{
-        if let Some(v) = self.map.get(key){
+        if let Some(v) = self.map.get(&key.into()){
             match v {
                 BoolType(b)  => *b,
                 _ => false,
@@ -360,7 +439,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_val(&self, key: &str) -> Option<&AttrVal>{
-        if let Some(v) = self.map.get(key) {
+        if let Some(v) = self.map.get(&key.into()) {
             Some(v)
         }else{
             None
@@ -369,7 +448,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_f64(&self, key: &str) -> Option<f64>{
-        if let Some(v) = self.map.get(key) {
+        if let Some(v) = self.map.get(&key.into()) {
             v.double_value()
         }else{
             None
@@ -378,7 +457,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_f32(&self, key: &str) -> Option<f32>{
-        if let Some(v) = self.map.get(key) {
+        if let Some(v) = self.map.get(&key.into()) {
             v.double_value().map(|x| x as f32)
         }else{
             None
@@ -454,8 +533,8 @@ impl AttrMap {
     //         Vector3::new(p[0], p[1], p[2]))
     // }
 
-    pub fn get_f64_vec(&self, att: &str) -> Option<Vec<f64>> {
-        if let Some(val) = self.map.get(att) {
+    pub fn get_f64_vec(&self, key: &str) -> Option<Vec<f64>> {
+        if let Some(val) = self.map.get(&key.into()) {
             match val {
                 AttrVal::DoubleArrayType(data) => {
                     return Some(data.clone());
@@ -470,7 +549,7 @@ impl AttrMap {
     }
 
     pub fn get_i32_vec(&self, att: &str) -> Option<Vec<i32>> {
-        if let Some(val) = self.map.get(att) {
+        if let Some(val) = self.map.get(&att.into()) {
             match val {
                 AttrVal::IntArrayType(data) => {
                     return Some(data.clone());
@@ -572,17 +651,18 @@ impl SerializedCollection for PdmsTree {
 // 一个参考号是有可能重复的，project信息可以不用存储，获取信息时必须要带上 db_no
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefnoInfo {
-    /// 参考号的u32哈希
-    pub ref_hash: u32,
+    /// 参考号的ref0
+    pub ref_0: u32,  //只需要保存一个ref0的信息，就能知道这个数据在哪个位置
     // /// 项目名
     pub project_hash: u32,
     // pub project_hash: u32,
     /// 所属db number
     pub db_no: u32,
-    /// 参考号对应的node_id
-    pub node_id: NodeId,
-    /// 子节点的hash
-    pub children: Vec<u32>,
+    // 参考号对应的node_id
+    // pub node_id: NodeId,
+    // 子节点的hash
+    // #[serde(skip_serializing)]
+    // pub children: Vec<u32>,  //存储子节点，导致数据非常的大，不可取
 }
 
 impl Collection for RefnoInfo {
@@ -623,6 +703,7 @@ pub enum AttrVal {
     WordType(SmolStr),
 
     RefU64Type(RefU64),
+    StringHashType(AiosStrHash),
 }
 
 impl AttrVal {
@@ -741,7 +822,6 @@ impl CachedMeshes {
         file.write_all(serialized.as_bytes()).unwrap();
         true
     }
-
 }
 
 
@@ -778,7 +858,7 @@ impl SerializedCollection for EleGeoData {
 pub struct EleNode {
     pub refno: RefU64,
     pub owner: RefU64,
-    pub name: SmolStr,   //todo make it as a index of name table
+    pub name_hash: AiosStrHash,
     pub noun: u32,
     pub version: u32,
     // pub global_mat: Mat4,   //全局坐标系下的变换矩阵
@@ -801,16 +881,10 @@ impl EleNodeMongoDb {
 }
 
 impl EleNode {
-    pub fn name(&self) -> &str {
-        self.name.as_str()
-    }
+    // pub fn name(&self) -> &str {
+    //     self.name.as_str()
+    // }
 }
-
-// impl fmt::Display for EleNode {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         self.name().fmt(f)
-//     }
-// }
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -879,6 +953,8 @@ use id_tree::InsertBehavior::*;
 use itertools::Itertools;
 use ncollide3d::bounding_volume::AABB;
 use truck_polymesh::stl::IntoSTLIterator;
+use crate::db1_dehash;
+use crate::db_tool::db1_hash;
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
@@ -914,6 +990,8 @@ fn test_id_tree() {
 }
 
 
+pub type AiosStrHash = u32;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AiosStr(pub SmolStr);
 
@@ -940,6 +1018,7 @@ impl hash32::Hash for AiosStr {
     }
 }
 
+//todo make it as database
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StringLookupTable{
     pub name: SmolStr,  //表名

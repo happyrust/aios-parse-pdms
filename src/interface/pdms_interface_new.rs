@@ -57,39 +57,39 @@ impl PdmsInterface {
             let t = db.collection::<RefnoInfo>("PdmsNodeId");
             let file_name = file_name.as_str();
             let refno = refno.as_str();
-            if let Some(t) = t.find_one(doc! {"file_name":file_name,"refno":refno},None).await? {
-                return Ok(Some(t.node_id));
-            }
+            // if let Some(t) = t.find_one(doc! {"file_name":file_name,"refno":refno},None).await? {
+            //     return Ok(Some(t.node_id));
+            // }
         }
         Ok(None)
     }
 
     pub async fn get_children_attr_map(&mut self,file_name:SmolStr,refno:SmolStr) -> MResult<Option<Vec<PdmsMongoAttr>>> {
-        if let Some(tree) = self.get_tree(file_name.clone()).await? {
-            if let Some(node_id) = self.get_node_id(file_name.clone(),refno).await? {
-                let children = tree.children(&node_id).unwrap();
-                let mut r = vec![];
-                for c in children {
-                    let child = c.data();
-                    if let Some(attr) = self.get_ele_attr_map_async(child.refno.to_refno_str()).await? {
-                        r.push(attr);
-                    }
-                }
-                return Ok(Some(r))
-            }
-        }
+        // if let Some(tree) = self.get_tree(file_name.clone()).await? {
+        //     if let Some(node_id) = self.get_node_id(file_name.clone(),refno).await? {
+        //         let children = tree.children(&node_id).unwrap();
+        //         let mut r = vec![];
+        //         for c in children {
+        //             let child = c.data();
+        //             if let Some(attr) = self.get_ele_attr_map_async(child.refno.to_refno_str()).await? {
+        //                 r.push(attr);
+        //             }
+        //         }
+        //         return Ok(Some(r))
+        //     }
+        // }
         Ok(None)
     }
 
     pub async fn get_ele_attr_map_async(&mut self, refno: SmolStr) -> MResult<Option<PdmsMongoAttr>> {
-        if let Some(client) = self.connect().await {
-            let db = client.database(&self.project);
-            let t = db.collection::<PdmsMongoAttr>("PdmsAttrs");
-            let refno = refno.as_str();
-            if let Some(m) = t.find_one(doc! {"refno":refno }, None).await? {
-                return Ok(Some(m));
-            }
-        }
+        // if let Some(client) = self.connect().await {
+        //     let db = client.database(&self.project);
+        //     let t = db.collection::<PdmsMongoAttr>("PdmsAttrs");
+        //     let refno = refno.as_str();
+        //     if let Some(m) = t.find_one(doc! {"refno":refno }, None).await? {
+        //         return Ok(Some(m));
+        //     }
+        // }
         Ok(None)
     }
 
