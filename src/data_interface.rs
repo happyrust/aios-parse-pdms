@@ -8,7 +8,5 @@ pub trait PdmsDataInterface{
 
     async fn get_ele_attr(&self, refno: &RefU64) -> Option<AttrMap>;
 
-    async fn get_scom_info(&mut self, refno: &RefU64) -> Option<ScomInfo>;
-
     async fn get_children_attrs(&self, refno: &RefU64) -> Vec<AttrMap>;
 }

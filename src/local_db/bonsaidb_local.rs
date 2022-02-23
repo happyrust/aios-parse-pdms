@@ -22,7 +22,8 @@ use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
 use once_cell::sync::Lazy;
 use smol_str::SmolStr;
-use crate::{AttrMap, db1_dehash, parse_pdms_dir};
+use crate::{AttrMap, db1_dehash, GeomsInfo, parse_pdms_dir};
+use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
 use crate::parse::{PdmsDbData};
@@ -40,8 +41,11 @@ use crate::prim_geo::snout::LSnout;
 use crate::local_db::consts::*;
 use crate::local_db::refno_info_database::RefInoDatabase;
 use crate::local_db::string_database::StringDatabase;
+use crate::pdms_data::ScomInfo;
 use crate::pdms_types::AttrVal::{StringHashType, StringType};
 use crate::prim_geo::facet::{Contour, Facet, Polygon};
+use async_trait::async_trait;
+use crate::query_cata::resolve_desi_comp;
 
 pub const ATT_DB_NAME: &'static str = "attr";
 pub const REFS_DB_NAME: &'static str = "refs";
@@ -75,8 +79,11 @@ pub struct PdmsConfig {
 
 
 
-// #[derive(Debug, Clone)]
-// pub struct StringDatabase(pub Database);
+#[derive(Debug, Default, Clone)]
+pub struct DbOption {
+    pub total_sync: bool,
+    pub incr_sync: bool,
+}
 
 ///MDB数据库管理
 #[derive(Debug, Clone)]
@@ -86,11 +93,21 @@ pub struct AiosDBManager {
     pub string_db: StringDatabase,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct DbOption {
-    pub total_sync: bool,
-    pub incr_sync: bool,
+#[async_trait]
+impl PdmsDataInterface for AiosDBManager {
+
+    #[inline]
+    async fn get_ele_attr(&self, refno: &RefU64) -> Option<AttrMap> {
+        self.get_attr(refno).await.unwrap()
+    }
+
+    #[inline]
+    async fn get_children_attrs(&self, refno: &RefU64) -> Vec<AttrMap> {
+        self.get_children_attrs(refno).await.unwrap_or_default()
+    }
 }
+
+
 
 impl AiosDBManager {
 
@@ -125,7 +142,7 @@ impl AiosDBManager {
        self.info_db.get_refno_info(refno).await
     }
 
-    ///获得refno的project 名称
+    /// 获得 children refno
     #[inline]
     pub async fn get_children(&self, refno: &RefU64) -> Result<Option<RefU64Vec>, bonsaidb::core::Error> {
         if let Some(ref_info) = self.get_refno_info(refno).await?{
@@ -134,6 +151,17 @@ impl AiosDBManager {
             }
         }
         Ok(Default::default())
+    }
+
+    ///获得refno的project 名称
+    #[inline]
+    pub async fn get_children_attrs(&self, refno: &RefU64) -> Result<Vec<AttrMap>, bonsaidb::core::Error> {
+        let mut atts = vec![];
+        let children = self.get_children(refno).await?.unwrap_or_default();
+        for child in children {
+            atts.push(self.get_dehashed_attr(&child).await?.unwrap_or_default());
+        }
+        Ok(atts)
     }
 
 
@@ -184,6 +212,14 @@ impl AiosDBManager {
             }
         }
         Ok(glam::TransformRT::IDENTITY)
+    }
+
+
+    #[inline]
+    pub async fn get_design_geoms(&self, refno: &RefU64) -> Option<GeomsInfo>{
+        let geoms = crate::query_cata::resolve_desi_comp(&refno, self).await;
+        dbg!(&geoms);
+        None
     }
 
     ///缓存设备得几何体

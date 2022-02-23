@@ -19,7 +19,7 @@ const DDANGLE_STR: &'static str = "DDANGLE";
 ///求解design component
 pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     refno: &RefU64,
-    interface: &mut T,
+    interface: &T,
 ) -> Option<GeomsInfo> {
 
     let attr_map = interface.get_ele_attr(refno).await;
@@ -34,7 +34,7 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     }
     if scom_ref.is_none() { return None; }
     let scom_ref = scom_ref.unwrap();
-    let scom_info = interface.get_scom_info(&scom_ref).await;
+    let scom_info = query_scom_info(&scom_ref, interface).await;
     if scom_info.is_none() { return None; }
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     for i in 0..desp.len() {
@@ -62,7 +62,7 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
 ///整合SCOM对应的临时数据
 pub async fn query_scom_info<T: PdmsDataInterface>(
     refno: &RefU64,
-    interface: &mut T,
+    interface: &T,
 ) -> Option<ScomInfo> {
     if let Some(attr_map) = interface.get_ele_attr(refno).await {
         let ptre_refno = attr_map.get_foreign_refno("PTRE").unwrap_or_default();
@@ -104,7 +104,7 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
 
 pub async fn query_axis_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
-    interface: &mut T,
+    interface: &T,
 ) -> BTreeMap<i32, AxisParam> {
     // 查找ptse
     let mut map = BTreeMap::new();
@@ -122,7 +122,7 @@ pub async fn query_axis_params<T: PdmsDataInterface>(
 ///查询gmse的参数
 pub async fn query_gmse_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
-    interface: &mut T,
+    interface: &T,
 ) -> Vec<GmseParam> {
     let mut gmses = vec![];
     let refno = attr_map.get_refno().unwrap();
@@ -139,7 +139,7 @@ pub async fn query_gmse_params<T: PdmsDataInterface>(
 ///对元件库的SCOM Element进行求值计算
 pub async fn resolve_cata_comp<T: PdmsDataInterface>(
     scom_info: &ScomInfo,
-    interface: &mut T,
+    interface: &T,
     context: Option<HashMap<SmolStr, SmolStr>>
 ) -> GeomsInfo {
     let mut cur_context = HashMap::new();
@@ -279,7 +279,7 @@ pub fn query_gmse_param(attr_map: &AttrMap) -> GmseParam {
 ///获得dtse的参数信息
 pub async fn process_dtse_params<T:PdmsDataInterface>(
     attr_map: &AttrMap,
-    interface: &mut T,
+    interface: &T,
     context: &mut HashMap<SmolStr, SmolStr>,
 ){
 
