@@ -18,8 +18,15 @@ use ncollide3d::na;
 use truck_base::bounding_box::BoundingBox;
 use crate::AttrMap;
 use crate::pdms_types::GeoData;
+use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::cylinder::{LCylinder, SCylinder};
+use crate::prim_geo::dish::Dish;
+use crate::prim_geo::extrusion::Extrusion;
+use crate::prim_geo::facet::Facet;
+use crate::prim_geo::pyramid::LPyramid;
+use crate::prim_geo::rtorus::SRTorus;
 use crate::prim_geo::sbox::SBox;
+use crate::prim_geo::snout::LSnout;
 
 pub const TRIANGLE_TOL: f64 = 0.01;
 
@@ -192,7 +199,7 @@ impl BevyMathTrait for Point3 {
 }
 
 
-#[derive(Component, Debug, /*Inspectable,*/ Clone, Serialize, Deserialize,)]
+#[derive(Component, Debug, /*Inspectable,*/ Clone, /*Serialize, Deserialize,*/)]
 // #[reflect(Component)]
 pub enum PdmsPrimShape {
     SBoxShape(SBox),
@@ -200,14 +207,14 @@ pub enum PdmsPrimShape {
     LCylinderShape(LCylinder),
     SCylinderShape(SCylinder),
     // CTorusShape(CTorus),
-    // SCTorusShape(SCTorus),
-    // DishShape(Dish),
-    // FacetShape(Facet),
-    // SRTorusShape(SRTorus),
-    // LSnoutShape(LSnout),
+    SCTorusShape(SCTorus),
+    DishShape(Dish),
+    FacetShape(Facet),
+    SRTorusShape(SRTorus),
+    LSnoutShape(LSnout),
     // TubiShape(Tubi),
-    // PyramidShape(LPyramid),
-    // ExtruShape(Extrusion),
+    PyramidShape(LPyramid),
+    ExtruShape(Extrusion),
 }
 
 impl Default for PdmsPrimShape {
@@ -227,7 +234,7 @@ impl PdmsPrimShape {
         None
     }
 
-    pub fn gen_mesh(& self) -> PdmsMesh {
+    pub fn gen_mesh(&self) -> PdmsMesh {
         match self {
             PdmsPrimShape::SBoxShape(s) => s.gen_mesh(None),
             PdmsPrimShape::SCylinderShape(s) => s.gen_mesh(None),
@@ -242,6 +249,7 @@ impl PdmsPrimShape {
             // PdmsPrimShape::ExtruShape(s) => s.gen_mesh(None),
             // PdmsPrimShape::PyramidShape(s) => s.gen_mesh(None),
             // PdmsPrimShape::SphereShape(s) => s.gen_mesh(None),
+            _ => PdmsMesh::default(),
         }
     }
 }

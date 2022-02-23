@@ -19,6 +19,7 @@ mod test_expression;
 mod test_nom;
 
 mod test_string_lookup;
+mod test_database;
 
 
 pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{

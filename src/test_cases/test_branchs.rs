@@ -1,4 +1,5 @@
 use crate::parse::{parse_db, parse_ele_data};
+use crate::pdms_types::StringLookupTable;
 use crate::test_cases::{convert_str_to_bytes, read_attr_info_config};
 
 
@@ -61,7 +62,8 @@ pub fn test_xxx_problem(){
 
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup,0);
     dbg!(&ele_data);
 }
 
@@ -129,7 +131,8 @@ pub fn test_branch_sample_23584_5585(){
 
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
 
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
 
     dbg!(&ele_data);
 
@@ -168,7 +171,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     if let Some(map)=pdms_database_info.noun_attr_info_map.get(&0xF563Ei32){
         dbg!(map.value());
     }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,0);
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     dbg!(&ele_data);
 }
 

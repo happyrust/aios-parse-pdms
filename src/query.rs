@@ -1,15 +1,15 @@
 use std::collections::{BTreeMap, HashMap};
 use smol_str::SmolStr;
 use crate::helper::get_attr_strings_db;
-use crate::interface::pdms_interface_new::{MResult, PdmsInterface};
+use crate::interface::pdms_interface_new::{MResult, PdmsMongoService};
 use crate::pdms_data::{AxisParam, GmseParam};
 use crate::pdms_types::AttrMap;
 
 ///查询gmse的参数
-pub async fn query_gmse_params(attr_map: &AttrMap, interface: &mut PdmsInterface, file_name:SmolStr) -> MResult<Vec<GmseParam>> {
+pub async fn query_gmse_params(attr_map: &AttrMap, interface: &mut PdmsMongoService, file_name: SmolStr) -> MResult<Vec<GmseParam>> {
     let mut gmses = vec![];
     let refno = attr_map.get_refno_as_string();
-    if let Some(children) = interface.get_children_attr_map(refno,file_name).await? {
+    if let Some(children) = interface.get_children_attr_map(refno, file_name).await? {
         for child in children {
             gmses.push(query_gmse_param(&child.attr).await);
         }
@@ -18,7 +18,7 @@ pub async fn query_gmse_params(attr_map: &AttrMap, interface: &mut PdmsInterface
 }
 
 /// 获得gmse的params
-pub async fn query_gmse_param(attr_map:&AttrMap) -> GmseParam {
+pub async fn query_gmse_param(attr_map: &AttrMap) -> GmseParam {
     let mut paxises = get_attr_strings_db(attr_map, &["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = attr_map.get_as_string("PTS") {
         paxises.push(val);
@@ -47,7 +47,7 @@ pub async fn query_gmse_param(attr_map:&AttrMap) -> GmseParam {
 }
 
 ///获得dtse的参数信息
-pub async fn query_dtse_params(attr_map: &AttrMap, interface: &mut PdmsInterface, file_name: SmolStr, context: &mut HashMap<SmolStr, SmolStr>) -> MResult<()> {
+pub async fn query_dtse_params(attr_map: &AttrMap, interface: &mut PdmsMongoService, file_name: SmolStr, context: &mut HashMap<SmolStr, SmolStr>) -> MResult<()> {
     let dtre_refno = attr_map.get_as_string("DTRE").unwrap_or_default();
     if let Some(children) = interface.get_children_attr_map(file_name, dtre_refno).await? {
         for child in children {

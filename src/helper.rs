@@ -101,7 +101,7 @@ pub fn get_attr_strings_db(ele: &AttrMap, attrs: &[&str]) -> Vec<SmolStr> {
 /// 求解axis的数值, 得到 {num:  }
 pub fn resolve_axis_params(
     scom: &ScomInfo,
-    context: &HashMap<String, String>,
+    context: &HashMap<SmolStr, SmolStr>,
 ) -> BTreeMap<i32, CateAxisParam> {
     let mut map = BTreeMap::new();
     for i in 0..scom.axis_params.len() {
@@ -114,7 +114,7 @@ pub fn resolve_axis_params(
 
 pub fn resolve_gmses(
     gmse_strs: &[GmseParam],
-    context: &HashMap<String, String>,
+    context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
     ddangle: Option<f64>,
 ) -> Vec<CateGeoParam> {
@@ -129,7 +129,7 @@ pub fn resolve_gmses(
 /// 解析gmes的参数
 pub fn parse_paragon_gmse_params(
     gmse_param: &GmseParam,
-    context: &HashMap<String, String>,
+    context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<CateGeoParam> {
     // dbg!(&gmse_param);
@@ -142,7 +142,7 @@ pub fn parse_paragon_gmse_params(
 
 pub fn resolve_gmse_params(
     gmse: &GmseParam,
-    context: &HashMap<String, String>,
+    context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
     let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or(10.0f64);
@@ -235,12 +235,12 @@ pub fn resolve_gmse_params(
 pub fn resolve_axis_param(
     axis_param: &AxisParam,
     scom: &ScomInfo,
-    context: &HashMap<String, String>,
+    context: &HashMap<SmolStr, SmolStr>,
 ) -> Option<CateAxisParam> {
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
-    let key = &axis_param.pconnect.replace("\n", "").replace(" ", "");
-    let pconnect = if context.contains_key(key) {
-        let tmp = context[key].parse::<u32>().unwrap_or(0u32);
+    let key: SmolStr = axis_param.pconnect.replace("\n", "").replace(" ", "").into();
+    let pconnect = if context.contains_key(&key) {
+        let tmp = context[&key].parse::<u32>().unwrap_or(0u32);
         db1_dehash(tmp)
     } else {
         "".to_string()
@@ -287,30 +287,30 @@ pub fn resolve_axis_param(
     }
 }
 
-pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<String>) -> Option<String> {
+pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<SmolStr>) -> Option<SmolStr> {
     match expr {
         "PARA" | "PARAM" => {
             *i += 1;
-            Some(format!("PARAM{}", strs[*i]))
+            Some(format!("PARAM{}", strs[*i]).into())
         }
         "ANGL" => {
-            Some("ANGL".to_string())
+            Some("ANGL".into())
         }
         "IPAR" | "IPARAM" => {
             *i += 1;
             //先忽略保温层厚度
-            Some(format!("IPARAM{}", strs[*i]))
+            Some(format!("IPARAM{}", strs[*i]).into())
         }
         "DESP" | "DDESP"  => {
             *i += 1;
-            Some(format!("DESP{}", strs[*i]))
+            Some(format!("DESP{}", strs[*i]).into())
         }
         "DESIGN PARAM" => {
             *i += 2;
-            Some(format!("DESP{}", strs[*i]))
+            Some(format!("DESP{}", strs[*i]).into())
         }
         _ => {
-            Some("".to_string())
+            Some("".into())
         }
     }
 }

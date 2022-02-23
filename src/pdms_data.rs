@@ -1,67 +1,54 @@
 use smol_str::SmolStr;
 use crate::AttrMap;
 
-#[derive(Clone, Debug, Default)]
-pub struct DesignPipeStr {
-    pub name: String,
-    pub refno: String,
-    pub bran_refnos: Vec<String>,
-}
 
-#[derive(Clone, Debug, Default)]
-pub struct DesignBranStr {
-    pub name: String,
-    pub refno: String,
-    pub design_component_data_vec: Vec<DesCompInfo>,
-}
 
 //设计模块的信息
-#[derive(Clone, Debug, Default)]
-pub struct DesCompInfo {
-    pub name: String,
-    pub refno: String,
-    pub owner: String,
-    pub spref_name: String,
-    pub type_name: String,
-    pub gtype: String,
-    pub scom_info: ::core::option::Option<ScomInfo>,
-    pub ddangle: String,
-    pub height: String,
-    pub radius: String,
-    pub world_matrix: Vec<f64>,
-    pub world_position: Vec<f64>,
-    pub desparams: Vec<f64>,
-}
+// #[derive(Clone, Debug, Default)]
+// pub struct DesCompInfo {
+//     pub name: SmolStr,
+//     pub refno: SmolStr,
+//     pub owner: SmolStr,
+//     pub spre_name: SmolStr,
+//     pub type_name: SmolStr,
+//     pub gtype: SmolStr,
+//     pub scom_info: ::core::option::Option<ScomInfo>,
+//     pub ddangle: SmolStr,
+//     pub height: SmolStr,
+//     pub radius: SmolStr,
+//     pub world_matrix: Vec<f64>,
+//     pub world_position: Vec<f64>,
+//     pub desparams: Vec<f64>,
+// }
 
 #[derive(Clone, Debug)]
 pub struct ScomInfo {
     pub attr_map: AttrMap,
-    pub name: String,
-    pub gtype: String,
+    pub gtype: SmolStr,
     pub dtse_params: Vec<DatasetParamStr>,
     pub gmse_params: Vec<GmseParam>,
     pub axis_params: Vec<AxisParam>,
-    pub params: String,
+    pub params: SmolStr,
     pub axis_param_numbers: Vec<i32>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct DatasetParamStr {
-    pub refno: String,
-    pub name: String,
-    pub self_type: String,
+    pub refno: SmolStr,
+    pub name: SmolStr,
+    pub self_type: SmolStr,
     pub lock: bool,
-    pub owner: String,
-    pub description: String,
-    pub dkey: String,
-    pub ptype: String,
-    pub pproperty: String,
-    pub dproperty: String,
-    pub purpose: String,
+    pub owner: SmolStr,
+    pub description: SmolStr,
+    pub dkey: SmolStr,
+    pub ptype: SmolStr,
+    pub pproperty: SmolStr,
+    pub dproperty: SmolStr,
+    pub purpose: SmolStr,
     pub number: i32,
-    pub dtitle: String,
-    pub punits: String,
-    pub ruse: String,
+    pub dtitle: SmolStr,
+    pub punits: SmolStr,
+    pub ruse: SmolStr,
     pub lhide: bool,
 }
 
@@ -88,11 +75,11 @@ pub struct GmseParam {
 #[derive(Clone, Debug, Default)]
 pub struct AxisParam {
     pub attr_map: AttrMap,
-    pub x: String,
-    pub y: String,
-    pub z: String,
-    pub distance: String,
-    pub direction: String,
-    pub pconnect: String,
-    pub pbore: String,
+    pub x: SmolStr,
+    pub y: SmolStr,
+    pub z: SmolStr,
+    pub distance: SmolStr,
+    pub direction: SmolStr,
+    pub pconnect: SmolStr,
+    pub pbore: SmolStr,
 }

@@ -4,7 +4,7 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::result::Iter;
 use std::vec::IntoIter;
 use dashmap::DashMap;
@@ -18,11 +18,11 @@ use crate::pdms_types::AttrVal::{BoolArrayType, BoolType, DoubleArrayType, Doubl
 use crate::helper::get_attr_value_f64_vec;
 // use bevy_inspector_egui::Inspectable;
 use bevy::prelude::*;
-use bevy::window::CursorIcon::Default;
 use bonsaidb::core::Error;
 use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Schematic, SerializedCollection};
 use glam::TransformSRT;
 use hash32::Hasher;
+use std::default::Default;
 
 
 pub const LEVEL_VISBLE: u32 = 6;
@@ -245,8 +245,23 @@ impl From<&str> for NounHash {
 pub struct AttrMap{
     pub map: HashMap<NounHash, AttrVal>
 }
-impl AttrMap {
 
+impl Deref for AttrMap {
+    type Target = HashMap<NounHash, AttrVal>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+impl DerefMut for AttrMap {
+
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.map
+    }
+}
+
+impl AttrMap {
 
     #[inline]
     pub fn insert(&mut self, k: NounHash, v: AttrVal){
@@ -263,26 +278,20 @@ impl AttrMap {
         self.map.contains_key(&name.into())
     }
 
+    // pub fn dehash_value(&self, m: &StringLookupTable) -> AttrMap{
+    //     let mut attr = self.clone();
+    //     for (k, v) in &self.map {
+    //         if let StringHashType(h) = v{
+    //             attr.insert(k.clone(), StringType(m.get_string(*h).unwrap()));
+    //         }
+    //     }
+    //     attr
+    // }
 
-    pub fn dehash_value(&self, m: &StringLookupTable) -> AttrMap{
-
-        let mut attr = self.clone();
-        for (k, v) in &self.map {
-            if let StringHashType(h) = v{
-                attr.insert(k.clone(), StringType(m.get_string(*h).unwrap()));
-            }
-        }
-        attr
-    }
-
-    pub fn to_hashmap(&self, m: &StringLookupTable) -> HashMap<String, String>{
+    pub fn to_string_hashmap(&self) -> HashMap<String, String>{
         let mut map = HashMap::new();
         for (k, v) in &self.map {
-            if let StringHashType(h) = v{
-                map.insert(db1_dehash(k.0), format!("{:?}", m.get_string(*h)));
-            }else{
-                map.insert(db1_dehash(k.0), format!("{:?}", v));
-            }
+            map.insert(db1_dehash(k.0), format!("{:?}", v));
         }
         map
     }
@@ -306,12 +315,10 @@ impl AttrMap {
         None
     }
 
-
     #[inline]
     pub fn get_refno_as_string(&self) -> SmolStr{
         self.get_as_string("REFNO").unwrap_or(UNSET_STR.into())
     }
-
 
     pub fn get_obstruction(&self) -> Option<u32>{
         self.get_u32("OBST")
@@ -326,7 +333,6 @@ impl AttrMap {
         None
     }
 
-
     ///判断构件是否可见
     pub fn is_visible(&self, level: Option<u32>) -> bool{
         let l = level.unwrap_or(LEVEL_VISBLE);
@@ -335,7 +341,6 @@ impl AttrMap {
         }
         true
     }
-
 
     #[inline]
     pub fn get_refno(&self) -> Option<RefU64>{
@@ -363,7 +368,6 @@ impl AttrMap {
         self.get_as_string("TYPE").unwrap_or(UNSET_STR.into())
     }
 
-
     #[inline]
     pub fn get_u32(&self, key: &str) -> Option<u32>{
         if let Some(v) = self.map.get(&key.into()){
@@ -376,7 +380,6 @@ impl AttrMap {
         }
         None
     }
-
 
     #[inline]
     pub fn get_as_string(&self, key: &str) -> Option<SmolStr>{
@@ -436,7 +439,6 @@ impl AttrMap {
         }
     }
 
-
     #[inline]
     pub fn get_val(&self, key: &str) -> Option<&AttrVal>{
         if let Some(v) = self.map.get(&key.into()) {
@@ -464,7 +466,6 @@ impl AttrMap {
         }
     }
 
-
     #[inline]
     pub fn get_position(&self) -> Vec3{
         if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
@@ -485,23 +486,6 @@ impl AttrMap {
         Quat::IDENTITY
     }
 
-
-
-
-    // pub fn get_tansformRT(&self, parent: Option<Quat>) -> glam::TransformRT{
-    //     let parent = parent.unwrap_or(Quat::IDENTITY);
-    //     let mut tr = glam::TransformRT::IDENTITY;
-    //     if let Some(ang) = get_attr_value_f64_vec(self, "ORI"){
-    //         tr.rotation =  self.get_rotation();   //方位需要取逆矩阵
-    //     }
-    //
-    //     if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
-    //         tr.translation = parent.inverse().mul_vec3(glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
-    //     }
-    //     tr
-    // }
-
-
     pub fn get_matrix(&self) -> glam::f32::Affine3A{
         let mut affine = glam::f32::Affine3A::IDENTITY;
         if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
@@ -519,19 +503,6 @@ impl AttrMap {
     pub fn get_mat4(&self) -> glam::f32::Mat4{
         glam::f32::Mat4::from(self.get_matrix())
     }
-    //
-    // pub fn get_transform(&self) -> Transform{
-    //     let matrix = self.get_matrix();
-    //     let x = &matrix.matrix3.col(0);
-    //     let y = &matrix.matrix3.col(1);
-    //     let z = &matrix.matrix3.col(2);
-    //     let p = &matrix.translation;
-    //     Transform::from_basis_origin(
-    //         Vector3::new(x[0], x[1], x[2]),
-    //         Vector3::new(y[0], y[1], y[2]),
-    //         Vector3::new(z[0], z[1], z[2]),
-    //         Vector3::new(p[0], p[1], p[2]))
-    // }
 
     pub fn get_f64_vec(&self, key: &str) -> Option<Vec<f64>> {
         if let Some(val) = self.map.get(&key.into()) {
@@ -560,7 +531,6 @@ impl AttrMap {
         None
     }
 
-
     ///使用spref + params 混合成的meshid
     pub fn cal_des_mesh_id(&self) -> u64{
         let key = Key([1, 2, 3, 4]);
@@ -584,10 +554,6 @@ impl AttrMap {
         let id = hasher64.finalize64();
         id
     }
-
-
-
-
 
     ///生成具有几何属性的element的shape
     pub fn create_brep_shape(&self) -> Option<Box<dyn BrepShape>> {
@@ -996,7 +962,6 @@ pub type AiosStrHash = u32;
 pub struct AiosStr(pub SmolStr);
 
 impl AiosStr {
-
     #[inline]
     pub fn get_u32_hash(&self) -> u32{
         use hash32::{FnvHasher, Hash, Hasher};
@@ -1005,8 +970,11 @@ impl AiosStr {
         fnv.finish()
     }
 
-}
+    pub fn take(mut self) -> SmolStr{
+        self.0
+    }
 
+}
 
 impl hash32::Hash for AiosStr {
     fn hash<H>(&self, state: &mut H)
@@ -1018,11 +986,36 @@ impl hash32::Hash for AiosStr {
     }
 }
 
+impl Collection for AiosStr {
+    type PrimaryKey = u32;
+
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "strings")
+    }
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl SerializedCollection for AiosStr {
+    type Contents = Self;
+    type Format = transmog_bincode::Bincode;
+    fn format() -> Self::Format {
+        transmog_bincode::Bincode::default()
+    }
+}
+
 //todo make it as database
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StringLookupTable{
     pub name: SmolStr,  //表名
     pub lookup: HashMap<u32, AiosStr>,
+}
+
+impl Default for StringLookupTable {
+    fn default() -> Self {
+        Self::new("AIOS")
+    }
 }
 
 

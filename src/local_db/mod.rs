@@ -4,3 +4,6 @@ pub mod bonsaidb_local;
 pub mod bonsaidb_server;
 pub mod helper;
 pub mod consts;
+
+pub mod string_database;
+pub mod refno_info_database;

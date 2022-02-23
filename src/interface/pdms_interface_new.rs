@@ -10,14 +10,15 @@ use crate::pdms_types::{AttrMap, EleNode, EleNodeMongoDb, PdmsMongoAttr, RefnoIn
 
 pub type MResult<T> = mongodb::error::Result<T>;
 
+
 #[derive(Debug, Default)]
-pub struct PdmsInterface {
+pub struct PdmsMongoService {
     connection_str: String,
     client: Option<Client>,
     project: String,
 }
 
-impl PdmsInterface {
+impl PdmsMongoService {
     pub fn new(url: &str, project: &str) -> Self {
         // let client_uri = "mongodb://localhost:27017".to_string();
         Self {
@@ -99,7 +100,7 @@ impl PdmsInterface {
 
 #[tokio::test]
 async fn get_ele_attr_map_async() -> MResult<()> {
-    let mut interface = PdmsInterface::new("mongodb://localhost:27017", "apsProject");
+    let mut interface = PdmsMongoService::new("mongodb://localhost:27017", "apsProject");
     let node = interface.get_ele_attr_map_async(SmolStr::new("24575/4")).await?;
     dbg!(node);
     Ok(())
@@ -107,7 +108,7 @@ async fn get_ele_attr_map_async() -> MResult<()> {
 
 #[tokio::test]
 async fn get_node_id_test() -> MResult<()> {
-    let mut interface = PdmsInterface::new("mongodb://localhost:27017", "abaProject");
+    let mut interface = PdmsMongoService::new("mongodb://localhost:27017", "abaProject");
     let node = interface.get_node_id(SmolStr::new("aba0092_0001"),SmolStr::new("8284/0")).await?;
     dbg!(node);
     Ok(())
@@ -116,7 +117,7 @@ async fn get_node_id_test() -> MResult<()> {
 
 #[tokio::test]
 async fn get_children_map_test() ->MResult<()>{
-    let mut interface = PdmsInterface::new("mongodb://localhost:27017", "abaProject");
+    let mut interface = PdmsMongoService::new("mongodb://localhost:27017", "abaProject");
     if let Some(children)=interface.get_children_attr_map(SmolStr::new("aba0092_0001"),SmolStr::new("16476/3049")).await?{
         dbg!(&children);
     }

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use dashmap::DashMap;
+use glam::{Vec2, Vec3};
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_data::GmseParam;
 use crate::pdms_types::{AttrVal, EleNode};
@@ -97,9 +98,9 @@ pub mod geo_params_data {
         LCylinder(super::CateLCylinderParam),
         SCylinder(super::CateSCylinderParam),
 
-        Disc(super::CateDiscParam),
         Dish(super::CateDishParam),
         Extrusion(super::CateExtrusionParam),
+        Profile(super::CateProfileParam),
         Line(super::CateLineParam),
         Pyramid(super::CatePyramidParam),
         RectTorus(super::CateRectTorusParam),
@@ -190,6 +191,12 @@ pub struct CateExtrusionParam {
     
     pub tube_flag: bool,
 }
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub struct CateProfileParam {
+    pub pts: Vec<Vec2>
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct CateDiscParam {
     

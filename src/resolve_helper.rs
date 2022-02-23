@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use regex::Regex;
+use smol_str::SmolStr;
 use crate::direction_parse::parse_expr_to_dir;
 use crate::helper::{convert_to_context_key, resolve_axis_param};
 use crate::pdms_data::{AxisParam, ScomInfo};
@@ -13,13 +14,14 @@ use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
 
 
-pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> Option<f64> {
+pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) -> Option<f64> {
     if input_expr.trim() == "unset" {
         return Some(0.0);
     }
     // dbg!(&input_expr);
     let _has_desparam = false;
-    let mut exp = input_expr.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
+    let mut exp = input_expr.trim_end_matches('\0')
+        .to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
     if exp.len() < 1 {
         return Some(0.0);
     }
@@ -28,14 +30,14 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         && exp.chars().nth(exp.len() - 1).unwrap_or_default() == ')' {
         exp = exp[1..exp.len() - 1].to_string();
     }
-    let seg_strs = exp.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
+    let seg_strs: Vec<SmolStr> = exp.split_whitespace().map(|x| x.trim().into()).collect::<Vec<_>>();
     if seg_strs.len() == 0 {
         return None;
     }
-    let mut p_vals = Vec::new();
+    let mut p_vals: Vec<SmolStr> = Vec::new();
     let mut i = 0;
     while i < seg_strs.len() {
-        let mut key = "".to_string();
+        let mut key = SmolStr::default();
         let s = seg_strs[i].as_str();
         if (s == "PARAM" || s == "IPARAM") && i < seg_strs.len() {
             key = convert_to_context_key(s, &mut i, &seg_strs).unwrap_or_default();
@@ -43,15 +45,15 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
             i += 1;
             let s_n = seg_strs[i].as_str();
             if s_n == "RPRO" {
-                let dtse_key = seg_strs[i + 1].as_str();
-                if context.contains_key(dtse_key) {
-                    if let Some(r) = eval_str_to_f64(&context[dtse_key], context) {
-                        p_vals.push(r.to_string());
+                let dtse_key: SmolStr = seg_strs[i + 1].as_str().into();
+                if context.contains_key(&dtse_key) {
+                    if let Some(r) = eval_str_to_f64(&context[&dtse_key], context) {
+                        p_vals.push(r.to_string().into());
                     } else {
-                        let default_key = format!("{}_default_expr", dtse_key);
+                        let default_key: SmolStr = format!("{}_default_expr", dtse_key).into();
                         if context.contains_key(&default_key) {
                             if let Some(r) = eval_str_to_f64(&context[&default_key], context) {
-                                p_vals.push(r.to_string());
+                                p_vals.push(r.to_string().into());
                             }
                         }
                     }
@@ -69,13 +71,13 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
         // dbg!(&context);
         if context.contains_key(&key) {
             if key == "ANGL" {
-                key = context[&key].to_string();
-                key = key.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
+                key = context[&key].as_str().into();
+                key = key.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ").into();
                 if key.len() >= 2 && key.chars().nth(0).unwrap_or_default() == '('
                     && key.chars().nth(key.len() - 1).unwrap_or_default() == ')' {
-                    key = key[1..key.len() - 1].to_string();
+                    key = key[1..key.len() - 1].into();
                 }
-                let seg_strs = key.split_whitespace().map(|x| x.trim().to_owned()).collect::<Vec<_>>();
+                let seg_strs: Vec<SmolStr> = key.split_whitespace().map(|x| x.trim().into()).collect::<Vec<_>>();
                 if seg_strs.len() == 0 {
                     return None;
                 }
@@ -93,13 +95,13 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
             continue;
         }
 
-        let upper_s = s.to_uppercase();
+        let upper_s: SmolStr = s.to_uppercase().into();
         match upper_s.as_str() {
-            "TIMES" | "MULT" => p_vals.push("*".to_string()),
-            "DIV" => p_vals.push("/".to_string()),
-            "DDHEIGHT" => p_vals.push(context["DDHEIGHT"].to_string()),
-            "DDRADIUS" => p_vals.push(context["DDRADIUS"].to_string()),
-            "DDANGLE" => p_vals.push(context["DDANGLE"].to_string()),
+            "TIMES" | "MULT" => p_vals.push("*".into()),
+            "DIV" => p_vals.push("/".into()),
+            "DDHEIGHT" => p_vals.push(context["DDHEIGHT"].as_str().into()),
+            "DDRADIUS" => p_vals.push(context["DDRADIUS"].as_str().into()),
+            "DDANGLE" => p_vals.push(context["DDANGLE"].as_str().into()),
             _ => p_vals.push(upper_s),
         }
         i += 1;
@@ -113,7 +115,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
             if i + 1 < p_vals.len() {
                 if let Ok(val) = p_vals[i + 1].parse::<f64>() {
                     let v = val * 2.0f64;
-                    p_vals[i + 1] = v.to_string();
+                    p_vals[i + 1] = v.to_string().into();
                 }
             }
         } else if p_vals[i] == "TANF" {
@@ -124,7 +126,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
                     if let Ok(angle) = p_vals[i + 2].parse::<f64>() {
                         {
                             let v = val * ((angle / 2.0).to_radians() as f64).tan();
-                            p_vals[i + 2] = v.to_string();
+                            p_vals[i + 2] = v.to_string().into();
                         }
                     }
                 }
@@ -133,13 +135,13 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<String, String>) -> O
             if i + 2 < p_vals.len() {
                 if let Ok(val) = p_vals[i + 2].parse::<f64>() {
                     let v = val.to_radians();
-                    p_vals[i + 2] = v.to_string();
+                    p_vals[i + 2] = v.to_string().into();
                 }
             }
         }
         // 单位处理，mm为基本单位
         if p_vals[i].contains("mm") {
-            p_vals[i] = p_vals[i].replace("mm", "");
+            p_vals[i] = p_vals[i].replace("mm", "").into();
         }
     }
     for v in need_del_keys {
@@ -315,16 +317,16 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 tube_flag: gmse.tube_flag,
             }))
         }
-        "SDIS" => {
+        // "SDIS" => {
             // 圆片
-            Some(CateGeoParam::Disc(CateDiscParam {
-                axis: Some(gmse.paxises[0].clone()),
-                dist_to_btm: gmse.distances[0],
-                diameter: gmse.diameters[0],
-                centre_line_flag: gmse.centre_line_flag,
-                tube_flag: gmse.tube_flag,
-            }))
-        }
+            // Some(CateGeoParam::Disc(CateDiscParam {
+            //     axis: Some(gmse.paxises[0].clone()),
+            //     dist_to_btm: gmse.distances[0],
+            //     diameter: gmse.diameters[0],
+            //     centre_line_flag: gmse.centre_line_flag,
+            //     tube_flag: gmse.tube_flag,
+            // }))
+        // }
         "SDSH" => {
             Some(CateGeoParam::Dish(CateDishParam {
                 axis: Some(gmse.paxises[0].clone()),
@@ -421,7 +423,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
 pub fn resolve_dir_and_pos(axis: &AxisParam,
                            ddangle: f64,
                            scom: &ScomInfo,
-                           context: &HashMap<String, String>) -> (Vec<f64>, Vec<f64>) {
+                           context: &HashMap<SmolStr, SmolStr>) -> (Vec<f64>, Vec<f64>) {
     //替换掉中间出现dataset的值的这种情况 X ( ATTRIB RPRO ANGL ) Z
     let mut dir_str = axis.direction.trim().to_string();
     if dir_str.contains("(") {

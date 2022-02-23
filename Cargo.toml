@@ -9,6 +9,8 @@ edition = "2021"
 opt-level = 2
 
 [features]
+default = []
+compression = []
 web = []   #compile for just web usage, now it is too heavy now
 
 [dependencies]
@@ -24,6 +26,7 @@ fasteval = "0.2.4"
 regex = "1.5.4"
 futures = "0.3.19"
 fixed = "1.12"
+async-trait = "0.1.52"
 
 #rocksdb = "0.18.0"
 sanakirja = "1.2.16"

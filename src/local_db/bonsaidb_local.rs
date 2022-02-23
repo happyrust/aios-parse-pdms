@@ -31,13 +31,16 @@ use crate::prim_geo::ctorus::CTorus;
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
 use crate::prim_geo::extrusion::Extrusion;
-use crate::prim_geo::pdms_shape::{BrepShape, VerifiedShape};
+use crate::prim_geo::pdms_shape::{BrepShape, PdmsPrimShape, VerifiedShape};
 use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::revolution::Revolution;
 use crate::prim_geo::rtorus::RTorus;
 use crate::prim_geo::sbox::SBox;
 use crate::prim_geo::snout::LSnout;
 use crate::local_db::consts::*;
+use crate::local_db::refno_info_database::RefInoDatabase;
+use crate::local_db::string_database::StringDatabase;
+use crate::pdms_types::AttrVal::{StringHashType, StringType};
 use crate::prim_geo::facet::{Contour, Facet, Polygon};
 
 pub const ATT_DB_NAME: &'static str = "attr";
@@ -45,6 +48,7 @@ pub const REFS_DB_NAME: &'static str = "refs";
 pub const CHILDREN_DB_NAME: &'static str = "children";
 pub const TREE_DB_NAME: &'static str = "tree";
 pub const INFO_DB_NAME: &'static str = "info";
+pub const STR_DB_NAME: &'static str = "strs";
 pub const GEOM_DB_NAME: &'static str = "geoms";
 
 ///collision world  存储所属元件名称和GeoId
@@ -68,63 +72,7 @@ pub struct PdmsConfig {
     pub mdb_name: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct RefInoDatabase{
-    pub db: Database,
-    pub string_lookup: StringLookupTable,
-}
 
-impl Deref for RefInoDatabase {
-    type Target = Database;
-
-    fn deref(&self) -> &Self::Target {
-        &self.db
-    }
-}
-
-impl DerefMut for RefInoDatabase {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.db
-    }
-}
-
-impl RefInoDatabase {
-
-    pub async fn init(path: &str, string_lookup: StringLookupTable) -> Self{
-        Self{
-            db: Database::open::<RefnoInfo>(StorageConfiguration::new(path)).await.expect("path not correct"),
-            string_lookup
-        }
-    }
-
-    ///获得refno的project 名称
-    // #[inline]
-    // pub async fn get_project_hash(&self, refno: &RefU64) -> Option<u32> {
-    //     self.get_refno_info(refno).await.map(|x| x.project_hash)
-    // }
-
-
-    ///获得refno的project 名称
-    // #[inline]
-    // pub async fn get_project_name_of_refno(&self, refno: &RefU64) -> Option<SmolStr> {
-    //     self.get_project_of_refno_by_hash(refno.get_u32_hash())
-    // }
-
-    ///获得refno的project 名称
-    // #[inline]
-    // pub async fn get_project_of_refno_by_hash(&self, hash: u32) -> Option<SmolStr> {
-    //     self.get_refno_info_by_hash(hash).await.map(|x| x.project_hash).map(|x| self.string_lookup.get_string(x).unwrap())
-    // }
-
-    ///获得refno的project 名称
-    #[inline]
-    pub async fn get_refno_info(&self, refno: &RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
-        // self.get_refno_info_by_hash(refno.get_u32_hash())
-        Ok(RefnoInfo::get(refno.get_0(), &self.db).await?.map(|x| x.contents))
-    }
-
-
-}
 
 
 // #[derive(Debug, Clone)]
@@ -135,7 +83,7 @@ impl RefInoDatabase {
 pub struct AiosDBManager {
     pub db_map: HashMap<u32, AiosDB>, //project name hash -> Aios DB
     pub info_db: RefInoDatabase,      //管理所有refno info的db
-    pub string_lookup: StringLookupTable,
+    pub string_db: StringDatabase,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -146,30 +94,30 @@ pub struct DbOption {
 
 impl AiosDBManager {
 
+    ///初始化
     pub async fn init(dir: &str, projects: Vec<String>, mdb_name: &str, option: Option<DbOption>) -> Result<AiosDBManager, bonsaidb::core::Error> {
         let option = option.unwrap_or_default();
-        let mut string_lookup = StringLookupTable::deserialize_from_default_json_file("AIOS").unwrap_or(StringLookupTable::new("AIOS"));
+        let mut string_db = StringDatabase::init(format!("./AIOS_DBS/{STR_DB_NAME}").as_str()).await;
         let mut db_map = HashMap::default();
-        let info_db = RefInoDatabase::init(format!("./AIOS_DBS/{INFO_DB_NAME}").as_str(), string_lookup.clone()).await;
+        let info_db = RefInoDatabase::init(format!("./AIOS_DBS/{INFO_DB_NAME}").as_str()).await;
         for project in projects {
-            let mut adb = AiosDB::init(project.as_str(), dir, info_db.clone()).await?;
+            let mut adb = AiosDB::init(project.as_str(), dir, info_db.clone(), string_db.clone()).await?;
             //如果已经保存过了，不需要重新保存
-            if option.total_sync { adb.sync_total(&mut string_lookup).await?; }  //完全更新
+            if option.total_sync { adb.sync_total(&mut string_db).await?; }  //完全更新
             if option.incr_sync {}    //todo 增量更新
             let project_str: SmolStr = project.into();
             db_map.insert(AiosStr(project_str).get_u32_hash(), adb);
         }
 
         // dbg!(&string_lookup);
-        string_lookup.serialize_to_default_json_file();
+        // string_db.serialize_to_default_json_file();
 
         Ok(AiosDBManager{
             db_map,
             info_db,
-            string_lookup
+            string_db
         })
     }
-
 
     ///获得refno的project 名称
     #[inline]
@@ -205,7 +153,14 @@ impl AiosDBManager {
     pub async fn get_dehashed_attr(&self, refno: &RefU64) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
         if let Some(ref_info) = self.get_refno_info(refno).await?{
             if let Some(db) = self.db_map.get(&ref_info.project_hash){
-                return db.get_attr(refno, ref_info.db_no).await.map(|x| x.map( |x| x.dehash_value(&self.string_lookup)));
+                if let Some(mut attr) = db.get_attr(refno, ref_info.db_no).await?{
+                    for (_, val) in attr.iter_mut() {
+                        if let StringHashType(h) = val{
+                            *val = StringType(self.string_db.get_string(*h).await?.unwrap_or_default().take());
+                        }
+                    }
+                    return Ok(Some(attr));
+                }
             }
         }
         Ok(None)
@@ -214,13 +169,11 @@ impl AiosDBManager {
     ///打印用
     #[inline]
     pub async fn get_pretty_attr(&self, refno: &RefU64) -> Result<HashMap<String, String>, bonsaidb::core::Error> {
-        if let Some(attr) = self.get_attr(refno).await?{
-            return Ok(attr.to_hashmap(&self.string_lookup));
+        if let Some(attr) = self.get_dehashed_attr(refno).await?{
+            return Ok(attr.to_string_hashmap());
         }
         Ok(Default::default())
     }
-
-
 
     ///获取世界坐标变换矩阵
     #[inline]
@@ -248,7 +201,6 @@ impl AiosDBManager {
         if let Some(d) = PdmsTree::get(db_code as u64, &main_db.tree_db).await? {
             let tree = d.contents.0;
             let root_node_id = tree.root_node_id().unwrap();
-            let mut cubes_tx = Transaction::default();
             let node_id = tree.root_node_id().unwrap();
             if let Ok(mut nodes) = tree.traverse_level_order(node_id) {
                 while let Some(mut cur_node) = nodes.next() {
@@ -374,19 +326,49 @@ impl AiosDBManager {
                 }
             }
         }
-        // }
 
-        // D:/bevy_projects/web-aios
         let mut file = File::create(format!("../web-aios/{db_code}_geoms.json")).unwrap();
         let serialized = serde_json::to_string(&geo_map).unwrap();
         file.write_all(serialized.as_bytes()).unwrap();
 
-
-        //dbg!(cached_mesh_mgr.meshes.len());
         cached_mesh_mgr.serialize_to_json_file();
-
         Ok(geo_map)
     }
+
+
+    ///获得structure profile构件， 返回的是截面，这里生成拉伸Z方向的单元构件
+    #[inline]
+    pub async fn get_sprf_geom(&self, spre: &RefU64) -> Result<Option<GeoData>, bonsaidb::core::Error> {
+
+        if let Some(spre_attr)= self.get_dehashed_attr(spre).await?{
+            // dbg!(spre_attr.to_string_hashmap());
+            if let Some(cat_ref) = spre_attr.get_foreign_refno("CATR"){
+                if let Some(cat_attr)= self.get_dehashed_attr(&cat_ref).await?{
+                    dbg!(cat_attr.to_string_hashmap());
+                    if let Some(gms_ref) = cat_attr.get_foreign_refno("GSTR"){
+                        if let Some(gms_attr)= self.get_dehashed_attr(&gms_ref).await?{
+                            dbg!(gms_attr.to_string_hashmap());
+                            let children = self.get_children(&gms_ref).await?.unwrap_or_default();
+                            let mut loop_verts: Vec<Vec3> = vec![];
+                            if children.len() > 0 {
+                                let first_profile = children[0];
+                                let children = self.get_children(&first_profile).await?.unwrap_or_default();
+                                for x in children {
+                                    let v = self.get_attr(&x).await?.unwrap().get_position();
+                                    loop_verts.push(v);
+                                }
+                            }
+
+                            dbg!(&loop_verts);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
 
 }
 
@@ -402,6 +384,7 @@ pub struct AiosDB {
     pub children_db: Database,
     pub tree_db: Database,
     pub info_db: RefInoDatabase,
+    pub string_db: StringDatabase,
     pub geom_db: Storage,
     pub mdb_name: Option<String>,
 }
@@ -414,9 +397,7 @@ impl AiosDB {
                                   /*  .default_compression(Compression::Lz4)*/).await
     }
 
-    pub async fn init(project: &str, dir: &str, info_db: RefInoDatabase) -> Result<Self, bonsaidb::core::Error> {
-
-        // let info_db = RefInoDatabase::init(format!("./AIOS_DBS/{INFO_DB_NAME}").as_str()).await;
+    pub async fn init(project: &str, dir: &str, info_db: RefInoDatabase, string_db: StringDatabase) -> Result<Self, bonsaidb::core::Error> {
 
         //需要把所有的db number
         let mut att_db_map = HashMap::new();
@@ -438,17 +419,15 @@ impl AiosDB {
             }
         }
 
-        //dbg!(att_db_map.len());
-
         Ok(Self {
             project: project.to_string(),
             dir: dir.to_string(),
             att_db_map,
-            // attr_db: Self::create_att_database(format!("./AIOS_DBS/{project}/{ATT_DB_NAME}").as_str()).await?,
             refs_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{REFS_DB_NAME}"))/*.default_compression(Compression::Lz4)*/).await?,
             children_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{CHILDREN_DB_NAME}"))/*.default_compression(Compression::Lz4)*/).await?,
             tree_db: Database::open::<PdmsTree>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{TREE_DB_NAME}"))/*.default_compression(Compression::Lz4)*/).await?,
             info_db,
+            string_db,
             geom_db: Storage::open(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{GEOM_DB_NAME}")).with_schema::<EleGeoData>()?).await?,
             mdb_name: None,
         })
@@ -472,25 +451,6 @@ impl AiosDB {
         }
         Ok(Default::default())
     }
-
-    //按需要打开database
-    // #[inline]
-    // pub async fn get_attr_by_hash(&self, hash: u32, db_no: u32) -> Option<AttrMap> {
-    //     if let Some(att_db) = self.att_db_map.get(&db_no){
-    //         if let Ok(Some(d)) = AttrMap::get(hash, att_db).await {
-    //             return Some(d.contents);
-    //         }
-    //     }
-    //     None
-    // }
-
-    // #[inline]
-    // pub async fn get_node_id(&self, refno: &RefU64) -> Option<NodeId> {
-    //     if let Ok(Some(d)) = RefnoInfo::get(refno.0, &self.info_db).await {
-    //         return Some(d.contents.node_id);
-    //     }
-    //     None
-    // }
 
     //包含自己
     pub async fn get_ancestors_attrs(&self, refno: &RefU64, db_no: u32) -> Result<Vec<AttrMap>, bonsaidb::core::Error>{
@@ -526,7 +486,7 @@ impl AiosDB {
     }
 
     //todo  infos 存储什么的问题，要不要存储dbno
-    pub async fn sync_total(&mut self, whole_string_lookup: &mut StringLookupTable) -> Result<(), bonsaidb::core::Error> {
+    pub async fn sync_total(&mut self, string_db: &mut StringDatabase) -> Result<(), bonsaidb::core::Error> {
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
         let project_dir = data_dir.join(&project);
@@ -535,6 +495,7 @@ impl AiosDB {
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
         if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(),None) {
+            let mut total_lookup = StringLookupTable::default();
             for (k, PdmsDbData {
                 all_attr_map,
                 ele_id_tree,
@@ -550,7 +511,7 @@ impl AiosDB {
                 let target_dbno = if field_no == 0 {db_no} else{ field_no};
                 let mut attr_db = Self::create_att_database(format!("./AIOS_DBS/{project}/{target_dbno}.att").as_str()).await?;
 
-                whole_string_lookup.merge(&string_lookup);
+                total_lookup.merge(&string_lookup);
 
                 let mut tx = Transaction::default();
                 let pdms_tree = PdmsTree(ele_id_tree);
@@ -599,20 +560,23 @@ impl AiosDB {
                     let mut tx = Transaction::default();
                     for (k,v) in chunk {
                         tx.push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
-                            // kv.key().get_u32_hash(),
                             *k,
                             v,
                         ).unwrap());
-                        // tx.push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
-                        //     // kv.key().get_u32_hash(),
-                        //     k.get_u32_hash(),
-                        //     v,
-                        // ).unwrap());
                     }
                     self.info_db.apply_transaction(tx).await.unwrap();
                 }
+            }
 
-
+            for chunk in &total_lookup.lookup.iter().chunks(400000usize) {
+                let mut tx = Transaction::default();
+                for (k,v) in chunk {
+                    tx.push(transaction::Operation::overwrite_serialized::<AiosStr>(
+                        *k,
+                        v,
+                    ).unwrap());
+                }
+                self.string_db.apply_transaction(tx).await.unwrap();
             }
         }
         Ok(())

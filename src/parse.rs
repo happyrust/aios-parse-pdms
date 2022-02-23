@@ -610,13 +610,13 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                 }
                 DbAttributeType::ELEMENT => {
                     let (_, (ref_0, ref_1)) = tuple((
-                        be_i32,
-                        be_i32,
+                        be_u32,
+                        be_u32,
                     ))(input)?;
                     if ref_0 == 0 {
-                        val = AttrVal::ElementType(RefI32Tuple::default().into());
+                        val = AttrVal::RefU64Type(Default::default());
                     } else {
-                        val = AttrVal::ElementType(RefI32Tuple::new(ref_0, ref_1).into());
+                        val = AttrVal::RefU64Type(RefU64::from_two_nums(ref_0, ref_1));
                     }
                     advance_offset = 2;
                 }
@@ -734,10 +734,10 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                         }
                         DbAttributeType::ELEMENT => {
                             let (_, (ref_0, ref_1)) = tuple((
-                                be_i32,
-                                be_i32,
+                                be_u32,
+                                be_u32,
                             ))(tmp_input)?;
-                            att_value = Some(ElementType(RefI32Tuple((ref_0, ref_1)).into()));
+                            att_value = Some(RefU64Type(RefU64::from_two_nums(ref_0, ref_1)));
                         }
                         DbAttributeType::WORD => {
                             let (_, val) = be_i32(tmp_input)?;
@@ -841,10 +841,10 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                             }
                             DbAttributeType::ELEMENT => {
                                 let (_, (ref_0, ref_1)) = tuple((
-                                    be_i32,
-                                    be_i32,
+                                    be_u32,
+                                    be_u32,
                                 ))(tmp_input)?;
-                                att_value = Some(ElementType(RefI32Tuple((ref_0, ref_1)).into()));
+                                att_value = Some(RefU64Type(RefU64::from_two_nums(ref_0, ref_1)));
                             }
                             DbAttributeType::WORD => {
                                 let (_, val) = be_i32(tmp_input)?;

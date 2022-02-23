@@ -104,7 +104,7 @@ pub async fn run() -> AiosDbError {
                                              vec!["Sample".to_string(), "Master".to_string()],
                                              "Sample",
                                              Some(DbOption {
-                                                 total_sync: false,
+                                                 total_sync: true,
                                                  incr_sync: false,
                                              })).await.unwrap();
     // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
@@ -120,7 +120,7 @@ pub async fn run() -> AiosDbError {
     //
     // dbg!(refno_info);
     // dbg!(db_manager.get_project_of_refno(&refno).await);
-    dbg!(db_manager.get_pretty_attr(&refno).await);
+    // dbg!(db_manager.get_pretty_attr(&refno).await);
     // dbg!(db_manager.get_dehashed_attr(&refno).await);
     dbg!(db_manager.get_world_transform(&refno).await);
     dbg!(db_manager.get_children(&refno).await);
@@ -204,4 +204,5 @@ pub async fn run() -> AiosDbError {
 
     return Ok(());
 }
+
 
