@@ -72,6 +72,7 @@ pub struct GmseParamData {
     pub distances: ::prost::alloc::vec::Vec<f64>,
     pub height: f64,
     pub offset: f64,
+    pub verts: Vec<[f64; 2]>,
     /// 顺序 x y z
     pub box_lengths: ::prost::alloc::vec::Vec<f64>,
     pub xyz: ::prost::alloc::vec::Vec<f64>,
@@ -80,6 +81,8 @@ pub struct GmseParamData {
     pub centre_line_flag: bool,
     pub tube_flag: bool,
 }
+
+
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct CateAxisParam {
     pub pt: ::prost::alloc::vec::Vec<f64>,

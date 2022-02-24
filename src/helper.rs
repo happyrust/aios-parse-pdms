@@ -112,7 +112,7 @@ pub fn resolve_axis_params(
     map
 }
 
-pub fn resolve_gmses(
+pub fn resolve_gms(
     gmse_strs: &[GmParam],
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
@@ -121,58 +121,65 @@ pub fn resolve_gmses(
     gmse_strs
         .iter()
         .filter_map(|gmse_str| {
-            parse_paragon_gmse_params(&gmse_str, context, axis_params)
+            resolve_paragon_gm_params(&gmse_str, context, axis_params)
         })
         .collect::<Vec<CateGeoParam>>()
 }
 
 /// 解析gmes的参数
-pub fn parse_paragon_gmse_params(
-    gmse_param: &GmParam,
+pub fn resolve_paragon_gm_params(
+    gm_param: &GmParam,
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<CateGeoParam> {
     // dbg!(&gmse_param);
-    if let Some(gmse_data) = resolve_gmse_params(gmse_param, context, axis_params) {
-        let d = resolve_to_cate_geo_params(gmse_data);
-        return d;
+    if let Some(gm_data) = resolve_gmse_params(gm_param, context, axis_params) {
+        return resolve_to_cate_geo_params(gm_data);
     }
     None
 }
 
 pub fn resolve_gmse_params(
-    gmse: &GmParam,
+    gm: &GmParam,
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-    let radius = eval_str_to_f64(&gmse.radius, context).unwrap_or(10.0f64);
+    let radius = eval_str_to_f64(&gm.radius, context).unwrap_or(10.0f64);
     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(90.0f64);
     let angle = ddangle.to_radians();
-    let diameters = gmse.diameters
+    let diameters = gm.diameters
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
-    let distances = gmse.distances
+
+
+    let distances = gm.distances
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
-    let height = eval_str_to_f64(&gmse.height, context).unwrap_or(10.0);
-    let offset = eval_str_to_f64(&gmse.offset, context).unwrap_or_default();
+    let verts = gm.verts
+        .iter()
+        .map(|exp| [eval_str_to_f64(exp[0].as_str(), context).unwrap_or_default(),
+            eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default()])
+        .collect::<Vec<[f64; 2]>>();
 
-    let box_lengths = gmse.box_lengths
+    let height = eval_str_to_f64(&gm.height, context).unwrap_or(10.0);
+    let offset = eval_str_to_f64(&gm.offset, context).unwrap_or_default();
+
+    let box_lengths = gm.box_lengths
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
-    let xyz = gmse.xyz
+    let xyz = gm.xyz
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
 
     let mut paxises: Vec<CateAxisParam> = Vec::new();
-    for name in gmse.paxises.iter() {
+    for name in gm.paxises.iter() {
         if name != "" {
             let (is_negative, name) = if name.starts_with('-') {
                 (true, &name[1..])
@@ -213,7 +220,7 @@ pub fn resolve_gmse_params(
             }
         }
     }
-    let attr_map = &gmse.attr_map;
+    let attr_map = &gm.attr_map;
     Some(GmseParamData {
         refno: attr_map.get_refno_as_string(),
         owner: attr_map.get_owner_as_string(),
@@ -224,11 +231,12 @@ pub fn resolve_gmse_params(
         distances,
         height,
         offset,
+        verts,
         box_lengths,
         xyz,
         paxises,
-        centre_line_flag: gmse.centre_line_flag,
-        tube_flag: gmse.tube_flag,
+        centre_line_flag: gm.centre_line_flag,
+        tube_flag: gm.tube_flag,
     })
 }
 

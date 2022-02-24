@@ -5,11 +5,7 @@ use crate::direction_parse::parse_expr_to_dir;
 use crate::helper::{convert_to_context_key, resolve_axis_param};
 use crate::pdms_data::{AxisParam, ScomInfo};
 use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam,
-                         CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam,
-                         CateLineParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam,
-                         CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam,
-                         CateSphereParam, CateSverParam, CateTorusParam, GmseParamData};
+use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam, CateLineParam, CateProfileParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateSverParam, CateTorusParam, GmseParamData};
 use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
 
@@ -206,6 +202,11 @@ pub fn test_expression(){
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
     let geo = match &gmse.type_name[..] {
+        "SPRF" => {
+            Some(CateGeoParam::Profile(CateProfileParam {
+                pts: vec![]
+            }))
+        }
         "BOXI" => {
             let z_length = if gmse.box_lengths.len() >= 3 {
                 gmse.box_lengths[2]

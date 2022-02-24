@@ -88,8 +88,8 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
                     for v in spve {
                         let attr_map = interface.get_ele_attr(&v).await.unwrap();
                         gm_param.verts.push([
-                            attr_map.get_as_string("PX").unwrap_or_default(),
-                            attr_map.get_as_string("PY").unwrap_or_default()
+                            attr_map.get_as_string("PX").unwrap_or_default()/*.replace(":&+%X", "CAPR")*/.into(),
+                            attr_map.get_as_string("PY").unwrap_or_default()/*.replace(":&+%X", "CAPR")*/.into(),
                         ]);
                     }
                     gm_params.push(gm_param);
@@ -223,7 +223,7 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
     //求解子节点几何模型的数据
 
     //if gmse
-    let geometries = resolve_gmses(&scom_info.gm_params, &cur_context, &axis_map, None);
+    let geometries = resolve_gms(&scom_info.gm_params, &cur_context, &axis_map, None);
     // dbg!(&geometries);
     GeomsInfo {
         geometries,
