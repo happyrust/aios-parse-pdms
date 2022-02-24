@@ -1,6 +1,6 @@
 use crate::db_tool::db1_dehash;
 use crate::helper::*;
-use crate::pdms_data::{AxisParam, GmseParam, ScomInfo};
+use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
 use crate::parsed_data::geo_params_data::CateGeoParam::TubeImplied;
 use crate::parsed_data::{CateTubeImpliedParam, GmseParamData, GeomsInfo};
 use crate::pdms_types::AttrVal::IntArrayType;
@@ -65,6 +65,54 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
     interface: &T,
 ) -> Option<ScomInfo> {
     if let Some(attr_map) = interface.get_ele_attr(refno).await {
+
+        let type_noun = attr_map.get_type();
+        if type_noun == "SPRF" {
+            dbg!("SPRF");
+            let gmss_refno = attr_map.get_foreign_refno("GSTR").unwrap_or_default();
+            if let Some(gmss_attr) = interface
+                .get_ele_attr(&gmss_refno)
+                .await
+            {
+                let gmss_refno = gmss_attr.get_refno().unwrap();
+                dbg!(gmss_refno.to_refno_str());
+                let children = interface
+                    .get_ele_children_refs(&gmss_refno)
+                    .await;
+                let mut gm_params = vec![];
+                for child in children {
+                    let mut gm_param = GmParam::default();
+                    let spve = interface
+                        .get_ele_children_refs(&child)
+                        .await;
+                    for v in spve {
+                        let attr_map = interface.get_ele_attr(&v).await.unwrap();
+                        gm_param.verts.push([
+                            attr_map.get_as_string("PX").unwrap_or_default(),
+                            attr_map.get_as_string("PY").unwrap_or_default()
+                        ]);
+                    }
+                    gm_params.push(gm_param);
+                    break;
+                }
+                dbg!(&gm_params);
+                // gmse_params = query_gm_params(&gmse_am, interface).await;
+                return Some(ScomInfo {
+                    gtype: attr_map.get_as_string("GTYP").unwrap_or_default(),
+                    dtse_params: vec![],
+                    gm_params,
+                    axis_params: vec![],
+                    params: attr_map
+                        .get_as_string("PARA").unwrap_or_default()
+                        .replace("\n", " ")
+                        .replace("  ", " ").into(),
+                    axis_param_numbers: vec![],
+                    attr_map,
+                });
+            }
+
+        }
+
         let ptre_refno = attr_map.get_foreign_refno("PTRE").unwrap_or_default();
         let mut axis_params = vec![];
         let mut axis_param_numbers = vec![];
@@ -77,19 +125,19 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
             axis_param_numbers = axis_param_map.keys().cloned().collect::<Vec<_>>();
         }
 
-        let gmset_refno = attr_map.get_foreign_refno("GMRE").unwrap_or_default();
-        let mut gmse_params = vec![];
+        let gmse_refno = attr_map.get_foreign_refno("GMRE").unwrap_or_default();
+        let mut gm_params = vec![];
         if let Some(gmse_am) = interface
-            .get_ele_attr(&gmset_refno)
+            .get_ele_attr(&gmse_refno)
             .await
         {
-            gmse_params = query_gmse_params(&gmse_am, interface).await;
+            gm_params = query_gm_params(&gmse_am, interface).await;
         }
 
         return Some(ScomInfo {
-            gtype: attr_map.get_as_string("GTYPE").unwrap_or_default(),
+            gtype: attr_map.get_as_string("GTYP").unwrap_or_default(),
             dtse_params: vec![],
-            gmse_params,
+            gm_params,
             axis_params,
             params: attr_map
                 .get_as_string("PARA").unwrap_or_default()
@@ -110,7 +158,7 @@ pub async fn query_axis_params<T: PdmsDataInterface>(
     let mut map = BTreeMap::new();
     let refno = attr_map.get_refno().unwrap_or_default();
     let children = interface
-        .get_children_attrs(&refno)
+        .get_ele_children_attrs(&refno)
         .await;
     for child in children {
         let number = child.get_as_string("NUMB").unwrap_or_default().parse::<i32>().unwrap_or(-1);
@@ -120,19 +168,19 @@ pub async fn query_axis_params<T: PdmsDataInterface>(
 }
 
 ///查询gmse的参数
-pub async fn query_gmse_params<T: PdmsDataInterface>(
+pub async fn query_gm_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
     interface: &T,
-) -> Vec<GmseParam> {
-    let mut gmses = vec![];
+) -> Vec<GmParam> {
+    let mut gms = vec![];
     let refno = attr_map.get_refno().unwrap();
     let children = interface
-        .get_children_attrs(&refno)
+        .get_ele_children_attrs(&refno)
         .await;
     for child in children {
-        gmses.push(query_gmse_param(&child));
+        gms.push(query_gm_param(&child));
     }
-    gmses
+    gms
 }
 
 
@@ -159,6 +207,9 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
     //获取DTSE的expression
     process_dtse_params(&scom_info.attr_map, interface, &mut cur_context).await;
 
+    dbg!(&scom_info);
+
+    //保温层厚度
     cur_context.insert("IPARAM0".into(), "0".into());
     let params = get_attr_value_f64_vec(&scom_info.attr_map, "PARA").unwrap_or_default();
     for i in 0..params.len() {
@@ -170,7 +221,9 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
     let axis_map = resolve_axis_params(scom_info, &cur_context);
     // dbg!(&axis_map);
     //求解子节点几何模型的数据
-    let geometries = resolve_gmses(&scom_info.gmse_params, &cur_context, &axis_map, None);
+
+    //if gmse
+    let geometries = resolve_gmses(&scom_info.gm_params, &cur_context, &axis_map, None);
     // dbg!(&geometries);
     GeomsInfo {
         geometries,
@@ -241,7 +294,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
 }
 
 ///获得gmse的params
-pub fn query_gmse_param(attr_map: &AttrMap) -> GmseParam {
+pub fn query_gm_param(attr_map: &AttrMap) -> GmParam {
     let mut paxises = get_attr_strings_db(attr_map, &["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = attr_map.get_val("PTS") {
         match val {
@@ -255,7 +308,7 @@ pub fn query_gmse_param(attr_map: &AttrMap) -> GmseParam {
     }
     let centre_line_flag = attr_map.get_bool("CLFL");
     let tube_flag = attr_map.get_bool("TUFL");
-    GmseParam {
+    GmParam {
         attr_map: attr_map.clone(),
         radius: attr_map.get_as_string("PRAD").unwrap_or_default(),
         diameters: get_attr_strings_db(attr_map, &["PDIA", "PBDM", "PTDM", "DIAM"]),
@@ -270,6 +323,7 @@ pub fn query_gmse_param(attr_map: &AttrMap) -> GmseParam {
                 "PX", "PY", "PZ", "PBBT", "PCBT", "PBTP", "PCTP", "PBOF", "PCOF",
             ],
         ),
+        verts: vec![],
         paxises, // 先pa_axis, 后pb_axis
         centre_line_flag,
         tube_flag,
@@ -285,7 +339,7 @@ pub async fn process_dtse_params<T:PdmsDataInterface>(
 
     let dtre_refno = attr_map.get_foreign_refno("DTRE").unwrap_or_default();
     let children = interface
-        .get_children_attrs(&dtre_refno)
+        .get_ele_children_attrs(&dtre_refno)
         .await;
     for child in children {
         let key = child.get_as_string("DKEY").unwrap_or_default();

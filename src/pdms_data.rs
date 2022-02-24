@@ -26,7 +26,7 @@ pub struct ScomInfo {
     pub attr_map: AttrMap,
     pub gtype: SmolStr,
     pub dtse_params: Vec<DatasetParamStr>,
-    pub gmse_params: Vec<GmseParam>,
+    pub gm_params: Vec<GmParam>,
     pub axis_params: Vec<AxisParam>,
     pub params: SmolStr,
     pub axis_param_numbers: Vec<i32>,
@@ -52,8 +52,9 @@ pub struct DatasetParamStr {
     pub lhide: bool,
 }
 
+//GMSE GMSS
 #[derive(Clone, Debug, Default)]
-pub struct GmseParam {
+pub struct GmParam {
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     pub attr_map: AttrMap,
     pub radius: SmolStr,
@@ -66,6 +67,9 @@ pub struct GmseParam {
     /// 顺序 x y z
     pub box_lengths: Vec<SmolStr>,
     pub xyz: Vec<SmolStr>,
+
+    //profile  SPVE
+    pub verts: Vec<[SmolStr; 2]>,   //Px, Py
     /// 顺序 paxis pa_axis pb_axis pc_axis
     pub paxises: Vec<SmolStr>,
     pub centre_line_flag: bool,

@@ -63,6 +63,7 @@ use parse_pdms_db::notify_file_change::notify_file;
 use parse_pdms_db::prim_geo::ctorus::CTorus;
 use parse_pdms_db::prim_geo::dish::Dish;
 use parse_pdms_db::prim_geo::pdms_shape::{BrepShape, VerifiedShape};
+use parse_pdms_db::test_cases::test_database::test_column;
 
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
@@ -104,17 +105,17 @@ pub async fn run() -> AiosDbError {
                                              vec!["Sample".to_string(), "Master".to_string()],
                                              "Sample",
                                              Some(DbOption {
-                                                 total_sync: true,
+                                                 total_sync: false,
                                                  incr_sync: false,
                                              })).await.unwrap();
     // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
     let result = db_manager.cache_geos_data(7200).await?;
-    let refno = RefU64::from_two_nums(23584, 9695);
-    let refno = RefU64::from_two_nums(15192, 113114);
+    let refno = RefU64::from_two_nums(23584, 6125);
+    // let refno = RefU64::from_two_nums(15192, 113114);
 
     //cached 一些常用的取值操作
-    let refno_info = db_manager.get_refno_info(&refno).await;
-    dbg!(&refno_info);
+    // let refno_info = db_manager.get_refno_info(&refno).await;
+    // dbg!(&refno_info);
 
 
     //
@@ -122,9 +123,18 @@ pub async fn run() -> AiosDbError {
     // dbg!(db_manager.get_project_of_refno(&refno).await);
     // dbg!(db_manager.get_pretty_attr(&refno).await);
     // dbg!(db_manager.get_dehashed_attr(&refno).await);
-    dbg!(db_manager.get_world_transform(&refno).await);
-    dbg!(db_manager.get_children(&refno).await);
+    // dbg!(db_manager.get_world_transform(&refno).await);
+    // dbg!(db_manager.get_children(&refno).await);
     // dbg!(db_manager.get_db_of_refno(&refno).await);
+
+    let attr = db_manager.get_attr(&refno).await.unwrap().unwrap();
+    if let Some(spre) = attr.get_foreign_refno("SPRE"){
+        let geoms = db_manager.get_design_geoms(&refno).await;
+        // let geom = db_manager.get_sprf_geom(&spre).await.unwrap();
+
+        dbg!(&geoms);
+    }
+
 
 
     // let refno = RefU64::from_two_nums(15207, 8922);

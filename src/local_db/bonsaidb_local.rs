@@ -102,8 +102,13 @@ impl PdmsDataInterface for AiosDBManager {
     }
 
     #[inline]
-    async fn get_children_attrs(&self, refno: &RefU64) -> Vec<AttrMap> {
+    async fn get_ele_children_attrs(&self, refno: &RefU64) -> Vec<AttrMap> {
         self.get_children_attrs(refno).await.unwrap_or_default()
+    }
+
+    #[inline]
+    async fn get_ele_children_refs(&self, refno: &RefU64) -> RefU64Vec {
+        self.get_children(refno).await.unwrap().unwrap_or_default()
     }
 }
 
@@ -428,9 +433,13 @@ pub struct AiosDB {
 
 impl AiosDB {
     pub async fn create_att_database(path: &str) -> Result<Database, bonsaidb::local::Error> {
-        //format!("./AIOS_DBS/{project}/{ATT_DB_NAME}")
-        Database::open::<AttrMap>(StorageConfiguration::new(path)
-                                  /*  .default_compression(Compression::Lz4)*/).await
+        if cfg!(feature = "compression") {
+            Database::open::<AttrMap>(StorageConfiguration::new(path)
+                .default_compression(Compression::Lz4)
+            ).await
+        } else {
+            Database::open::<AttrMap>(StorageConfiguration::new(path)).await
+        }
     }
 
     pub async fn init(project: &str, dir: &str, info_db: RefInoDatabase, string_db: StringDatabase) -> Result<Self, bonsaidb::core::Error> {
@@ -545,7 +554,8 @@ impl AiosDB {
                 ..
             }) in r {
                 let target_dbno = if field_no == 0 {db_no} else{ field_no};
-                let mut attr_db = Self::create_att_database(format!("./AIOS_DBS/{project}/{target_dbno}.att").as_str()).await?;
+                let mut attr_db =
+                    Self::create_att_database(format!("./AIOS_DBS/{project}/{target_dbno}.att").as_str()).await?;
 
                 total_lookup.merge(&string_lookup);
 

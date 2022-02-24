@@ -7,7 +7,7 @@ use smol_str::SmolStr;
 use crate::AttrMap;
 use crate::db_tool::db1_dehash;
 use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params};
-use crate::pdms_data::{AxisParam, GmseParam, ScomInfo};
+use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
 use crate::parsed_data::{CateAxisParam, GmseParamData};
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_types::{AttrVal, EleNode};
@@ -113,7 +113,7 @@ pub fn resolve_axis_params(
 }
 
 pub fn resolve_gmses(
-    gmse_strs: &[GmseParam],
+    gmse_strs: &[GmParam],
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
     ddangle: Option<f64>,
@@ -128,7 +128,7 @@ pub fn resolve_gmses(
 
 /// 解析gmes的参数
 pub fn parse_paragon_gmse_params(
-    gmse_param: &GmseParam,
+    gmse_param: &GmParam,
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<CateGeoParam> {
@@ -141,7 +141,7 @@ pub fn parse_paragon_gmse_params(
 }
 
 pub fn resolve_gmse_params(
-    gmse: &GmseParam,
+    gmse: &GmParam,
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
@@ -289,7 +289,7 @@ pub fn resolve_axis_param(
 
 pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<SmolStr>) -> Option<SmolStr> {
     match expr {
-        "PARA" | "PARAM" => {
+        "PARA" | "PARAM" | "CPAR" => {
             *i += 1;
             Some(format!("PARAM{}", strs[*i]).into())
         }

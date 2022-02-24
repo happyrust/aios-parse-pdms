@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use dashmap::DashMap;
 use glam::{Vec2, Vec3};
 use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::pdms_data::GmseParam;
+use crate::pdms_data::GmParam;
 use crate::pdms_types::{AttrVal, EleNode};
 use serde_derive::{Deserialize, Serialize};
 use smol_str::SmolStr;

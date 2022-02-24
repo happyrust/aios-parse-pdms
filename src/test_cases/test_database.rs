@@ -3,8 +3,8 @@ use crate::local_db::bonsaidb_local::{AiosDBManager, DbOption};
 use crate::pdms_types::RefU64;
 
 // #[test]
-#[tokio::test]
-pub async fn test_wall(){
+// #[tokio::test]
+pub async fn test_column(){
 
     let path = "../Projects";
     // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
