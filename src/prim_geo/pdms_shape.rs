@@ -15,9 +15,10 @@ use fixed::types::I24F8;
 use ncollide3d::bounding_volume::AABB;
 use ncollide3d::math::{Point, Vector};
 use ncollide3d::na;
+use ncollide3d::shape::TriMesh;
 use truck_base::bounding_box::BoundingBox;
 use crate::AttrMap;
-use crate::pdms_types::GeoData;
+use crate::pdms_types::{AiosAABB, GeoData};
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::cylinder::{LCylinder, SCylinder};
 use crate::prim_geo::dish::Dish;
@@ -77,7 +78,21 @@ pub struct PdmsMesh{
     pub indices: Vec<u32>,
     pub vertices: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
-    pub aabb: (Vec3, Vec3),
+    pub aabb: AiosAABB,
+}
+
+impl PdmsMesh {
+    pub fn get_tri_mesh(&self, scaled: Vec3) -> TriMesh<f32> {
+        let mut points: Vec<ncollide3d::na::Point3<f32>> = vec![];
+        let mut indices: Vec<ncollide3d::na::Point3<usize>> = vec![];
+        self.vertices.iter().for_each(|p| {
+            points.push(ncollide3d::na::Point3::<f32>::new(p[0] * scaled.x, p[1] * scaled.y, p[2] * scaled.z))
+        });
+        self.indices.chunks(3).for_each(|i| {
+            indices.push(ncollide3d::na::Point3::<usize>::new(i[0] as usize, i[1] as usize, i[2] as usize));
+        });
+        TriMesh::new(points, indices, None)
+    }
 }
 
 pub trait BrepShape : VerifiedShape + Debug {
@@ -142,7 +157,7 @@ pub trait BrepShape : VerifiedShape + Debug {
                     indices,
                     vertices,
                     normals,
-                    aabb: (Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z))
+                    aabb: AiosAABB::new(Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z))
                 };
             }
         }

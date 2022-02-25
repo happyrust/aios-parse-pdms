@@ -31,7 +31,6 @@ async-trait = "0.1.52"
 #rocksdb = "0.18.0"
 sanakirja = "1.2.16"
 
-#sled = { version = "0.34.7", features = ["compression"] }
 sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
 #path="../bonsaidb/crates/bonsaidb",

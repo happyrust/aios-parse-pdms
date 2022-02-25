@@ -2,7 +2,7 @@ use std::cell::Ref;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
@@ -45,6 +45,12 @@ use crate::pdms_data::ScomInfo;
 use crate::pdms_types::AttrVal::{StringHashType, StringType};
 use crate::prim_geo::facet::{Contour, Facet, Polygon};
 use async_trait::async_trait;
+use ncollide3d::bounding_volume::AABB;
+use ncollide3d::na as na;
+use ncollide3d::na::{Isometry3, Translation3, UnitQuaternion};
+use ncollide3d::pipeline::{CollisionGroups, GeometricQueryType};
+use ncollide3d::query::{Ray, RayCast};
+use ncollide3d::shape::{Cuboid, ShapeHandle};
 use crate::query_cata::resolve_desi_comp;
 
 pub const ATT_DB_NAME: &'static str = "attr";
@@ -56,14 +62,18 @@ pub const STR_DB_NAME: &'static str = "strs";
 pub const GEOM_DB_NAME: &'static str = "geoms";
 
 ///collision world  存储所属元件名称和GeoId
-static GLOBAL_COLLISION_WORLD: Lazy<Mutex<CollisionWorld<f64, (String, RefU64)>>> = Lazy::new(|| {
-    let mut world = CollisionWorld::<f64, (String, RefU64)>::new(0.001f64);
+static GLOBAL_COLLISION_WORLD: Lazy<Mutex<CollisionWorld<f32, (RefU64, RefU64)>>> = Lazy::new(|| {
+    let mut world = CollisionWorld::<f32, (RefU64, RefU64)>::new(0.001f32);
     Mutex::new(world)
 });
 
 static PRIM_HASH_NOUNS: Lazy<Vec<u32>> = Lazy::new(|| {
     vec![BOX_NOUN, CYLI_NOUN, SPHE_NOUN, CONE_NOUN, CTOR_NOUN, DISH_NOUN,
          LOOP_NOUN, PYRA_NOUN, RTOR_NOUN, REVO_NOUN, POHE_NOUN]
+});
+
+static GENERIC_NOUN_NAMES: Lazy<Vec<SmolStr>> = Lazy::new(|| {
+    vec!["EQUI".into(), "PIPE".into(), "STRU".into(), "ROOM".into()]
 });
 
 
@@ -111,8 +121,6 @@ impl PdmsDataInterface for AiosDBManager {
         self.get_children(refno).await.unwrap().unwrap_or_default()
     }
 }
-
-
 
 impl AiosDBManager {
 
@@ -227,17 +235,33 @@ impl AiosDBManager {
         None
     }
 
-    ///缓存设备得几何体
+    pub async fn get_generic_type_refno(&self, refno: &RefU64) -> Option<(SmolStr, RefU64)>{
+        let mut cur_refno = *refno;
+        while let Some(attr) = self.get_attr(&cur_refno).await.expect("Get attr failed") {
+            if let Some(owner) = attr.get_owner() {
+                let noun_name = attr.get_type();
+                if GENERIC_NOUN_NAMES.contains(&noun_name){
+                    return Some((noun_name, cur_refno));
+                }
+                cur_refno = owner;
+            } else {
+                break;
+            }
+        }
+        None
+    }
+
+    ///缓存所有几何体
     pub async fn cache_geos_data(&mut self, db_code: u32) -> Result<HashMap<SmolStr, EleGeoData>, bonsaidb::core::Error> {
         // let db_code = 7200;
-        // let equip_hash = db1_hash("EQUI");
-        // let equip_key = combine_to_u64(equip_hash, db_code);
         let project = AiosStr("Sample".into());
         let mut main_db = self.db_map.get_mut(&project.get_u32_hash()).expect("Not exist project");
 
         let mut cached_mesh_mgr = CachedMeshes::default();
 
         let mut geo_map = HashMap::new();
+        let mut type_geom_refs_map = HashMap::new();
+        // let mut room_geom_refs_map = HashMap::new();
 
         if let Some(d) = PdmsTree::get(db_code as u64, &main_db.tree_db).await? {
             let tree = d.contents.0;
@@ -247,12 +271,19 @@ impl AiosDBManager {
                 while let Some(mut cur_node) = nodes.next() {
                     let d = cur_node.data();
                     let noun = d.noun;
-
-                    // let mut db = self.get_db_of_refno(&d.refno).await.expect("Refno not exist.");
                     let attr = self.get_attr(&d.refno).await?.unwrap();
 
                     if PRIM_HASH_NOUNS.contains(&noun) {
                         let mut scaled = Vec3::ONE;
+                        let mut generic_type = None;
+                        //获得类型和参考号
+                        if let Some(e) = self.get_generic_type_refno(&d.refno).await{
+                            if e.0 == "ROOM" {
+                                dbg!(&e);
+                            }
+                            type_geom_refs_map.entry(e.1).or_insert(Vec::new()).push(d.refno);
+                            generic_type = Some(e.0.clone());
+                        }
 
                         let mut tr = self.get_world_transform(&d.refno).await?;
                         let mut geo = None;
@@ -344,10 +375,15 @@ impl AiosDBManager {
                             }
                         }
                         if let Some(geo) = geo {
+                            let GeoData::Primitive((hash, scaled)) = &geo;
+                            let mut bbox = cached_mesh_mgr.get_bbox(hash).unwrap();
+                            bbox.scaled(scaled);
                             let geom_data = EleGeoData {
                                 geo,
+                                bbox,
                                 global_transform: (tr.rotation, tr.translation),
                                 visible: attr.is_visible(None),
+                                generic_type: generic_type.unwrap_or_default()
                             };
 
                             geo_map.insert(d.refno.to_refno_str(), geom_data);
@@ -372,10 +408,149 @@ impl AiosDBManager {
         let serialized = serde_json::to_string(&geo_map).unwrap();
         file.write_all(serialized.as_bytes()).unwrap();
 
+        let mut file = File::create(format!("./AIOS_DBS/type_geoms.json")).unwrap();
+        let serialized = serde_json::to_string(&type_geom_refs_map).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
+
+        // let mut file = File::create(format!("./AIOS_DBS/room_geoms.json")).unwrap();
+        // let serialized = serde_json::to_string(&room_geom_refs_map).unwrap();
+        // file.write_all(serialized.as_bytes()).unwrap();
+
         cached_mesh_mgr.serialize_to_json_file();
+        cached_mesh_mgr.serialize_to_bin_file();
         Ok(geo_map)
     }
 
+    //todo 基于元件库的模型也要生成
+    //todo 房间号的算法移植
+
+    pub async fn build_collision_world(&mut self, db_code: u32) -> Result<(), bonsaidb::core::Error> {
+        let mut world = GLOBAL_COLLISION_WORLD.lock().unwrap();
+        // *world = CollisionWorld::<f32, (RefU64, RefU64)>::new(0.01f32);
+        let query = GeometricQueryType::Proximity(0.0);
+        let groups = CollisionGroups::new();
+
+        let mut file = File::open(format!("./AIOS_DBS/type_geoms.json")).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        let type_geom_refs_map: HashMap<RefU64, Vec<RefU64>> = serde_json::from_slice(&buf).unwrap();
+
+        // let mut file = File::open(format!("./AIOS_DBS/room_geoms.json")).unwrap();
+        // let mut buf: Vec<u8> = Vec::new();
+        // file.read_to_end(&mut buf);
+        // let room_geom_refs_map: HashMap<RefU64, Vec<RefU64>> = bincode::deserialize(&buf).unwrap();
+
+        //暂时用json，方便调试
+        let mut file = File::open(format!("../web-aios/{db_code}_geoms.json")).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        let geo_map: HashMap<SmolStr, EleGeoData> = serde_json::from_slice(&buf).unwrap();
+
+        // 暂时找到所有的设备，在这里进行遍历，获得包围盒信息
+        let equip_hash = db1_hash("EQUI");
+        let equip_key = combine_to_u64(equip_hash, db_code);
+        let mut room_aabb_map = HashMap::new();
+        //查询出所有的设备的几何体
+        for (generic_ref, v) in type_geom_refs_map {
+            for refno in &v {
+                if let Some(geo_data) = geo_map.get(&refno.to_refno_str()) {
+                    if geo_data.generic_type == "ROOM" {
+                        room_aabb_map.insert(generic_ref, (v.clone(), geo_data.clone()));
+                    }else{
+                        let extents = geo_data.bbox.get_half_extents();
+                        let center = geo_data.bbox.get_center();
+                        let extents = na::Vector3::new(extents.x, extents.y, extents.z);
+                        let shape = ShapeHandle::new(Cuboid::new(extents));
+                        let (r, t) = geo_data.global_transform;
+                        let t = t + r * center;
+                        let translation = na::Vector3::new(t.x, t.y, t.z);
+                        let (axis, angle) = r.to_axis_angle();
+                        let axisangle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
+                        let iso = Isometry3::new(translation, axisangle);
+                        world.add(iso, shape.clone(), groups, query, (generic_ref, *refno));
+                    }
+                }
+            }
+        }
+
+        world.update();
+
+        let mut aabb_contained = HashMap::new();
+        let mut room_final_contained = HashMap::new();
+        let mut room_geo_refs_map = HashMap::new();
+        let mut cached_meshes = CachedMeshes::deserialize_from_bin_file();
+        for (k, (room_geo_refnos, room_geo)) in room_aabb_map {
+
+            room_geo_refs_map.insert(k.to_refno_str(), room_geo_refnos.into_iter().map(|x| x.to_refno_str()).collect::<Vec<_>>());
+
+            let e = room_geo.bbox.get_half_extents();
+            let c = room_geo.global_transform.1 + room_geo.bbox.get_center();
+            let aabb = AABB::from_half_extents(na::Point3::new(c.x, c.y, c.z),
+                                               na::Vector3::new(e.x, e.y, e.z));
+            // println!("{} : {:?}, {:?}", k.to_refno_str(), &v, &c);
+            let GeoData::Primitive((mesh_indx, scaled)) = room_geo.geo;
+            let (r, t) = room_geo.global_transform;
+            let translation = na::Vector3::new(t.x, t.y, t.z);
+            let (axis, angle) = r.to_axis_angle();
+            let axisangle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
+            let room_iso = Isometry3::new(translation, axisangle);
+            dbg!(&room_iso);
+
+            let room_tri_mesh = cached_meshes.meshes.get(&mesh_indx).unwrap().get_tri_mesh(scaled);
+            let interferences = world.interferences_with_aabb(&aabb,  &groups);
+            for x in interferences{
+                let generic_refno = x.1.data().0.clone();   //类型的参考号
+                let geom_refno = x.1.data().1.clone();
+                dbg!(geom_refno.to_refno_str());
+                if let Some(geo_data) = geo_map.get(&geom_refno.to_refno_str()) {
+
+                    let GeoData::Primitive((mesh_indx, scaled)) = &geo_data.geo;
+                    let tmp_mesh = cached_meshes.meshes.get(mesh_indx).unwrap();
+
+                    // let pt: Vec3 = (*tmp_mesh.vertices.first().unwrap()).into();
+                    // let pt = glam::TransformSRT{
+                    //     rotation: geo_data.global_transform.0,
+                    //     translation: geo_data.global_transform.1,
+                    //     scale: *scaled,
+                    // }.transform_vector3(pt);
+                    let pt = geo_data.global_transform.1;
+                    let first_pt = ncollide3d::na::Point3::new(pt.x, pt.y, pt.z);
+                    let ray_x = Ray::new(first_pt, ncollide3d::na::Vector3::z());
+                    let ray_neg_x = Ray::new(first_pt, -ncollide3d::na::Vector3::z());
+
+
+
+                    let ray_x =  room_tri_mesh.toi_with_ray(&room_iso, &ray_x, std::f32::MAX, false);
+                    let ray_neg_x =  room_tri_mesh.toi_with_ray(&room_iso, &ray_neg_x, std::f32::MAX, false);
+                    if ray_x.is_some() && ray_neg_x.is_some(){
+                        dbg!(geom_refno.to_refno_str());
+                        aabb_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(generic_refno.to_refno_str());
+                        room_final_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(geom_refno.to_refno_str());
+                    }else{
+                        println!("{} exclude from trimesh check", geom_refno.to_refno_str());
+                    }
+                }
+
+            }
+        }
+
+        let mut file = File::create(format!("../web-aios/room_contained_equips.json")).unwrap();
+        let serialized = serde_json::to_string(&aabb_contained).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
+
+        let mut file = File::create(format!("../web-aios/room_contained.json")).unwrap();
+        let serialized = serde_json::to_string(&room_final_contained).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
+
+
+        let mut file = File::create(format!("../web-aios/room_geo_refs_map.json")).unwrap();
+        let serialized = serde_json::to_string(&room_geo_refs_map).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
+
+        //room_geo_refs_map
+
+        Ok(())
+    }
 
     ///获得structure profile构件， 返回的是截面，这里生成拉伸Z方向的单元构件
     #[inline]
@@ -409,7 +584,6 @@ impl AiosDBManager {
 
         Ok(None)
     }
-
 
 }
 
@@ -627,17 +801,6 @@ impl AiosDB {
         }
         Ok(())
     }
-
-    //todo 基于元件库的模型也要生成
-    //todo 房间号的算法移植
-
-    pub async fn build_collision_world(&mut self) -> Result<(), bonsaidb::core::Error> {
-        let mut world = GLOBAL_COLLISION_WORLD.lock().unwrap();
-        // *world = CollisionWorld::<f64, (String, RefU64)>::new(0.001f64);
-        Ok(())
-    }
-
-
 
     ///获得下一个Element
     #[inline]

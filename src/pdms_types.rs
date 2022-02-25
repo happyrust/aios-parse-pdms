@@ -733,9 +733,8 @@ pub enum ScaledGeom{
     Sphere(f32),
 }
 
+//for json compatibility
 pub type PdmsMeshIdx = String;
-
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[repr(C)]
@@ -766,6 +765,43 @@ pub enum GeoData{
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct AiosAABB{
+    pub min: Vec3,
+    pub max: Vec3,
+}
+
+impl AiosAABB {
+
+    #[inline]
+    pub fn new(v1: Vec3, v2: Vec3) -> Self{
+        Self{
+            min: v1,
+            max: v2
+        }
+    }
+
+    #[inline]
+    pub fn scaled(&mut self, scale: &Vec3){
+        self.min = Vec3::new( self.min.x * scale.x, self.min.y * scale.y, self.min.z * scale.z  );
+        self.max = Vec3::new( self.max.x * scale.x, self.max.y * scale.y, self.max.z * scale.z  );
+    }
+
+    #[inline]
+    pub fn get_half_extents(&self) -> Vec3{
+        let center = (self.min + self.max) / 2.0;
+        self.max - center
+    }
+
+    #[inline]
+    pub fn get_center(&self) -> Vec3{
+        let center = (self.min + self.max) / 2.0;
+        center
+    }
+
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct CachedMeshes{
     pub meshes: HashMap<String, PdmsMesh>,    //世界坐标系的变换, 为了js兼容64位，暂时使用String
 }
@@ -782,23 +818,61 @@ impl CachedMeshes {
         (hash, scaled)
     }
 
+    pub fn get_bbox(&self, hash: &String) -> Option<AiosAABB>{
+        if self.meshes.contains_key(hash) {
+            let mesh = self.meshes.get(hash).unwrap();
+            return Some(mesh.aabb.clone());
+        }
+        None
+    }
+
+    pub fn serialize_to_bin_file(&self) -> bool{
+        let mut file = File::create(format!("../web-aios/cached_meshes.bin")).unwrap();
+        let serialized = bincode::serialize(&self).unwrap();
+        file.write_all(serialized.as_slice()).unwrap();
+        true
+    }
+
+    pub fn deserialize_from_bin_file() -> Self{
+        let mut file = File::open(format!("../web-aios/cached_meshes.bin")).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        bincode::deserialize(buf.as_slice()).unwrap()
+    }
+
     pub fn serialize_to_json_file(&self) -> bool{
         let mut file = File::create(format!("../web-aios/cached_meshes.json")).unwrap();
         let serialized = serde_json::to_string(&self).unwrap();
         file.write_all(serialized.as_bytes()).unwrap();
         true
     }
+
+    pub fn deserialize_from_json_file() -> Self{
+        let mut file = File::open(format!("../web-aios/cached_meshes.json")).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        serde_json::from_slice(&buf).unwrap()
+    }
 }
 
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct EleGeoData{
+pub struct  EleGeoData{
     pub geo: GeoData,
-    // pub bbox: AABB,
+    pub bbox: AiosAABB,
     pub global_transform: (Quat, Vec3),    //世界坐标系的变换
     pub visible: bool,
+    pub generic_type: SmolStr,  //所属一般类型，ROOM、STRU、PIPE等
 }
+
+impl EleGeoData {
+    //set the bounding box
+    pub fn set_bbox(&mut self, aabb: &AABB::<f32>){
+
+    }
+}
+
 
 impl Collection for EleGeoData {
     type PrimaryKey = u64;

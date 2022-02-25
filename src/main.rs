@@ -97,19 +97,20 @@ pub async fn run() -> AiosDbError {
     let mut time = Instant::now();
     // #[cfg(target_arch = "arch64")]
     let path = "../Projects";
+    let path = "G:/12.1SP4Projects";
     // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
     // #[cfg(target_arch = "arch64")]
-    //     let path = "C:/AVEVA/Plant/Projects12.1.SP4";
+    let path = "C:/AVEVA/Plant/Projects12.1.SP4";
 
     let mut db_manager = AiosDBManager::init(path,
-                                             vec!["Sample".to_string(), "Master".to_string()],
+                                             vec!["Sample".to_string()/*, "Master".to_string()*/],
                                              "Sample",
                                              Some(DbOption {
                                                  total_sync: false,
                                                  incr_sync: false,
                                              })).await.unwrap();
-    // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
     let result = db_manager.cache_geos_data(7200).await?;
+    db_manager.build_collision_world(7200).await?;
     let refno = RefU64::from_two_nums(23584, 6125);
     // let refno = RefU64::from_two_nums(15192, 113114);
 

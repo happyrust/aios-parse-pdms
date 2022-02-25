@@ -12,6 +12,7 @@ use ncollide3d::bounding_volume::AABB;
 use ncollide3d::na;
 use truck_meshalgo::prelude::*;
 use truck_modeling::Shell;
+use crate::pdms_types::AiosAABB;
 use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, hash_vec3, PdmsMesh, VerifiedShape};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
@@ -121,7 +122,7 @@ impl BrepShape for Facet {
             indices,
             vertices,
             normals,
-            aabb: (Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z))
+            aabb: AiosAABB::new(Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z))
         };
     }
 
