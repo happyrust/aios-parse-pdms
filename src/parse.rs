@@ -360,7 +360,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     }
     attr_info_map.iter().for_each(|pair| {
         let name = &pair.value().name;
-        if !attr_data_map.contains_attr(name.as_str()) {
+        if !attr_data_map.contains_attr_hash(*pair.key() as u32) {
             match name.as_str() {
                 "PTCDI" => attr_data_map.insert_by_att_name(name.as_str(), StringType("Y".into())),
                 "PARA" => attr_data_map.insert_by_att_name(name.as_str(), DoubleArrayType(vec![])),
@@ -373,11 +373,12 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     attr_data_map.insert_by_att_name("TYPE", WordType(noun_name.clone()));
     attr_data_map.insert_by_att_name("REFNO", RefU64Type(refno.into()));
     let mut name_hash = attr_data_map.get_name_hash();
-    if !attr_data_map.contains_attr("NAME"){
-        let name = format!("{} {indx}", &noun_name);
-        name_hash = string_lookup.add_str(name.as_str());
-        attr_data_map.insert_by_att_name("NAME".into(), StringHashType(name_hash));
-    }
+    //todo make a method return name
+    // if !attr_data_map.contains_attr_name("NAME"){
+    //     let name = format!("{} {indx}", &noun_name);
+    //     name_hash = string_lookup.add_str(name.as_str());
+    //     attr_data_map.insert_by_att_name("NAME".into(), StringHashType(name_hash));
+    // }
     EleData {
         refno: refno.into(),
         owner,

@@ -144,15 +144,13 @@ pub fn resolve_gmse_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-    let radius = eval_str_to_f64(&gm.radius, context).unwrap_or(10.0f64);
-    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(90.0f64);
+    let radius = eval_str_to_f64(&gm.radius, context).unwrap_or(0.0f64);
+    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
     let angle = ddangle.to_radians();
     let diameters = gm.diameters
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
-
-
 
     let distances = gm.distances
         .iter()
@@ -161,11 +159,11 @@ pub fn resolve_gmse_params(
 
     let verts = gm.verts
         .iter()
-        .map(|exp| [eval_str_to_f64(exp[0].as_str(), context).unwrap_or_default(),
-            eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default()])
-        .collect::<Vec<[f64; 2]>>();
+        .map(|exp| [eval_str_to_f64(exp[0].as_str(), context).unwrap_or_default() as f32,
+            eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default() as f32])
+        .collect::<Vec<[f32; 2]>>();
 
-    let height = eval_str_to_f64(&gm.height, context).unwrap_or(10.0);
+    let height = eval_str_to_f64(&gm.height, context).unwrap_or_default();
     let offset = eval_str_to_f64(&gm.offset, context).unwrap_or_default();
 
     let box_lengths = gm.box_lengths
@@ -207,7 +205,7 @@ pub fn resolve_gmse_params(
                 }
                 "T" => {}
                 _ => {
-                    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(90.0f64);
+                    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
                     let dir = parse_str_axis_to_vec3(name, ddangle);
                     let axis = CateAxisParam {
                         pt: vec![0.0f64, 0.0, 0.0],
@@ -222,8 +220,6 @@ pub fn resolve_gmse_params(
     }
     let attr_map = &gm.attr_map;
     Some(GmseParamData {
-        refno: attr_map.get_refno_as_string(),
-        owner: attr_map.get_owner_as_string(),
         type_name: attr_map.get_type(),
         radius,
         angle,
@@ -236,7 +232,7 @@ pub fn resolve_gmse_params(
         xyz,
         paxises,
         centre_line_flag: gm.centre_line_flag,
-        tube_flag: gm.tube_flag,
+        tube_flag: gm.visible_flag,
     })
 }
 

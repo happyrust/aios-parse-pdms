@@ -103,15 +103,15 @@ pub async fn run() -> AiosDbError {
     let path = "C:/AVEVA/Plant/Projects12.1.SP4";
 
     let mut db_manager = AiosDBManager::init(path,
-                                             vec!["Sample".to_string()/*, "Master".to_string()*/],
+                                             vec!["Sample".to_string(), "Master".to_string()],
                                              "Sample",
                                              Some(DbOption {
                                                  total_sync: false,
                                                  incr_sync: false,
                                              })).await.unwrap();
     let result = db_manager.cache_geos_data(7200).await?;
-    db_manager.build_collision_world(7200).await?;
-    let refno = RefU64::from_two_nums(23584, 6125);
+    // db_manager.build_collision_world(7200).await?;
+    let refno = RefU64::from_two_nums(23584, 6498);
     // let refno = RefU64::from_two_nums(15192, 113114);
 
     //cached 一些常用的取值操作
@@ -124,13 +124,15 @@ pub async fn run() -> AiosDbError {
     // dbg!(db_manager.get_project_of_refno(&refno).await);
     // dbg!(db_manager.get_pretty_attr(&refno).await);
     // dbg!(db_manager.get_dehashed_attr(&refno).await);
-    // dbg!(db_manager.get_world_transform(&refno).await);
+    dbg!(db_manager.get_world_transform(&refno).await);
     // dbg!(db_manager.get_children(&refno).await);
     // dbg!(db_manager.get_db_of_refno(&refno).await);
 
-    let attr = db_manager.get_attr(&refno).await.unwrap().unwrap();
+    let mut  cache_mgr = CachedMeshes::default();
+    let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
+    dbg!(&attr);
     if let Some(spre) = attr.get_foreign_refno("SPRE"){
-        let geoms = db_manager.get_design_geoms(&refno).await;
+        let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
         // let geom = db_manager.get_sprf_geom(&spre).await.unwrap();
 
         dbg!(&geoms);

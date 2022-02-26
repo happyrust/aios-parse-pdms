@@ -36,6 +36,7 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     let scom_ref = scom_ref.unwrap();
     let scom_info = query_scom_info(&scom_ref, interface).await;
     if scom_info.is_none() { return None; }
+    //dbg!(&scom_info);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     for i in 0..desp.len() {
         context.insert(
@@ -68,20 +69,21 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
 
         let type_noun = attr_map.get_type();
         if type_noun == "SPRF" {
-            dbg!("SPRF");
             let gmss_refno = attr_map.get_foreign_refno("GSTR").unwrap_or_default();
             if let Some(gmss_attr) = interface
                 .get_ele_attr(&gmss_refno)
                 .await
             {
                 let gmss_refno = gmss_attr.get_refno().unwrap();
-                dbg!(gmss_refno.to_refno_str());
+                // dbg!(gmss_refno.to_refno_str());
                 let children = interface
                     .get_ele_children_refs(&gmss_refno)
                     .await;
                 let mut gm_params = vec![];
                 for child in children {
                     let mut gm_param = GmParam::default();
+                    gm_param.visible_flag = true;
+                    gm_param.attr_map = interface.get_ele_attr(&child).await.unwrap();
                     let spve = interface
                         .get_ele_children_refs(&child)
                         .await;
@@ -95,7 +97,6 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
                     gm_params.push(gm_param);
                     break;
                 }
-                dbg!(&gm_params);
                 // gmse_params = query_gm_params(&gmse_am, interface).await;
                 return Some(ScomInfo {
                     gtype: attr_map.get_as_string("GTYP").unwrap_or_default(),
@@ -207,7 +208,7 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
     //获取DTSE的expression
     process_dtse_params(&scom_info.attr_map, interface, &mut cur_context).await;
 
-    dbg!(&scom_info);
+    // dbg!(&scom_info);
 
     //保温层厚度
     cur_context.insert("IPARAM0".into(), "0".into());
@@ -326,7 +327,7 @@ pub fn query_gm_param(attr_map: &AttrMap) -> GmParam {
         verts: vec![],
         paxises, // 先pa_axis, 后pb_axis
         centre_line_flag,
-        tube_flag,
+        visible_flag: tube_flag,
     }
 }
 

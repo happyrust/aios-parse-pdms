@@ -51,10 +51,12 @@ use ncollide3d::na::{Isometry3, Translation3, UnitQuaternion};
 use ncollide3d::pipeline::{CollisionGroups, GeometricQueryType};
 use ncollide3d::query::{Ray, RayCast};
 use ncollide3d::shape::{Cuboid, ShapeHandle};
+use truck_polymesh::stl::IntoSTLIterator;
+use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::query_cata::resolve_desi_comp;
 
 pub const ATT_DB_NAME: &'static str = "attr";
-pub const REFS_DB_NAME: &'static str = "refs";
+pub const TYPES_DB_NAME: &'static str = "refs";
 pub const CHILDREN_DB_NAME: &'static str = "children";
 pub const TREE_DB_NAME: &'static str = "tree";
 pub const INFO_DB_NAME: &'static str = "info";
@@ -86,9 +88,6 @@ pub struct PdmsConfig {
     pub mdb_name: String,
 }
 
-
-
-
 #[derive(Debug, Default, Clone)]
 pub struct DbOption {
     pub total_sync: bool,
@@ -98,14 +97,15 @@ pub struct DbOption {
 ///MDB数据库管理
 #[derive(Debug, Clone)]
 pub struct AiosDBManager {
-    pub db_map: HashMap<u32, AiosDB>, //project name hash -> Aios DB
-    pub info_db: RefInoDatabase,      //管理所有refno info的db
-    pub string_db: StringDatabase,
+    pub project_map: HashMap<u32, AiosPdmsProject>,
+    //project name hash -> Aios DB
+    pub info_db: RefInoDatabase,
+    //管理所有refno info的db
+    pub storage: Storage,
 }
 
 #[async_trait]
 impl PdmsDataInterface for AiosDBManager {
-
     #[inline]
     async fn get_ele_attr(&self, refno: &RefU64) -> Option<AttrMap> {
         self.get_attr(refno).await.unwrap()
@@ -123,43 +123,52 @@ impl PdmsDataInterface for AiosDBManager {
 }
 
 impl AiosDBManager {
-
     ///初始化
     pub async fn init(dir: &str, projects: Vec<String>, mdb_name: &str, option: Option<DbOption>) -> Result<AiosDBManager, bonsaidb::core::Error> {
+        let extra_storage_name = format!("./AIOS_DBS/AIOS_Extra");
+        let storage = Storage::open(
+            StorageConfiguration::new(extra_storage_name.as_str())
+                .default_compression(Compression::Lz4)
+                .with_schema::<AiosStr>()?
+                .with_schema::<RefnoInfo>()?
+        ).await?;
+
+        storage.create_database::<RefnoInfo>(INFO_DB_NAME, true).await?;
+        let mut info_db = RefInoDatabase {
+            db: storage.database::<RefnoInfo>(INFO_DB_NAME).await?
+        };
+
         let option = option.unwrap_or_default();
-        let mut string_db = StringDatabase::init(format!("./AIOS_DBS/{STR_DB_NAME}").as_str()).await;
         let mut db_map = HashMap::default();
-        let info_db = RefInoDatabase::init(format!("./AIOS_DBS/{INFO_DB_NAME}").as_str()).await;
         for project in projects {
-            let mut adb = AiosDB::init(project.as_str(), dir, info_db.clone(), string_db.clone()).await?;
-            //如果已经保存过了，不需要重新保存
-            if option.total_sync { adb.sync_total(&mut string_db).await?; }  //完全更新
+            let mut proj = AiosPdmsProject::init(project.as_str(), dir).await?;
+            //增量保存数据
+            if option.total_sync {
+                proj.sync_total(&info_db).await?;
+                info_db.merge(proj.get_info_database());
+            }  //完全更新
             if option.incr_sync {}    //todo 增量更新
             let project_str: SmolStr = project.into();
-            db_map.insert(AiosStr(project_str).get_u32_hash(), adb);
+            db_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
-
-        // dbg!(&string_lookup);
-        // string_db.serialize_to_default_json_file();
-
-        Ok(AiosDBManager{
-            db_map,
+        Ok(AiosDBManager {
+            project_map: db_map,
             info_db,
-            string_db
+            storage,
         })
     }
 
     ///获得refno的project 名称
     #[inline]
     pub async fn get_refno_info(&self, refno: &RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
-       self.info_db.get_refno_info(refno).await
+        self.info_db.get_refno_info(refno).await
     }
 
     /// 获得 children refno
     #[inline]
     pub async fn get_children(&self, refno: &RefU64) -> Result<Option<RefU64Vec>, bonsaidb::core::Error> {
-        if let Some(ref_info) = self.get_refno_info(refno).await?{
-            if let Some(db) = self.db_map.get(&ref_info.project_hash){
+        if let Some(ref_info) = self.get_refno_info(refno).await? {
+            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_children(refno).await;
             }
         }
@@ -177,12 +186,11 @@ impl AiosDBManager {
         Ok(atts)
     }
 
-
     ///获取attr 属性
     #[inline]
     pub async fn get_attr(&self, refno: &RefU64) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
-        if let Some(ref_info) = self.get_refno_info(refno).await?{
-            if let Some(db) = self.db_map.get(&ref_info.project_hash){
+        if let Some(ref_info) = self.get_refno_info(refno).await? {
+            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_attr(refno, ref_info.db_no).await;
             }
         }
@@ -192,12 +200,12 @@ impl AiosDBManager {
     ///string 被还原了的
     #[inline]
     pub async fn get_dehashed_attr(&self, refno: &RefU64) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
-        if let Some(ref_info) = self.get_refno_info(refno).await?{
-            if let Some(db) = self.db_map.get(&ref_info.project_hash){
-                if let Some(mut attr) = db.get_attr(refno, ref_info.db_no).await?{
+        if let Some(ref_info) = self.get_refno_info(refno).await? {
+            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
+                if let Some(mut attr) = db.get_attr(refno, ref_info.db_no).await? {
                     for (_, val) in attr.iter_mut() {
-                        if let StringHashType(h) = val{
-                            *val = StringType(self.string_db.get_string(*h).await?.unwrap_or_default().take());
+                        if let StringHashType(h) = val {
+                            *val = StringType(db.get_string(*h).await?.unwrap_or_default().take());
                         }
                     }
                     return Ok(Some(attr));
@@ -210,7 +218,7 @@ impl AiosDBManager {
     ///打印用
     #[inline]
     pub async fn get_pretty_attr(&self, refno: &RefU64) -> Result<HashMap<String, String>, bonsaidb::core::Error> {
-        if let Some(attr) = self.get_dehashed_attr(refno).await?{
+        if let Some(attr) = self.get_dehashed_attr(refno).await? {
             return Ok(attr.to_string_hashmap());
         }
         Ok(Default::default())
@@ -219,28 +227,84 @@ impl AiosDBManager {
     ///获取世界坐标变换矩阵
     #[inline]
     pub async fn get_world_transform(&self, refno: &RefU64) -> Result<glam::TransformRT, bonsaidb::core::Error> {
-        if let Some(ref_info) = self.get_refno_info(refno).await?{
-            if let Some(db) = self.db_map.get(&ref_info.project_hash){
+        if let Some(ref_info) = self.get_refno_info(refno).await? {
+            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_world_transform(refno, ref_info.db_no).await;
             }
         }
         Ok(glam::TransformRT::IDENTITY)
     }
 
-
     #[inline]
-    pub async fn get_design_geoms(&self, refno: &RefU64) -> Option<GeomsInfo>{
-        let geoms = crate::query_cata::resolve_desi_comp(&refno, self).await;
-        dbg!(&geoms);
+    pub async fn get_cat_ref_in_desi(&self, refno: &RefU64) -> Option<RefU64> {
+        if let Some(att) = self.get_attr(refno).await.unwrap() {
+            if let Some(spre) = att.get_foreign_refno("SPRE") {
+                if let Some(att) = self.get_attr(&spre).await.unwrap() {
+                    if let Some(cat) = att.get_foreign_refno("CATR") {
+                        return Some(cat);
+                    }
+                }
+            }
+        }
         None
     }
 
-    pub async fn get_generic_type_refno(&self, refno: &RefU64) -> Option<(SmolStr, RefU64)>{
+    #[inline]
+    pub async fn get_cat_att_in_desi(&self, refno: &RefU64) -> Option<AttrMap> {
+        if let Some(cat_ref) = self.get_cat_ref_in_desi(refno).await {
+            if let Some(att) = self.get_attr(&cat_ref).await.unwrap() {
+                return Some(att);
+            }
+        }
+        None
+    }
+
+    ///返回geo data， 还有对应的需要的旋转矩阵
+    #[inline]
+    pub async fn get_design_geoms(&self, refno: &RefU64, cached_mesh_mgr: &mut CachedMeshes) -> Option<(GeoData, Quat)> {
+
+        //todo，直接use type_refs里面的数据直接过滤出哪些有参考号，而不用一个个去找
+        if let Some(desi_att) = self.get_attr(refno).await.unwrap() {
+            if let Some(cat_att) = self.get_cat_att_in_desi(refno).await {
+                if cat_att.get_type().as_str() == "SPRF" {
+                    if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
+                        // dbg!(&geoms);
+                        if geoms.geometries.len() == 0 { return None; }
+                        if let Some(poss) = desi_att.get_poss() {
+                            if let Some(pose) = desi_att.get_pose() {
+                                let extru_dir: Vec3 = (pose - poss).normalize();
+                                let quat = Quat::from_rotation_arc(Vec3::Z, extru_dir);
+                                let height = pose.distance(poss).abs();
+                                if let CateGeoParam::Profile(profile) = &geoms.geometries[0] {
+                                    let loop_verts = profile.pts.iter().map(|x| Vec3::new(x[0], x[1], 0.0)).collect();
+                                    if height >= f32::EPSILON {
+                                        let extrusion = Box::new(Extrusion {
+                                            loop_verts,
+                                            height,
+                                            ..Default::default()
+                                        });
+                                        if extrusion.check_valid() {
+                                            let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
+                                            return Some((GeoData::Primitive(r), quat));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {   //管道的一些情况
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub async fn get_generic_type_refno(&self, refno: &RefU64) -> Option<(SmolStr, RefU64)> {
         let mut cur_refno = *refno;
         while let Some(attr) = self.get_attr(&cur_refno).await.expect("Get attr failed") {
             if let Some(owner) = attr.get_owner() {
                 let noun_name = attr.get_type();
-                if GENERIC_NOUN_NAMES.contains(&noun_name){
+                if GENERIC_NOUN_NAMES.contains(&noun_name) {
                     return Some((noun_name, cur_refno));
                 }
                 cur_refno = owner;
@@ -253,17 +317,14 @@ impl AiosDBManager {
 
     ///缓存所有几何体
     pub async fn cache_geos_data(&mut self, db_code: u32) -> Result<HashMap<SmolStr, EleGeoData>, bonsaidb::core::Error> {
-        // let db_code = 7200;
         let project = AiosStr("Sample".into());
-        let mut main_db = self.db_map.get_mut(&project.get_u32_hash()).expect("Not exist project");
+        let mut main_db = self.project_map.get_mut(&project.get_u32_hash()).expect("Not exist project");
 
         let mut cached_mesh_mgr = CachedMeshes::default();
 
         let mut geo_map = HashMap::new();
         let mut type_geom_refs_map = HashMap::new();
-        // let mut room_geom_refs_map = HashMap::new();
-
-        if let Some(d) = PdmsTree::get(db_code as u64, &main_db.tree_db).await? {
+        if let Some(d) = PdmsTree::get(db_code as u64, main_db.get_tree_database()).await? {
             let tree = d.contents.0;
             let root_node_id = tree.root_node_id().unwrap();
             let node_id = tree.root_node_id().unwrap();
@@ -272,27 +333,26 @@ impl AiosDBManager {
                     let d = cur_node.data();
                     let noun = d.noun;
                     let attr = self.get_attr(&d.refno).await?.unwrap();
+                    let mut geo = None;
+                    let mut generic_type = None;
+                    let mut scaled = Vec3::ONE;
 
+                    let mut extra_rot = Quat::IDENTITY;
                     if PRIM_HASH_NOUNS.contains(&noun) {
-                        let mut scaled = Vec3::ONE;
-                        let mut generic_type = None;
                         //获得类型和参考号
-                        if let Some(e) = self.get_generic_type_refno(&d.refno).await{
+                        if let Some(e) = self.get_generic_type_refno(&d.refno).await {
                             if e.0 == "ROOM" {
                                 dbg!(&e);
                             }
                             type_geom_refs_map.entry(e.1).or_insert(Vec::new()).push(d.refno);
                             generic_type = Some(e.0.clone());
                         }
-
-                        let mut tr = self.get_world_transform(&d.refno).await?;
-                        let mut geo = None;
                         if noun == LOOP_NOUN {
                             let parent = attr.get_owner().unwrap();
                             let mut parent_att = self.get_attr(&parent).await?.unwrap();
                             let parent_noun = parent_att.get_type();
                             let mut loop_verts: Vec<Vec3> = vec![];
-                            if let Some(children_refs) = self.get_children(&d.refno).await?{
+                            if let Some(children_refs) = self.get_children(&d.refno).await? {
                                 for x in children_refs {
                                     let v = self.get_attr(&x).await?.unwrap().get_position();
                                     loop_verts.push(v);
@@ -364,8 +424,6 @@ impl AiosDBManager {
                                 let r = cached_mesh_mgr.get_pdms_mesh_hash_key(Box::new(facet));
                                 geo = Some(GeoData::Primitive(r));
                             }
-
-
                         } else {
                             if let Some(brep_obj) = attr.create_brep_shape() {
                                 if brep_obj.check_valid() {
@@ -374,32 +432,31 @@ impl AiosDBManager {
                                 }
                             }
                         }
-                        if let Some(geo) = geo {
-                            let GeoData::Primitive((hash, scaled)) = &geo;
-                            let mut bbox = cached_mesh_mgr.get_bbox(hash).unwrap();
-                            bbox.scaled(scaled);
-                            let geom_data = EleGeoData {
-                                geo,
-                                bbox,
-                                global_transform: (tr.rotation, tr.translation),
-                                visible: attr.is_visible(None),
-                                generic_type: generic_type.unwrap_or_default()
-                            };
-
-                            geo_map.insert(d.refno.to_refno_str(), geom_data);
-                        } // end of insert geo_map
-                    }
-                    else{
-                        if let Some(spre) = attr.get_foreign_refno("SPRE"){
-                            // let mut cate_db = self.get_db_of_refno(&spre).await.expect("DB not exist");
-                            // //需要去取spref的key
-                            // if let Some(cat_ref) = self.get_attr(&spre).await{
-                            //     //dbg!(&cat_ref);
-                            // }
+                    } else {
+                        //todo use known nouns to quick filter
+                        if let Some(spre) = attr.get_foreign_refno("SPRE") {
+                            if let Some((g, r)) = self.get_design_geoms(&d.refno, &mut cached_mesh_mgr).await{
+                                geo = Some(g);
+                                extra_rot = r;
+                            }
                         }
-                        // let tr = self.get_world_transform(&d.refno).await;
                     }
 
+                    //处理有几何体返回的情况，需要加入到几何列表里
+                    if let Some(geo) = geo {
+                        let GeoData::Primitive((hash, scaled)) = &geo;
+                        let tr = self.get_world_transform(&d.refno).await?;
+                        let mut bbox = cached_mesh_mgr.get_bbox(hash).unwrap();
+                        bbox.scaled(scaled);
+                        let geom_data = EleGeoData {
+                            geo,
+                            bbox,
+                            global_transform: (tr.rotation.mul_quat(extra_rot), tr.translation),
+                            visible: attr.is_visible(None),
+                            generic_type: generic_type.unwrap_or_default(),
+                        };
+                        geo_map.insert(d.refno.to_refno_str(), geom_data);
+                    } // end of insert geo_map
                 }
             }
         }
@@ -435,11 +492,6 @@ impl AiosDBManager {
         file.read_to_end(&mut buf);
         let type_geom_refs_map: HashMap<RefU64, Vec<RefU64>> = serde_json::from_slice(&buf).unwrap();
 
-        // let mut file = File::open(format!("./AIOS_DBS/room_geoms.json")).unwrap();
-        // let mut buf: Vec<u8> = Vec::new();
-        // file.read_to_end(&mut buf);
-        // let room_geom_refs_map: HashMap<RefU64, Vec<RefU64>> = bincode::deserialize(&buf).unwrap();
-
         //暂时用json，方便调试
         let mut file = File::open(format!("../web-aios/{db_code}_geoms.json")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -456,7 +508,7 @@ impl AiosDBManager {
                 if let Some(geo_data) = geo_map.get(&refno.to_refno_str()) {
                     if geo_data.generic_type == "ROOM" {
                         room_aabb_map.insert(generic_ref, (v.clone(), geo_data.clone()));
-                    }else{
+                    } else {
                         let extents = geo_data.bbox.get_half_extents();
                         let center = geo_data.bbox.get_center();
                         let extents = na::Vector3::new(extents.x, extents.y, extents.z);
@@ -480,7 +532,6 @@ impl AiosDBManager {
         let mut room_geo_refs_map = HashMap::new();
         let mut cached_meshes = CachedMeshes::deserialize_from_bin_file();
         for (k, (room_geo_refnos, room_geo)) in room_aabb_map {
-
             room_geo_refs_map.insert(k.to_refno_str(), room_geo_refnos.into_iter().map(|x| x.to_refno_str()).collect::<Vec<_>>());
 
             let e = room_geo.bbox.get_half_extents();
@@ -497,13 +548,12 @@ impl AiosDBManager {
             dbg!(&room_iso);
 
             let room_tri_mesh = cached_meshes.meshes.get(&mesh_indx).unwrap().get_tri_mesh(scaled);
-            let interferences = world.interferences_with_aabb(&aabb,  &groups);
-            for x in interferences{
+            let interferences = world.interferences_with_aabb(&aabb, &groups);
+            for x in interferences {
                 let generic_refno = x.1.data().0.clone();   //类型的参考号
                 let geom_refno = x.1.data().1.clone();
                 dbg!(geom_refno.to_refno_str());
                 if let Some(geo_data) = geo_map.get(&geom_refno.to_refno_str()) {
-
                     let GeoData::Primitive((mesh_indx, scaled)) = &geo_data.geo;
                     let tmp_mesh = cached_meshes.meshes.get(mesh_indx).unwrap();
 
@@ -519,18 +569,16 @@ impl AiosDBManager {
                     let ray_neg_x = Ray::new(first_pt, -ncollide3d::na::Vector3::z());
 
 
-
-                    let ray_x =  room_tri_mesh.toi_with_ray(&room_iso, &ray_x, std::f32::MAX, false);
-                    let ray_neg_x =  room_tri_mesh.toi_with_ray(&room_iso, &ray_neg_x, std::f32::MAX, false);
-                    if ray_x.is_some() && ray_neg_x.is_some(){
+                    let ray_x = room_tri_mesh.toi_with_ray(&room_iso, &ray_x, std::f32::MAX, false);
+                    let ray_neg_x = room_tri_mesh.toi_with_ray(&room_iso, &ray_neg_x, std::f32::MAX, false);
+                    if ray_x.is_some() && ray_neg_x.is_some() {
                         dbg!(geom_refno.to_refno_str());
                         aabb_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(generic_refno.to_refno_str());
                         room_final_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(geom_refno.to_refno_str());
-                    }else{
+                    } else {
                         println!("{} exclude from trimesh check", geom_refno.to_refno_str());
                     }
                 }
-
             }
         }
 
@@ -555,14 +603,13 @@ impl AiosDBManager {
     ///获得structure profile构件， 返回的是截面，这里生成拉伸Z方向的单元构件
     #[inline]
     pub async fn get_sprf_geom(&self, spre: &RefU64) -> Result<Option<GeoData>, bonsaidb::core::Error> {
-
-        if let Some(spre_attr)= self.get_dehashed_attr(spre).await?{
+        if let Some(spre_attr) = self.get_dehashed_attr(spre).await? {
             // dbg!(spre_attr.to_string_hashmap());
-            if let Some(cat_ref) = spre_attr.get_foreign_refno("CATR"){
-                if let Some(cat_attr)= self.get_dehashed_attr(&cat_ref).await?{
+            if let Some(cat_ref) = spre_attr.get_foreign_refno("CATR") {
+                if let Some(cat_attr) = self.get_dehashed_attr(&cat_ref).await? {
                     dbg!(cat_attr.to_string_hashmap());
-                    if let Some(gms_ref) = cat_attr.get_foreign_refno("GSTR"){
-                        if let Some(gms_attr)= self.get_dehashed_attr(&gms_ref).await?{
+                    if let Some(gms_ref) = cat_attr.get_foreign_refno("GSTR") {
+                        if let Some(gms_attr) = self.get_dehashed_attr(&gms_ref).await? {
                             dbg!(gms_attr.to_string_hashmap());
                             let children = self.get_children(&gms_ref).await?.unwrap_or_default();
                             let mut loop_verts: Vec<Vec3> = vec![];
@@ -584,70 +631,114 @@ impl AiosDBManager {
 
         Ok(None)
     }
-
 }
 
 /// DB 单个数据库管理
 #[derive(Debug, Clone, )]
-pub struct AiosDB {
+pub struct AiosPdmsProject {
     pub project: String,
     pub dir: String,
+    pub storage: Storage,
     //pdms data directory
     pub att_db_map: HashMap<u32, Database>,   //att map 需要做分库, db_number -> database
-    // pub attr_db:  Database,   //att map 需要做分库, db_name -> database
-    pub refs_db: Database,
+
+    pub types_db: Database,
     pub children_db: Database,
     pub tree_db: Database,
     pub info_db: RefInoDatabase,
     pub string_db: StringDatabase,
-    pub geom_db: Storage,
     pub mdb_name: Option<String>,
 }
 
 
-impl AiosDB {
-    pub async fn create_att_database(path: &str) -> Result<Database, bonsaidb::local::Error> {
-        if cfg!(feature = "compression") {
-            Database::open::<AttrMap>(StorageConfiguration::new(path)
-                .default_compression(Compression::Lz4)
-            ).await
-        } else {
-            Database::open::<AttrMap>(StorageConfiguration::new(path)).await
+impl AiosPdmsProject {
+    #[inline]
+    pub fn get_attr_database(&self, db_no: u32) -> Option<Database> {
+        if let Some(att_db) = self.att_db_map.get(&db_no) {
+            return Some(att_db.clone());
         }
+        None
     }
 
-    pub async fn init(project: &str, dir: &str, info_db: RefInoDatabase, string_db: StringDatabase) -> Result<Self, bonsaidb::core::Error> {
+    ///获得children的数据库
+    #[inline]
+    pub fn get_children_database(&self) -> &Database {
+        &self.children_db
+    }
+
+
+    ///获得tree的数据库
+    #[inline]
+    pub fn get_info_database(&self) -> &RefInoDatabase {
+        &self.info_db
+    }
+
+    ///获得type refs的数据库
+    #[inline]
+    pub fn get_type_refs_database(&self) -> &Database {
+        &self.types_db
+    }
+
+    ///获得tree的数据库
+    #[inline]
+    pub fn get_tree_database(&self) -> &Database {
+        &self.tree_db
+    }
+
+    ///获得strings的数据库
+    #[inline]
+    pub fn get_string_database(&self) -> &StringDatabase {
+        &self.string_db
+    }
+
+    pub async fn init(project: &str, dir: &str) -> Result<Self, bonsaidb::core::Error> {
+        let cur_project = format!("./AIOS_DBS/{project}");
+        let storage = Storage::open(
+            StorageConfiguration::new(cur_project.as_str())
+                .default_compression(Compression::Lz4)
+                .with_schema::<AttrMap>()?
+                .with_schema::<RefU64Vec>()?
+                .with_schema::<PdmsTree>()?
+                .with_schema::<AiosStr>()?
+                .with_schema::<RefnoInfo>()?
+        ).await?;
 
         //需要把所有的db number
         let mut att_db_map = HashMap::new();
-        let cur_project = format!("./AIOS_DBS/{project}");
-        let mut db_dir = Path::new(cur_project.as_str());
-        if db_dir.exists() {
-            let mut target_dir = fs::read_dir(db_dir).unwrap().into_iter().map(|entry| {
-                let entry = entry.unwrap();
-                entry.path()
-            }).collect::<Vec<_>>();
 
-            for x in target_dir {
-                let extension = x.extension().unwrap_or_default().to_str().unwrap();
-                if extension == "att" {
-                    let db_code = x.file_stem().unwrap().to_str().unwrap().parse::<u32>().unwrap();
-                    let db = Database::open::<AttrMap>(StorageConfiguration::new(x)).await.unwrap();
-                    att_db_map.insert(db_code, db);
-                }
+        let dbs = storage.list_databases().await?;
+        for x in dbs {
+            if let Ok(num) = x.name.parse::<u32>() {
+                let name = x.name.as_str();
+                let db = storage.database::<AttrMap>(name).await?;
+                att_db_map.insert(num, db);
             }
         }
+        storage.create_database::<PdmsTree>(TREE_DB_NAME, true).await?;
+        let tree_db = storage.database::<PdmsTree>(TREE_DB_NAME).await?;
+
+        storage.create_database::<RefU64Vec>(CHILDREN_DB_NAME, true).await?;
+        let children_db = storage.database::<RefU64Vec>(CHILDREN_DB_NAME).await?;
+
+        storage.create_database::<RefU64Vec>(TYPES_DB_NAME, true).await?;
+        let types_db = storage.database::<RefU64Vec>(TYPES_DB_NAME).await?;
+
+        storage.create_database::<AiosStr>(STR_DB_NAME, true).await?;
+        let string_db = storage.database::<AiosStr>(STR_DB_NAME).await?;
+
+        storage.create_database::<RefnoInfo>(INFO_DB_NAME, true).await?;
+        let info_db = storage.database::<RefnoInfo>(INFO_DB_NAME).await?;
 
         Ok(Self {
             project: project.to_string(),
             dir: dir.to_string(),
+            storage,
             att_db_map,
-            refs_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{REFS_DB_NAME}"))/*.default_compression(Compression::Lz4)*/).await?,
-            children_db: Database::open::<RefU64Vec>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{CHILDREN_DB_NAME}"))/*.default_compression(Compression::Lz4)*/).await?,
-            tree_db: Database::open::<PdmsTree>(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{TREE_DB_NAME}"))/*.default_compression(Compression::Lz4)*/).await?,
-            info_db,
-            string_db,
-            geom_db: Storage::open(StorageConfiguration::new(format!("./AIOS_DBS/{project}/{GEOM_DB_NAME}")).with_schema::<EleGeoData>()?).await?,
+            types_db,
+            children_db,
+            tree_db,
+            info_db: RefInoDatabase { db: info_db },
+            string_db: StringDatabase { db: string_db },
             mdb_name: None,
         })
     }
@@ -655,7 +746,7 @@ impl AiosDB {
     //按需要打开database
     #[inline]
     pub async fn get_attr(&self, refno: &RefU64, db_no: u32) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
-        if let Some(att_db) = self.att_db_map.get(&db_no){
+        if let Some(att_db) = self.att_db_map.get(&db_no) {
             if let Ok(Some(mut d)) = AttrMap::get(refno.get_u32_hash(), att_db).await {
                 return Ok(Some(d.contents));
             }
@@ -664,15 +755,20 @@ impl AiosDB {
     }
 
     #[inline]
+    pub async fn get_string(&self, h: u32) -> Result<Option<AiosStr>, bonsaidb::core::Error> {
+        self.get_string_database().get_string(h).await
+    }
+
+    #[inline]
     pub async fn get_children(&self, refno: &RefU64) -> Result<Option<RefU64Vec>, bonsaidb::core::Error> {
-        if let Ok(Some(mut d)) = RefU64Vec::get(refno.0, &self.children_db).await {
+        if let Ok(Some(mut d)) = RefU64Vec::get(refno.0, self.get_children_database()).await {
             return Ok(Some(d.contents));
         }
         Ok(Default::default())
     }
 
     //包含自己
-    pub async fn get_ancestors_attrs(&self, refno: &RefU64, db_no: u32) -> Result<Vec<AttrMap>, bonsaidb::core::Error>{
+    pub async fn get_ancestors_attrs(&self, refno: &RefU64, db_no: u32) -> Result<Vec<AttrMap>, bonsaidb::core::Error> {
         let mut cur_refno = *refno;
         let mut r = vec![];
         while let Some(attr) = self.get_attr(&cur_refno, db_no).await? {
@@ -705,7 +801,7 @@ impl AiosDB {
     }
 
     //todo  infos 存储什么的问题，要不要存储dbno
-    pub async fn sync_total(&mut self, string_db: &mut StringDatabase) -> Result<(), bonsaidb::core::Error> {
+    pub async fn sync_total(&mut self, external_info_db: &Database) -> Result<(), bonsaidb::core::Error> {
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
         let project_dir = data_dir.join(&project);
@@ -713,7 +809,8 @@ impl AiosDB {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
-        if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(),None) {
+
+        if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None) {
             let mut total_lookup = StringLookupTable::default();
             for (k, PdmsDbData {
                 all_attr_map,
@@ -727,22 +824,22 @@ impl AiosDB {
                 children_map,
                 ..
             }) in r {
-                let target_dbno = if field_no == 0 {db_no} else{ field_no};
-                let mut attr_db =
-                    Self::create_att_database(format!("./AIOS_DBS/{project}/{target_dbno}.att").as_str()).await?;
-
+                let target_dbno = if field_no == 0 { db_no } else { field_no };
                 total_lookup.merge(&string_lookup);
 
                 let mut tx = Transaction::default();
-                let pdms_tree = PdmsTree(ele_id_tree);
                 tx.push(transaction::Operation::overwrite_serialized::<PdmsTree>(
                     target_dbno as u64,
-                    &pdms_tree,
+                    &PdmsTree(ele_id_tree),
                 ).unwrap());
-                self.tree_db.apply_transaction(tx).await.unwrap();
+                self.get_tree_database().apply_transaction(tx).await?;
 
                 // 属性全部插入
                 dbg!(all_attr_map.len());
+                let dbno_str = target_dbno.to_string();
+                self.storage.create_database::<AttrMap>(dbno_str.as_str(), true).await?;
+                let mut attr_db = self.storage.database::<AttrMap>(dbno_str.as_str()).await?;
+                //todo use multi thread
                 for chunk in &all_attr_map.iter().chunks(400000usize) {
                     let mut tx = Transaction::default();
                     for kv in chunk {
@@ -751,19 +848,20 @@ impl AiosDB {
                             kv.value(),
                         ).unwrap());
                     }
-                    attr_db.apply_transaction(tx).await.unwrap();
+                    attr_db.apply_transaction(tx).await?;
                 }
                 self.att_db_map.insert(target_dbno, attr_db);
 
                 let mut tx = Transaction::default();
                 for (type_noun, v) in type_ele_map {
-                    let k = combine_to_u64(type_noun, target_dbno as u32);
+                    // let k = combine_to_u64(type_noun, target_dbno as u32);
+                    let k = type_noun as u64;
                     tx.push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
                         k,
                         &v,
                     ).unwrap());
                 }
-                self.refs_db.apply_transaction(tx).await.unwrap();
+                self.get_type_refs_database().apply_transaction(tx).await?;
 
 
                 let mut tx = Transaction::default();
@@ -773,32 +871,38 @@ impl AiosDB {
                         &v,
                     ).unwrap());
                 }
-                self.children_db.apply_transaction(tx).await.unwrap();
+                self.get_children_database().apply_transaction(tx).await?;
+
 
                 dbg!(refno_info_map.len());
                 for chunk in &refno_info_map.iter().chunks(400000usize) {
                     let mut tx = Transaction::default();
-                    for (k,v) in chunk {
+                    for (k, v) in chunk {
                         tx.push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
                             *k,
                             v,
                         ).unwrap());
                     }
-                    self.info_db.apply_transaction(tx).await.unwrap();
+                    self.get_info_database().apply_transaction(tx.clone()).await?;
+                    external_info_db.apply_transaction(tx).await?;
                 }
             }
 
             for chunk in &total_lookup.lookup.iter().chunks(400000usize) {
                 let mut tx = Transaction::default();
-                for (k,v) in chunk {
+                for (k, v) in chunk {
                     tx.push(transaction::Operation::overwrite_serialized::<AiosStr>(
                         *k,
                         v,
                     ).unwrap());
                 }
-                self.string_db.apply_transaction(tx).await.unwrap();
+                self.get_string_database().apply_transaction(tx).await?;
             }
         }
+
+        let dbs = self.storage.list_databases().await?;
+        dbg!(&dbs.iter().map(|x| x.name.clone()).collect::<Vec<_>>());
+
         Ok(())
     }
 
@@ -807,9 +911,6 @@ impl AiosDB {
     pub async fn next(&mut self) -> Result<(), bonsaidb::core::Error> {
         Ok(())
     }
-
-
-
 }
 
 

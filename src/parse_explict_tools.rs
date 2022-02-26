@@ -597,6 +597,17 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             result_stack.push(expression);
                         }
                     }
+                    &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0x88, 0x73] => {
+                        if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                            let expression = "ATTRIB CPAR";
+                            let value = result_stack.pop().unwrap();
+                            let value = format!("{}[{}] ", expression, value);
+                            result_stack.push(value);
+                        } else {
+                            let expression = "ATTRIB CPAR ".to_string();
+                            result_stack.push(expression);
+                        }
+                    }
                     &[0x0, 0x0, 0x0, 0x5, 0x0, 0xD, 0xBC, 0xF9] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB CATR ".to_string();

@@ -202,9 +202,9 @@ pub fn test_expression(){
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
     let geo = match &gmse.type_name[..] {
-        "SPRF" => {
+        "SPRO" => {   //structural profile
             Some(CateGeoParam::Profile(CateProfileParam {
-                pts: vec![]
+                pts: gmse.verts
             }))
         }
         "BOXI" => {

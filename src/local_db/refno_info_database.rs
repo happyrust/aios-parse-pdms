@@ -32,7 +32,11 @@ impl RefInoDatabase {
     ///获得refno的project 名称
     #[inline]
     pub async fn get_refno_info(&self, refno: &RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
-        // self.get_refno_info_by_hash(refno.get_u32_hash())
         Ok(RefnoInfo::get(refno.get_0(), &self.db).await?.map(|x| x.contents))
+    }
+
+    pub async fn merge(&mut self, other: &Self) -> Result<bool, bonsaidb::core::Error>{
+
+        Ok(true)
     }
 }

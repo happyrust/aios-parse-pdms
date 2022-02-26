@@ -9,7 +9,7 @@ edition = "2021"
 opt-level = 2
 
 [features]
-default = []  #"compression"
+default = ["compression"]  #"compression"
 compression = []
 web = []   #compile for just web usage, now it is too heavy now
 

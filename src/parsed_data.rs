@@ -58,10 +58,8 @@ pub struct Dataset {
     
     pub self_type: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct GmseParamData {
-    pub refno: SmolStr,
-    pub owner: SmolStr,
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     pub type_name: SmolStr,
     pub radius: f64,
@@ -72,7 +70,7 @@ pub struct GmseParamData {
     pub distances: ::prost::alloc::vec::Vec<f64>,
     pub height: f64,
     pub offset: f64,
-    pub verts: Vec<[f64; 2]>,
+    pub verts: Vec<[f32; 2]>,
     /// 顺序 x y z
     pub box_lengths: ::prost::alloc::vec::Vec<f64>,
     pub xyz: ::prost::alloc::vec::Vec<f64>,
@@ -197,7 +195,7 @@ pub struct CateExtrusionParam {
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct CateProfileParam {
-    pub pts: Vec<Vec2>
+    pub pts: Vec<[f32; 2]>
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]

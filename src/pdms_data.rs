@@ -73,7 +73,7 @@ pub struct GmParam {
     /// 顺序 paxis pa_axis pb_axis pc_axis
     pub paxises: Vec<SmolStr>,
     pub centre_line_flag: bool,
-    pub tube_flag: bool,
+    pub visible_flag: bool,
 }
 
 #[derive(Clone, Debug, Default)]

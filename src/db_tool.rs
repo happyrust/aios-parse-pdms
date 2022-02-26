@@ -27,7 +27,10 @@ pub const fn db1_hash(hash_str: &str) -> u32{
     let mut chars = hash_str.as_bytes();
     let mut val = 0u32;
     let mut i = (chars.len() - 1) as i32;
-
+    //warning only max 4 chars support
+    if i > 3 {
+        i = 3;
+    }
     while i>=0 {
         val = val*27 + (chars[i as usize] as u32 - 64);
         i -= 1;

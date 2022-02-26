@@ -234,6 +234,12 @@ impl From<SmolStr> for NounHash {
     }
 }
 
+impl From<u32> for NounHash {
+    fn from(n: u32) -> Self {
+        Self(n)
+    }
+}
+
 impl From<&str> for NounHash {
     fn from(s: &str) -> Self {
         Self(db1_hash(s))
@@ -274,8 +280,13 @@ impl AttrMap {
     }
 
     #[inline]
-    pub fn contains_attr(&self, name: &str) -> bool{
+    pub fn contains_attr_name(&self, name: &str) -> bool{
         self.map.contains_key(&name.into())
+    }
+
+    #[inline]
+    pub fn contains_attr_hash(&self, hash: u32) -> bool{
+        self.map.contains_key(&(hash.into()))
     }
 
     // pub fn dehash_value(&self, m: &StringLookupTable) -> AttrMap{
@@ -470,8 +481,29 @@ impl AttrMap {
     pub fn get_position(&self) -> Vec3{
         if let Some(pos) = get_attr_value_f64_vec(self, "POS") {
             return glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
+        }else{
+            //如果没有POS，就以POSS来尝试
+            if let Some(poss) = self.get_poss() {
+                return poss;
+            }
         }
         Vec3::ZERO
+    }
+
+    #[inline]
+    pub fn get_poss(&self) -> Option<Vec3>{
+        if let Some(pos) = get_attr_value_f64_vec(self, "POSS") {
+            return Some(glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
+        }
+        None
+    }
+
+    #[inline]
+    pub fn get_pose(&self) -> Option<Vec3>{
+        if let Some(pos) = get_attr_value_f64_vec(self, "POSE") {
+            return Some(glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
+        }
+        None
     }
 
     #[inline]
@@ -614,21 +646,15 @@ impl SerializedCollection for PdmsTree {
     }
 }
 
-// 一个参考号是有可能重复的，project信息可以不用存储，获取信息时必须要带上 db_no
+/// 一个参考号是有可能重复的，project信息可以不用存储，获取信息时必须要带上 db_no
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefnoInfo {
     /// 参考号的ref0
     pub ref_0: u32,  //只需要保存一个ref0的信息，就能知道这个数据在哪个位置
-    // /// 项目名
+    /// 项目hash
     pub project_hash: u32,
-    // pub project_hash: u32,
-    /// 所属db number
+    /// 对应db number
     pub db_no: u32,
-    // 参考号对应的node_id
-    // pub node_id: NodeId,
-    // 子节点的hash
-    // #[serde(skip_serializing)]
-    // pub children: Vec<u32>,  //存储子节点，导致数据非常的大，不可取
 }
 
 impl Collection for RefnoInfo {
@@ -1043,11 +1069,21 @@ impl AiosStr {
         self.hash(&mut fnv);
         fnv.finish()
     }
-
     pub fn take(mut self) -> SmolStr{
         self.0
     }
 
+    pub fn as_str(&self) -> &str{
+        self.0.as_str()
+    }
+}
+
+impl Deref for AiosStr {
+    type Target = SmolStr;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl hash32::Hash for AiosStr {

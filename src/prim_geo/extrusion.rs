@@ -14,7 +14,7 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, hash_vec3, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
 #[reflect(Component)]
@@ -25,7 +25,7 @@ pub struct Extrusion {
 
     pub pbax_expr: String,
     pub pbax_pt: Vec3,   //B Axis point
-    pub pbax_dir: Vec3,   //B Axis Direction
+    pub pbax_dir: Vec3,   //B Axis Direction, extru direction
 
     pub loop_verts: Vec<Vec3>, //loop vertex
     pub height: f32,
@@ -61,10 +61,9 @@ impl BrepShape for Extrusion {
     fn hash_mesh_params(&self) -> u64{
         let mut hasher = DefaultHasher::new();
         self.loop_verts.iter().for_each(|v|  {
-            I24F8::from_num(v[0]).hash(&mut hasher);
-            I24F8::from_num(v[1]).hash(&mut hasher);
-            I24F8::from_num(v[2]).hash(&mut hasher);
+            hash_vec3::<DefaultHasher>(v, &mut hasher);
         });
+        // hash_vec3::<DefaultHasher>(&self.pbax_dir, &mut hasher);
         hasher.finish()
     }
 
@@ -79,7 +78,6 @@ impl BrepShape for Extrusion {
 
     //沿着指定方向拉伸 pbax_dir
     fn get_scaled_vec3(&self) -> Vec3{
-        // self.height * self.pbax_dir
         Vec3::new(1.0, 1.0, self.height)
     }
 
