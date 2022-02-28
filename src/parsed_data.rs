@@ -173,6 +173,8 @@ pub struct CateLCylinderParam {
     
     pub tube_flag: bool,
 }
+
+///拉伸的基本体
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct CateExtrusionParam {
     
@@ -187,6 +189,8 @@ pub struct CateExtrusionParam {
     pub y: f64,
     
     pub z: f64,
+
+    pub verts: Vec<[f32; 2]>,  //2D points
     
     pub centre_line_flag: bool,
     

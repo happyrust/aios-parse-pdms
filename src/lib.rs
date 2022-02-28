@@ -10,7 +10,8 @@
 
 #[macro_use]
 extern crate serde;
-
+#[macro_use]
+extern crate approx;
 #[macro_use]
 extern crate hash32_derive;
 extern crate hash32;

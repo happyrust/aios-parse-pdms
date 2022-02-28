@@ -73,6 +73,13 @@ type AiosDbError = core::result::Result<(), Box<dyn std::error::Error>>;
 async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
+#[test]
+pub fn test_hash_noun(){
+    dbg!(db1_dehash(0xE5461));
+    dbg!(db1_dehash(0xC89B3));
+    dbg!(db1_dehash(0x9298B));
+    dbg!(db1_dehash(0x9CAF3));
+}
 
 fn main_1() {
     notify_file();
@@ -109,9 +116,9 @@ pub async fn run() -> AiosDbError {
                                                  total_sync: false,
                                                  incr_sync: false,
                                              })).await.unwrap();
-    let result = db_manager.cache_geos_data(7200).await?;
+    // let result = db_manager.cache_geos_data(7200).await?;
     // db_manager.build_collision_world(7200).await?;
-    let refno = RefU64::from_two_nums(23584, 6498);
+    let refno = RefU64::from_two_nums(23584, 6252);
     // let refno = RefU64::from_two_nums(15192, 113114);
 
     //cached 一些常用的取值操作
@@ -123,20 +130,20 @@ pub async fn run() -> AiosDbError {
     // dbg!(refno_info);
     // dbg!(db_manager.get_project_of_refno(&refno).await);
     // dbg!(db_manager.get_pretty_attr(&refno).await);
-    // dbg!(db_manager.get_dehashed_attr(&refno).await);
+    dbg!(db_manager.get_pretty_attr(&refno).await);
     dbg!(db_manager.get_world_transform(&refno).await);
     // dbg!(db_manager.get_children(&refno).await);
     // dbg!(db_manager.get_db_of_refno(&refno).await);
 
-    let mut  cache_mgr = CachedMeshes::default();
-    let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
-    dbg!(&attr);
-    if let Some(spre) = attr.get_foreign_refno("SPRE"){
-        let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
-        // let geom = db_manager.get_sprf_geom(&spre).await.unwrap();
-
-        dbg!(&geoms);
-    }
+    // let mut  cache_mgr = CachedMeshes::default();
+    // let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
+    // dbg!(&attr);
+    // if let Some(spre) = attr.get_foreign_refno("SPRE"){
+    //     let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
+    //     // let geom = db_manager.get_sprf_geom(&spre).await.unwrap();
+    //
+    //     dbg!(&geoms);
+    // }
 
 
 

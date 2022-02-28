@@ -1,6 +1,7 @@
 use std::cell::Ref;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::f32::EPSILON;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::mem::size_of;
@@ -259,10 +260,9 @@ impl AiosDBManager {
         None
     }
 
-    ///返回geo data， 还有对应的需要的旋转矩阵
+    ///返回geo data，
     #[inline]
-    pub async fn get_design_geoms(&self, refno: &RefU64, cached_mesh_mgr: &mut CachedMeshes) -> Option<(GeoData, Quat)> {
-
+    pub async fn get_design_geoms(&self, refno: &RefU64, cached_mesh_mgr: &mut CachedMeshes) -> Option<GeoData> {
         //todo，直接use type_refs里面的数据直接过滤出哪些有参考号，而不用一个个去找
         if let Some(desi_att) = self.get_attr(refno).await.unwrap() {
             if let Some(cat_att) = self.get_cat_att_in_desi(refno).await {
@@ -272,12 +272,11 @@ impl AiosDBManager {
                         if geoms.geometries.len() == 0 { return None; }
                         if let Some(poss) = desi_att.get_poss() {
                             if let Some(pose) = desi_att.get_pose() {
-                                let extru_dir: Vec3 = (pose - poss).normalize();
-                                let quat = Quat::from_rotation_arc(Vec3::Z, extru_dir);
-                                let height = pose.distance(poss).abs();
+                                let height = pose.distance(poss);
+                                //这里需要加入一个旋转调整
                                 if let CateGeoParam::Profile(profile) = &geoms.geometries[0] {
                                     let loop_verts = profile.pts.iter().map(|x| Vec3::new(x[0], x[1], 0.0)).collect();
-                                    if height >= f32::EPSILON {
+                                    if height.abs() >= f32::EPSILON {
                                         let extrusion = Box::new(Extrusion {
                                             loop_verts,
                                             height,
@@ -285,7 +284,7 @@ impl AiosDBManager {
                                         });
                                         if extrusion.check_valid() {
                                             let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
-                                            return Some((GeoData::Primitive(r), quat));
+                                            return Some((GeoData::Primitive(r)));
                                         }
                                     }
                                 }
@@ -435,10 +434,7 @@ impl AiosDBManager {
                     } else {
                         //todo use known nouns to quick filter
                         if let Some(spre) = attr.get_foreign_refno("SPRE") {
-                            if let Some((g, r)) = self.get_design_geoms(&d.refno, &mut cached_mesh_mgr).await{
-                                geo = Some(g);
-                                extra_rot = r;
-                            }
+                            geo = self.get_design_geoms(&d.refno, &mut cached_mesh_mgr).await;
                         }
                     }
 
@@ -451,7 +447,7 @@ impl AiosDBManager {
                         let geom_data = EleGeoData {
                             geo,
                             bbox,
-                            global_transform: (tr.rotation.mul_quat(extra_rot), tr.translation),
+                            global_transform: (tr.rotation, tr.translation),
                             visible: attr.is_visible(None),
                             generic_type: generic_type.unwrap_or_default(),
                         };
@@ -789,8 +785,54 @@ impl AiosPdmsProject {
         let mut rotation = Quat::IDENTITY;
         let mut translation = Vec3::ZERO;
         let mut parent: Option<Quat> = None;
+
+        //need check the type
+        // let w_poss = parent_trans.transform_point3(poss);
+        // dbg!(w_poss);
+        // let w_pose = parent_trans.transform_point3(pose);
+        // dbg!(w_pose);
+        // let extru_dir: Vec3 = (w_pose - w_poss).normalize();
+        // let bangle = desi_att.get_f32("BANG").unwrap_or_default();
+        // dbg!(&bangle);
+        // let quat = Quat::from_rotation_arc(Vec3::Z, extru_dir);
         for attr in ancestors {
-            let t = attr.get_rotation();
+            let t = if attr.get_type() == "SCTN" {
+                let tr = TransformRT {
+                    rotation,
+                    translation,
+                };
+                let mut final_rot = Quat::IDENTITY;
+                if let Some(poss) = attr.get_poss() {
+                    if let Some(pose) = attr.get_pose() {
+                        let w_poss = tr.transform_point3(poss);
+                        dbg!(w_poss);
+                        let w_pose = tr.transform_point3(pose);
+                        dbg!(w_pose);
+                        let extru_dir: Vec3 = (w_pose - w_poss).normalize();
+                        let bangle = attr.get_f32("BANG").unwrap_or_default();
+                        dbg!(&bangle);
+                        //如果和Z轴平行，需要使用Y轴作为参考轴
+                        // abs_diff_eq!(1.0, 1.0, epsilon = f32::EPSILON);
+                        let d = extru_dir.dot(Vec3::Z).abs();
+                        let mut ref_axis = if abs_diff_eq!(1.0, d, epsilon = f32::EPSILON) {
+                            Vec3::Y
+                        } else { Vec3::Z };
+                        // dbg!(&ref_axis);
+                        let p_axis = ref_axis.cross(extru_dir).normalize();
+                        // dbg!(&p_axis);
+                        let y_axis = extru_dir.cross(p_axis).normalize();
+                        // dbg!(&y_axis);
+                        final_rot = Quat::from_mat3(&glam::f32::Mat3::from_cols_array_2d(
+                            &[p_axis.to_array(), y_axis.to_array(), extru_dir.to_array()]
+                        )/*.transpose()*/) * Quat::from_rotation_z(bangle.to_radians());
+                        let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
+                        // dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
+                    }
+                }
+                final_rot
+            } else {
+                attr.get_rotation()
+            };
             translation = translation + rotation * attr.get_position();
             rotation = rotation * t;
         }

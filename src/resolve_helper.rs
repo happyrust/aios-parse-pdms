@@ -347,6 +347,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 x: gmse.xyz[0],
                 y: gmse.xyz[1],
                 z: gmse.xyz[2],
+                verts: vec![],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
             }))

@@ -27,6 +27,7 @@ regex = "1.5.4"
 futures = "0.3.19"
 fixed = "1.12"
 async-trait = "0.1.52"
+approx = "0.5.1"
 
 #rocksdb = "0.18.0"
 sanakirja = "1.2.16"
