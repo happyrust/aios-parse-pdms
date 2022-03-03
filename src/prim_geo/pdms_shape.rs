@@ -1,17 +1,16 @@
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use bevy::prelude::{Mesh, Vec3};
+
 use bevy::prelude::FromWorld;
 use truck_modeling::{Curve, Shell};
 // use bevy_inspector_egui::Inspectable;
 use bevy::ecs::component::Component;
-use bevy::render::mesh::Indices;
-use bevy::render::render_resource::PrimitiveTopology;
 use truck_base::cgmath64::{Point3, Vector3};
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
 use bevy::reflect::{Reflect, ReflectRef};
 use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
+use glam::Vec3;
 use ncollide3d::bounding_volume::AABB;
 use ncollide3d::math::{Point, Vector};
 use ncollide3d::na;
@@ -115,7 +114,7 @@ pub trait BrepShape : VerifiedShape + Debug {
     }
 
     //直接使用基本体的快速生成
-    fn quick_gen_mesh(&self) -> Option<Mesh>{
+    fn quick_gen_mesh(&self) -> Option<PdmsMesh>{
         None
     }
 

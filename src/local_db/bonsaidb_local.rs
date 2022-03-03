@@ -53,6 +53,7 @@ use ncollide3d::pipeline::{CollisionGroups, GeometricQueryType};
 use ncollide3d::query::{Ray, RayCast};
 use ncollide3d::shape::{Cuboid, ShapeHandle};
 use truck_polymesh::stl::IntoSTLIterator;
+use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::query_cata::resolve_desi_comp;
 
@@ -268,14 +269,14 @@ impl AiosDBManager {
             if let Some(cat_att) = self.get_cat_att_in_desi(refno).await {
                 if cat_att.get_type().as_str() == "SPRF" {
                     if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
-                        // dbg!(&geoms);
+                        dbg!(&geoms);
                         if geoms.geometries.len() == 0 { return None; }
                         if let Some(poss) = desi_att.get_poss() {
                             if let Some(pose) = desi_att.get_pose() {
                                 let height = pose.distance(poss);
                                 //这里需要加入一个旋转调整
-                                if let CateGeoParam::Profile(profile) = &geoms.geometries[0] {
-                                    let loop_verts = profile.pts.iter().map(|x| Vec3::new(x[0], x[1], 0.0)).collect();
+                                if let CateGeoParam::Profile(CateProfileParam::SPRO(profile)) = &geoms.geometries[0] {
+                                    let loop_verts = profile.iter().map(|x| Vec3::new(x[0], x[1], 0.0)).collect();
                                     if height.abs() >= f32::EPSILON {
                                         let extrusion = Box::new(Extrusion {
                                             loop_verts,

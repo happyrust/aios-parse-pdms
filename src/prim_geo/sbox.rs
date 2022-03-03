@@ -1,6 +1,4 @@
 use bevy::prelude::*;
-use bevy::render::mesh::Indices;
-use bevy::render::render_resource::PrimitiveTopology;
 use truck_base::cgmath64::Vector3;
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
 use truck_modeling::{builder, Shell, Solid};
@@ -60,68 +58,6 @@ impl BrepShape for SBox {
         let f = builder::tsweep(&e, Vector3::unit_y() * self.size.y as f64);
         let mut s = builder::tsweep(&f, Vector3::unit_z() * self.size.z as f64).into_boundaries();
         s.pop()
-    }
-
-    // fn gen_mesh(&self) -> Mesh{
-    //     self.quick_gen_mesh().unwrap()
-    // }
-
-    fn quick_gen_mesh(&self) -> Option<Mesh>{
-
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-
-        dbg!("quick gen box");
-
-        let xp = (0.5 * self.size[0]);
-        let xm = -xp;
-        let yp = (0.5 * self.size[1]) ;
-        let ym = -yp;
-        let zp = (0.5 * self.size[2]);
-        let zm = -zp;
-        let verts = [
-            [ [xm, ym, zp ], [xm, yp, zp ], [xm, yp, zm ], [xm, ym, zm  ]],
-            [ [xp, ym, zm ], [xp, yp, zm ], [xp, yp, zp ], [xp, ym, zp  ]],
-            [ [xp, ym, zm ], [xp, ym, zp ], [xm, ym, zp ], [xm, ym, zm  ]],
-            [ [xm, yp, zm ], [xm, yp, zp ], [xp, yp, zp ], [xp, yp, zm  ]],
-            [ [xm, yp, zm ], [xp, yp, zm ], [xp, ym, zm ], [xm, ym, zm  ]],
-            [ [xm, ym, zp ], [xp, ym, zp ], [xp, yp, zp ], [xm, yp, zp  ]]
-        ];
-        let ns = [
-            [-1.0, 0.0,  0.0 ],
-            [1.0,  0.0,  0.0 ],
-            [0.0, -1.0,  0.0 ],
-            [0.0,  1.0,  0.0 ],
-            [0.0,  0.0, -1.0 ],
-            [0.0,  0.0,  1.0 ]
-        ];
-
-        let faces_n = 6;
-        let vertices_n = 6 * 4;
-        let mut positions = Vec::with_capacity(vertices_n);
-        let mut normals = Vec::with_capacity(vertices_n);
-        let triangles_n = 2 * faces_n;
-        let mut indices = Vec::with_capacity(3*triangles_n);
-        let mut uvs = Vec::new();
-
-        let mut o = 0usize;
-        let mut i_v = 0usize;
-        let mut i_p = 0usize;
-        for f in 0..6{
-            for i in 0..4{
-                normals.push(ns[f]);
-                positions.push(verts[f][i]);
-                uvs.push([0.0, 0.0]);
-            }
-            quad_indices(&mut indices, &mut i_p, o, 0, 1, 2, 3);
-            o += 4;
-        }
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.set_indices(Some(Indices::U16(
-            indices.into_iter().map(|x| x as u16).collect()
-        )));
-        Some(mesh)
     }
 }
 

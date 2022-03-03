@@ -66,53 +66,53 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
     interface: &T,
 ) -> Option<ScomInfo> {
     if let Some(attr_map) = interface.get_ele_attr(refno).await {
-
         let type_noun = attr_map.get_type();
-        if type_noun == "SPRF" {
-            let gmss_refno = attr_map.get_foreign_refno("GSTR").unwrap_or_default();
-            if let Some(gmss_attr) = interface
-                .get_ele_attr(&gmss_refno)
-                .await
-            {
-                let gmss_refno = gmss_attr.get_refno().unwrap();
-                // dbg!(gmss_refno.to_refno_str());
-                let children = interface
-                    .get_ele_children_refs(&gmss_refno)
-                    .await;
-                let mut gm_params = vec![];
-                for child in children {
-                    let mut gm_param = GmParam::default();
-                    gm_param.visible_flag = true;
-                    gm_param.attr_map = interface.get_ele_attr(&child).await.unwrap();
-                    let spve = interface
-                        .get_ele_children_refs(&child)
-                        .await;
-                    for v in spve {
-                        let attr_map = interface.get_ele_attr(&v).await.unwrap();
-                        gm_param.verts.push([
-                            attr_map.get_as_string("PX").unwrap_or_default()/*.replace(":&+%X", "CAPR")*/.into(),
-                            attr_map.get_as_string("PY").unwrap_or_default()/*.replace(":&+%X", "CAPR")*/.into(),
-                        ]);
-                    }
-                    gm_params.push(gm_param);
-                    break;
-                }
-                // gmse_params = query_gm_params(&gmse_am, interface).await;
-                return Some(ScomInfo {
-                    gtype: attr_map.get_as_string("GTYP").unwrap_or_default(),
-                    dtse_params: vec![],
-                    gm_params,
-                    axis_params: vec![],
-                    params: attr_map
-                        .get_as_string("PARA").unwrap_or_default()
-                        .replace("\n", " ")
-                        .replace("  ", " ").into(),
-                    axis_param_numbers: vec![],
-                    attr_map,
-                });
-            }
-
-        }
+        // if type_noun == "SPRF" {
+        //     let gmss_refno = attr_map.get_foreign_refno("GSTR").unwrap_or_default();
+        //     if let Some(gmss_attr) = interface
+        //         .get_ele_attr(&gmss_refno)
+        //         .await
+        //     {
+        //         let gmss_refno = gmss_attr.get_refno().unwrap();
+        //         // dbg!(gmss_refno.to_refno_str());
+        //         let children = interface
+        //             .get_ele_children_refs(&gmss_refno)
+        //             .await;
+        //         let mut gm_params = vec![];
+        //         for child in children {
+        //             let mut gm_param = GmParam::default();
+        //             gm_param.visible_flag = true;
+        //             let attr_map = interface.get_ele_attr(&child).await.unwrap();
+        //             let tmp_type = attr_map.get_type();
+        //             if tmp_type.as_str() == "SPRO" {
+        //                 let spve = interface
+        //                     .get_ele_children_refs(&child)
+        //                     .await;
+        //                 for v in spve {
+        //                     let attr_map = interface.get_ele_attr(&v).await.unwrap();
+        //                     gm_param.verts.push([
+        //                         attr_map.get_as_string("PX").unwrap_or_default(),
+        //                         attr_map.get_as_string("PY").unwrap_or_default(),
+        //                     ]);
+        //                 }
+        //             }
+        //             gm_params.push(gm_param);
+        //             //todo 需要弄清楚是否只有一个有用
+        //             return Some(ScomInfo {
+        //                 gtype: attr_map.get_as_string("GTYP").unwrap_or_default(),
+        //                 dtse_params: vec![],
+        //                 gm_params,
+        //                 axis_params: vec![],
+        //                 params: attr_map
+        //                     .get_as_string("PARA").unwrap_or_default()
+        //                     .replace("\n", " ")
+        //                     .replace("  ", " ").into(),
+        //                 axis_param_numbers: vec![],
+        //                 attr_map,
+        //             });
+        //         }
+        //     }
+        // }
 
         let ptre_refno = attr_map.get_foreign_refno("PTRE").unwrap_or_default();
         let mut axis_params = vec![];
@@ -198,13 +198,13 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
     //默认值
     cur_context
         .entry(DDHEIGHT_STR.into())
-        .or_insert("1.0".into());
+        .or_insert("0.0".into());
     cur_context
         .entry(DDRADIUS_STR.into())
-        .or_insert("1.0".into());
+        .or_insert("0.0".into());
     cur_context
         .entry(DDANGLE_STR.into())
-        .or_insert("90.0".into());
+        .or_insert("0.0".into());
     //获取DTSE的expression
     process_dtse_params(&scom_info.attr_map, interface, &mut cur_context).await;
 
@@ -310,13 +310,14 @@ pub fn query_gm_param(attr_map: &AttrMap) -> GmParam {
     let centre_line_flag = attr_map.get_bool("CLFL");
     let tube_flag = attr_map.get_bool("TUFL");
     GmParam {
-        attr_map: attr_map.clone(),
+        gm_type: attr_map.get_type(),
         radius: attr_map.get_as_string("PRAD").unwrap_or_default(),
+        pang: attr_map.get_as_string("PANG").unwrap_or_default(),
+        width: attr_map.get_as_string("PWID").unwrap_or_default(),
         diameters: get_attr_strings_db(attr_map, &["PDIA", "PBDM", "PTDM", "DIAM"]),
         distances: get_attr_strings_db(attr_map, &["PDIS", "PBDI", "PTDI"]),
         height: attr_map.get_as_string("PHEI").unwrap_or_default(),
         offset: attr_map.get_as_string("POFF").unwrap_or_default(),
-        // box_lengths: get_attr_strings_db(ele_map, &["PXEL", "PYEL", "PZEL"]),
         box_lengths: get_attr_strings_db(attr_map, &["PXLE", "PYLE", "PZLE"]),
         xyz: get_attr_strings_db(
             attr_map,
@@ -324,7 +325,10 @@ pub fn query_gm_param(attr_map: &AttrMap) -> GmParam {
                 "PX", "PY", "PZ", "PBBT", "PCBT", "PBTP", "PCTP", "PBOF", "PCOF",
             ],
         ),
-        verts: vec![],
+        verts: vec![[attr_map.get_as_string("PX").unwrap_or_default(),attr_map.get_as_string("PY").unwrap_or_default()]],
+        dxy: vec![[attr_map.get_as_string("DX").unwrap_or_default(),attr_map.get_as_string("DY").unwrap_or_default()]],
+        drad: attr_map.get_as_string("DRAD").unwrap_or_default(),
+        dwid: attr_map.get_as_string("DWID").unwrap_or_default(),
         paxises, // 先pa_axis, 后pb_axis
         centre_line_flag,
         visible_flag: tube_flag,

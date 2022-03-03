@@ -52,12 +52,23 @@ pub struct DatasetParamStr {
     pub lhide: bool,
 }
 
+// pub struct SannData {
+//     pub xy: [f32; 2],
+//     pub ptaxis: Option<CateAxisParam>,
+//     pub pangle: f32,
+//     pub pradius: f32,
+//     pub pwidth: f32,
+// }
+
+//还是要用枚举，来列举各个情况
 //GMSE GMSS
 #[derive(Clone, Debug, Default)]
 pub struct GmParam {
     /// SCYL  LSNO  SCTO  SDSH  SBOX
-    pub attr_map: AttrMap,
+    pub gm_type: SmolStr,  //SCYL  LSNO  SCTO  SDSH  SBOX  SANN  SPRO
     pub radius: SmolStr,
+    pub pang: SmolStr,
+    pub width: SmolStr,
     /// 顺序 pdiameter pbdiameter ptdiameter, 先bottom, 后top
     pub diameters: Vec<SmolStr>,
     /// 顺序 pdistance pbdistance ptdistance, 先bottom, 后top
@@ -68,8 +79,13 @@ pub struct GmParam {
     pub box_lengths: Vec<SmolStr>,
     pub xyz: Vec<SmolStr>,
 
-    //profile  SPVE
-    pub verts: Vec<[SmolStr; 2]>,   //Px, Py
+    // pub profile:
+    //profile  SPVE   SANN(PX, PY)
+    pub verts: Vec<[SmolStr; 2]>,
+    //SANN: dx dy dradius dwidth
+    pub dxy: Vec<[SmolStr; 2]>,
+    pub drad: SmolStr,
+    pub dwid: SmolStr,
     /// 顺序 paxis pa_axis pb_axis pc_axis
     pub paxises: Vec<SmolStr>,
     pub centre_line_flag: bool,

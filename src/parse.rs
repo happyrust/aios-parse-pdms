@@ -43,7 +43,7 @@ use id_tree::InsertBehavior::{AsRoot, UnderNode};
 use nalgebra_glm::{e, round};
 use serde_json::Value::Bool;
 use smol_str::SmolStr;
-use crate::consts::{ATT_LEVE, ATT_PTS, UNSET_STR};
+use crate::consts::{ATT_BANG, ATT_LEVE, ATT_PTS, UNSET_STR};
 use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
@@ -553,6 +553,9 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                 length -= 1;
             }
             val = AttrVal::IntArrayType(result);
+        }else if  attr_info.hash == ATT_BANG{
+            let r = parse_to_u32(input);
+            val = AttrVal::DoubleType((r as f64) / 100.0)
         } else {
             match attr_info.att_type {
                 DbAttributeType::INTEGER => {

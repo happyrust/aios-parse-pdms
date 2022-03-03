@@ -2,8 +2,6 @@ use std::collections::hash_map::DefaultHasher;
 use std::f32::EPSILON;
 use std::hash::Hasher;
 use bevy::prelude::*;
-use bevy::render::mesh::Indices;
-use bevy::render::render_resource::PrimitiveTopology;
 use truck_meshalgo::prelude::*;
 use truck_modeling::Shell;
 use bevy::reflect::Reflect;

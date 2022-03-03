@@ -74,7 +74,7 @@ crossbeam-queue = "0.3.3"
 #rug = "1.14.0"
 #bevy-inspector-egui = { path = "../bevy-inspector-egui" }
 #bevy = { path = "../bevy" }
-bevy = { version = "0.6.1" }
+bevy = { git = "https://github.com/bevyengine/bevy", default-features = false }
 
 id_tree = { version = "1.8.0", features=["serde_support"] }
 smol_str = "0.1.21"

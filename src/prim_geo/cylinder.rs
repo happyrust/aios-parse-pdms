@@ -1,6 +1,4 @@
 use bevy::prelude::*;
-use bevy::render::mesh::Indices;
-use bevy::render::render_resource::PrimitiveTopology;
 use truck_modeling::{builder, Shell};
 // use bevy_inspector_egui::Inspectable;
 use truck_meshalgo::prelude::*;

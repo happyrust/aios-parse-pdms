@@ -55,22 +55,30 @@ pub struct GeomsInfo {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Dataset {
-    
     pub self_type: ::prost::alloc::string::String,
 }
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct GmseParamData {
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     pub type_name: SmolStr,
-    pub radius: f64,
-    pub angle: f64,
+    pub radius: f64, //desi 里的radius
+    pub angle: f64, //desi 里的angle
+    pub height: f64, //desi 里的height
+
+    pub pwid: f64,
+    pub prad: f64,  //元件库里的radius
+    pub pang: f64,  //元件库里的angle
     /// 顺序 pdiameter pbdiameter ptdiameter, 先bottom, 后top
     pub diameters: ::prost::alloc::vec::Vec<f64>,
     /// 顺序 pdistance pbdistance ptdistance, 先bottom, 后top
     pub distances: ::prost::alloc::vec::Vec<f64>,
-    pub height: f64,
+    pub phei: f64,
     pub offset: f64,
     pub verts: Vec<[f32; 2]>,
+    pub dxy: Vec<[f32; 2]>,
+    pub drad: f64,
+    pub dwid: f64,
     /// 顺序 x y z
     pub box_lengths: ::prost::alloc::vec::Vec<f64>,
     pub xyz: ::prost::alloc::vec::Vec<f64>,
@@ -197,10 +205,26 @@ pub struct CateExtrusionParam {
     pub tube_flag: bool,
 }
 
+//structural annulus
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-pub struct CateProfileParam {
-    pub pts: Vec<[f32; 2]>
+pub struct SannData {
+    pub xy: [f32; 2],
+    pub dxy: [f32; 2],
+    pub ptaxis: Option<CateAxisParam>,
+    pub pangle: f32,
+    pub pradius: f32,
+    pub pwidth: f32,
+    pub drad: f32,
+    pub dwid: f32,
 }
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub enum CateProfileParam{
+    SPRO(Vec<[f32; 2]>),
+    SANN(SannData),
+    None,
+}
+
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct CateDiscParam {

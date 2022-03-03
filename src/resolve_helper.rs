@@ -5,7 +5,7 @@ use crate::direction_parse::parse_expr_to_dir;
 use crate::helper::{convert_to_context_key, resolve_axis_param};
 use crate::pdms_data::{AxisParam, ScomInfo};
 use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam, CateLineParam, CateProfileParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateSverParam, CateTorusParam, GmseParamData};
+use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam, CateLineParam, CateProfileParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateSverParam, CateTorusParam, GmseParamData, SannData};
 use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
 
@@ -201,11 +201,23 @@ pub fn test_expression(){
 }
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
+    dbg!(&gmse);
     let geo = match &gmse.type_name[..] {
+        "SANN" => {
+            Some(CateGeoParam::Profile(CateProfileParam::SANN(SannData{
+                    xy: [gmse.verts[0][0], gmse.verts[0][1]],
+                    dxy: [gmse.dxy[0][0], gmse.dxy[0][1]],
+                    ptaxis: Some(gmse.paxises[0].clone()),
+                    pangle: gmse.pang as f32,
+                    pradius: gmse.radius as f32,
+                    pwidth: gmse.pwid as f32,
+                    drad: gmse.drad as f32,
+                    dwid: gmse.dwid as f32,
+                })
+            ))
+        }
         "SPRO" => {   //structural profile
-            Some(CateGeoParam::Profile(CateProfileParam {
-                pts: gmse.verts
-            }))
+            Some(CateGeoParam::Profile(CateProfileParam::SPRO(gmse.verts)))
         }
         "BOXI" => {
             let z_length = if gmse.box_lengths.len() >= 3 {
@@ -237,7 +249,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
             Some(CateGeoParam::SCylinder(CateSCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
-                height: gmse.height,
+                height: gmse.phei,
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
@@ -332,7 +344,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
             Some(CateGeoParam::Dish(CateDishParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
-                height: gmse.height,
+                height: gmse.phei,
                 diameter: gmse.diameters[0],
                 radius: gmse.radius,
                 centre_line_flag: gmse.centre_line_flag,
@@ -343,7 +355,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
             Some(CateGeoParam::Extrusion(CateExtrusionParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
-                height: gmse.height,
+                height: gmse.phei,
                 x: gmse.xyz[0],
                 y: gmse.xyz[1],
                 z: gmse.xyz[2],
@@ -379,7 +391,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
             Some(CateGeoParam::RectTorus(CateRectTorusParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
-                height: gmse.height,
+                height: gmse.phei,
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
@@ -389,7 +401,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
             //todo
             Some(CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
-                height: gmse.height,
+                height: gmse.phei,
                 diameter: gmse.diameters[0],
                 distance: gmse.distances[0],
                 x_shear: 0.0,

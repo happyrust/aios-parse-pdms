@@ -144,9 +144,9 @@ pub fn resolve_gmse_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-    let radius = eval_str_to_f64(&gm.radius, context).unwrap_or(0.0f64);
-    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
-    let angle = ddangle.to_radians();
+    let angle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64).to_radians();
+    let radius = context["DDRADIUS"].parse::<f64>().unwrap_or(0.0f64).to_radians();
+    let height = context["DDHEIGHT"].parse::<f64>().unwrap_or(0.0f64).to_radians();
     let diameters = gm.diameters
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
@@ -163,8 +163,21 @@ pub fn resolve_gmse_params(
             eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default() as f32])
         .collect::<Vec<[f32; 2]>>();
 
-    let height = eval_str_to_f64(&gm.height, context).unwrap_or_default();
+    let phei = eval_str_to_f64(&gm.height, context).unwrap_or_default();
     let offset = eval_str_to_f64(&gm.offset, context).unwrap_or_default();
+
+    let pang = eval_str_to_f64(&gm.pang, context).unwrap_or_default();
+    let prad = eval_str_to_f64(&gm.radius, context).unwrap_or_default();
+    let pwid = eval_str_to_f64(&gm.width, context).unwrap_or_default();
+    let drad = eval_str_to_f64(&gm.drad, context).unwrap_or_default();
+    let dwid = eval_str_to_f64(&gm.dwid, context).unwrap_or_default();
+
+    let dxy = gm.dxy
+        .iter()
+        .map(|exp| [eval_str_to_f64(exp[0].as_str(), context).unwrap_or_default() as f32,
+            eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default() as f32])
+        .collect::<Vec<[f32; 2]>>();
+
 
     let box_lengths = gm.box_lengths
         .iter()
@@ -218,16 +231,23 @@ pub fn resolve_gmse_params(
             }
         }
     }
-    let attr_map = &gm.attr_map;
+    let type_name = gm.gm_type.clone();
     Some(GmseParamData {
-        type_name: attr_map.get_type(),
+        type_name,
         radius,
         angle,
+        height,
+        pwid,
+        prad,
+        pang,
         diameters,
         distances,
-        height,
+        phei,
         offset,
         verts,
+        dxy,
+        drad,
+        dwid,
         box_lengths,
         xyz,
         paxises,
