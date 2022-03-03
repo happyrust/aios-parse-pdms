@@ -11,6 +11,7 @@ use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
 use crate::parsed_data::{CateAxisParam, GmseParamData};
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_types::{AttrVal, EleNode};
+use crate::query_cata::{DDANGLE_STR, DDHEIGHT_STR, DDRADIUS_STR, POSSE_DIST_STR};
 
 pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
     if let Some(value) = ele.get(attr) {
@@ -144,9 +145,12 @@ pub fn resolve_gmse_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-    let angle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64).to_radians();
-    let radius = context["DDRADIUS"].parse::<f64>().unwrap_or(0.0f64).to_radians();
-    let height = context["DDHEIGHT"].parse::<f64>().unwrap_or(0.0f64).to_radians();
+    let angle = context[DDANGLE_STR].parse::<f64>().unwrap_or(0.0f64).to_radians();
+    let radius = context[DDRADIUS_STR].parse::<f64>().unwrap_or(0.0f64);
+    let height = context[DDHEIGHT_STR].parse::<f64>().unwrap_or(0.0f64);
+    let posse_dist = context[POSSE_DIST_STR].parse::<f64>().unwrap_or(0.0f64);
+
+
     let diameters = gm.diameters
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
@@ -163,12 +167,12 @@ pub fn resolve_gmse_params(
             eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default() as f32])
         .collect::<Vec<[f32; 2]>>();
 
-    let phei = eval_str_to_f64(&gm.height, context).unwrap_or_default();
+    let phei = eval_str_to_f64(&gm.phei, context).unwrap_or_default();
     let offset = eval_str_to_f64(&gm.offset, context).unwrap_or_default();
 
     let pang = eval_str_to_f64(&gm.pang, context).unwrap_or_default();
-    let prad = eval_str_to_f64(&gm.radius, context).unwrap_or_default();
-    let pwid = eval_str_to_f64(&gm.width, context).unwrap_or_default();
+    let prad = eval_str_to_f64(&gm.prad, context).unwrap_or_default();
+    let pwid = eval_str_to_f64(&gm.pwid, context).unwrap_or_default();
     let drad = eval_str_to_f64(&gm.drad, context).unwrap_or_default();
     let dwid = eval_str_to_f64(&gm.dwid, context).unwrap_or_default();
 
@@ -237,6 +241,7 @@ pub fn resolve_gmse_params(
         radius,
         angle,
         height,
+        posse_dist,
         pwid,
         prad,
         pang,

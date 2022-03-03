@@ -66,14 +66,15 @@ pub struct DatasetParamStr {
 pub struct GmParam {
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     pub gm_type: SmolStr,  //SCYL  LSNO  SCTO  SDSH  SBOX  SANN  SPRO
-    pub radius: SmolStr,
+
+    pub prad: SmolStr,
     pub pang: SmolStr,
-    pub width: SmolStr,
+    pub pwid: SmolStr,
     /// 顺序 pdiameter pbdiameter ptdiameter, 先bottom, 后top
     pub diameters: Vec<SmolStr>,
     /// 顺序 pdistance pbdistance ptdistance, 先bottom, 后top
     pub distances: Vec<SmolStr>,
-    pub height: SmolStr,
+    pub phei: SmolStr,
     pub offset: SmolStr,
     /// 顺序 x y z
     pub box_lengths: Vec<SmolStr>,

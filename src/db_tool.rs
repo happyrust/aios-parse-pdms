@@ -1,4 +1,10 @@
 //todo use LRU cache the mosted used variables
+
+#[inline]
+pub fn convert_to_hash(bytes: &[u8]) -> u32{
+    i32::from_be_bytes(bytes.try_into().unwrap()).abs() as u32
+}
+
 #[inline]
 pub fn db1_dehash(hash: u32) -> String{
     let mut result = String::new();
@@ -25,17 +31,13 @@ pub fn db1_dehash(hash: u32) -> String{
 #[inline]
 pub const fn db1_hash(hash_str: &str) -> u32{
     let mut chars = hash_str.as_bytes();
-    let mut val = 0u32;
+    let mut val = 0i64;
     let mut i = (chars.len() - 1) as i32;
-    //warning only max 4 chars support
-    if i > 3 {
-        i = 3;
-    }
     while i>=0 {
-        val = val*27 + (chars[i as usize] as u32 - 64);
+        val = val*27 + (chars[i as usize] as i64 - 64);
         i -= 1;
     }
-    0x81BF1 + val
+    0x81BF1 + val as u32
 }
 
 #[test]

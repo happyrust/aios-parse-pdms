@@ -6,7 +6,7 @@ use nom::IResult;
 use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
 use smol_str::SmolStr;
-use crate::db_tool::db1_dehash;
+use crate::db_tool::{convert_to_hash, db1_dehash};
 use crate::parse::{convert_to_explicit_axis_string, convert_to_implicit_axis_string};
 use crate::pdms_types::AttrVal::*;
 use crate::pdms_types::{AttrVal, DbAttributeType};
@@ -50,21 +50,7 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 
 /// 解析表达式
 pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (String, String)> {
-    let mut key = "PX".to_string();
-    match explict_num {
-        ATT_PX => { key = "PX".to_string(); }
-        ATT_PY => { key = "PY".to_string(); }
-        ATT_PZ => { key = "PZ".to_string(); }
-        ATT_PDIA => { key = "PDIA".to_string(); }
-        ATT_PHEI => { key = "PHEI".to_string(); }
-        ATT_PDIS => { key = "PDIS".to_string(); }
-        ATT_PCON => { key = "PCON".to_string(); }
-        ATT_PBOR => { key = "PBOR".to_string(); }
-        ATT_PPRO => { key = "PPRO".to_string(); }
-        ATT_DPRO => { key = "DPRO".to_string(); }
-        ATT_PTCDI => { key = "PTCDI".to_string(); }
-        _ => { println!("explict_num={:#04X}", explict_num) }
-    }
+    let mut key = db1_dehash(explict_num.abs() as u32);
     let mut expression_data = &input[8..];
     // 表达式都是以0x0 0 0 1开头的
     let _expression_start = &expression_data[..4];
@@ -290,9 +276,10 @@ fn get_expression_attr_test() {
 }
 
 pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> {
-    let expression_type_input = &input[..4];
-    let expression_type = match_expression_type(expression_type_input);
-    if expression_type == "PTCDI" {
+    let hash_val = &input[..4];
+    let expression_type = db1_dehash(convert_to_hash(hash_val));
+    // let expression_type = db1_dehash();
+    if expression_type == "PTCD" {
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
@@ -909,64 +896,6 @@ pub fn times_keep_f32_two_decimal_place(input: i32) -> f32 {
     result
 }
 
-pub fn match_expression_type(input: &[u8]) -> String {
-    let mut expression_type = "PX".to_string();
-    match input {
-        &[0x0, 0x9, 0x5A, 0x34] => { expression_type = "PTCDI".to_string(); }
-        &[0xFF, 0xF7, 0xE1, 0x77] => {} // 这个就是PX ,所以不用match了
-        &[0xFF, 0xF7, 0xE1, 0x5C] => { expression_type = "PY".to_string(); }
-        &[0xFF, 0xF7, 0xE1, 0x41] => { expression_type = "PZ".to_string(); }
-        &[0xFF, 0xF7, 0x7D, 0x0F] => { expression_type = "PDIA".to_string(); }
-        &[0xFF, 0xF5, 0x20, 0xEF] => { expression_type = "PHEI".to_string(); }
-        &[0xFF, 0xF2, 0x15, 0x19] => { expression_type = "PDIS".to_string(); }
-        &[0xFF, 0xF3, 0x84, 0x8D] => { expression_type = "PCON".to_string(); }
-        &[0xFF, 0xF2, 0x51, 0x1C] => { expression_type = "PBOR".to_string(); }
-        &[0xFF, 0xF3, 0x2D, 0xC0] => { expression_type = "PPRO".to_string(); }
-        &[0xFF, 0xF3, 0x2D, 0xCC] => { expression_type = "DPRO".to_string(); }
-        &[0xFF, 0xF4, 0x7D, 0x68] => { expression_type = "BTHK".to_string(); }
-        &[0xFF, 0xF7, 0x7D, 0x1D] => { expression_type = "BDIA".to_string(); }
-        &[0xFF, 0xF5, 0x22, 0x84] => { expression_type = "PTDI".to_string(); }
-        &[0xFF, 0xF5, 0x24, 0x6A] => { expression_type = "PBDI".to_string(); }
-        &[0xFF, 0xF2, 0xDC, 0xA5] => { expression_type = "PBTP".to_string(); }
-        &[0xFF, 0xF2, 0xDC, 0x8A] => { expression_type = "PCTP".to_string(); }
-        &[0xFF, 0xF1, 0xDC, 0x5B] => { expression_type = "PBBT".to_string(); }
-        &[0xFF, 0xF1, 0xDC, 0x40] => { expression_type = "PCBT".to_string(); }
-        &[0xFF, 0xF6, 0x3E, 0xDC] => { expression_type = "PXLE".to_string(); }
-        &[0xFF, 0xF6, 0x3E, 0xC1] => { expression_type = "PYLE".to_string(); }
-        &[0xFF, 0xF6, 0x3E, 0xA6] => { expression_type = "PZLE".to_string(); }
-        &[0xFF, 0xF3, 0xEE, 0xF8] => { expression_type = "PTDM".to_string(); }
-        &[0xFF, 0xF3, 0xF0, 0xDE] => { expression_type = "PBDM".to_string(); }
-        &[0xFF, 0xF6, 0x04, 0x02] => { expression_type = "POFF".to_string(); }
-        &[0xFF, 0xF7, 0xE1, 0x83] => { expression_type = "DX".to_string(); }
-        &[0xFF, 0xF7, 0xE1, 0x68] => { expression_type = "DY".to_string(); }
-        &[0xFF, 0xF1, 0xF3, 0xAA] => { expression_type = "PXTS".to_string(); }
-        &[0xFF, 0xF1, 0xF3, 0x8F] => { expression_type = "PYTS".to_string(); }
-        &[0xFF, 0xF2, 0x26, 0xEC] => { expression_type = "PXBS".to_string(); }
-        &[0xFF, 0xF2, 0x26, 0xD1] => { expression_type = "PYBS".to_string(); }
-        _ => {}
-    }
-    expression_type
-}
-
-/// 只打印表达式的值，为了测试表达式准确性
-pub fn print_refno_expression_data(value: DashMap<String, AttrVal>, mut result: Vec<(String, String)>) -> Vec<(String, String)> {
-    // let data_vec = vec!["PPRO", "PDIA", "PDIS", "PCON", "PBOR", "PHEI", "PTDI", "PBDI", "PBDM", "PTDM",
-    //                     "PX", "PY", "PZ", "PRAD", "BDIA", "BTHK", "PXLE", "PYLE", "PZLE","PTDM","PBDM","POFF",
-    //                     "DX","DY","PXTS","PYTS","PXBS","PXBS"];
-    // for data in data_vec {
-    //     if let Some(value) = value.get(data) {
-    //         match value.clone() {
-    //             StringType(value) => {
-    //                 result.push((data.to_string(), value))
-    //             }
-    //             _ => {}
-    //         }
-    //     }
-    // }
-    // result
-
-    Default::default()
-}
 
 #[test]
 fn ceil_test() {

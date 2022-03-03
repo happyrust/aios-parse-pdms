@@ -30,7 +30,7 @@ use nom::combinator::{map, verify};
 use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
 use crate::{db_tool, read_attr_info_config};
-use crate::db_tool::{db1_dehash, decode_chars_data};
+use crate::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, parse_expression_attr, times_keep_f32_two_decimal_place};
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
@@ -59,9 +59,6 @@ struct DebugParseConfig {
 //     pub timestamp: ,
 //     pub contents: String,
 // }
-
-
-
 
 
 ///一个pdms db的整体数据
@@ -113,8 +110,6 @@ pub struct PdmsMongoDbInfo {
 }
 
 
-
-
 #[test]
 fn parse_files_test() {
     let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
@@ -144,7 +139,7 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> co
     for path in &children_files {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
-            let mut pdms_db_data = parse_file(&path, &database_info, file_name, project,  "");
+            let mut pdms_db_data = parse_file(&path, &database_info, file_name, project, "");
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();
                 if let Some(num) = map.get_u32("NUMBDB") {
@@ -205,7 +200,7 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> co
     return Ok(pdms_project_data_map);
 }
 
-pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str,  target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -216,12 +211,12 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
 
     if database_info.is_none() {
         if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")) {
-            let db_data = parse_db(input, &db_info, file_name, project,  target_refno_str);
+            let db_data = parse_db(input, &db_info, file_name, project, target_refno_str);
 
             return db_data;
         }
     }
-    parse_db(input, database_info.as_ref().unwrap(), file_name, project,  target_refno_str)
+    parse_db(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
 }
 
 /// 获取PdmsMongoData
@@ -362,8 +357,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         let name = &pair.value().name;
         if !attr_data_map.contains_attr_hash(*pair.key() as u32) {
             match name.as_str() {
-                "PTCDI" => attr_data_map.insert_by_att_name(name.as_str(), StringType("Y".into())),
-                "PARA" => attr_data_map.insert_by_att_name(name.as_str(), DoubleArrayType(vec![])),
+                "PTCDI" => attr_data_map.insert_by_att_name("PTCD", StringType("Y".into())),
+                "PARA" => attr_data_map.insert_by_att_name("PARA", DoubleArrayType(vec![])),
                 _ => {}
             }
         }
@@ -386,7 +381,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         attr_data_map,
         children,
         name_hash,
-        version
+        version,
     }
 }
 
@@ -430,14 +425,14 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         children,
         version,
         name_hash,
-    } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map,  &mut string_lookup, 1);
+    } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, &mut string_lookup, 1);
 
-    let ele_node = EleNode{
+    let ele_node = EleNode {
         refno,
         owner,
         name_hash,
         noun,
-        version
+        version,
     };
 
     all_attr_map.insert(refno, attr_data_map);
@@ -446,13 +441,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
     let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
     refno_info_map.entry(ref_0).or_insert(
-                          RefnoInfo {
-                              ref_0,
-                              project_hash: string_lookup.add_str(project),
-                              db_no: if field_no == 0 {db_no} else{ field_no},  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
-                              // node_id: root_id.clone(),
-                              // children: children.iter().map(|c| c.get_u32_hash()).collect(),
-                          });
+        RefnoInfo {
+            ref_0,
+            project_hash: string_lookup.add_str(project),
+            db_no: if field_no == 0 { db_no } else { field_no },  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
+            // node_id: root_id.clone(),
+            // children: children.iter().map(|c| c.get_u32_hash()).collect(),
+        });
     if children.len() > 0 {
         children_map.insert(refno, children.clone());
     }
@@ -475,18 +470,18 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         children,
                         version,
                         name_hash,
-                    } = parse_ele_data(&input[pos - 4..], noun_attr_info_map,  &mut string_lookup, indx + 1);
+                    } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, &mut string_lookup, indx + 1);
 
                     if children.len() > 0 {
                         children_map.insert(refno, children.clone());
                     }
 
-                    let ele_node = EleNode{
+                    let ele_node = EleNode {
                         refno,
                         owner,
                         name_hash,
                         noun,
-                        version
+                        version,
                     };
 
 
@@ -497,11 +492,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
                         // refno_info_map.insert(refno, RefnoInfo::new(file_name.clone(), refno, cur_id.clone()));
                         let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
-                        refno_info_map.entry(ref_0).or_insert( RefnoInfo {
+                        refno_info_map.entry(ref_0).or_insert(RefnoInfo {
                             ref_0,
                             project_hash: string_lookup.add_str(project),
                             // node_id: cur_id.clone(),
-                            db_no: if field_no == 0 {db_no} else{ field_no},
+                            db_no: if field_no == 0 { db_no } else { field_no },
                             // children: children.iter().map(|c| c.get_u32_hash()).collect(),
                         });
                         pending_refnos.push((cur_id, children));
@@ -553,7 +548,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                 length -= 1;
             }
             val = AttrVal::IntArrayType(result);
-        }else if  attr_info.hash == ATT_BANG{
+        } else if attr_info.hash == ATT_BANG {
             let r = parse_to_u32(input);
             val = AttrVal::DoubleType((r as f64) / 100.0)
         } else {
@@ -670,16 +665,13 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
     let total_len = input.len();
 
     while residual.len() >= 8 {
-        let mut att_name = None;
         let mut att_value = None;
         let debug_pos = total_len - residual.len();
-        // let hash_val = i32::from_be_bytes(residual[..4].try_into().unwrap());
-        let hash_val = parse_to_i32(&residual[..4]);
-        if check_is_expr(hash_val) {
+        let hash_val = convert_to_hash(&residual[..4]);
+        if check_is_expr(hash_val as i32) {
+            dbg!(db1_dehash(hash_val));
             let (input, (expression_type, value)) = parse_expression_attr(residual)?;
-            att_name = Some(expression_type.into());
             att_value = Some(StringType(value));
-            // attr_data_map.insert(expression_type.into(), StringType(value));
             residual = input;
         } else {
             let (l, (explict_hash, attr_type_num, type_len)) = tuple((
@@ -695,7 +687,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                 let tmp_input = &l[..type_len * 4];
                 if attr_info_map.contains_key(&explict_hash) {
                     let mut attr_info = attr_info_map.get_mut(&explict_hash).unwrap();
-                    att_name = Some(attr_info.name.clone());
                     if attr_type_num == 0x1800 {
                         attr_info.att_type = DbAttributeType::DOUBLEVEC;
                     } else if attr_type_num == 0x1C00 || attr_type_num == 0x2000 {
@@ -905,10 +896,8 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                                 if len == 1 {
                                     let (_, typex) = be_u32(&tmp_input[..4])?;
                                     let typex = db1_dehash(typex);
-                                    att_name = Some(SmolStr::new("TYPE"));
                                     att_value = Some(StringType(typex.into()));
-                                } else {
-                                }
+                                } else {}
                             }
                             _ => {}
                         }
@@ -918,11 +907,16 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                 break;
             }
         }
-        if let Some(n) = att_name {
-            if let Some(v) = att_value {
-                attr_data_map.insert_by_att_name(n.as_str(), v);
-            }
+
+        if let Some(v) = att_value {
+            attr_data_map.insert(NounHash(hash_val as u32), v);
         }
+
+        // if let Some(n) = att_name {
+        //     if let Some(v) = att_value {
+        //         attr_data_map.insert_by_att_name(n.as_str(), v);
+        //     }
+        // }
     }
     Ok((input, true))
 }

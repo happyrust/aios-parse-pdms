@@ -56,13 +56,12 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 }
                 i += 2;
                 continue;
-            }else {
+            } else {
                 key = convert_to_context_key(s_n, &mut i, &seg_strs).unwrap_or_default();
             }
-        }else if s == "DESIGN" {
-            let dtse_key = format!("{} {}",s,seg_strs[i + 1]);
+        } else if s == "DESIGN" {
+            let dtse_key = format!("{} {}", s, seg_strs[i + 1]);
             key = convert_to_context_key(&dtse_key, &mut i, &seg_strs).unwrap_or_default();
-
         }
         // dbg!(&context);
         if context.contains_key(&key) {
@@ -77,14 +76,14 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 if seg_strs.len() == 0 {
                     return None;
                 }
-                let mut j=0;
-                while  j<seg_strs.len(){
+                let mut j = 0;
+                while j < seg_strs.len() {
                     let s = seg_strs[j].as_str();
                     key = convert_to_context_key(s, &mut j, &seg_strs).unwrap_or_default();
-                    j +=1;
+                    j += 1;
                 }
                 p_vals.push(context[&key].clone());
-            }else {
+            } else {
                 p_vals.push(context[&key].clone());
             }
             i += 1;
@@ -191,11 +190,11 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
 
 
 #[test]
-pub fn test_expression(){
+pub fn test_expression() {
     let mut ns = fasteval::EmptyNamespace;
     // power ( 0 ,2 )
     //let r = tinyexpr::interp("2+2*2").unwrap();
-    let s  = tinyexpr::interp("  sqrt (  pow ( 1, 2 )  )");
+    let s = tinyexpr::interp("  sqrt (  pow ( 1, 2 )  )");
     //let s  = fasteval::ez_eval("( 2 ^ 2 )", &mut ns);
     dbg!(s);
 }
@@ -204,16 +203,17 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
     dbg!(&gmse);
     let geo = match &gmse.type_name[..] {
         "SANN" => {
-            Some(CateGeoParam::Profile(CateProfileParam::SANN(SannData{
-                    xy: [gmse.verts[0][0], gmse.verts[0][1]],
-                    dxy: [gmse.dxy[0][0], gmse.dxy[0][1]],
-                    ptaxis: Some(gmse.paxises[0].clone()),
-                    pangle: gmse.pang as f32,
-                    pradius: gmse.radius as f32,
-                    pwidth: gmse.pwid as f32,
-                    drad: gmse.drad as f32,
-                    dwid: gmse.dwid as f32,
-                })
+            Some(CateGeoParam::Profile(CateProfileParam::SANN(SannData {
+                xy: [gmse.verts[0][0], gmse.verts[0][1]],
+                dxy: [gmse.dxy[0][0], gmse.dxy[0][1]],
+                ptaxis: Some(gmse.paxises[0].clone()),
+                pangle: gmse.pang as f32,
+                pradius: gmse.prad as f32,
+                pwidth: gmse.pwid as f32,
+                height: gmse.posse_dist as f32,
+                drad: gmse.drad as f32,
+                dwid: gmse.dwid as f32,
+            })
             ))
         }
         "SPRO" => {   //structural profile
@@ -331,14 +331,14 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
             }))
         }
         // "SDIS" => {
-            // 圆片
-            // Some(CateGeoParam::Disc(CateDiscParam {
-            //     axis: Some(gmse.paxises[0].clone()),
-            //     dist_to_btm: gmse.distances[0],
-            //     diameter: gmse.diameters[0],
-            //     centre_line_flag: gmse.centre_line_flag,
-            //     tube_flag: gmse.tube_flag,
-            // }))
+        // 圆片
+        // Some(CateGeoParam::Disc(CateDiscParam {
+        //     axis: Some(gmse.paxises[0].clone()),
+        //     dist_to_btm: gmse.distances[0],
+        //     diameter: gmse.diameters[0],
+        //     centre_line_flag: gmse.centre_line_flag,
+        //     tube_flag: gmse.tube_flag,
+        // }))
         // }
         "SDSH" => {
             Some(CateGeoParam::Dish(CateDishParam {

@@ -267,6 +267,7 @@ impl AiosDBManager {
         //todo，直接use type_refs里面的数据直接过滤出哪些有参考号，而不用一个个去找
         if let Some(desi_att) = self.get_attr(refno).await.unwrap() {
             if let Some(cat_att) = self.get_cat_att_in_desi(refno).await {
+                //针对SPRF做的处理
                 if cat_att.get_type().as_str() == "SPRF" {
                     if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
                         dbg!(&geoms);

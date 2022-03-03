@@ -11,9 +11,11 @@ use std::collections::{BTreeMap, HashMap};
 use smol_str::SmolStr;
 use crate::data_interface::PdmsDataInterface;
 
-const DDHEIGHT_STR: &'static str = "DDHEIGHT";
-const DDRADIUS_STR: &'static str = "DDRADIUS";
-const DDANGLE_STR: &'static str = "DDANGLE";
+pub const DDHEIGHT_STR: &'static str = "DDHEIGHT";
+pub const DDRADIUS_STR: &'static str = "DDRADIUS";
+pub const DDANGLE_STR: &'static str = "DDANGLE";
+
+pub const POSSE_DIST_STR: &'static str = "POSSE_DIST";  //poss.dist(pose)
 
 
 ///求解design component
@@ -36,7 +38,7 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     let scom_ref = scom_ref.unwrap();
     let scom_info = query_scom_info(&scom_ref, interface).await;
     if scom_info.is_none() { return None; }
-    //dbg!(&scom_info);
+    dbg!(&scom_info);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     for i in 0..desp.len() {
         context.insert(
@@ -44,9 +46,12 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
             desp[i].to_string().into(),
         );
     }
-    context.insert(DDHEIGHT_STR.into(), attr_map.get_as_string("HEIG").unwrap_or("1.0".into()));
-    context.insert(DDANGLE_STR.into(), attr_map.get_as_string("ANGL").unwrap_or("90.0".into()));
-    context.insert(DDRADIUS_STR.into(), attr_map.get_as_string("RADI").unwrap_or("1.0".into()));
+    context.insert(DDHEIGHT_STR.into(), attr_map.get_as_string("HEIG").unwrap_or("0.0".into()));
+    context.insert(DDANGLE_STR.into(), attr_map.get_as_string("ANGL").unwrap_or("0.0".into()));
+    context.insert(DDRADIUS_STR.into(), attr_map.get_as_string("RADI").unwrap_or("0.0".into()));
+
+    let posse_dist = attr_map.get_posse_dist();
+    context.insert(POSSE_DIST_STR.into(), posse_dist.to_string().into());
     // dbg!(&context);
     let desparams = get_attr_value_f64_vec(&attr_map, "PARA").unwrap_or_default();
     for i in 0..desparams.len() {
@@ -67,6 +72,7 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
 ) -> Option<ScomInfo> {
     if let Some(attr_map) = interface.get_ele_attr(refno).await {
         let type_noun = attr_map.get_type();
+        let is_sprf = type_noun == "SPRF";
         // if type_noun == "SPRF" {
         //     let gmss_refno = attr_map.get_foreign_refno("GSTR").unwrap_or_default();
         //     if let Some(gmss_attr) = interface
@@ -114,7 +120,9 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
         //     }
         // }
 
-        let ptre_refno = attr_map.get_foreign_refno("PTRE").unwrap_or_default();
+        //todo collect PLIN data
+        let ptref_name = if is_sprf { "PSTR" } else { "PTRE"};
+        let ptre_refno = attr_map.get_foreign_refno(ptref_name).unwrap_or_default();
         let mut axis_params = vec![];
         let mut axis_param_numbers = vec![];
         if let Some(ptre_am) = interface
@@ -126,7 +134,8 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
             axis_param_numbers = axis_param_map.keys().cloned().collect::<Vec<_>>();
         }
 
-        let gmse_refno = attr_map.get_foreign_refno("GMRE").unwrap_or_default();
+        let gmref_name = if is_sprf { "GSTR" } else { "GMRE"};
+        let gmse_refno = attr_map.get_foreign_refno(gmref_name).unwrap_or_default();
         let mut gm_params = vec![];
         if let Some(gmse_am) = interface
             .get_ele_attr(&gmse_refno)
@@ -179,7 +188,8 @@ pub async fn query_gm_params<T: PdmsDataInterface>(
         .get_ele_children_attrs(&refno)
         .await;
     for child in children {
-        gms.push(query_gm_param(&child));
+        let has_chidren = child.get_type() == "SPRO";//todo add other types
+        gms.push(query_gm_param(&child, interface, has_chidren).await);
     }
     gms
 }
@@ -257,7 +267,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
             y: attr_map.get_as_string("PY").unwrap_or_default(),
             z: attr_map.get_as_string("PZ").unwrap_or_default(),
             distance: "".into(),
-            direction: attr_map.get_as_string("PTCDI").unwrap_or_default(),
+            direction: attr_map.get_as_string("PTCD").unwrap_or_default(),
             pconnect,
             pbore,
         },
@@ -276,7 +286,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
             x: "".into(),
             y: "".into(),
             z: "".into(),
-            distance: attr_map.get_as_string("PTCPOS").unwrap_or_default(),
+            distance: attr_map.get_as_string("PTCP").unwrap_or_default(),
             direction: attr_map.get_as_string("PTCD").unwrap_or_default(),
             pconnect,
             pbore,
@@ -295,7 +305,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
 }
 
 ///获得gmse的params
-pub fn query_gm_param(attr_map: &AttrMap) -> GmParam {
+pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> GmParam {
     let mut paxises = get_attr_strings_db(attr_map, &["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = attr_map.get_val("PTS") {
         match val {
@@ -307,16 +317,29 @@ pub fn query_gm_param(attr_map: &AttrMap) -> GmParam {
             _ => {}
         }
     }
+    paxises.push(attr_map.get_as_string("PLAX").unwrap_or_default());
     let centre_line_flag = attr_map.get_bool("CLFL");
     let tube_flag = attr_map.get_bool("TUFL");
+    let mut verts = vec![];
+    let mut dxy = vec![];
+    //大部分是顶点数据
+    if has_chidren {
+        for a in interface.get_ele_children_attrs(&attr_map.get_refno().unwrap()).await{
+            verts.push([a.get_as_string("PX").unwrap_or_default(), a.get_as_string("PY").unwrap_or_default()]);
+            dxy.push([a.get_as_string("DX").unwrap_or_default(), a.get_as_string("DY").unwrap_or_default()]);
+        }
+    }else{
+        verts = vec![[attr_map.get_as_string("PX").unwrap_or_default(),attr_map.get_as_string("PY").unwrap_or_default()]];
+        dxy = vec![[attr_map.get_as_string("DX").unwrap_or_default(),attr_map.get_as_string("DY").unwrap_or_default()]];
+    }
     GmParam {
         gm_type: attr_map.get_type(),
-        radius: attr_map.get_as_string("PRAD").unwrap_or_default(),
+        prad: attr_map.get_as_string("PRAD").unwrap_or_default(),
         pang: attr_map.get_as_string("PANG").unwrap_or_default(),
-        width: attr_map.get_as_string("PWID").unwrap_or_default(),
+        pwid: attr_map.get_as_string("PWID").unwrap_or_default(),
         diameters: get_attr_strings_db(attr_map, &["PDIA", "PBDM", "PTDM", "DIAM"]),
         distances: get_attr_strings_db(attr_map, &["PDIS", "PBDI", "PTDI"]),
-        height: attr_map.get_as_string("PHEI").unwrap_or_default(),
+        phei: attr_map.get_as_string("PHEI").unwrap_or_default(),
         offset: attr_map.get_as_string("POFF").unwrap_or_default(),
         box_lengths: get_attr_strings_db(attr_map, &["PXLE", "PYLE", "PZLE"]),
         xyz: get_attr_strings_db(

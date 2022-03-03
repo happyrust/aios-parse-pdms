@@ -45,7 +45,7 @@ use simplelog::{CombinedLogger, WriteLogger};
 use mongodb::IndexModel;
 use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
-use parse_pdms_db::db_tool::{db1_dehash, decode_chars_data};
+use parse_pdms_db::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use parse_pdms_db::parse::*;
 use parse_pdms_db::parse_explict_tools::*;
 use parse_pdms_db::pdms_types::*;
@@ -76,9 +76,13 @@ async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
 #[test]
 pub fn test_hash_noun(){
     dbg!(db1_dehash(0xE5461));
+    dbg!(db1_dehash(0x95A34));
     dbg!(db1_dehash(0xC89B3));
     dbg!(db1_dehash(0x9298B));
     dbg!(db1_dehash(0x9CAF3));
+    dbg!(db1_dehash(0x9BBDAC));
+
+    dbg!(db1_dehash(convert_to_hash([0xFF, 0xF6, 0x94, 0x65].as_slice())));
 }
 
 fn main_1() {
@@ -104,10 +108,10 @@ pub async fn run() -> AiosDbError {
     let mut time = Instant::now();
     // #[cfg(target_arch = "arch64")]
     let path = "../Projects";
-    let path = "G:/12.1SP4Projects";
+    // let path = "G:/12.1SP4Projects";
     // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
     // #[cfg(target_arch = "arch64")]
-    let path = "C:/AVEVA/Plant/Projects12.1.SP4";
+    // let path = "C:/AVEVA/Plant/Projects12.1.SP4";
 
     let mut db_manager = AiosDBManager::init(path,
                                              vec!["Sample".to_string(), "Master".to_string()],
@@ -116,6 +120,8 @@ pub async fn run() -> AiosDbError {
                                                  total_sync: false,
                                                  incr_sync: false,
                                              })).await.unwrap();
+
+    dbg!(time.elapsed().as_millis());
     // let result = db_manager.cache_geos_data(7200).await?;
     // db_manager.build_collision_world(7200).await?;
     let refno = RefU64::from_two_nums(23584, 8537);
@@ -216,7 +222,7 @@ pub async fn run() -> AiosDbError {
     // #[cfg(feature = "sled")]{
 
     // sled_local::save_local().await;
-    dbg!(time.elapsed().as_millis());
+
         // sled_local::cache_room_geos_data().await;
     // }
 

@@ -65,6 +65,7 @@ pub struct GmseParamData {
     pub radius: f64, //desi 里的radius
     pub angle: f64, //desi 里的angle
     pub height: f64, //desi 里的height
+    pub posse_dist: f64, //desi 里的pose.dist(poss)
 
     pub pwid: f64,
     pub prad: f64,  //元件库里的radius
@@ -214,6 +215,7 @@ pub struct SannData {
     pub pangle: f32,
     pub pradius: f32,
     pub pwidth: f32,
+    pub height: f32,
     pub drad: f32,
     pub dwid: f32,
 }

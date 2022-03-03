@@ -491,6 +491,11 @@ impl AttrMap {
     }
 
     #[inline]
+    pub fn get_posse_dist(&self) -> f32{
+        self.get_pose().unwrap_or_default().distance(self.get_poss().unwrap_or_default())
+    }
+
+    #[inline]
     pub fn get_poss(&self) -> Option<Vec3>{
         if let Some(pos) = get_attr_value_f64_vec(self, "POSS") {
             return Some(glam::f32::Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
