@@ -30,18 +30,6 @@ use crate::prim_geo::snout::LSnout;
 
 pub const TRIANGLE_TOL: f64 = 0.01;
 
-
-pub fn hash_vec3<T: Hasher>(v: &Vec3, hasher: &mut T){
-    I24F8::from_num(v[0]).hash(hasher);
-    I24F8::from_num(v[1]).hash(hasher);
-    I24F8::from_num(v[2]).hash(hasher);
-}
-
-//三位有效数字的精度
-pub fn hash_f32<T: Hasher>(v: &f32, hasher: &mut T){
-    I24F8::from_num(*v).hash(hasher);
-}
-
 pub trait VerifiedShape{
     fn check_valid(&self) -> bool{
         true
@@ -238,11 +226,6 @@ impl Default for PdmsPrimShape {
 }
 
 impl PdmsPrimShape {
-
-
-    fn from_attr(&self) -> Option<PdmsPrimShape>{
-        None
-    }
 
     pub fn gen_geo_data(&self) -> Option<GeoData> {
         None

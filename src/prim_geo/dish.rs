@@ -12,7 +12,7 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug,  Clone,  Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
@@ -41,11 +41,38 @@ impl Default for Dish {
 
 impl VerifiedShape for Dish {
     fn check_valid(&self) -> bool { self.pdia > EPSILON && self.pheig >= 0.0 }
-
-
 }
 
 impl BrepShape for Dish {
+    fn gen_brep(&self) -> Option<Shell> {
+        use truck_modeling::*;
+        let r = self.pdia / 2.0;
+        let h = self.pheig;
+        let radius = (r*r + h * h) / (2.0f32*h);
+        if radius < EPSILON { return None; }
+        let sinval =  (r / radius).max(-1.0f32).min(1.0f32);
+        let mut theta = (sinval).asin();
+        if r < h { theta = PI - theta; }
+
+        let rot_axis = self.paax_dir.normalize();
+        let c = rot_axis * self.pdis + self.paax_pt;
+        let ref_axis = cal_ref_axis(&rot_axis);
+        let p0 = rot_axis * self.pheig + c;
+        let center = p0 - radius * rot_axis;
+        let p1 = ref_axis * self.pdia / 2.0 + c;
+
+        let c =c.point3();
+        let v0 = builder::vertex(c);
+        let v1 = builder::vertex(p0.point3());
+        let v2 = builder::vertex(p1.point3());
+
+        let axis = ref_axis.cross(rot_axis);
+        let curve = builder::circle_arc_with_center(center.point3(), &v2, &v1, axis.vector3(), Rad(theta as f64));
+        let wire: Wire = vec![builder::line(&v0, &v2), curve, /*builder::line(&v1, &v0)*/].into();
+        let up_axis = rot_axis.vector3();
+        let s = builder::cone(&wire, -up_axis, Rad(PI as f64*2.0));
+        Some(s)
+    }
 
     fn hash_mesh_params(&self) -> u64{
         let r = self.pdia / 2.0;
@@ -78,36 +105,6 @@ impl BrepShape for Dish {
 
     fn get_scaled_vec3(&self) -> Vec3{
         Vec3::new(self.pdia, self.pdia, self.pdia)
-    }
-
-    fn gen_brep(&self) -> Option<Shell> {
-        use truck_modeling::*;
-        let r = self.pdia / 2.0;
-        let h = self.pheig;
-        let radius = (r*r + h * h) / (2.0f32*h);
-        if radius < EPSILON { return None; }
-        let sinval =  (r / radius).max(-1.0f32).min(1.0f32);
-        let mut theta = (sinval).asin();
-        if r < h { theta = PI - theta; }
-
-        let rot_axis = self.paax_dir.normalize();
-        let c = rot_axis * self.pdis + self.paax_pt;
-        let ref_axis = cal_ref_axis(&rot_axis);
-        let p0 = rot_axis * self.pheig + c;
-        let center = p0 - radius * rot_axis;
-        let p1 = ref_axis * self.pdia / 2.0 + c;
-
-        let c =c.point3();
-        let v0 = builder::vertex(c);
-        let v1 = builder::vertex(p0.point3());
-        let v2 = builder::vertex(p1.point3());
-
-        let axis = ref_axis.cross(rot_axis);
-        let curve = builder::circle_arc_with_center(center.point3(), &v2, &v1, axis.vector3(), Rad(theta as f64));
-        let wire: Wire = vec![builder::line(&v0, &v2), curve, /*builder::line(&v1, &v0)*/].into();
-        let up_axis = rot_axis.vector3();
-        let s = builder::cone(&wire, -up_axis, Rad(PI as f64*2.0));
-        Some(s)
     }
 }
 

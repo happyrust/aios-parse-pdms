@@ -1,7 +1,7 @@
 #![feature(array_methods)]
 #![feature(type_ascription)]
 
-#[allow(dead_code, unused_imports)]
+#[allow(dead_code, unused_imports, unused_variables, unused_imports, unused, missing_docs, unused_results, unused_must_use)]
 
 #[macro_use]
 extern crate nom;
@@ -62,7 +62,7 @@ use parse_pdms_db::local_db::bonsaidb_local::{AiosDBManager, DbOption};
 use parse_pdms_db::notify_file_change::notify_file;
 use parse_pdms_db::prim_geo::ctorus::CTorus;
 use parse_pdms_db::prim_geo::dish::Dish;
-use parse_pdms_db::prim_geo::pdms_shape::{BrepShape, VerifiedShape};
+use parse_pdms_db::shape::pdms_shape::{BrepShape, VerifiedShape};
 use parse_pdms_db::test_cases::test_database::test_column;
 
 const ATT_MDB: i32 = 0x8221C;
@@ -124,7 +124,8 @@ pub async fn run() -> AiosDbError {
     dbg!(time.elapsed().as_millis());
     // let result = db_manager.cache_geos_data(7200).await?;
     // db_manager.build_collision_world(7200).await?;
-    let refno = RefU64::from_two_nums(23584, 8537);
+    // let refno = RefU64::from_two_nums(23584, 6615);
+    let refno = RefU64::from_two_nums(23584, 5575);
     // let refno = RefU64::from_two_nums(15192, 113114);
 
     //cached 一些常用的取值操作
@@ -143,7 +144,6 @@ pub async fn run() -> AiosDbError {
 
     let mut  cache_mgr = CachedMeshes::default();
     let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
-    dbg!(&attr);
     if let Some(spre) = attr.get_foreign_refno("SPRE"){
         let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
         // dbg!(&geoms);

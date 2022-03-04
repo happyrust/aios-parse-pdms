@@ -9,8 +9,8 @@ use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
 use crate::AttrMap;
 use std::hash::Hash;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, PdmsMesh};
-use crate::prim_geo::pdms_shape::{BrepShape, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, PdmsMesh};
+use crate::shape::pdms_shape::{BrepShape, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
 #[reflect(Component)]

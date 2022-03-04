@@ -7,7 +7,7 @@ use bevy::ecs::reflect::ReflectComponent;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect, Serialize, Deserialize)]
 // #[reflect(Component)]

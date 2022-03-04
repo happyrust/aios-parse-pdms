@@ -6,7 +6,7 @@
 #![feature(once_cell)]
 #![feature(async_closure)]
 #![feature(generic_const_exprs)]
-#[allow(dead_code, unused_imports, dead_code)]
+#[allow(dead_code, unused_imports, unused_variables, unused_imports, unused, missing_docs, unused_results, unused_must_use)]
 
 #[macro_use]
 extern crate serde;
@@ -28,8 +28,7 @@ use futures::stream::TryStreamExt;
 
 pub mod pdms_types;
 pub mod db_tool;
-
-pub use db_tool::{db1_dehash};
+pub use db_tool::*;
 
 pub mod parse_explict_tools;
 // pub mod query;
@@ -43,11 +42,15 @@ pub mod direction_parse;
 pub mod axis_param;
 pub mod parse;
 pub mod data_interface;
+pub mod tool;
 
 pub use parse::parse_pdms_dir;
 
 pub mod consts;
+pub mod shape;
 pub mod prim_geo;
+pub mod sctn;
+pub mod pipes;
 pub mod grpc;
 
 pub mod local_db;

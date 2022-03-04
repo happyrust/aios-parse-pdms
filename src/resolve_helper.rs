@@ -200,7 +200,6 @@ pub fn test_expression() {
 }
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
-    dbg!(&gmse);
     let geo = match &gmse.type_name[..] {
         "SANN" => {
             Some(CateGeoParam::Profile(CateProfileParam::SANN(SannData {
@@ -210,7 +209,6 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 pangle: gmse.pang as f32,
                 pradius: gmse.prad as f32,
                 pwidth: gmse.pwid as f32,
-                height: gmse.posse_dist as f32,
                 drad: gmse.drad as f32,
                 dwid: gmse.dwid as f32,
             })

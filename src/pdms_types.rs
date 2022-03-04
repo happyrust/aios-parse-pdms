@@ -375,8 +375,13 @@ impl AttrMap {
     }
 
     #[inline]
-    pub fn get_type(&self) -> SmolStr{
-        self.get_as_string("TYPE").unwrap_or(UNSET_STR.into())
+    pub fn get_type(&self) -> &str{
+        self.get_string("TYPE").unwrap().as_str()
+    }
+
+    #[inline]
+    pub fn get_type_cloned(&self) -> SmolStr{
+        self.get_string("TYPE").unwrap().clone()
     }
 
     #[inline]
@@ -386,6 +391,19 @@ impl AttrMap {
                 IntegerType(d) => {
                     return Some(*d as u32);
                 }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    #[inline]
+    pub fn get_string(&self, key: &str) -> Option<&SmolStr> {
+        if let Some(v) = self.map.get(&key.into()){
+            match v {
+                StringType(s) | WordType(s) | ElementType(s) => {
+                    return Some(s);
+                },
                 _ => {}
             }
         }
@@ -556,6 +574,13 @@ impl AttrMap {
         None
     }
 
+    pub fn get_vec3(&self, key: &str) -> Option<Vec3> {
+        if let Some(AttrVal::Vec3Type(d)) = self.map.get(&key.into()) {
+            return Some(Vec3::new(d[0] as f32, d[1] as f32, d[2] as f32));
+        }
+        None
+    }
+
     pub fn get_i32_vec(&self, att: &str) -> Option<Vec<i32>> {
         if let Some(val) = self.map.get(&att.into()) {
             match val {
@@ -594,7 +619,7 @@ impl AttrMap {
 
     ///生成具有几何属性的element的shape
     pub fn create_brep_shape(&self) -> Option<Box<dyn BrepShape>> {
-        let type_noun = self.get_type();
+        let type_noun = self.get_type_cloned();
         return match type_noun.as_str() {
             "BOX" => Some(Box::new(SBox::from(self))),
             "CYLI" => Some(Box::new(SCylinder::from(self))),
@@ -1029,7 +1054,7 @@ use crate::db_tool::db1_hash;
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
-use crate::prim_geo::pdms_shape::{BrepShape, PdmsMesh, PdmsPrimShape};
+use crate::shape::pdms_shape::{BrepShape, PdmsMesh, PdmsPrimShape};
 use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::rtorus::RTorus;
 use crate::prim_geo::sbox::SBox;

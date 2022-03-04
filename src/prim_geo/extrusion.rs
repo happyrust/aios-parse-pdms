@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::f32::EPSILON;
-use std::hash::{Hasher, Hash};
+use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
 use truck_modeling::{builder, Shell, Surface, Wire};
 // use bevy_inspector_egui::Inspectable;
@@ -12,7 +12,8 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, hash_vec3, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::tool::hash_tool::hash_vec3;
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
 #[reflect(Component)]

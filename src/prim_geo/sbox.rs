@@ -10,7 +10,7 @@ use log::kv::Source;
 use lyon::math::size;
 use crate::prim_geo::helper::quad_indices;
 use crate::AttrMap;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable, Reflect,*/ Clone, Serialize, Deserialize)]
 // #[reflect(Component)]

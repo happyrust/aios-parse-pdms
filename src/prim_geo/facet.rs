@@ -11,7 +11,8 @@ use ncollide3d::na;
 use truck_meshalgo::prelude::*;
 use truck_modeling::Shell;
 use crate::pdms_types::AiosAABB;
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, hash_vec3, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::tool::hash_tool::hash_vec3;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub struct Facet {

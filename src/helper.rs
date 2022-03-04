@@ -11,7 +11,7 @@ use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
 use crate::parsed_data::{CateAxisParam, GmseParamData};
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_types::{AttrVal, EleNode};
-use crate::query_cata::{DDANGLE_STR, DDHEIGHT_STR, DDRADIUS_STR, POSSE_DIST_STR};
+use crate::query_cata::{DDANGLE_STR, DDHEIGHT_STR, DDRADIUS_STR};
 
 pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
     if let Some(value) = ele.get(attr) {
@@ -148,7 +148,6 @@ pub fn resolve_gmse_params(
     let angle = context[DDANGLE_STR].parse::<f64>().unwrap_or(0.0f64).to_radians();
     let radius = context[DDRADIUS_STR].parse::<f64>().unwrap_or(0.0f64);
     let height = context[DDHEIGHT_STR].parse::<f64>().unwrap_or(0.0f64);
-    let posse_dist = context[POSSE_DIST_STR].parse::<f64>().unwrap_or(0.0f64);
 
 
     let diameters = gm.diameters
@@ -241,7 +240,6 @@ pub fn resolve_gmse_params(
         radius,
         angle,
         height,
-        posse_dist,
         pwid,
         prad,
         pang,
@@ -275,7 +273,7 @@ pub fn resolve_axis_param(
         "".to_string()
     };
     let pbore = eval_str_to_f64(&axis_param.pbore, &context).unwrap_or_default();
-    match axis_param.attr_map.get_type().as_str() {
+    match axis_param.attr_map.get_type_cloned().as_str() {
         "PTAX" => {
             let d = eval_str_to_f64(&axis_param.distance, &context).unwrap_or_default();
             let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);

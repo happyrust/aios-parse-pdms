@@ -15,7 +15,6 @@ pub const DDHEIGHT_STR: &'static str = "DDHEIGHT";
 pub const DDRADIUS_STR: &'static str = "DDRADIUS";
 pub const DDANGLE_STR: &'static str = "DDANGLE";
 
-pub const POSSE_DIST_STR: &'static str = "POSSE_DIST";  //poss.dist(pose)
 
 
 ///求解design component
@@ -38,7 +37,6 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     let scom_ref = scom_ref.unwrap();
     let scom_info = query_scom_info(&scom_ref, interface).await;
     if scom_info.is_none() { return None; }
-    dbg!(&scom_info);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     for i in 0..desp.len() {
         context.insert(
@@ -50,8 +48,6 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     context.insert(DDANGLE_STR.into(), attr_map.get_as_string("ANGL").unwrap_or("0.0".into()));
     context.insert(DDRADIUS_STR.into(), attr_map.get_as_string("RADI").unwrap_or("0.0".into()));
 
-    let posse_dist = attr_map.get_posse_dist();
-    context.insert(POSSE_DIST_STR.into(), posse_dist.to_string().into());
     // dbg!(&context);
     let desparams = get_attr_value_f64_vec(&attr_map, "PARA").unwrap_or_default();
     for i in 0..desparams.len() {
@@ -71,7 +67,7 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
     interface: &T,
 ) -> Option<ScomInfo> {
     if let Some(attr_map) = interface.get_ele_attr(refno).await {
-        let type_noun = attr_map.get_type();
+        let type_noun = attr_map.get_type_cloned();
         let is_sprf = type_noun == "SPRF";
         // if type_noun == "SPRF" {
         //     let gmss_refno = attr_map.get_foreign_refno("GSTR").unwrap_or_default();
@@ -188,7 +184,7 @@ pub async fn query_gm_params<T: PdmsDataInterface>(
         .get_ele_children_attrs(&refno)
         .await;
     for child in children {
-        let has_chidren = child.get_type() == "SPRO";//todo add other types
+        let has_chidren = child.get_type_cloned() == "SPRO";//todo add other types
         gms.push(query_gm_param(&child, interface, has_chidren).await);
     }
     gms
@@ -333,7 +329,7 @@ pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterfac
         dxy = vec![[attr_map.get_as_string("DX").unwrap_or_default(),attr_map.get_as_string("DY").unwrap_or_default()]];
     }
     GmParam {
-        gm_type: attr_map.get_type(),
+        gm_type: attr_map.get_type_cloned(),
         prad: attr_map.get_as_string("PRAD").unwrap_or_default(),
         pang: attr_map.get_as_string("PANG").unwrap_or_default(),
         pwid: attr_map.get_as_string("PWID").unwrap_or_default(),
@@ -348,8 +344,8 @@ pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterfac
                 "PX", "PY", "PZ", "PBBT", "PCBT", "PBTP", "PCTP", "PBOF", "PCOF",
             ],
         ),
-        verts: vec![[attr_map.get_as_string("PX").unwrap_or_default(),attr_map.get_as_string("PY").unwrap_or_default()]],
-        dxy: vec![[attr_map.get_as_string("DX").unwrap_or_default(),attr_map.get_as_string("DY").unwrap_or_default()]],
+        verts,
+        dxy,
         drad: attr_map.get_as_string("DRAD").unwrap_or_default(),
         dwid: attr_map.get_as_string("DWID").unwrap_or_default(),
         paxises, // 先pa_axis, 后pb_axis

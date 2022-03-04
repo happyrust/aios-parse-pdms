@@ -12,7 +12,7 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3};
-use crate::prim_geo::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, Clone,  Reflect)]
 #[reflect(Component)]

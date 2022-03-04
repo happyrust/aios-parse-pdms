@@ -1,6 +1,5 @@
 
 pub mod helper;
-pub mod pdms_shape;
 pub mod sbox;
 pub mod cylinder;
 pub mod snout;
@@ -12,6 +11,7 @@ pub mod revolution;
 pub mod pyramid;
 pub mod rtorus;
 pub mod facet;
+
 
 
 //pub mod hash mesh 表

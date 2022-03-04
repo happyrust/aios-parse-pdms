@@ -23,7 +23,7 @@ use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
 use once_cell::sync::Lazy;
 use smol_str::SmolStr;
-use crate::{AttrMap, db1_dehash, GeomsInfo, parse_pdms_dir};
+use crate::{AttrMap, db1_dehash, GeomsInfo, parse_pdms_dir, pipes, sctn};
 use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
@@ -33,7 +33,7 @@ use crate::prim_geo::ctorus::CTorus;
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
 use crate::prim_geo::extrusion::Extrusion;
-use crate::prim_geo::pdms_shape::{BrepShape, PdmsPrimShape, VerifiedShape};
+use crate::shape::pdms_shape::{BrepShape, PdmsPrimShape, VerifiedShape};
 use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::revolution::Revolution;
 use crate::prim_geo::rtorus::RTorus;
@@ -266,35 +266,15 @@ impl AiosDBManager {
     pub async fn get_design_geoms(&self, refno: &RefU64, cached_mesh_mgr: &mut CachedMeshes) -> Option<GeoData> {
         //todo，直接use type_refs里面的数据直接过滤出哪些有参考号，而不用一个个去找
         if let Some(desi_att) = self.get_attr(refno).await.unwrap() {
-            if let Some(cat_att) = self.get_cat_att_in_desi(refno).await {
-                //针对SPRF做的处理
-                if cat_att.get_type().as_str() == "SPRF" {
-                    if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
-                        dbg!(&geoms);
-                        if geoms.geometries.len() == 0 { return None; }
-                        if let Some(poss) = desi_att.get_poss() {
-                            if let Some(pose) = desi_att.get_pose() {
-                                let height = pose.distance(poss);
-                                //这里需要加入一个旋转调整
-                                if let CateGeoParam::Profile(CateProfileParam::SPRO(profile)) = &geoms.geometries[0] {
-                                    let loop_verts = profile.iter().map(|x| Vec3::new(x[0], x[1], 0.0)).collect();
-                                    if height.abs() >= f32::EPSILON {
-                                        let extrusion = Box::new(Extrusion {
-                                            loop_verts,
-                                            height,
-                                            ..Default::default()
-                                        });
-                                        if extrusion.check_valid() {
-                                            let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
-                                            return Some((GeoData::Primitive(r)));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {   //管道的一些情况
-                    }
+            //如果是SCTN，使用SCTN的方法创建GeoData
+            if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
+                dbg!(&geoms);
+                let type_name = desi_att.get_type();
+                if type_name == "SCTN" {
+                    sctn::create_geo(&desi_att,&geoms);
                 }
+                //管件的生成
+                //pipes::create_geo(&desi_att,&geoms);
             }
         }
         None
@@ -304,7 +284,7 @@ impl AiosDBManager {
         let mut cur_refno = *refno;
         while let Some(attr) = self.get_attr(&cur_refno).await.expect("Get attr failed") {
             if let Some(owner) = attr.get_owner() {
-                let noun_name = attr.get_type();
+                let noun_name = attr.get_type_cloned();
                 if GENERIC_NOUN_NAMES.contains(&noun_name) {
                     return Some((noun_name, cur_refno));
                 }
@@ -351,7 +331,7 @@ impl AiosDBManager {
                         if noun == LOOP_NOUN {
                             let parent = attr.get_owner().unwrap();
                             let mut parent_att = self.get_attr(&parent).await?.unwrap();
-                            let parent_noun = parent_att.get_type();
+                            let parent_noun = parent_att.get_type_cloned();
                             let mut loop_verts: Vec<Vec3> = vec![];
                             if let Some(children_refs) = self.get_children(&d.refno).await? {
                                 for x in children_refs {
@@ -798,7 +778,7 @@ impl AiosPdmsProject {
         // dbg!(&bangle);
         // let quat = Quat::from_rotation_arc(Vec3::Z, extru_dir);
         for attr in ancestors {
-            let t = if attr.get_type() == "SCTN" {
+            let t = if attr.get_type_cloned() == "SCTN" {
                 let tr = TransformRT {
                     rotation,
                     translation,
