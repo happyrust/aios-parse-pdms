@@ -1,6 +1,6 @@
 use smol_str::SmolStr;
 use crate::AttrMap;
-
+use crate::pdms_types::RefU64;
 
 
 //设计模块的信息
@@ -64,6 +64,7 @@ pub struct DatasetParamStr {
 //GMSE GMSS
 #[derive(Clone, Debug, Default)]
 pub struct GmParam {
+    pub refno: RefU64,
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     pub gm_type: SmolStr,  //SCYL  LSNO  SCTO  SDSH  SBOX  SANN  SPRO
 

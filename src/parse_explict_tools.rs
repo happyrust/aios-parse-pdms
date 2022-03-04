@@ -352,12 +352,13 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                 expression_data=&expression_data[4..];
                 match &expression_data[..8] {
                     &[0x0, 0x0, 0x0, 0x1, 0x0, 0xE, 0x95, 0xA5] => {
+                        //todo replase this as -1
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let expression = "ATTRIB MCOU ".to_string();
+                            let expression = "ATTRIB MCOU".to_string();
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB MCOU ".to_string();
+                            let expression = "ATTRIB MCOU".to_string();
                             result_stack.push(expression);
                         }
                     }
@@ -369,7 +370,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             result_stack.push(value);
                         } else {
                             let (_, val) = be_i32(&expression_data[8..12])?;
-                            let expression = format!("ATTRIB PARA [{}]", val.to_string());
+                            let expression = format!("ATTRIB PARA[{}]", val.to_string());
                             result_stack.push(expression);
                         }
                     }
@@ -380,7 +381,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let value = format!("{}[{}] ", expression, value);
                             result_stack.push(value);
                         } else {
-                            let expression = "ATTRIB IPAR ".to_string();
+                            let expression = "ATTRIB IPAR".to_string();
                             result_stack.push(expression);
                         }
                     }
@@ -391,7 +392,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
-                            let expression = format!("ATTRIB DESP ");
+                            let expression = format!("ATTRIB DESP");
                             result_stack.push(expression);
                         }
                     }
@@ -402,7 +403,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
-                            let expression = format!("ATTRIB DDESP ");
+                            let expression = format!("ATTRIB DDESP");
                             result_stack.push(expression);
                         }
                     }
@@ -413,7 +414,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
-                            let expression = format!("ATTRIB :HXYsize ");
+                            let expression = format!("ATTRIB :HXYsize");
                             result_stack.push(expression);
                         }
                     }
@@ -424,7 +425,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
-                            let expression = format!("ATTRIB WPAR ");
+                            let expression = format!("ATTRIB WPAR");
                             result_stack.push(expression);
                         }
                     }
@@ -435,7 +436,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
-                            let expression = format!("ATTRIB WDESP ");
+                            let expression = format!("ATTRIB WDESP");
                             result_stack.push(expression);
                         }
                     }
@@ -445,47 +446,47 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB DTXR ".to_string();
+                            let expression = "ATTRIB DTXR".to_string();
                             result_stack.push(expression);
                         }
                     }
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0xC, 0x2C, 0xA0] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let expression = "ATTRIB FLNM ".to_string();
+                            let expression = "ATTRIB FLNM".to_string();
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB FLNM ".to_string();
+                            let expression = "ATTRIB FLNM".to_string();
                             result_stack.push(expression);
                         }
                     }
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0x8, 0x82, 0xE3] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let expression = "ATTRIB BDIA ".to_string();
+                            let expression = "ATTRIB BDIA".to_string();
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB BDIA ".to_string();
+                            let expression = "ATTRIB BDIA".to_string();
                             result_stack.push(expression);
                         }
                     }
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0x33, 0x70] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let expression = "ATTRIB BTYP ".to_string();
+                            let expression = "ATTRIB BTYP".to_string();
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB BTYP ".to_string();
+                            let expression = "ATTRIB BTYP".to_string();
                             result_stack.push(expression);
                         }
                     }
                     &[0x0, 0x0, 0x0, 0x2, 0x0, 0xB, 0xCB, 0xFF ] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let expression = "ATTRIB ANGL ".to_string();
+                            let expression = "ATTRIB ANGL".to_string();
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB ANGL ".to_string();
+                            let expression = "ATTRIB ANGL".to_string();
                             result_stack.push(expression);
                         }
                     }
@@ -493,41 +494,41 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                         match &expression_data[16..20] {
                             &[0x0, 0xB, 0x20, 0x9F] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                                    let expression = "ATTRIB RPRO DIAJ ".to_string();
+                                    let expression = "ATTRIB RPRO DIAJ".to_string();
                                     result_stack.pop().unwrap();
                                     result_stack.push(expression);
                                 } else {
-                                    let expression = "ATTRIB RPRO DIAJ ".to_string();
+                                    let expression = "ATTRIB RPRO DIAJ".to_string();
                                     result_stack.push(expression);
                                 }
                             }
                             &[0x0, 0xA, 0x5E, 0x97] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                                    let expression = "ATTRIB RPRO LENG ".to_string();
+                                    let expression = "ATTRIB RPRO LENG".to_string();
                                     result_stack.pop().unwrap();
                                     result_stack.push(expression);
                                 } else {
-                                    let expression = "ATTRIB RPRO LENG ".to_string();
+                                    let expression = "ATTRIB RPRO LENG".to_string();
                                     result_stack.push(expression);
                                 }
                             }
                             &[0x0, 0xA, 0xBD, 0x47] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                                    let expression = "ATTRIB RPRO FLTH ".to_string();
+                                    let expression = "ATTRIB RPRO FLTH".to_string();
                                     result_stack.pop().unwrap();
                                     result_stack.push(expression);
                                 } else {
-                                    let expression = "ATTRIB RPRO FLTH ".to_string();
+                                    let expression = "ATTRIB RPRO FLTH".to_string();
                                     result_stack.push(expression);
                                 }
                             }
                             &[0x0, 0x8, 0x1C, 0x03] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                                    let expression = "ATTRIB RPRO R ".to_string();
+                                    let expression = "ATTRIB RPRO R".to_string();
                                     result_stack.pop().unwrap();
                                     result_stack.push(expression);
                                 } else {
-                                    let expression = "ATTRIB RPRO R ".to_string();
+                                    let expression = "ATTRIB RPRO R".to_string();
                                     result_stack.push(expression);
                                 }
                             }
@@ -543,31 +544,31 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             }
                             &[0x0, 0xE, 0x2A, 0x1B] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                                    let expression = "ATTRIB RPRO WIDT ".to_string();
+                                    let expression = "ATTRIB RPRO WIDT".to_string();
                                     result_stack.pop().unwrap();
                                     result_stack.push(expression);
                                 } else {
-                                    let expression = "ATTRIB RPRO WIDT ".to_string();
+                                    let expression = "ATTRIB RPRO WIDT".to_string();
                                     result_stack.push(expression);
                                 }
                             }
                             &[0x0, 0x7, 0x44, 0x59] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                                    let expression = "ATTRIB RPRO CNE ".to_string();
+                                    let expression = "ATTRIB RPRO CNE".to_string();
                                     result_stack.pop().unwrap();
                                     result_stack.push(expression);
                                 } else {
-                                    let expression = "ATTRIB RPRO CNE ".to_string();
+                                    let expression = "ATTRIB RPRO CNE".to_string();
                                     result_stack.push(expression);
                                 }
                             }
                             &[0x0, 0x8, 0x82, 0xE3] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                                    let expression = "ATTRIB RPRO BDIA ".to_string();
+                                    let expression = "ATTRIB RPRO BDIA".to_string();
                                     result_stack.pop().unwrap();
                                     result_stack.push(expression);
                                 } else {
-                                    let expression = "ATTRIB RPRO BDIA ".to_string();
+                                    let expression = "ATTRIB RPRO BDIA".to_string();
                                     result_stack.push(expression);
                                 }
                             }
@@ -576,11 +577,11 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     }
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0xF, 0xAD, 0x95] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let expression = "ATTRIB SKEY ".to_string();
+                            let expression = "ATTRIB SKEY".to_string();
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB SKEY ".to_string();
+                            let expression = "ATTRIB SKEY".to_string();
                             result_stack.push(expression);
                         }
                     }
@@ -591,17 +592,17 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let value = format!("{}[{}] ", expression, value);
                             result_stack.push(value);
                         } else {
-                            let expression = "ATTRIB CPAR ".to_string();
+                            let expression = "ATTRIB CPAR".to_string();
                             result_stack.push(expression);
                         }
                     }
                     &[0x0, 0x0, 0x0, 0x5, 0x0, 0xD, 0xBC, 0xF9] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let expression = "ATTRIB CATR ".to_string();
+                            let expression = "ATTRIB CATR".to_string();
                             result_stack.pop().unwrap();
                             result_stack.push(expression);
                         } else {
-                            let expression = "ATTRIB CATR ".to_string();
+                            let expression = "ATTRIB CATR".to_string();
                             result_stack.push(expression);
                         }
                     }

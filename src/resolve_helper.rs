@@ -30,6 +30,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     if seg_strs.len() == 0 {
         return None;
     }
+    // dbg!(&seg_strs);
     let mut p_vals: Vec<SmolStr> = Vec::new();
     let mut i = 0;
     while i < seg_strs.len() {
@@ -59,7 +60,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             } else {
                 key = convert_to_context_key(s_n, &mut i, &seg_strs).unwrap_or_default();
             }
-        } else if s == "DESIGN" {
+        } else if s == "DESIGN" || s == "DESP" {
             let dtse_key = format!("{} {}", s, seg_strs[i + 1]);
             key = convert_to_context_key(&dtse_key, &mut i, &seg_strs).unwrap_or_default();
         }

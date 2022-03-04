@@ -18,25 +18,23 @@ pub fn create_geo(att: &AttrMap, geom_info: &GeomsInfo) -> Option<GeoData> {
             let height = pose.distance(poss);
             if height < EPSILON { return None; }
 
-            let ns = att.get_vec3("DRNS");
-            let ne = att.get_vec3("DRNE");
+            let ns = att.get_vec3("DRNS").unwrap_or_default();
+            let ne = att.get_vec3("DRNE").unwrap_or_default();
 
             //rotate the profile
             if let CateGeoParam::Profile(profile_s) = &geoms[0]{
                 if let CateGeoParam::Profile(profile_e) = &geoms[1] {
                     match (profile_s, profile_e) {
                         (CateProfileParam::SANN(p_s), CateProfileParam::SANN(p_e)) =>{
-
+                            dbg!(p_s);
                         }
                         (CateProfileParam::SPRO(p_s), CateProfileParam::SPRO(p_e)) =>{
-
+                            dbg!(p_s);
                         }
                         (_, _) => {}
                     }
                 }
             }
-
-
 
         }
     }

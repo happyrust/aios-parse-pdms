@@ -29,9 +29,11 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     let mut desp = get_attr_value_int_vec(&attr_map, "DESP");
 
     let spre_ref = attr_map.get_foreign_refno("SPRE").unwrap_or_default();
-    let mut scom_ref = None;
+    let mut scom_ref = Some(spre_ref);
     if let Some(spre) = interface.get_ele_attr(&spre_ref).await{
-        scom_ref = spre.get_foreign_refno("CATR");
+        if spre.contains_attr_name("CATR") {
+            scom_ref = spre.get_foreign_refno("CATR");
+        }
     }
     if scom_ref.is_none() { return None; }
     let scom_ref = scom_ref.unwrap();
@@ -48,14 +50,7 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     context.insert(DDANGLE_STR.into(), attr_map.get_as_string("ANGL").unwrap_or("0.0".into()));
     context.insert(DDRADIUS_STR.into(), attr_map.get_as_string("RADI").unwrap_or("0.0".into()));
 
-    // dbg!(&context);
-    let desparams = get_attr_value_f64_vec(&attr_map, "PARA").unwrap_or_default();
-    for i in 0..desparams.len() {
-        context.insert(
-            format!("DESP{}", i + 1).into(),
-            desparams[i].to_string().into(),
-        );
-    }
+    dbg!(&context);
     let mut geom_info = resolve_cata_comp(scom_info.as_ref().unwrap(), interface, Some(context)).await;
     Some(geom_info)
 }
@@ -302,6 +297,9 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
 
 ///获得gmse的params
 pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> GmParam {
+
+    dbg!(attr_map.to_string_hashmap());
+
     let mut paxises = get_attr_strings_db(attr_map, &["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = attr_map.get_val("PTS") {
         match val {
@@ -329,6 +327,7 @@ pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterfac
         dxy = vec![[attr_map.get_as_string("DX").unwrap_or_default(),attr_map.get_as_string("DY").unwrap_or_default()]];
     }
     GmParam {
+        refno: attr_map.get_refno().unwrap_or_default(),
         gm_type: attr_map.get_type_cloned(),
         prad: attr_map.get_as_string("PRAD").unwrap_or_default(),
         pang: attr_map.get_as_string("PANG").unwrap_or_default(),

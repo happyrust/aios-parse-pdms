@@ -669,7 +669,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         let debug_pos = total_len - residual.len();
         let hash_val = convert_to_hash(&residual[..4]);
         if check_is_expr(hash_val as i32) {
-            dbg!(db1_dehash(hash_val));
             let (input, (expression_type, value)) = parse_expression_attr(residual)?;
             att_value = Some(StringType(value));
             residual = input;
@@ -680,7 +679,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                 be_u16, //属性的长度
             ))(&residual[..])?;
             let type_len = type_len as usize;
-
+            // dbg!(db1_dehash(explict_hash as u32));
             if type_len * 4 <= l.len() {
                 residual = &l[type_len * 4..];
                 // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
@@ -752,33 +751,36 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                         DbAttributeType::DATETIME => {}
 
                         DbAttributeType::DOUBLEVEC => {
-                            let array_len = tmp_input.len() / 4;
-                            let (tmp_input, data_len) = be_i32(tmp_input)?;
-                            let len = data_len as usize;
-                            let double_or_float = array_len / len;
-                            let mut tmp_input = tmp_input;
+                            let mut bytes_len = tmp_input.len() / 4;
+                            if bytes_len >= 3 {
+                                bytes_len -= 1;  //去掉一个自身
+                                let (tmp_input, data_len) = be_i32(tmp_input)?;
+                                let len = data_len as usize;
+                                let double_or_float = bytes_len / len;
+                                let mut tmp_input = tmp_input;
 
-                            if double_or_float == 2 {
-                                if tmp_input.len() >= 8 {
-                                    let mut data = vec![];
-                                    for _ in 0..len {
-                                        data.push(parse_to_f64(&tmp_input[..8]));
-                                        tmp_input = &tmp_input[8..];
+                                if double_or_float == 2 {
+                                    if tmp_input.len() >= 8 {
+                                        let mut data = vec![];
+                                        for _ in 0..len {
+                                            data.push(parse_to_f64(&tmp_input[..8]));
+                                            tmp_input = &tmp_input[8..];
+                                        }
+                                        att_value = Some(DoubleArrayType(data));
+                                    } else {
+                                        att_value = Some(DoubleArrayType(vec![0.0]));
                                     }
-                                    att_value = Some(DoubleArrayType(data));
-                                } else {
-                                    att_value = Some(DoubleArrayType(vec![0.0]));
-                                }
-                            } else if double_or_float == 1 {
-                                if tmp_input.len() > 4 {
-                                    let mut data = vec![];
-                                    for _ in 0..len {
-                                        data.push(parse_to_f32(&tmp_input[..4]) as f64);
-                                        tmp_input = &tmp_input[4..];
+                                } else if double_or_float == 1 {
+                                    if tmp_input.len() > 4 {
+                                        let mut data = vec![];
+                                        for _ in 0..len {
+                                            data.push(parse_to_f32(&tmp_input[..4]) as f64);
+                                            tmp_input = &tmp_input[4..];
+                                        }
+                                        att_value = Some(DoubleArrayType(data));
+                                    } else {
+                                        att_value = Some(DoubleArrayType(vec![0.0]));
                                     }
-                                    att_value = Some(DoubleArrayType(data));
-                                } else {
-                                    att_value = Some(DoubleArrayType(vec![0.0]));
                                 }
                             }
                         }
@@ -919,6 +921,26 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         // }
     }
     Ok((input, true))
+}
+
+fn get_param_type_with_i32(input:i32) -> String {
+    let mut val = String::new();
+    if input >= 50 && input < 0x65 {
+        let value = input - 50;
+        val = format!("DESIGN PARAM {}", value);
+    } else if input >= 0x65 && input < 0x1F5 {
+        let value = (((input - 0x64) as f32 + 0.005) * 100.0).round() / 100.0;
+        val = format!("IPARAM {}", value);
+    } else if input >= 0x1F5 {
+        let value = input - 0x1F4;
+        val = format!("TWICE PARAM {}", value);
+    } else if input <= 0xFFFFFFFFu32 as i32 {
+        let value = match_angle_or_return_number(input);
+        val = value.to_string();
+    } else {
+        val = format!("PARAM {}", input);
+    }
+    val
 }
 
 /// 获取所有的members
@@ -1254,31 +1276,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
-                let mut result = String::from("PARAM");
-                if value1 >= 0x65 && value1 < 0x1F5 {
-                    let value1 = (((value1 - 0x64) as f32 + 0.005) * 100.0).round() / 100.0;
-                    val = format!("IPARAM {}", value1);
-                } else if value1 >= 0x1F5 {
-                    let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PARAM {}", value1);
-                } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value1);
-                    val = value.to_string();
-                } else {
-                    val = format!("PARAM {}", value1);
-                }
-                if value2 >= 0x65 && value2 < 0x1F5 {
-                    let value2 = value2 - 0x64;
-                    result = format!("IPARAM {}", value2);
-                } else if value2 >= 0x1F5 {
-                    let value2 = value2 - 0x1F4;
-                    result = format!("TWICE PARAM {}", value2);
-                } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value2);
-                    result = value;
-                } else {
-                    result = format!("PARAM {}", value2);
-                }
+                val = get_param_type_with_i32(value1);
+                let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
                     val = format!("{} TIMES DIFFERENCE {} {}", times, val, result);
                 } else {
@@ -1293,31 +1292,9 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
-                let mut result = String::from("PARAM");
-                if value1 >= 0x65 && value1 < 0x1F5 {
-                    let value1 = value1 - 0x64;
-                    val = format!("IPARAM {}", value1);
-                } else if value1 >= 0x1F5 {
-                    let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PARAM {}", value1);
-                } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value1);
-                    val = value.to_string();
-                } else {
-                    val = format!("PARAM {}", value1);
-                }
-                if value2 >= 0x65 {
-                    let value2 = value2 - 0x64;
-                    result = format!("IPARAM {}", value2);
-                } else if value2 >= 0x1F5 {
-                    let value2 = value2 - 0x1F4;
-                    val = format!("TWICE PARAM {}", value2);
-                } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value2);
-                    result = value.to_string();
-                } else {
-                    result = format!("PARAM {}", value2);
-                }
+
+                val = get_param_type_with_i32(value1);
+                let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
                     val = format!("{} TIMES SUM {} {}", times, val, result);
                 } else {
@@ -1337,31 +1314,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
-                let mut result = String::from("PARAM");
-                if value1 >= 0x65 {
-                    let value1 = value1 - 0x64;
-                    val = format!("IPARAM {}", value1);
-                } else if value1 >= 0x1F5 && value1 < 0x1F5 {
-                    let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PARAM {}", value1);
-                } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value1);
-                    val = value.to_string();
-                } else {
-                    val = format!("PARAM {}", value1);
-                }
-                if value2 >= 0x65 && value2 < 0x1F5 {
-                    let value2 = value2 - 0x64;
-                    result = format!("IPARAM {}", value2);
-                } else if value2 >= 0x1F5 {
-                    let value2 = value2 - 0x1F4;
-                    result = format!("TWICE PARAM {}", value2);
-                } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value2);
-                    result = value.to_string();
-                } else {
-                    result = format!("PARAM {}", value2);
-                }
+                val = get_param_type_with_i32(value1);
+                let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
                     val = format!("{} TIMES SUM {} {}", times, val, result);
                 } else {
@@ -1375,31 +1329,8 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                     be_i32,
                     be_i32,
                 ))(&tmp_input[8..16])?;
-                let mut result = String::from("PARAM");
-                if value1 >= 0x65 && value1 < 0x1F5 {
-                    let value1 = value1 - 0x64;
-                    val = format!("IPARAM {}", value1);
-                } else if value1 >= 0x1F5 {
-                    let value1 = value1 - 0x1F4;
-                    val = format!("TWICE PARAM {}", value1);
-                } else if value1 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value1);
-                    val = value.to_string();
-                } else {
-                    val = format!("PARAM {}", value1);
-                }
-                if value2 >= 0x65 && value2 < 0x1F5 {
-                    let value2 = value2 - 0x64;
-                    result = format!("IPARAM {}", value2);
-                } else if value2 >= 0x1F5 {
-                    let value2 = value2 - 0x1F4;
-                    result = format!("TWICE PARAM {}", value2);
-                } else if value2 <= 0xFFFFFFFFu32 as i32 {
-                    let value = match_angle_or_return_number(value2);
-                    result = value.to_string();
-                } else {
-                    result = format!("PARAM {}", value2);
-                }
+                val = get_param_type_with_i32(value1);
+                let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
                     val = format!("{} TIMES SUM {} {}", times, val, result);
                 } else {

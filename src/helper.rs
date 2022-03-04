@@ -145,6 +145,9 @@ pub fn resolve_gmse_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
+
+    dbg!(gm.refno.to_refno_str());
+
     let angle = context[DDANGLE_STR].parse::<f64>().unwrap_or(0.0f64).to_radians();
     let radius = context[DDRADIUS_STR].parse::<f64>().unwrap_or(0.0f64);
     let height = context[DDHEIGHT_STR].parse::<f64>().unwrap_or(0.0f64);

@@ -117,15 +117,20 @@ pub async fn run() -> AiosDbError {
                                              vec!["Sample".to_string(), "Master".to_string()],
                                              "Sample",
                                              Some(DbOption {
-                                                 total_sync: false,
+                                                 total_sync: true,
                                                  incr_sync: false,
                                              })).await.unwrap();
 
     dbg!(time.elapsed().as_millis());
-    // let result = db_manager.cache_geos_data(7200).await?;
+    let result = db_manager.cache_geos_data(7200).await?;
     // db_manager.build_collision_world(7200).await?;
     // let refno = RefU64::from_two_nums(23584, 6615);
     let refno = RefU64::from_two_nums(23584, 5575);
+    let refno = RefU64::from_two_nums(23584, 7040);
+    // let refno = RefU64(101292508714382);
+    // let refno = RefU64(101292508716175);
+    // //15213/499930
+    // let refno = RefU64::from_two_nums(15213, 499930);
     // let refno = RefU64::from_two_nums(15192, 113114);
 
     //cached 一些常用的取值操作
@@ -137,6 +142,7 @@ pub async fn run() -> AiosDbError {
     // dbg!(refno_info);
     // dbg!(db_manager.get_project_of_refno(&refno).await);
     // dbg!(db_manager.get_pretty_attr(&refno).await);
+    dbg!(refno.to_refno_str());
     dbg!(db_manager.get_pretty_attr(&refno).await);
     dbg!(db_manager.get_world_transform(&refno).await);
     // dbg!(db_manager.get_children(&refno).await);

@@ -263,3 +263,46 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let mut value = SmolStr::new("");
     dbg!(&ele_data);
 }
+
+
+#[test]
+fn test_atta() {
+    // issue : https://gitee.com/happydpc/aios-parse-pdms/issues/I4QDGE
+    let data_str = "
+00 00 00 33 00 00 5C 20 00 00 15 8E 00 08 A3 E5
+00 00 5C 20 00 00 15 8B 00 00 03 0F 00 06 80 01
+00 00 00 00 00 00 00 00 20 0A 00 00 00 00 00 03
+00 00 00 00 40 B4 F0 00 00 00 00 00 40 C4 50 00
+00 00 00 00 40 93 74 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 08 00 00 3B 59 00 00 37 CA
+00 00 3B 58 00 03 80 2D 00 00 00 01 00 00 00 02
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 0A F8 61 00 00 5C 20 00 00 1B 41
+00 00 00 02 29 BA BD 40 80 00 00 01 00 01 00 2D
+00 00 5C 20 00 00 15 8E 00 00 00 00 00 00 00 00
+00 0A AF CA 14 00 00 01 00 00 00 00 00 09 2E A7
+0C 00 00 01 FF FF FF FF 00 0B C6 C0 14 00 00 01
+00 00 00 01 06 A0 26 04 0C 00 00 01 00 0D F3 17
+00 0B CB FF 08 00 00 02 00 00 00 00 00 00 00 00
+10 71 D1 20 08 00 00 02 00 00 00 00 00 00 00 00
+10 71 D1 2B 08 00 00 02 00 00 00 00 00 00 00 00
+00 0D FD 22 14 00 00 01 00 00 00 00 00 CC 6B 3F
+38 00 00 02 00 00 00 01 00 08 A3 E5 00 0D 20 C7
+18 00 00 03 00 00 00 01 00 00 00 00 40 39 00 00
+0F 7A 2C C8 1C 00 00 02 00 00 00 01 00 09 C5 E1
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
+    //     dbg!(map.value());
+    // }
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let mut value = SmolStr::new("");
+    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+}
+
+

@@ -266,15 +266,17 @@ impl AiosDBManager {
     pub async fn get_design_geoms(&self, refno: &RefU64, cached_mesh_mgr: &mut CachedMeshes) -> Option<GeoData> {
         //todo，直接use type_refs里面的数据直接过滤出哪些有参考号，而不用一个个去找
         if let Some(desi_att) = self.get_attr(refno).await.unwrap() {
-            //如果是SCTN，使用SCTN的方法创建GeoData
-            if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
-                dbg!(&geoms);
-                let type_name = desi_att.get_type();
-                if type_name == "SCTN" {
-                    sctn::create_geo(&desi_att,&geoms);
+            let type_name = desi_att.get_type();
+            if type_name == "SCTN" {
+                //如果是SCTN，使用SCTN的方法创建GeoData
+                if let Some(geoms) = crate::query_cata::resolve_desi_comp(refno, self).await {
+                    dbg!(&geoms);
+                    if type_name == "SCTN" {
+                        sctn::create_geo(&desi_att,&geoms);
+                    }
+                    //管件的生成
+                    //pipes::create_geo(&desi_att,&geoms);
                 }
-                //管件的生成
-                //pipes::create_geo(&desi_att,&geoms);
             }
         }
         None
@@ -302,7 +304,6 @@ impl AiosDBManager {
         let mut main_db = self.project_map.get_mut(&project.get_u32_hash()).expect("Not exist project");
 
         let mut cached_mesh_mgr = CachedMeshes::default();
-
         let mut geo_map = HashMap::new();
         let mut type_geom_refs_map = HashMap::new();
         if let Some(d) = PdmsTree::get(db_code as u64, main_db.get_tree_database()).await? {
@@ -322,9 +323,6 @@ impl AiosDBManager {
                     if PRIM_HASH_NOUNS.contains(&noun) {
                         //获得类型和参考号
                         if let Some(e) = self.get_generic_type_refno(&d.refno).await {
-                            if e.0 == "ROOM" {
-                                dbg!(&e);
-                            }
                             type_geom_refs_map.entry(e.1).or_insert(Vec::new()).push(d.refno);
                             generic_type = Some(e.0.clone());
                         }

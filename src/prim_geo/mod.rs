@@ -11,6 +11,7 @@ pub mod revolution;
 pub mod pyramid;
 pub mod rtorus;
 pub mod facet;
+pub mod loft;
 
 
 

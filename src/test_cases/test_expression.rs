@@ -386,8 +386,37 @@ FF F1 F3 AA 1C 00 00 1B 00 00 00 1A 00 00 00 1A
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
-    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xBEEBFi32) {
-    //     dbg!(map.value());
-    // }
     dbg!(ele_data);
+}
+
+
+#[test]
+fn test_sample_15213_499928_12_1() {
+    let data_str="
+00 00 00 41 00 00 3B 6D 00 07 A0 D8 00 0D CC D4
+00 00 3B 6D 00 07 A0 D6 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0F
+00 00 00 02 00 00 00 01 00 00 00 01 00 00 00 02
+00 00 00 01 00 00 00 03 00 00 00 02 00 00 00 03
+00 00 03 E9 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 28 00 00 00 03 00 00 00 3F 00 00 00 3E
+00 00 00 04 00 00 00 28 00 00 00 01 00 00 00 3D
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 28
+00 00 00 01 00 00 00 37 00 00 00 00 00 00 00 04
+00 00 00 28 00 00 00 01 00 00 00 34 00 00 00 00
+00 00 00 04 00 00 00 28 00 00 00 01 00 00 00 35
+00 00 00 00 00 00 00 00 10 10 00 00 00 10 00 01
+00 00 00 07 00 00 00 41 00 00 3B 6D 00 07 A0 D9";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
+        dbg!(map.value());
+    };
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
