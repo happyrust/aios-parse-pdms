@@ -10,7 +10,7 @@ use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
 use bevy::reflect::{Reflect, ReflectRef};
 use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
-use glam::Vec3;
+use glam::{TransformRT, TransformSRT, Vec3};
 use ncollide3d::bounding_volume::AABB;
 use ncollide3d::math::{Point, Vector};
 use ncollide3d::na;
@@ -30,15 +30,14 @@ use crate::prim_geo::snout::LSnout;
 
 pub const TRIANGLE_TOL: f64 = 0.01;
 
-pub trait VerifiedShape{
-    fn check_valid(&self) -> bool{
+pub trait VerifiedShape {
+    fn check_valid(&self) -> bool {
         true
     }
-
 }
 
 #[inline]
-pub fn gen_bounding_box(shell: &Shell) -> BoundingBox<Point3>{
+pub fn gen_bounding_box(shell: &Shell) -> BoundingBox<Point3> {
     let mut bdd_box = BoundingBox::new();
     shell
         .iter()
@@ -60,7 +59,7 @@ pub fn gen_bounding_box(shell: &Shell) -> BoundingBox<Point3>{
 }
 
 #[derive(Serialize, Deserialize, Component, Debug, Clone, Default)]
-pub struct PdmsMesh{
+pub struct PdmsMesh {
     // pub mesh: Mesh,
     pub indices: Vec<u32>,
     pub vertices: Vec<[f32; 3]>,
@@ -69,11 +68,12 @@ pub struct PdmsMesh{
 }
 
 impl PdmsMesh {
-    pub fn get_tri_mesh(&self, scaled: Vec3) -> TriMesh<f32> {
+    pub fn get_tri_mesh(&self, trans: TransformSRT) -> TriMesh<f32> {
         let mut points: Vec<ncollide3d::na::Point3<f32>> = vec![];
         let mut indices: Vec<ncollide3d::na::Point3<usize>> = vec![];
         self.vertices.iter().for_each(|p| {
-            points.push(ncollide3d::na::Point3::<f32>::new(p[0] * scaled.x, p[1] * scaled.y, p[2] * scaled.z))
+            let mew_pt = trans.transform_point3(Vec3::new(p[0], p[1], p[2]));
+            points.push(ncollide3d::na::Point3::<f32>::new(mew_pt[0], mew_pt[1], mew_pt[2]))
         });
         self.indices.chunks(3).for_each(|i| {
             indices.push(ncollide3d::na::Point3::<usize>::new(i[0] as usize, i[1] as usize, i[2] as usize));
@@ -82,42 +82,57 @@ impl PdmsMesh {
     }
 }
 
-pub trait BrepShape : VerifiedShape + Debug {
 
-    fn gen_brep(&self) -> Option<Shell>;
+
+
+pub trait BrepShapeTrait: VerifiedShape + Debug {
+
+    fn gen_brep_shell(&self) -> Option<Shell>;
+
 
     //todo 实现模型的hash，主要是看比列
     //通过比例缩放可以更大的共享几何信息
-    fn hash_mesh_params(&self) -> u64{
+    fn hash_mesh_params(&self) -> u64 {
         0
     }
 
     //生成对应的单位长度的模型，比如Dish，就是以R为1的情况生成模型
-    fn gen_unit_shape(&self) -> PdmsMesh{
+    fn gen_unit_shape(&self) -> PdmsMesh {
         PdmsMesh::default()
     }
 
-    fn get_scaled_vec3(&self) -> Vec3{
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3 {
         Vec3::ONE
     }
 
+    #[inline]
+    fn get_trans(&self) -> TransformSRT {
+        TransformSRT{
+            rotation: Default::default(),
+            translation: Default::default(),
+            scale: self.get_scaled_vec3(),
+        }
+    }
+
     //直接使用基本体的快速生成
-    fn quick_gen_mesh(&self) -> Option<PdmsMesh>{
+    fn quick_gen_mesh(&self) -> Option<PdmsMesh> {
         None
     }
 
-    fn gen_mesh(&self, tol: Option<f32>) -> PdmsMesh{
+
+    fn gen_mesh(&self, tol: Option<f32>) -> PdmsMesh {
         // let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         let mut aabb = AABB::new_invalid();
-        if let Some(brep) = self.gen_brep() {
+        if let Some(brep) = self.gen_brep_shell() {
             let brep_bbox = gen_bounding_box(&brep);
             let (size, c) = (brep_bbox.diameter(), brep_bbox.center());
             let d = brep_bbox.diagonal() / 2.0;
             aabb = AABB::from_half_extents(
                 Point::<f32>::new(c[0] as f32, c[1] as f32, c[2] as f32),
-                Vector::<f32>::new(d[0] as f32, d[1] as f32, d[2] as f32)
+                Vector::<f32>::new(d[0] as f32, d[1] as f32, d[2] as f32),
             );
-            if size <= f64::EPSILON{
+            if size <= f64::EPSILON {
                 return PdmsMesh::default();
             }
             let tolerance = tol.unwrap_or((TRIANGLE_TOL * size) as f32) as f64;
@@ -127,7 +142,7 @@ pub trait BrepShape : VerifiedShape + Debug {
                 let normals = polygon.normals().iter().map(|&x| x.array()).collect::<Vec<_>>();
                 let uvs = polygon.uv_coords().iter().map(|x| [x[0] as f32, x[1] as f32]).collect::<Vec<_>>();
                 let mut indices = vec![];
-                for i in polygon.tri_faces(){
+                for i in polygon.tri_faces() {
                     indices.push(i[0].pos as u32);
                     indices.push(i[1].pos as u32);
                     indices.push(i[2].pos as u32);
@@ -140,11 +155,11 @@ pub trait BrepShape : VerifiedShape + Debug {
                 // )));
                 let a = aabb.mins;
                 let b = aabb.maxs;
-                return  PdmsMesh{
+                return PdmsMesh {
                     indices,
                     vertices,
                     normals,
-                    aabb: AiosAABB::new(Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z))
+                    aabb: AiosAABB::new(Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z)),
                 };
             }
         }
@@ -153,8 +168,7 @@ pub trait BrepShape : VerifiedShape + Debug {
 }
 
 
-
-pub trait BrepMathTrait{
+pub trait BrepMathTrait {
     fn vector3(&self) -> Vector3;
     fn point3(&self) -> Point3;
 }
@@ -171,7 +185,7 @@ impl BrepMathTrait for Vec3 {
     }
 }
 
-pub trait BevyMathTrait{
+pub trait BevyMathTrait {
     fn vec3(&self) -> Vec3;
     fn array(&self) -> [f32; 3];
 }
@@ -226,7 +240,6 @@ impl Default for PdmsPrimShape {
 }
 
 impl PdmsPrimShape {
-
     pub fn gen_geo_data(&self) -> Option<GeoData> {
         None
     }

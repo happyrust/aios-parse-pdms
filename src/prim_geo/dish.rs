@@ -12,13 +12,14 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
-#[derive(Component, Debug,  Clone,  Reflect, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Dish {
     pub paax_expr: String,
-    pub paax_pt: Vec3,   //Axis point
+    pub paax_pt: Vec3,
+    //Axis point
     pub paax_dir: Vec3,  //Axis Direction
 
     pub pdis: f32,
@@ -43,14 +44,14 @@ impl VerifiedShape for Dish {
     fn check_valid(&self) -> bool { self.pdia > EPSILON && self.pheig >= 0.0 }
 }
 
-impl BrepShape for Dish {
-    fn gen_brep(&self) -> Option<Shell> {
+impl BrepShapeTrait for Dish {
+    fn gen_brep_shell(&self) -> Option<Shell> {
         use truck_modeling::*;
         let r = self.pdia / 2.0;
         let h = self.pheig;
-        let radius = (r*r + h * h) / (2.0f32*h);
+        let radius = (r * r + h * h) / (2.0f32 * h);
         if radius < EPSILON { return None; }
-        let sinval =  (r / radius).max(-1.0f32).min(1.0f32);
+        let sinval = (r / radius).max(-1.0f32).min(1.0f32);
         let mut theta = (sinval).asin();
         if r < h { theta = PI - theta; }
 
@@ -61,29 +62,32 @@ impl BrepShape for Dish {
         let center = p0 - radius * rot_axis;
         let p1 = ref_axis * self.pdia / 2.0 + c;
 
-        let c =c.point3();
+        let c = c.point3();
         let v0 = builder::vertex(c);
         let v1 = builder::vertex(p0.point3());
         let v2 = builder::vertex(p1.point3());
 
         let axis = ref_axis.cross(rot_axis);
         let curve = builder::circle_arc_with_center(center.point3(), &v2, &v1, axis.vector3(), Rad(theta as f64));
-        let wire: Wire = vec![builder::line(&v0, &v2), curve, /*builder::line(&v1, &v0)*/].into();
+        let wire: Wire = vec![builder::line(&v0, &v2), curve /*builder::line(&v1, &v0)*/].into();
         let up_axis = rot_axis.vector3();
-        let s = builder::cone(&wire, -up_axis, Rad(PI as f64*2.0));
+        let s = builder::cone(&wire, -up_axis, Rad(PI as f64 * 2.0));
         Some(s)
     }
 
-    fn hash_mesh_params(&self) -> u64{
+    fn hash_mesh_params(&self) -> u64 {
         let r = self.pdia / 2.0;
         let h = self.pheig;
-        let radius = (r*r + h * h) / (2.0f32*h);
-        let sinval =  (r / radius).max(-1.0f32).min(1.0f32);
+        let radius = (r * r + h * h) / (2.0f32 * h);
+        let sinval = (r / radius).max(-1.0f32).min(1.0f32);
         let mut theta = (sinval).asin();
         if radius < EPSILON { return 0; }
-        let mut beta = (h/radius/2.0).atan();
+        let mut beta = (h / radius / 2.0).atan();
         // let mut beta =
-        if r < h { theta = PI - theta; beta = PI + beta; }
+        if r < h {
+            theta = PI - theta;
+            beta = PI + beta;
+        }
         let mut hasher = DefaultHasher::new();
         let theta = I24F8::from_num(theta);
         let beta = I24F8::from_num(beta);
@@ -92,10 +96,10 @@ impl BrepShape for Dish {
         hasher.finish()
     }
 
-    fn gen_unit_shape(&self) -> PdmsMesh{
+    fn gen_unit_shape(&self) -> PdmsMesh {
         let r = self.pdia;
         let h = self.pheig / r;
-        let unit = Dish{
+        let unit = Dish {
             pheig: h,
             pdia: 1.0,
             ..Default::default()
@@ -103,7 +107,7 @@ impl BrepShape for Dish {
         unit.gen_mesh(Some(0.002))
     }
 
-    fn get_scaled_vec3(&self) -> Vec3{
+    fn get_scaled_vec3(&self) -> Vec3 {
         Vec3::new(self.pdia, self.pdia, self.pdia)
     }
 }
@@ -115,8 +119,8 @@ impl From<&AttrMap> for Dish {
             paax_pt: Default::default(),
             paax_dir: Vec3::Z,
             pdis: 0.0,
-            pheig: m.get_val("HEIG").unwrap().f32_value().unwrap_or_default() ,
-            pdia: m.get_val("DIAM").unwrap().f32_value().unwrap_or_default() ,
+            pheig: m.get_val("HEIG").unwrap().f32_value().unwrap_or_default(),
+            pdia: m.get_val("DIAM").unwrap().f32_value().unwrap_or_default(),
         }
     }
 }

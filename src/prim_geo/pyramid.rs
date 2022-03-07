@@ -14,7 +14,7 @@ use log::kv::Source;
 use truck_modeling::builder::try_attach_plane;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::{hash_f32, hash_vec3};
 
 #[derive(Component, Debug, Clone, Reflect)]
@@ -77,7 +77,7 @@ impl VerifiedShape for LPyramid {
     fn check_valid(&self) -> bool { true }
 }
 
-impl BrepShape for LPyramid {
+impl BrepShapeTrait for LPyramid {
     fn hash_mesh_params(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         let r = vec![self.pbtp,
@@ -103,7 +103,7 @@ impl BrepShape for LPyramid {
     }
 
     //涵盖的情况，需要考虑，上边只有一条边，和退化成点的情况
-    fn gen_brep(&self) -> Option<Shell> {
+    fn gen_brep_shell(&self) -> Option<Shell> {
         use truck_modeling::*;
         let x_dir = self.pbax_dir.normalize().vector3();
         //暂时没用到 x y 的点信息

@@ -13,7 +13,7 @@ use glam::Vec3;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::hash_vec3;
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
@@ -60,27 +60,8 @@ impl VerifiedShape for Revolution {
     }
 }
 
-impl BrepShape for Revolution {
-
-    fn hash_mesh_params(&self) -> u64{
-        let mut hasher = DefaultHasher::new();
-        self.loop_verts.iter().for_each(|v|  {
-            hash_vec3::<DefaultHasher>(v, &mut hasher);
-        });
-        hasher.finish()
-    }
-
-    //暂时不做可拉伸
-    fn gen_unit_shape(&self) -> PdmsMesh{
-        self.gen_mesh(None)
-    }
-
-    fn get_scaled_vec3(&self) -> Vec3{
-        Vec3::ONE
-    }
-
-
-    fn gen_brep(& self) -> Option<Shell> {
+impl BrepShapeTrait for Revolution {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         if !self.check_valid() { return None; }
 
         let mut wire = Wire::new();
@@ -102,6 +83,22 @@ impl BrepShape for Revolution {
             }
         }
         None
+    }
+
+    fn hash_mesh_params(&self) -> u64{
+        let mut hasher = DefaultHasher::new();
+        self.loop_verts.iter().for_each(|v|  {
+            hash_vec3::<DefaultHasher>(v, &mut hasher);
+        });
+        hasher.finish()
+    }
+
+    //暂时不做可拉伸
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        self.gen_mesh(Some(0.002))
+    }
+    fn get_scaled_vec3(&self) -> Vec3{
+        Vec3::ONE
     }
 }
 

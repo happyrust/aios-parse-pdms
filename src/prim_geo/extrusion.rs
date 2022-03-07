@@ -12,7 +12,7 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::hash_vec3;
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
@@ -55,33 +55,8 @@ impl VerifiedShape for Extrusion {
     }
 }
 
-impl BrepShape for Extrusion {
-
-    fn hash_mesh_params(&self) -> u64{
-        let mut hasher = DefaultHasher::new();
-        self.loop_verts.iter().for_each(|v|  {
-            hash_vec3::<DefaultHasher>(v, &mut hasher);
-        });
-        // hash_vec3::<DefaultHasher>(&self.pbax_dir, &mut hasher);
-        hasher.finish()
-    }
-
-    fn gen_unit_shape(&self) -> PdmsMesh{
-        let unit = Self{
-            loop_verts: self.loop_verts.clone(),
-            height: 1.0,
-            ..Default::default()
-        };
-        unit.gen_mesh(None)
-    }
-
-    //沿着指定方向拉伸 pbax_dir
-    fn get_scaled_vec3(&self) -> Vec3{
-        Vec3::new(1.0, 1.0, self.height)
-    }
-
-
-    fn gen_brep(& self) -> Option<Shell> {
+impl BrepShapeTrait for Extrusion {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         if !self.check_valid() { return None; }
 
         let mut wire = Wire::new();
@@ -104,6 +79,30 @@ impl BrepShape for Extrusion {
             }
         }
         None
+    }
+
+    fn hash_mesh_params(&self) -> u64{
+        let mut hasher = DefaultHasher::new();
+        self.loop_verts.iter().for_each(|v|  {
+            hash_vec3::<DefaultHasher>(v, &mut hasher);
+        });
+        // hash_vec3::<DefaultHasher>(&self.pbax_dir, &mut hasher);
+        hasher.finish()
+    }
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        let unit = Self{
+            loop_verts: self.loop_verts.clone(),
+            height: 1.0,
+            ..Default::default()
+        };
+        unit.gen_mesh(None)
+    }
+
+
+    //沿着指定方向拉伸 pbax_dir
+    fn get_scaled_vec3(&self) -> Vec3{
+        Vec3::new(1.0, 1.0, self.height)
     }
 }
 

@@ -3,69 +3,69 @@ use crate::{AttrMap, GeomsInfo};
 use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_types::GeoData;
+use crate::prim_geo::loft::SctnSolid;
+use crate::shape::pdms_shape::BrepShapeTrait;
+use std::vec::Vec;
+use glam::Vec3;
+use crate::data_interface::PdmsDataInterface;
 
 //sctn 的hash 函数，需要涵盖截面的旋转
 
 
-pub fn create_geo(att: &AttrMap, geom_info: &GeomsInfo) -> Option<GeoData> {
+pub async fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &T) -> Vec<Box<dyn BrepShapeTrait>> {
 
+    let mut brep_shapes = vec![];
     let geoms = &geom_info.geometries;
-    if geoms.len() < 2 { return None; }
+    if geoms.len() == 0 { return brep_shapes; }
 
+    let type_name = att.get_type();
+    let arc_path = if type_name == "GENSEC" {
+        let parent_pos = interface.get_ele_world_transform(&att.get_refno().unwrap()).await.translation;
+        dbg!(parent_pos);
+        let children_hash = interface.get_ele_children_refs(&att.get_refno().unwrap()).await;
+        let mut res = None;
+        for x in children_hash {
+            let refs = interface.get_ele_children_refs(&x).await;
+            if refs.len() >= 3 {
+                res = Some((
+                    interface.get_ele_world_transform(&refs[0]).await.translation - parent_pos,
+                    interface.get_ele_world_transform(&refs[1]).await.translation - parent_pos,
+                    interface.get_ele_world_transform(&refs[2]).await.translation - parent_pos,
+                ));
+            }
+        }
+        if res.is_some() {
+            dbg!(&res);
+        }
+        res
+    } else { None };
+
+    let mut height = 0.0;
+    // let mut axis_dir = Some(Vec3::Z);
     if let Some(poss) = att.get_poss() {
         if let Some(pose) = att.get_pose() {
-
-            let height = pose.distance(poss);
-            if height < EPSILON { return None; }
-
-            let ns = att.get_vec3("DRNS").unwrap_or_default();
-            let ne = att.get_vec3("DRNE").unwrap_or_default();
-
-            //rotate the profile
-            if let CateGeoParam::Profile(profile_s) = &geoms[0]{
-                if let CateGeoParam::Profile(profile_e) = &geoms[1] {
-                    match (profile_s, profile_e) {
-                        (CateProfileParam::SANN(p_s), CateProfileParam::SANN(p_e)) =>{
-                            dbg!(p_s);
-                        }
-                        (CateProfileParam::SPRO(p_s), CateProfileParam::SPRO(p_e)) =>{
-                            dbg!(p_s);
-                        }
-                        (_, _) => {}
-                    }
-                }
-            }
-
+            // axis_dir = Some((pose - poss).normalize());
+            height = pose.distance(poss);
         }
     }
 
 
+    let drns = att.get_vec3("DRNS").unwrap_or_default();
+    let drne = att.get_vec3("DRNE").unwrap_or_default();
+    //rotate the profile
+    for (i, geom) in geoms.iter().enumerate() {
+        if let CateGeoParam::Profile(profile) = geom{
+            let loft = SctnSolid {
+                profile: profile.clone(),
+                drns,
+                drne,
+                // axis_dir,
+                height,
+                arc_path,
+            };
+            brep_shapes.push(Box::new(loft));
+        }
+    }
 
-    // if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
-    //     dbg!(&geoms);
-    //     if geoms.geometries.len() == 0 { return None; }
-    //     if let Some(poss) = desi_att.get_poss() {
-    //         if let Some(pose) = desi_att.get_pose() {
-    //             let height = pose.distance(poss);
-    //             //这里需要加入一个旋转调整
-    //             if let CateGeoParam::Profile(CateProfileParam::SPRO(profile)) = &geoms.geometries[0] {
-    //                 let loop_verts = profile.iter().map(|x| Vec3::new(x[0], x[1], 0.0)).collect();
-    //                 if height.abs() >= f32::EPSILON {
-    //                     let extrusion = Box::new(Extrusion {
-    //                         loop_verts,
-    //                         height,
-    //                         ..Default::default()
-    //                     });
-    //                     if extrusion.check_valid() {
-    //                         let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
-    //                         return Some((GeoData::Primitive(r)));
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    None
-
+    brep_shapes
 }

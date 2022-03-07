@@ -43,8 +43,10 @@ use id_tree::InsertBehavior::{AsRoot, UnderNode};
 use nalgebra_glm::{e, round};
 use serde_json::Value::Bool;
 use smol_str::SmolStr;
+use core::result::Result::Ok;
 use crate::consts::{ATT_BANG, ATT_LEVE, ATT_PTS, UNSET_STR};
 use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
+use anyhow::*;
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
@@ -117,7 +119,7 @@ fn parse_files_test() {
 }
 
 ///解析pdms的目录
-pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> core::result::Result<DashMap<SmolStr, PdmsDbData>, Box<dyn std::error::Error>> {
+pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> anyhow::Result<DashMap<SmolStr, PdmsDbData>> {
     let dir = PathBuf::from(dir);
     let mut pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?.into_iter().map(|entry| {
@@ -139,7 +141,7 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> co
     for path in &children_files {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
-            let mut pdms_db_data = parse_file(&path, &database_info, file_name, project, "");
+            let mut pdms_db_data = parse_file(&path, &database_info, file_name, project, "")?;
             pdms_db_data.all_attr_map.iter().for_each(|m| {
                 let map = m.value();
                 if let Some(num) = map.get_u32("NUMBDB") {
@@ -165,42 +167,41 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> co
     if let Some(sys_file) = sys_file {
         children_files.remove(children_files.iter().position(|x| x == sys_file).unwrap());
     }
+    // for children_file in children_files {
+    //
+    // }
     children_files.par_iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         // if file_name == "sam7200_0001" {
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
-            let mut pdms_db_data = parse_file(&path, &database_info, file_name, project, "");
-            pdms_db_data.filename = file_name.into();
-            let cur_dbno = pdms_db_data.db_no.to_string();
-            if pdms_db_data.filename.contains(&cur_dbno) {
-                if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
-                    pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
-                }
-            } else {
-                let chars_len = cur_dbno.len();
-                dbg!(cur_dbno);
-                let l = pdms_db_data.filename.len();
-                dbg!(&pdms_db_data.filename);
-                pdms_db_data.field_no = pdms_db_data.filename[l - chars_len..].parse::<u32>().unwrap();
-                dbg!(pdms_db_data.field_no);
-                if pdms_db_name_map.contains_key(&pdms_db_data.field_no) {
-                    pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
-                } else {
-                    pdms_db_data.db_name = file_name.into();
+            if /*file_name == "aba0001_0001" ||*/ file_name == "aba0011_0001"{
+                if let Ok(mut pdms_db_data) = parse_file(&path, &database_info, file_name, project, "") {
+                    pdms_db_data.filename = file_name.into();
+                    let cur_dbno = pdms_db_data.db_no.to_string();
+                    if pdms_db_data.filename.contains(&cur_dbno) {
+                        if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+                        }
+                    } else {
+                        dbg!(&pdms_db_data.filename);
+                        dbg!(pdms_db_data.field_no);
+                        if pdms_db_name_map.contains_key(&pdms_db_data.field_no) {
+                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.field_no).unwrap().clone();
+                        } else {
+                            pdms_db_data.db_name = file_name.into();
+                        }
+                    }
+                    pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
                 }
             }
-
-            pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
-            // return;
         }
-        // }
     });
 
     return Ok(pdms_project_data_map);
 }
 
-pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, target_refno_str: &str) -> PdmsDbData/*DashMap<i32, Vec<ElementData>>*/ {
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path).unwrap();
     let mut buf: Vec<u8> = Vec::new();
@@ -307,7 +308,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
-        is_double = last_att_info.offset + 1 <= (origin_impl_len / 4) as u32;
+        // dbg!(last_att_info.value());
+        is_double = last_att_info.offset + 1 < (origin_impl_len / 4) as u32;   //如果最后的
     }
     for i in 0..sorted_noun_hash.len() {
         let noun_hash = sorted_noun_hash[i];
@@ -386,7 +388,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 }
 
 
-pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> PdmsDbData {
+pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = DashMap::new();
 
     let mut string_lookup = StringLookupTable::new("AIOS");
@@ -404,7 +406,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         let chars_len = db_no_str.len();
         let l = file_name.len();
         dbg!(&file_name);
-        field_no = file_name[l - chars_len..].parse::<u32>().unwrap();
+        let end = file_name.chars().position(|x| x == '_').unwrap_or(l);
+        field_no = file_name[project.len()..end].parse::<u32>().unwrap_or_default();
     }
 
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
@@ -416,7 +419,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     }
     let mut refno_info_map = HashMap::new();
     let mut children_map = HashMap::new();
-    let entry = &*refno_table_map.get(&root_refno).unwrap();
+    let entry = &*refno_table_map.get(&root_refno).ok_or(anyhow!("Not found refno in entry"))?;
     let EleData {
         refno,
         owner,
@@ -460,6 +463,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                 let entry = &*refno_table_map.get(&refno).unwrap();
                 let pos = entry.pos;
                 let type_hash = entry.noun_hash;
+                // if refno == RefI32Tuple::new(16395, 32938) {
+                //     dbg!(db1_dehash(noun));
+                // }
                 // 判断反序列话的DashMap中有无对应的type
                 if noun_attr_info_map.contains_key(&type_hash) {
                     let EleData {
@@ -508,7 +514,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     }
     let elapsed = time_start.elapsed();
     println!("解析db所耗时间: {:?}", elapsed);
-    PdmsDbData {
+    Ok(PdmsDbData {
         type_ele_map,
         ele_id_tree,
         all_attr_map,
@@ -521,7 +527,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         db_name: Default::default(),
         db_no,
         field_no,
-    }
+    })
 }
 
 /// 获取隐式属性, input为分段数据，已经限制了长度
@@ -567,6 +573,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                             is_f32 = true;
                         }
                     }
+                    // println!("{:#4X?}", input[..4].to_vec());
                     if is_f32 {
                         let d = parse_to_f32(&input[..4]) as f64;
                         val = AttrVal::DoubleType(d);
@@ -861,25 +868,27 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
 
                             DbAttributeType::DOUBLEVEC => {
                                 let array_len = tmp_input.len() / 4;
-                                let (mut tmp_input, data_len) = be_i32(tmp_input)?;
-                                let len = data_len as usize;
-                                let double_or_float = array_len / len;
-                                // let mut tmp_input = tmp_input;
-                                if double_or_float == 2 {
-                                    let mut data = vec![];
-                                    for _ in 0..len {
-                                        data.push(parse_to_f64(&tmp_input[..8]));
-                                        tmp_input = &tmp_input[8..];
+                                if array_len >= 2 {
+                                    let (mut tmp_input, data_len) = be_i32(tmp_input)?;
+                                    let len = data_len as usize;
+                                    let double_or_float = (array_len-1) / len;
+                                    if double_or_float == 2 {
+                                        let mut data = vec![];
+                                        for _ in 0..len {
+                                            data.push(parse_to_f64(&tmp_input[..8]));
+                                            tmp_input = &tmp_input[8..];
+                                        }
+                                        att_value = Some(DoubleArrayType(data));
+                                    } else if double_or_float == 1 {
+                                        let mut data = vec![];
+                                        for _ in 0..len {
+                                            data.push(parse_to_f32(&tmp_input[..4]) as f64);
+                                            tmp_input = &tmp_input[4..];
+                                        }
+                                        att_value = Some(DoubleArrayType(data));
                                     }
-                                    att_value = Some(DoubleArrayType(data));
-                                } else if double_or_float == 1 {
-                                    let mut data = vec![];
-                                    for _ in 0..len {
-                                        data.push(parse_to_f32(&tmp_input[..4]) as f64);
-                                        tmp_input = &tmp_input[4..];
-                                    }
-                                    att_value = Some(DoubleArrayType(data));
                                 }
+
                             }
                             DbAttributeType::INTVEC => {
                                 let (tmp_input, len) = be_u32(tmp_input)?;

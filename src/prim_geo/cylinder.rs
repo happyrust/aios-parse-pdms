@@ -1,3 +1,4 @@
+use std::f32::EPSILON;
 use bevy::prelude::*;
 use truck_modeling::{builder, Shell};
 // use bevy_inspector_egui::Inspectable;
@@ -7,7 +8,7 @@ use bevy::ecs::reflect::ReflectComponent;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect, Serialize, Deserialize)]
 // #[reflect(Component)]
@@ -45,14 +46,14 @@ impl VerifiedShape for LCylinder {
 }
 
 
-impl BrepShape for LCylinder {
+impl BrepShapeTrait for LCylinder {
 
     #[inline]
     fn get_scaled_vec3(&self) -> Vec3 {
         Vec3::new(self.pdia, self.pdia, (self.pbdi - self.ptdi))
     }
 
-    fn gen_brep(& self) -> Option<Shell> {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         use truck_modeling::*;
         if !self.check_valid() { return None; }
 
@@ -128,29 +129,14 @@ impl Default for SCylinder {
 }
 
 impl VerifiedShape for SCylinder {
+    #[inline]
     fn check_valid(&self) -> bool {
-        true
+       self.pdia > EPSILON && self.phei > EPSILON
     }
 }
 
-impl BrepShape for SCylinder {
-
-
-    fn hash_mesh_params(&self) -> u64{
-        2u64 //代表BOX
-    }
-
-    fn gen_unit_shape(&self) -> PdmsMesh{
-        SCylinder::default().gen_mesh(Some(0.001))
-    }
-
-
-    #[inline]
-    fn get_scaled_vec3(&self) -> Vec3 {
-        Vec3::new(self.pdia, self.pdia, self.phei)
-    }
-
-    fn gen_brep(&self) -> Option<Shell> {
+impl BrepShapeTrait for SCylinder {
+    fn gen_brep_shell(&self) -> Option<Shell> {
         use truck_modeling::*;
         let dir = self.paxi_dir.normalize();
         let r = self.pdia / 2.0;
@@ -171,6 +157,20 @@ impl BrepShape for SCylinder {
             return s.pop()
         }
         None
+    }
+
+    fn hash_mesh_params(&self) -> u64{
+        2u64 //代表BOX
+    }
+
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        SCylinder::default().gen_mesh(Some(0.001))
+    }
+
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3 {
+        Vec3::new(self.pdia, self.pdia, self.phei)
     }
 }
 

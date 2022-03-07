@@ -11,7 +11,7 @@ use ncollide3d::na;
 use truck_meshalgo::prelude::*;
 use truck_modeling::Shell;
 use crate::pdms_types::AiosAABB;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::hash_vec3;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
@@ -37,7 +37,7 @@ impl VerifiedShape for Facet {
     fn check_valid(&self) -> bool { true }
 }
 
-impl BrepShape for Facet {
+impl BrepShapeTrait for Facet {
 
     fn hash_mesh_params(&self) -> u64{
         let bytes = bincode::serialize(self).unwrap();
@@ -56,7 +56,7 @@ impl BrepShape for Facet {
         Vec3::ONE
     }
 
-    fn gen_brep(& self) -> Option<Shell> {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         None
     }
 

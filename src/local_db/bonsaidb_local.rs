@@ -16,7 +16,7 @@ use bonsaidb::core::transaction;
 use bonsaidb::core::transaction::Transaction;
 use bonsaidb::local::config::{Builder, Compression, StorageConfiguration};
 use bonsaidb::local::{Database, Storage};
-use glam::{Mat4, Quat, TransformRT, Vec3};
+use glam::{Mat4, Quat, TransformRT, TransformSRT, Vec3};
 use id_tree::NodeId;
 use itertools::Itertools;
 use ncollide3d::world::CollisionWorld;
@@ -33,7 +33,7 @@ use crate::prim_geo::ctorus::CTorus;
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
 use crate::prim_geo::extrusion::Extrusion;
-use crate::shape::pdms_shape::{BrepShape, PdmsPrimShape, VerifiedShape};
+use crate::shape::pdms_shape::{BrepShapeTrait, PdmsPrimShape, VerifiedShape};
 use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::revolution::Revolution;
 use crate::prim_geo::rtorus::RTorus;
@@ -73,7 +73,7 @@ static GLOBAL_COLLISION_WORLD: Lazy<Mutex<CollisionWorld<f32, (RefU64, RefU64)>>
 
 static PRIM_HASH_NOUNS: Lazy<Vec<u32>> = Lazy::new(|| {
     vec![BOX_NOUN, CYLI_NOUN, SPHE_NOUN, CONE_NOUN, CTOR_NOUN, DISH_NOUN,
-         LOOP_NOUN, PYRA_NOUN, RTOR_NOUN, REVO_NOUN, POHE_NOUN]
+         LOOP_NOUN, PYRA_NOUN, RTOR_NOUN, REVO_NOUN, POHE_NOUN, PLOO_NOUN]
 });
 
 static GENERIC_NOUN_NAMES: Lazy<Vec<SmolStr>> = Lazy::new(|| {
@@ -121,6 +121,10 @@ impl PdmsDataInterface for AiosDBManager {
     #[inline]
     async fn get_ele_children_refs(&self, refno: &RefU64) -> RefU64Vec {
         self.get_children(refno).await.unwrap().unwrap_or_default()
+    }
+
+    async fn get_ele_world_transform(&self, refno: &RefU64) -> TransformRT {
+        self.get_world_transform(refno).await.unwrap()
     }
 }
 
@@ -263,23 +267,23 @@ impl AiosDBManager {
 
     ///返回geo data，
     #[inline]
-    pub async fn get_design_geoms(&self, refno: &RefU64, cached_mesh_mgr: &mut CachedMeshes) -> Option<GeoData> {
+    pub async fn get_design_geoms(&self, refno: &RefU64, cached_mesh_mgr: &mut CachedMeshes) ->Vec<Box<dyn BrepShapeTrait>> {
         //todo，直接use type_refs里面的数据直接过滤出哪些有参考号，而不用一个个去找
         if let Some(desi_att) = self.get_attr(refno).await.unwrap() {
             let type_name = desi_att.get_type();
-            if type_name == "SCTN" {
+            if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC"{
                 //如果是SCTN，使用SCTN的方法创建GeoData
                 if let Some(geoms) = crate::query_cata::resolve_desi_comp(refno, self).await {
-                    dbg!(&geoms);
-                    if type_name == "SCTN" {
-                        sctn::create_geo(&desi_att,&geoms);
+                    // dbg!(&geoms);
+                    if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC"{
+                        // return sctn::create_geos(&desi_att, &geoms, self).await;
                     }
                     //管件的生成
                     //pipes::create_geo(&desi_att,&geoms);
                 }
             }
         }
-        None
+        vec![]
     }
 
     pub async fn get_generic_type_refno(&self, refno: &RefU64) -> Option<(SmolStr, RefU64)> {
@@ -299,8 +303,8 @@ impl AiosDBManager {
     }
 
     ///缓存所有几何体
-    pub async fn cache_geos_data(&mut self, db_code: u32) -> Result<HashMap<SmolStr, EleGeoData>, bonsaidb::core::Error> {
-        let project = AiosStr("Sample".into());
+    pub async fn cache_geos_data(&mut self, db_code: u32, project: &str) -> Result<HashMap<SmolStr, Vec<EleGeoData>>, bonsaidb::core::Error> {
+        let project = AiosStr(project.into());
         let mut main_db = self.project_map.get_mut(&project.get_u32_hash()).expect("Not exist project");
 
         let mut cached_mesh_mgr = CachedMeshes::default();
@@ -315,48 +319,59 @@ impl AiosDBManager {
                     let d = cur_node.data();
                     let noun = d.noun;
                     let attr = self.get_attr(&d.refno).await?.unwrap();
-                    let mut geo = None;
+                    if d.refno == RefU64::from_two_nums(16395, 39039){
+                        dbg!(attr.to_string_hashmap());
+                    }
+                    let mut geo_hash = None;
                     let mut generic_type = None;
-                    let mut scaled = Vec3::ONE;
-
-                    let mut extra_rot = Quat::IDENTITY;
-                    if PRIM_HASH_NOUNS.contains(&noun) {
+                    let mut item_trans = glam::TransformSRT::IDENTITY;
+                    if PRIM_HASH_NOUNS.contains(&noun) && noun == PLOO_NOUN{
                         //获得类型和参考号
                         if let Some(e) = self.get_generic_type_refno(&d.refno).await {
                             type_geom_refs_map.entry(e.1).or_insert(Vec::new()).push(d.refno);
                             generic_type = Some(e.0.clone());
                         }
-                        if noun == LOOP_NOUN {
+                        if noun == LOOP_NOUN || noun == PLOO_NOUN{
                             let parent = attr.get_owner().unwrap();
                             let mut parent_att = self.get_attr(&parent).await?.unwrap();
-                            let parent_noun = parent_att.get_type_cloned();
+                            let parent_noun_name = parent_att.get_type();
                             let mut loop_verts: Vec<Vec3> = vec![];
                             if let Some(children_refs) = self.get_children(&d.refno).await? {
                                 for x in children_refs {
-                                    let v = self.get_attr(&x).await?.unwrap().get_position();
-                                    loop_verts.push(v);
+                                    if let Some(a) = self.get_attr(&x).await? {
+                                        loop_verts.push(a.get_position());
+                                    }else{
+                                        dbg!(d.refno.to_refno_str());
+                                    }
                                 }
                             }
                             //todo 旋转类型另外处理
-                            if parent_noun != "REVO" && parent_noun != "NREV" {
-                                if let Some(v) = parent_att.get_val("HEIG") {
-                                    let height = v.f32_value().unwrap_or_default();
-                                    if height >= f32::EPSILON {
-                                        let extrusion = Box::new(Extrusion {
-                                            loop_verts,
-                                            height,
-                                            ..Default::default()
-                                        });
-                                        if extrusion.check_valid() {
-                                            let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
-                                            geo = Some(GeoData::Primitive(r));
-                                        }
+                            if parent_noun_name != "REVO" && parent_noun_name != "NREV" {
+                                let mut height = 0.0;
+                                if let Some(v) = attr.get_val("HEIG") {
+                                    height = v.f32_value().unwrap_or_default();
+                                    // println!("{}: {}", parent_noun_name, height)
+                                }else if let Some(v) = parent_att.get_val("HEIG") {
+                                    height = v.f32_value().unwrap_or_default();
+                                }
+                                dbg!(attr.to_string_hashmap());
+                                dbg!(parent_att.to_string_hashmap());
+                                if height >= f32::EPSILON {
+                                    let extrusion = Box::new(Extrusion {
+                                        loop_verts,
+                                        height,
+                                        ..Default::default()
+                                    });
+                                    if extrusion.check_valid() {
+                                        item_trans = extrusion.get_trans();
+                                        let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
+                                        geo_hash = Some(r);
+
                                     }
                                 }
-                            } else if parent_noun == "REVO" {
+                            } else if parent_noun_name == "REVO" {
                                 if let Some(v) = parent_att.get_val("ANGL") {
                                     let angle = v.f32_value().unwrap_or_default();
-                                    // //dbg!(d.refno.to_refno_str());
                                     if angle >= f32::EPSILON {
                                         let revo = Box::new(Revolution {
                                             loop_verts,
@@ -365,8 +380,10 @@ impl AiosDBManager {
                                         });
                                         // //dbg!(&revo);
                                         if revo.check_valid() {
+                                            item_trans = revo.get_trans();
                                             let r = cached_mesh_mgr.get_pdms_mesh_hash_key(revo);
-                                            geo = Some(GeoData::Primitive(r));
+                                            geo_hash = Some(r);
+
                                         }
                                     }
                                 }
@@ -400,38 +417,55 @@ impl AiosDBManager {
                                 }
                             }
                             if facet.check_valid() {
+                                item_trans = facet.get_trans();
                                 let r = cached_mesh_mgr.get_pdms_mesh_hash_key(Box::new(facet));
-                                geo = Some(GeoData::Primitive(r));
+                                geo_hash = Some(r);
                             }
                         } else {
                             if let Some(brep_obj) = attr.create_brep_shape() {
                                 if brep_obj.check_valid() {
+                                    item_trans = brep_obj.get_trans();
                                     let r = cached_mesh_mgr.get_pdms_mesh_hash_key(brep_obj);
-                                    geo = Some(GeoData::Primitive(r));
+                                    geo_hash = Some(r);
                                 }
                             }
                         }
                     } else {
                         //todo use known nouns to quick filter
                         if let Some(spre) = attr.get_foreign_refno("SPRE") {
-                            geo = self.get_design_geoms(&d.refno, &mut cached_mesh_mgr).await;
+                            dbg!(d.refno.to_refno_str());
+                            let brep_shapes = self.get_design_geoms(&d.refno, &mut cached_mesh_mgr).await;
+                            let desi_trans = self.get_world_transform(&d.refno).await?;
+                            for brep_obj in brep_shapes {
+                                item_trans = brep_obj.get_trans();
+                                let geo_hash = cached_mesh_mgr.get_pdms_mesh_hash_key(brep_obj);
+                                let tr: TransformSRT = item_trans * desi_trans;
+                                let mut bbox = cached_mesh_mgr.get_bbox(&geo_hash).unwrap();
+                                bbox.scaled(&item_trans.scale);
+                                let geom_data = EleGeoData {
+                                    geo_hash,
+                                    bbox,
+                                    global_transform: (tr.rotation, tr.translation, tr.scale),
+                                    visible: attr.is_visible(None),
+                                    generic_type: generic_type.clone().unwrap_or_default(),
+                                };
+                                geo_map.entry(d.refno.to_refno_str()).or_insert(Vec::new()).push(geom_data);
+                            }
                         }
                     }
-
                     //处理有几何体返回的情况，需要加入到几何列表里
-                    if let Some(geo) = geo {
-                        let GeoData::Primitive((hash, scaled)) = &geo;
-                        let tr = self.get_world_transform(&d.refno).await?;
-                        let mut bbox = cached_mesh_mgr.get_bbox(hash).unwrap();
-                        bbox.scaled(scaled);
+                    if let Some(geo_hash) = geo_hash {
+                        let tr: TransformSRT = item_trans * self.get_world_transform(&d.refno).await?;
+                        let mut bbox = cached_mesh_mgr.get_bbox(&geo_hash).unwrap();
+                        bbox.scaled(&tr.scale);
                         let geom_data = EleGeoData {
-                            geo,
+                            geo_hash,
                             bbox,
-                            global_transform: (tr.rotation, tr.translation),
+                            global_transform: (tr.rotation, tr.translation, tr.scale),
                             visible: attr.is_visible(None),
                             generic_type: generic_type.unwrap_or_default(),
                         };
-                        geo_map.insert(d.refno.to_refno_str(), geom_data);
+                        geo_map.entry(d.refno.to_refno_str()).or_insert(Vec::new()).push(geom_data);
                     } // end of insert geo_map
                 }
             }
@@ -489,8 +523,8 @@ impl AiosDBManager {
                         let center = geo_data.bbox.get_center();
                         let extents = na::Vector3::new(extents.x, extents.y, extents.z);
                         let shape = ShapeHandle::new(Cuboid::new(extents));
-                        let (r, t) = geo_data.global_transform;
-                        let t = t + r * center;
+                        let (r, t, s) = geo_data.global_transform;
+                        let t = /*t +*/ r * center;
                         let translation = na::Vector3::new(t.x, t.y, t.z);
                         let (axis, angle) = r.to_axis_angle();
                         let axisangle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
@@ -511,34 +545,30 @@ impl AiosDBManager {
             room_geo_refs_map.insert(k.to_refno_str(), room_geo_refnos.into_iter().map(|x| x.to_refno_str()).collect::<Vec<_>>());
 
             let e = room_geo.bbox.get_half_extents();
-            let c = room_geo.global_transform.1 + room_geo.bbox.get_center();
+            let c = /*room_geo.global_transform.1 +*/ room_geo.bbox.get_center();
             let aabb = AABB::from_half_extents(na::Point3::new(c.x, c.y, c.z),
                                                na::Vector3::new(e.x, e.y, e.z));
             // println!("{} : {:?}, {:?}", k.to_refno_str(), &v, &c);
-            let GeoData::Primitive((mesh_indx, scaled)) = room_geo.geo;
-            let (r, t) = room_geo.global_transform;
+            let mesh_indx = room_geo.geo_hash;
+            let (r, t, s) = room_geo.global_transform;
             let translation = na::Vector3::new(t.x, t.y, t.z);
             let (axis, angle) = r.to_axis_angle();
             let axisangle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
             let room_iso = Isometry3::new(translation, axisangle);
             dbg!(&room_iso);
 
-            let room_tri_mesh = cached_meshes.meshes.get(&mesh_indx).unwrap().get_tri_mesh(scaled);
+            let room_tri_mesh = cached_meshes.meshes.get(&mesh_indx).unwrap().get_tri_mesh(TransformSRT{
+                rotation: r,
+                translation: t,
+                scale: s
+            });
             let interferences = world.interferences_with_aabb(&aabb, &groups);
             for x in interferences {
                 let generic_refno = x.1.data().0.clone();   //类型的参考号
                 let geom_refno = x.1.data().1.clone();
                 dbg!(geom_refno.to_refno_str());
                 if let Some(geo_data) = geo_map.get(&geom_refno.to_refno_str()) {
-                    let GeoData::Primitive((mesh_indx, scaled)) = &geo_data.geo;
-                    let tmp_mesh = cached_meshes.meshes.get(mesh_indx).unwrap();
-
-                    // let pt: Vec3 = (*tmp_mesh.vertices.first().unwrap()).into();
-                    // let pt = glam::TransformSRT{
-                    //     rotation: geo_data.global_transform.0,
-                    //     translation: geo_data.global_transform.1,
-                    //     scale: *scaled,
-                    // }.transform_vector3(pt);
+                    let mesh_indx = &geo_data.geo_hash;
                     let pt = geo_data.global_transform.1;
                     let first_pt = ncollide3d::na::Point3::new(pt.x, pt.y, pt.z);
                     let ray_x = Ray::new(first_pt, ncollide3d::na::Vector3::z());
@@ -765,18 +795,8 @@ impl AiosPdmsProject {
         let mut rotation = Quat::IDENTITY;
         let mut translation = Vec3::ZERO;
         let mut parent: Option<Quat> = None;
-
-        //need check the type
-        // let w_poss = parent_trans.transform_point3(poss);
-        // dbg!(w_poss);
-        // let w_pose = parent_trans.transform_point3(pose);
-        // dbg!(w_pose);
-        // let extru_dir: Vec3 = (w_pose - w_poss).normalize();
-        // let bangle = desi_att.get_f32("BANG").unwrap_or_default();
-        // dbg!(&bangle);
-        // let quat = Quat::from_rotation_arc(Vec3::Z, extru_dir);
         for attr in ancestors {
-            let t = if attr.get_type_cloned() == "SCTN" {
+            let t = if attr.get_type() == "SCTN" || attr.get_type() == "STWALL"{
                 let tr = TransformRT {
                     rotation,
                     translation,
@@ -785,9 +805,7 @@ impl AiosPdmsProject {
                 if let Some(poss) = attr.get_poss() {
                     if let Some(pose) = attr.get_pose() {
                         let w_poss = tr.transform_point3(poss);
-                        dbg!(w_poss);
                         let w_pose = tr.transform_point3(pose);
-                        dbg!(w_pose);
                         let extru_dir: Vec3 = (w_pose - w_poss).normalize();
                         let bangle = attr.get_f32("BANG").unwrap_or_default();
                         dbg!(&bangle);

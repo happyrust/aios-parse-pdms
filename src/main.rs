@@ -62,7 +62,7 @@ use parse_pdms_db::local_db::bonsaidb_local::{AiosDBManager, DbOption};
 use parse_pdms_db::notify_file_change::notify_file;
 use parse_pdms_db::prim_geo::ctorus::CTorus;
 use parse_pdms_db::prim_geo::dish::Dish;
-use parse_pdms_db::shape::pdms_shape::{BrepShape, VerifiedShape};
+use parse_pdms_db::shape::pdms_shape::{BrepShapeTrait, VerifiedShape};
 use parse_pdms_db::test_cases::test_database::test_column;
 
 const ATT_MDB: i32 = 0x8221C;
@@ -108,25 +108,31 @@ pub async fn run() -> AiosDbError {
     let mut time = Instant::now();
     // #[cfg(target_arch = "arch64")]
     let path = "../Projects";
-    // let path = "G:/12.1SP4Projects";
+    let path = "G:/12.1SP4Projects";
+    let path = "/Volumes/DPC/aba";
     // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
     // #[cfg(target_arch = "arch64")]
     // let path = "C:/AVEVA/Plant/Projects12.1.SP4";
 
     let mut db_manager = AiosDBManager::init(path,
-                                             vec!["Sample".to_string(), "Master".to_string()],
-                                             "Sample",
+                                             vec!["ABA".to_string()/*, "GDP".to_string()*/],
+                                             "ABA",
                                              Some(DbOption {
-                                                 total_sync: true,
+                                                 total_sync: false,
                                                  incr_sync: false,
                                              })).await.unwrap();
 
     dbg!(time.elapsed().as_millis());
-    let result = db_manager.cache_geos_data(7200).await?;
-    // db_manager.build_collision_world(7200).await?;
+    // let result = db_manager.cache_geos_data(11, "ABA").await?;
+    // // db_manager.build_collision_world(7200).await?;
     // let refno = RefU64::from_two_nums(23584, 6615);
     let refno = RefU64::from_two_nums(23584, 5575);
     let refno = RefU64::from_two_nums(23584, 7040);
+    let refno = RefU64::from_two_nums(23584, 8544);
+    let refno = RefU64::from_two_nums(8193, 45580);
+    let refno = RefU64::from_two_nums(8193, 4363);
+    let refno = RefU64::from_two_nums(16395, 39039);
+    let refno = RefU64::from_two_nums(16395, 39308);
     // let refno = RefU64(101292508714382);
     // let refno = RefU64(101292508716175);
     // //15213/499930
@@ -148,12 +154,13 @@ pub async fn run() -> AiosDbError {
     // dbg!(db_manager.get_children(&refno).await);
     // dbg!(db_manager.get_db_of_refno(&refno).await);
 
-    let mut  cache_mgr = CachedMeshes::default();
-    let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
-    if let Some(spre) = attr.get_foreign_refno("SPRE"){
-        let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
-        // dbg!(&geoms);
-    }
+    // let mut  cache_mgr = CachedMeshes::default();
+    // let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
+    // dbg!(attr.get_type());
+    // if let Some(spre) = attr.get_foreign_refno("SPRE"){
+    //     let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
+    //     // dbg!(&geoms);
+    // }
 
 
 

@@ -1,3 +1,4 @@
+use std::f32::EPSILON;
 use bevy::prelude::*;
 use truck_base::cgmath64::Vector3;
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
@@ -10,7 +11,7 @@ use log::kv::Source;
 use lyon::math::size;
 use crate::prim_geo::helper::quad_indices;
 use crate::AttrMap;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable, Reflect,*/ Clone, Serialize, Deserialize)]
 // #[reflect(Component)]
@@ -31,12 +32,21 @@ impl Default for SBox {
 
 
 impl VerifiedShape for SBox {
+    #[inline]
     fn check_valid(&self) -> bool {
-        true
+       self.size.x > EPSILON &&  self.size.y > EPSILON && self.size.z > EPSILON
     }
 }
 
-impl BrepShape for SBox {
+impl BrepShapeTrait for SBox {
+    fn gen_brep_shell(& self) -> Option<Shell> {
+        if !self.check_valid() { return None; }
+        let v = builder::vertex((self.center - self.size / 2.0).point3());
+        let e = builder::tsweep(&v, Vector3::unit_x() * self.size.x as f64);
+        let f = builder::tsweep(&e, Vector3::unit_y() * self.size.y as f64);
+        let mut s = builder::tsweep(&f, Vector3::unit_z() * self.size.z as f64).into_boundaries();
+        s.pop()
+    }
 
     fn hash_mesh_params(&self) -> u64{
         1u64            //代表BOX
@@ -50,15 +60,6 @@ impl BrepShape for SBox {
     fn get_scaled_vec3(&self) -> Vec3 {
         self.size
     }
-
-    fn gen_brep(& self) -> Option<Shell> {
-        if !self.check_valid() { return None; }
-        let v = builder::vertex((self.center - self.size / 2.0).point3());
-        let e = builder::tsweep(&v, Vector3::unit_x() * self.size.x as f64);
-        let f = builder::tsweep(&e, Vector3::unit_y() * self.size.y as f64);
-        let mut s = builder::tsweep(&f, Vector3::unit_z() * self.size.z as f64).into_boundaries();
-        s.pop()
-    }
 }
 
 
@@ -66,9 +67,9 @@ impl From<&AttrMap> for SBox {
     fn from(m: &AttrMap) -> Self {
         SBox {
             center: Default::default(),
-            size: Vec3::new(m.get_val("XLEN").unwrap().double_value().unwrap() as f32,
-                            m.get_val("YLEN").unwrap().double_value().unwrap() as f32,
-                            m.get_val("ZLEN").unwrap().double_value().unwrap() as f32 ),
+            size: Vec3::new(m.get_f32("XLEN").unwrap_or_default(),
+                            m.get_f32("YLEN").unwrap_or_default(),
+                            m.get_f32("ZLEN").unwrap_or_default(), ),
         }
     }
 }

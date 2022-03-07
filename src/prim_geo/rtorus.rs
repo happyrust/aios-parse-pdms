@@ -12,7 +12,7 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3};
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, Clone,  Reflect)]
 #[reflect(Component)]
@@ -105,9 +105,9 @@ impl VerifiedShape for SRTorus {
     }
 }
 
-impl BrepShape for SRTorus {
+impl BrepShapeTrait for SRTorus {
 
-    fn gen_brep(& self) -> Option<Shell> {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         if let Some(torus_info) = self.cal_torus(){
             use truck_modeling::*;
             let circle_origin = self.paax_pt.point3();
@@ -160,7 +160,7 @@ impl VerifiedShape for RTorus {
     }
 }
 
-impl BrepShape for RTorus {
+impl BrepShapeTrait for RTorus {
 
     fn hash_mesh_params(&self) -> u64{
         let mut hasher = DefaultHasher::new();
@@ -187,7 +187,7 @@ impl BrepShape for RTorus {
         Vec3::new(self.rout, self.rout, self.height)
     }
 
-    fn gen_brep(& self) -> Option<Shell> {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         use truck_modeling::*;
 
         let h = self.height as f64;

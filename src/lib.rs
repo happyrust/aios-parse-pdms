@@ -70,6 +70,8 @@ const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;
 const ATT_PBAX: i32 = 0xF5458;
 const ATT_PCAX: i32 = 0xF5473;
+const ATT_PLAX: i32 = db1_hash("PLAX") as i32;
+
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
 const ATT_PZ: i32 = 0xFFF7E141u32 as i32;
@@ -101,10 +103,11 @@ const ATT_PXTS: i32 = 0xFFF1F3AAu32 as i32;
 const ATT_PYTS: i32 = 0xFFF1F38Fu32 as i32;
 const ATT_PXBS: i32 = 0xFFF226ECu32 as i32;
 const ATT_PYBS: i32 = 0xFFF226D1u32 as i32;
-const ATT_PRAD : i32 = 0xFFF6ABB4u32 as i32;
+const ATT_PRAD : i32 = db1_hash("PRAD") as i32;
+const ATT_DRAD : i32 = db1_hash("DRAD") as i32;
 const ATT_PWID : i32 = db1_hash("PWID") as i32;
 
-const IMP_PANG: i32 = 0xA5E2F;
+const ATT_PANG: i32 = 0xA5E2F;
 const IMP_PAXI: i32 = 0xB146F;
 const IMP_PCON: i32 = 0xC7B73;
 const IMP_PDIS: i32 = 0xDEAE7;
@@ -146,6 +149,7 @@ lazy_static! {
     pub static ref EXPR_ATT_SET: HashSet<i32> = {
         let mut s = HashSet::new();
         s.insert(ATT_PAXI);s.insert(ATT_PAAX);s.insert(ATT_PBAX);s.insert(ATT_PCAX);
+        s.insert(ATT_PLAX);
         s.insert(ATT_PX);s.insert(ATT_PY);s.insert(ATT_PZ);s.insert(ATT_PDIA);
         s.insert(ATT_PHEI);s.insert(ATT_PDIS);s.insert(ATT_PCON);s.insert(ATT_PBOR);
         s.insert(ATT_PPRO);s.insert(ATT_DPRO);s.insert(ATT_BTHK);s.insert(ATT_BDIA);
@@ -154,7 +158,7 @@ lazy_static! {
         s.insert(ATT_PZLE);s.insert(ATT_PTDM);s.insert(ATT_PBDM);s.insert(ATT_PTCDI);
         s.insert(ATT_POFF);s.insert(ATT_DX);s.insert(ATT_DY);s.insert(ATT_DY);
         s.insert(ATT_PXTS);s.insert(ATT_PYTS);s.insert(ATT_PXBS);s.insert(ATT_PYBS);
-        s.insert(ATT_PRAD);s.insert(ATT_PWID);
+        s.insert(ATT_PRAD);s.insert(ATT_PWID);s.insert(ATT_DRAD);
 
         s.insert(IMP_PAXI);s.insert(IMP_PCON);s.insert(IMP_PDIS);s.insert(IMP_PBOR);
         s.insert(IMP_PDIA);s.insert(IMP_PHEI);s.insert(IMP_PTDI);s.insert(IMP_PTDM);
@@ -164,7 +168,7 @@ lazy_static! {
         s.insert(IMP_PBBT);s.insert(IMP_PBOF);s.insert(IMP_PCOF);s.insert(IMP_PBTP);
         s.insert(IMP_PTCDI);s.insert(IMP_POFF);s.insert(IMP_DX);s.insert(IMP_DY);
         s.insert(IMP_PLAX);s.insert(IMP_PXTS);s.insert(IMP_PYTS);s.insert(IMP_PXBS);
-        s.insert(IMP_PYBS);s.insert(IMP_PANG);
+        s.insert(IMP_PYBS);s.insert(ATT_PANG);
         s
     };
 }

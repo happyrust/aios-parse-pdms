@@ -297,9 +297,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
 
 ///获得gmse的params
 pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> GmParam {
-
-    dbg!(attr_map.to_string_hashmap());
-
+    // dbg!(attr_map.to_string_hashmap());
     let mut paxises = get_attr_strings_db(attr_map, &["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = attr_map.get_val("PTS") {
         match val {

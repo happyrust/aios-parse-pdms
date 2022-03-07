@@ -618,7 +618,7 @@ impl AttrMap {
     }
 
     ///生成具有几何属性的element的shape
-    pub fn create_brep_shape(&self) -> Option<Box<dyn BrepShape>> {
+    pub fn create_brep_shape(&self) -> Option<Box<dyn BrepShapeTrait>> {
         let type_noun = self.get_type_cloned();
         return match type_noun.as_str() {
             "BOX" => Some(Box::new(SBox::from(self))),
@@ -816,7 +816,7 @@ pub struct AiosMaterial{
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum GeoData{
-    Primitive((PdmsMeshIdx, Vec3)),  //索引的哪个mesh,和对应的拉伸值， 先从dish开始判断相似性
+    Primitive(PdmsMeshIdx),  //索引的哪个mesh,和对应的拉伸值， 先从dish开始判断相似性
     // Raw(Mesh),          //原生的Mesh
 }
 
@@ -864,15 +864,15 @@ pub struct CachedMeshes{
 
 impl CachedMeshes {
     //get the mesh index, if not exist, try to create and insert, and return index
-    pub fn get_pdms_mesh_hash_key(&mut self, m: Box<dyn BrepShape>) -> (String, Vec3){
+    pub fn get_pdms_mesh_hash_key(&mut self, m: Box<dyn BrepShapeTrait>) -> String{
         let hash = m.hash_mesh_params().to_string();
         if !self.meshes.contains_key(&hash) {
             let mesh = m.gen_unit_shape();
             self.meshes.insert(hash.clone(), mesh);
         }
-        let scaled = m.get_scaled_vec3();
-        (hash, scaled)
+        hash
     }
+
 
     pub fn get_bbox(&self, hash: &String) -> Option<AiosAABB>{
         if self.meshes.contains_key(hash) {
@@ -915,9 +915,9 @@ impl CachedMeshes {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct  EleGeoData{
-    pub geo: GeoData,
+    pub geo_hash: String,
     pub bbox: AiosAABB,
-    pub global_transform: (Quat, Vec3),    //世界坐标系的变换
+    pub global_transform: (Quat, Vec3, Vec3),    //世界坐标系的变换, rot, translation, scale
     pub visible: bool,
     pub generic_type: SmolStr,  //所属一般类型，ROOM、STRU、PIPE等
 }
@@ -1054,7 +1054,7 @@ use crate::db_tool::db1_hash;
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
-use crate::shape::pdms_shape::{BrepShape, PdmsMesh, PdmsPrimShape};
+use crate::shape::pdms_shape::{BrepShapeTrait, PdmsMesh, PdmsPrimShape};
 use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::rtorus::RTorus;
 use crate::prim_geo::sbox::SBox;

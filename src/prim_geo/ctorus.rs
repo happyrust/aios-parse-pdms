@@ -12,7 +12,7 @@ use fixed::types::I24F8;
 use log::kv::Source;
 use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3};
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
@@ -96,9 +96,9 @@ impl VerifiedShape for SCTorus {
     }
 }
 
-impl BrepShape for SCTorus {
+impl BrepShapeTrait for SCTorus {
 
-    fn gen_brep(& self) -> Option<Shell> {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         use truck_modeling::*;
         if let Some(torus_info) = self.cal_torus(){
             let circle_origin = self.paax_pt.point3();
@@ -153,33 +153,8 @@ impl VerifiedShape for CTorus {
     }
 }
 
-impl BrepShape for CTorus {
-
-    fn hash_mesh_params(&self) -> u64{
-        let mut hasher = DefaultHasher::new();
-        let rins = I24F8::from_num(self.rins / self.rout);
-        let beta = I24F8::from_num(self.angle);
-        rins.hash(&mut hasher);
-        beta.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    fn gen_unit_shape(&self) -> PdmsMesh{
-        let rins = self.rins / self.rout;
-        let unit = Self{
-            rins,
-            rout: 1.0,
-            angle: self.angle
-        };
-        unit.gen_mesh(None)
-    }
-
-    #[inline]
-    fn get_scaled_vec3(&self) -> Vec3{
-        Vec3::splat(self.rout)
-    }
-
-    fn gen_brep(& self) -> Option<Shell> {
+impl BrepShapeTrait for CTorus {
+    fn gen_brep_shell(& self) -> Option<Shell> {
         use truck_modeling::*;
 
         let radius = ((self.rout - self.rins) /2.0) as f64;
@@ -197,6 +172,30 @@ impl BrepShape for CTorus {
             return solid.pop()
         }
         None
+    }
+
+    fn hash_mesh_params(&self) -> u64{
+        let mut hasher = DefaultHasher::new();
+        let rins = I24F8::from_num(self.rins / self.rout);
+        let beta = I24F8::from_num(self.angle);
+        rins.hash(&mut hasher);
+        beta.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn gen_unit_shape(&self) -> PdmsMesh{
+        let rins = self.rins / self.rout;
+        let unit = Self{
+            rins,
+            rout: 1.0,
+            angle: self.angle
+        };
+        unit.gen_mesh(Some(0.001))
+    }
+
+    #[inline]
+    fn get_scaled_vec3(&self) -> Vec3{
+        Vec3::splat(self.rout)
     }
 }
 

@@ -3,159 +3,238 @@ use std::f32::consts::PI;
 use std::f32::EPSILON;
 use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
-use truck_modeling::{builder, Shell, Surface, Wire};
+use truck_modeling::{builder, Face, Shell, Surface, Wire};
 // use bevy_inspector_egui::Inspectable;
 use truck_meshalgo::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
-use glam::Vec3;
+use gdnative::prelude::VariantType::Vector3;
+use glam::{TransformRT, TransformSRT, Vec3};
 use log::kv::Source;
 use truck_modeling::builder::try_attach_plane;
 use crate::AttrMap;
 use crate::parsed_data::CateProfileParam;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShape, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::{hash_f32, hash_vec3};
 
 #[derive(Component, Debug, Clone)]
-pub struct Loft {
-    pub profile_s: CateProfileParam,
-    pub profile_e: CateProfileParam,
+pub struct SctnSolid {
+    pub profile: CateProfileParam,
 
     pub drns: Vec3,
     pub drne: Vec3,
 
+    // pub axis_dir: Vec3,
+
     pub height: f32,
+    pub arc_path: Option<(Vec3, Vec3, Vec3)>,  //p1, p2, center  弧形的路径
 }
 
-impl Default for Loft {
+impl SctnSolid {
+
+    //is_btm 是否是底部的face
+    fn cal_sann_face(&self, is_btm: bool, angle: f32, r1: f32, r2: f32) -> Option<Face>{
+        let mut n = if is_btm { self.drns } else { self.drne };
+        let h = if is_btm { 0.0 } else { self.height };
+        // let axis_dir = if is_btm { self.axis_dir } else { -self.axis_dir };
+        // let rot_angle = axis_dir.angle_between(n);
+        let a = angle;
+        // dbg!(rot_angle);
+        // let rot = if rot_angle.abs() > 0.01 {
+        //     Quat::from_rotation_x(rot_angle) }
+        // else{
+        //     Quat::IDENTITY
+        // };
+        let rot = Quat::IDENTITY;
+        let mut rot_axis = Vec3::Z;
+        // let mut rot_axis = rot.mul_vec3(Vec3::Z).normalize();
+        // dbg!(rot_axis);
+        let p1 = rot.mul_vec3(Vec3::new(r1, 0.0, h));
+        let p2 = rot.mul_vec3(Vec3::new(r2, 0.0, h));
+        let p3 = rot.mul_vec3(Vec3::new(r2 * a.cos(), r2 * a.sin(), h));
+        let p4 = rot.mul_vec3(Vec3::new(r1 * a.cos(), r1 * a.sin(), h));
+
+        let v1 = builder::vertex(p1.point3());
+        let v2 = builder::vertex(p2.point3());
+        let v3 = builder::vertex(p3.point3());
+        let v4 = builder::vertex(p4.point3());
+        let mut wire = Wire::from(vec![
+            builder::line(&v1, &v2),
+            builder::circle_arc_with_center(Point3::new(0.0, 0.0, h as f64),
+                                            &v2, &v3, rot_axis.vector3(), Rad(a as f64)),
+            builder::line(&v3, &v4),
+            builder::circle_arc_with_center(Point3::new(0.0, 0.0, h as f64),
+                                            &v4, &v1, rot_axis.vector3(), Rad(-a as f64)),
+        ]);
+        // let (axis, angle) = rots.to_axis_angle();
+        // let wire = builder::rotated(&wire, Point3::new(0.0, 0.0, h as f64), Vector3::new(1.0, 0.0, 0.0),
+        //                             Rad(rot_angle as f64));
+        // try_attach_plane(&[wire.clone()]).unwrap();
+        try_attach_plane(&[wire]).ok()
+    }
+
+    fn cal_spro_face(&self, is_btm: bool, verts: &Vec<[f32; 2]>) -> Option<Face>{
+        let n = if is_btm { self.drns } else { self.drne };
+        let h = if is_btm { 0.0 } else { self.height };
+        let len = verts.len();
+        let mut v0 = builder::vertex(Point3::new(verts[0][0] as f64, verts[0][1] as f64,h as f64));
+        let mut prev_v0 = v0.clone();
+        let mut edges = vec![];
+        for i in 1..len {
+            let next_v = builder::vertex(Point3::new(verts[i][0] as f64, verts[i][1] as f64,h as f64));
+            edges.push(builder::line(&prev_v0, &next_v));
+            prev_v0 = next_v.clone();
+        }
+        let last_v = edges.last().unwrap().back();
+        edges.push(builder::line(last_v, &v0));
+
+        let wire = edges.into();
+        try_attach_plane(&[wire]).ok()
+    }
+
+}
+
+impl Default for SctnSolid {
     fn default() -> Self {
         Self {
-            profile_s: CateProfileParam::None,
-            profile_e: CateProfileParam::None,
+            profile: CateProfileParam::None,
             drns: Default::default(),
             drne: Default::default(),
-            height: 0.0
+            // axis_dir: Default::default(),
+            height: 0.0,
+            arc_path: None
         }
     }
 }
 
-impl VerifiedShape for Loft {
+impl VerifiedShape for SctnSolid {
     fn check_valid(&self) -> bool { self.height > EPSILON }
 }
 
-impl BrepShape for Loft {
+
+impl BrepShapeTrait for SctnSolid {
     //涵盖的情况，需要考虑，上边只有一条边，和退化成点的情况
-    fn gen_brep(&self) -> Option<Shell> {
+    fn gen_brep_shell(&self) -> Option<Shell> {
+        use truck_modeling::*;
+        use truck_base::cgmath64::{Point3, Vector3};
+        let mut face_s = None;
+        let mut face_e = None;
+        match &self.profile {
+            //需要用切面去切出相交的face
+            CateProfileParam::SANN(p) =>{
+                let w = p.pwidth;
+                let r = p.pradius;
+                let r1 = r - w;
+                let r2 = r;
+                let d = &p.ptaxis.as_ref().unwrap().dir;
+                let dir = Vec3::new(d[0] as f32, d[1] as f32, d[2] as f32);
+                let angle = if dir.dot(Vec3::Y) < 0.0 {
+                    -p.pangle.to_radians()
+                }else{
+                    p.pangle.to_radians()
+                };
+                //point needs rotate to align the center normal axis
+                //need to caculate the transform matrix
+                face_s = Some(self.cal_sann_face(true, angle, r1, r2).unwrap());
+
+                let w = p.pwidth + p.dwid;
+                let r = p.pradius + p.drad;
+                let r1 = r - w;
+                let r2 = r;
+                face_e = Some(self.cal_sann_face(false, angle, r1, r2).unwrap());
+
+            }
+            CateProfileParam::SPRO(p) =>{
+                face_s = Some(self.cal_spro_face(true, p).unwrap());
+                face_e = Some(self.cal_spro_face(false, p).unwrap());
+            }
+            _ => {}
+        }
+
+        if let Some(face_s) = face_s{
+            if let Some(face_e) = face_e {
+                let mut faces = vec![];
+                if let Some((p1, p2, c)) = self.arc_path {
+                    let angle = (p2 - c).angle_between(p1 - c);
+                    let solid = builder::rsweep(&face_s, c.point3(), Vector3::new(0.0, 0.0, 1.0), Rad(angle as f64));
+                    return Some(solid.into_boundaries().remove(0));
+                }else{
+                    let edges_cnt = face_s.boundaries()[0].len();
+                    for i in 0..edges_cnt {
+                        let c1 = face_s.boundaries()[0][i].clone();
+                        let c2 = face_e.boundaries()[0][i].clone();
+                        faces.push(builder::homotopy(&c1, &c2));
+                    }
+                    faces.push(face_s);
+                    faces.push(face_e);
+                    return Some(faces.into());
+                }
+            }
+        }
+
 
         None
-        // use truck_modeling::*;
-        // let x_dir = self.pbax_dir.normalize().vector3();
-        // //暂时没用到 x y 的点信息
-        // let z_dir = self.paax_dir.normalize().vector3();
-        // let y_dir = z_dir.cross(x_dir);
-        // let z_pt = self.paax_pt.point3();
-        //
-        // let t_x = self.pbtp as f64 / 2.0;
-        // let t_y = self.pctp as f64 / 2.0;
-        // if t_x * t_y <= f64::EPSILON {
-        //     return None;
-        // }
-        // let b_x = self.pbbt as f64 / 2.0;
-        // let b_y = self.pcbt as f64 / 2.0;
-        // //todo 暂时不考虑这种情况, 退化成一条边和一点的情况
-        // if b_x * b_y <= f64::EPSILON {
-        //     return None;
-        // }
-        // let btm_center = z_pt + z_dir * self.pbdi as f64;
-        // let top_center = z_pt + z_dir * self.ptdi as f64 + x_dir * self.pbof as f64 + y_dir * self.pcof as f64;
-        // let len = btm_center.distance(top_center);
-        // let b1 = x_dir * b_x;
-        // let b2 = y_dir * b_y;
-        // //bottom points
-        // let mut bts = Vec::with_capacity(4);
-        // let mut ebs = Vec::with_capacity(4);
-        // bts.push(builder::vertex(btm_center - b1 - b2));   //if b1 = 0 && b2 = 0
-        // if b_x.abs() >= f64::EPSILON {
-        //     bts.push(builder::vertex(btm_center + b1 - b2));
-        //     ebs.push(builder::line(&bts[0], &bts[1]));
-        // }
-        // if b_y.abs() >= f64::EPSILON {
-        //     bts.push(builder::vertex(btm_center + b1 + b2));
-        //     bts.push(builder::vertex(btm_center - b1 + b2));
-        //
-        //     ebs.push(builder::line(&bts[1], &bts[2]));
-        //     ebs.push(builder::line(&bts[2], &bts[3]));
-        //     ebs.push(builder::line(&bts[3], &bts[0]));
-        // }
-        //
-        // let t1 = x_dir * t_x;
-        // let t2 = y_dir * t_y;
-        // //top points
-        // let mut tts = Vec::with_capacity(4);
-        // let mut ets = Vec::with_capacity(4);
-        // tts.push(builder::vertex(top_center - t1 - t2));
-        // if t_x.abs() >= f64::EPSILON {
-        //     tts.push(builder::vertex(top_center + t1 - t2));
-        //     ets.push(builder::line(&tts[0], &tts[1]));
-        // }
-        // if t_y.abs() >= f64::EPSILON {
-        //     tts.push(builder::vertex(top_center + t1 + t2));
-        //     tts.push(builder::vertex(top_center - t1 + t2));
-        //
-        //     ets.push(builder::line(&tts[1], &tts[2]));
-        //     ets.push(builder::line(&tts[2], &tts[3]));
-        //     ets.push(builder::line(&tts[3], &tts[0]));
-        // }
-        //
-        //
-        // let mut wires = vec![];
-        //
-        // if ebs.len() == 4 {
-        //     wires.push(Wire::from_iter(&ebs));
-        // }
-        // if ets.len() == 4 {
-        //     wires.push(Wire::from_iter(&ets).inverse());
-        // }
-        //
-        // let mut shell: Shell = wires.into_iter().map(|w| try_attach_plane(&[w]).unwrap()).collect();
-        // if ebs.len() == 4 && ets.len() == 4 {
-        //     shell.push(builder::homotopy(&ebs[0], &ets[0]));
-        //     shell.push(builder::homotopy(&ebs[1], &ets[1]));
-        //     shell.push(builder::homotopy(&ebs[2], &ets[2]));
-        //     shell.push(builder::homotopy(&ebs[3], &ets[3]));
-        // }
-        // //
-        // // else if ebs.len() == 2 && ets.len() == 4 {
-        // //     shell.push(builder::homotopy(&ebs[0], &ets[0]));
-        // //     shell.push(builder::homotopy(&ebs[0], &ets[2]));
-        // // }
-        //
-        // Some(shell)
     }
 
     fn hash_mesh_params(&self) -> u64 {
         //截面暂时用这个最省力的方法
         let mut hasher = DefaultHasher::default();
-        let bytes = bincode::serialize(&self.profile_s).unwrap();
-        bytes.hash(&mut hasher);
-        let bytes = bincode::serialize(&self.profile_e).unwrap();
+        let bytes = bincode::serialize(&self.profile).unwrap();
         bytes.hash(&mut hasher);
 
         hash_vec3::<DefaultHasher>(&self.drns, &mut hasher);
         hash_vec3::<DefaultHasher>(&self.drne, &mut hasher);
 
+        if let Some((p1, p2, c)) = self.arc_path {
+            hash_vec3::<DefaultHasher>(&p1, &mut hasher);
+            hash_vec3::<DefaultHasher>(&p2, &mut hasher);
+            hash_vec3::<DefaultHasher>(&c, &mut hasher);
+        }
+
         hasher.finish()
     }
 
-    //暂时不做可拉伸
+
+    //拉伸为height方向
     fn gen_unit_shape(&self) -> PdmsMesh {
-        self.gen_mesh(None)
+        let mut unit = self.clone();
+        unit.height = 1.0;
+        unit.gen_mesh(None)
     }
 
+    #[inline]
     fn get_scaled_vec3(&self) -> Vec3 {
         Vec3::new(1.0, 1.0, self.height)
+    }
+
+    #[inline]
+    fn get_trans(&self) -> TransformSRT {
+        let mut vec = Vec3::Y;
+
+        match &self.profile {
+            CateProfileParam::SANN(p) => {
+                if let Some(s) = &p.ptaxis {
+                    vec = Vec3::new(s.dir[0] as f32, s.dir[1] as f32, s.dir[2] as f32);
+                }
+                return TransformSRT {
+                    rotation: Quat::IDENTITY,//Quat::from_rotation_arc(Vec3::Y, vec),
+                    scale: self.get_scaled_vec3(),
+                    translation: Vec3::new(p.xy[0] + p.dxy[0], p.xy[1] + p.dxy[1], 0.0),
+                };
+            }
+            CateProfileParam::SPRO(_) => {
+                return TransformSRT {
+                    rotation: Quat::IDENTITY,//Quat::from_rotation_arc(Vec3::Y, vec),
+                    scale: self.get_scaled_vec3(),
+                    translation: Vec3::ZERO,
+                };
+            }
+            _ => {}
+        }
+
+        TransformSRT::IDENTITY
     }
 }
 
