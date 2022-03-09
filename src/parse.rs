@@ -167,15 +167,13 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> an
     if let Some(sys_file) = sys_file {
         children_files.remove(children_files.iter().position(|x| x == sys_file).unwrap());
     }
-    // for children_file in children_files {
-    //
-    // }
+
     children_files.par_iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         // if file_name == "sam7200_0001" {
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
-            if /*file_name == "aba0001_0001" ||*/ file_name == "aba0011_0001"{
+            if file_name == "aba0001_0001" || file_name == "aba0011_0001"{
                 if let Ok(mut pdms_db_data) = parse_file(&path, &database_info, file_name, project, "") {
                     pdms_db_data.filename = file_name.into();
                     let cur_dbno = pdms_db_data.db_no.to_string();
@@ -361,6 +359,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             match name.as_str() {
                 "PTCDI" => attr_data_map.insert_by_att_name("PTCD", StringType("Y".into())),
                 "PARA" => attr_data_map.insert_by_att_name("PARA", DoubleArrayType(vec![])),
+                // "DESP"
                 _ => {}
             }
         }
@@ -391,7 +390,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = DashMap::new();
 
-    let mut string_lookup = StringLookupTable::new("AIOS");
+    let mut string_lookup = StringLookupTable::new();
     /// 基本数据的Tree
     let mut ele_id_tree: Tree<EleNode> = Tree::new();
     /// 完整属性数据的存储

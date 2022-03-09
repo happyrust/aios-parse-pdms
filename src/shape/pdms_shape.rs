@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
-use bevy::prelude::FromWorld;
+use bevy::prelude::{FromWorld, Mesh};
 use truck_modeling::{Curve, Shell};
 // use bevy_inspector_egui::Inspectable;
 use bevy::ecs::component::Component;
@@ -9,11 +9,13 @@ use truck_base::cgmath64::{Point3, Vector3};
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
 use bevy::reflect::{Reflect, ReflectRef};
 use bevy::ecs::reflect::ReflectComponent;
+use bevy::render::render_resource::PrimitiveTopology::TriangleList;
 use fixed::types::I24F8;
 use glam::{TransformRT, TransformSRT, Vec3};
 use ncollide3d::bounding_volume::AABB;
 use ncollide3d::math::{Point, Vector};
 use ncollide3d::na;
+use ncollide3d::na::Point3 as NPoint3;
 use ncollide3d::shape::TriMesh;
 use truck_base::bounding_box::BoundingBox;
 use crate::AttrMap;
@@ -27,6 +29,8 @@ use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::rtorus::SRTorus;
 use crate::prim_geo::sbox::SBox;
 use crate::prim_geo::snout::LSnout;
+use bevy::render::mesh::Indices;
+use bevy::render::primitives::Aabb;
 
 pub const TRIANGLE_TOL: f64 = 0.01;
 
@@ -67,7 +71,13 @@ pub struct PdmsMesh {
     pub aabb: AiosAABB,
 }
 
+
+
+//bevy's meshs
+
+
 impl PdmsMesh {
+
     pub fn get_tri_mesh(&self, trans: TransformSRT) -> TriMesh<f32> {
         let mut points: Vec<ncollide3d::na::Point3<f32>> = vec![];
         let mut indices: Vec<ncollide3d::na::Point3<usize>> = vec![];
@@ -79,6 +89,38 @@ impl PdmsMesh {
             indices.push(ncollide3d::na::Point3::<usize>::new(i[0] as usize, i[1] as usize, i[2] as usize));
         });
         TriMesh::new(points, indices, None)
+    }
+
+    pub fn gen_bevy_mesh(&self) -> Mesh{
+        let mut mesh = Mesh::new(TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.vertices.clone());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone());
+        // mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.set_indices(Some(Indices::U32(
+            self.indices.clone()
+        )));
+        mesh
+    }
+
+    pub fn gen_bevy_mesh_with_aabb(&self) -> (Mesh, Aabb){
+        let mut mesh = Mesh::new(TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.vertices.clone());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone());
+        let n = self.vertices.len();
+        let mut uvs = vec![];
+        for i in 0..n {
+           uvs.push([0.0f32, 0.0]);
+        }
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.set_indices(Some(Indices::U32(
+            self.indices.clone()
+        )));
+        let AiosAABB{
+            min,
+            max,
+        } = self.aabb;
+        // let aabb = AABB::new(NPoint3::new(min.x, min.y, min.z), NPoint3::new(max.x, max.y, max.z));
+        (mesh, Aabb::from_min_max(min, max))
     }
 }
 

@@ -11,7 +11,7 @@ use nom::AsBytes;
 use smol_str::SmolStr;
 use crate::{AttrMap, db1_dehash, parse_pdms_dir};
 use crate::parse::PdmsDbData;
-use crate::pdms_types::{EleGeoData, RefI32Tuple, RefU64, RefU64Vec};
+use crate::pdms_types::{EleGeoInstData, RefI32Tuple, RefU64, RefU64Vec};
 // sanakirja 不支持动态大小
 // use sanakirja::*;
 
@@ -114,7 +114,7 @@ pub fn get_ancestors_attrs(refno: &RefU64, attr_db: &sled::Db) -> Vec<AttrMap>{
 }
 
 ///获取子孙后代的几何节点
-pub fn get_descendant_attrs(refno: &RefU64, attr_db: &sled::Db) -> Vec<EleGeoData>{
+pub fn get_descendant_attrs(refno: &RefU64, attr_db: &sled::Db) -> Vec<EleGeoInstData>{
     let mut geoms = vec![];
     //从一个节点开始层级遍历
     let mut cur_refno = *refno;

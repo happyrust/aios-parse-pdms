@@ -62,6 +62,9 @@ impl BrepShapeTrait for Extrusion {
         let mut wire = Wire::new();
         let ll = self.loop_verts.len();
         let mut verts: Vec<_> = self.loop_verts.iter().map(|x| builder::vertex(x.point3())).collect();
+        if ll < 3 {
+            return None;
+        }
         for i in 0..ll {
             let cur_v = &verts[i];
             let next_v = &verts[(i+1)%ll];

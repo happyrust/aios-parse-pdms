@@ -21,7 +21,7 @@ use mongodb::bson::doc;
 use std::collections::HashSet;
 use std::error::Error;
 use crate::parsed_data::GeomsInfo;
-use crate::pdms_types::{AttrMap, EleNode, PdmsRefno};
+use crate::pdms_types::{AttrMap, EleNode, PdmsRefno, RefU64};
 use futures::stream::TryStreamExt;
 // use crate::interface::pdms_interface::PdmsInterface;
 
@@ -56,13 +56,15 @@ pub mod grpc;
 pub mod local_db;
 
 pub use parse::{parse_db, parse_file};
+use std::time::Instant;
 
 pub mod interface;
 pub mod mesh_helper;
 pub mod test_cases;
 
-pub use test_cases::{read_attr_info_config};
+pub use test_cases::read_attr_info_config;
 use crate::db_tool::db1_hash;
+use crate::local_db::bonsaidb_local::{AiosDBManager, DbOption};
 
 pub mod notify_file_change;
 
@@ -173,9 +175,141 @@ lazy_static! {
     };
 }
 
-
 //cached functions to get value
 //todo 数据分层，尽可能的用缓存
+
+pub async fn init_pdms_db(db_option: Option<DbOption>) -> anyhow::Result<AiosDBManager> {
+
+    let mut time = Instant::now();
+    // #[cfg(target_arch = "arch64")]
+    let path = "../Projects";
+    let path = "G:/12.1SP4Projects";
+    let path = "/Volumes/DPC/aba";
+    // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
+    // #[cfg(target_arch = "arch64")]
+    // let path = "C:/AVEVA/Plant/Projects12.1.SP4";
+
+    let mut db_manager = AiosDBManager::init(path,
+                                             vec!["ABA".to_string()/*, "GDP".to_string()*/],
+                                             "ABA",
+                                             db_option).await.unwrap();
+
+    dbg!(time.elapsed().as_millis());
+    // let result = db_manager.cache_geos_data(11, "ABA").await?;
+    // // db_manager.build_collision_world(7200).await?;
+    // let refno = RefU64::from_two_nums(23584, 6615);
+    let refno = RefU64::from_two_nums(23584, 5575);
+    let refno = RefU64::from_two_nums(23584, 7040);
+    let refno = RefU64::from_two_nums(23584, 8544);
+    let refno = RefU64::from_two_nums(8193, 45580);
+    let refno = RefU64::from_two_nums(8193, 4363);
+    let refno = RefU64::from_two_nums(16395, 39039);
+    let refno = RefU64::from_two_nums(16395, 39308);
+    // let refno = RefU64(101292508714382);
+    // let refno = RefU64(101292508716175);
+    // //15213/499930
+    // let refno = RefU64::from_two_nums(15213, 499930);
+    // let refno = RefU64::from_two_nums(15192, 113114);
+
+    //cached 一些常用的取值操作
+    // let refno_info = db_manager.get_refno_info(&refno).await;
+    // dbg!(&refno_info);
+
+    // dbg!(refno_info);
+    // dbg!(db_manager.get_project_of_refno(&refno).await);
+    // dbg!(db_manager.get_pretty_attr(&refno).await);
+    // dbg!(refno.to_refno_str());
+    // dbg!(db_manager.get_pretty_attr(&refno).await);
+    // dbg!(db_manager.get_world_transform(&refno).await);
+    // dbg!(db_manager.get_children(&refno).await);
+    // dbg!(db_manager.get_db_of_refno(&refno).await);
+
+    // let mut  cache_mgr = CachedMeshes::default();
+    // let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
+    // dbg!(attr.get_type());
+    // if let Some(spre) = attr.get_foreign_refno("SPRE"){
+    //     let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
+    //     // dbg!(&geoms);
+    // }
+
+
+
+    // let refno = RefU64::from_two_nums(15207, 8922);
+    //
+    // //cached 一些常用的取值操作
+    // let refno_info = db_manager.get_refno_info(&refno).await;
+    //
+    // dbg!(refno_info);
+    // dbg!(db_manager.get_project_of_refno(&refno).await);
+    // dbg!(db_manager.get_attr(&refno).await);
+
+    //
+    // let children = db.get_children(&refno).await?;
+    // dbg!(&children);
+
+    // let refno = RefU64::from_two_nums(23584, 9900);
+    // let mut mgr = CachedMeshes::default();
+    // let attr = db.get_attr(&refno).await.unwrap();
+    // let ctorus: CTorus = (&attr).into();
+    // if ctorus.check_valid() {
+    //     dbg!(&ctorus);
+    //     dbg!(attr.is_visible(None));
+    //     let r = mgr.get_pdms_mesh_hash_key(Box::new(ctorus));
+    //     let geo = Some(GeoData::Primitive(r));
+    // }
+    //
+    // let trans = db.get_world_transform(&refno).await;
+    // dbg!(&trans);
+
+    // let refnos = vec![RefU64::from_two_nums(23584, 2705),
+    //                   RefU64::from_two_nums(23584, 2706),
+    //                   /*RefU64::from_two_nums(23584, 9008)*/];
+    //
+    // for refno in refnos {
+    //     let attr = db.get_attr(&refno).await;
+    //     let attr = attr.unwrap();
+    //     dbg!(attr.is_visible(None));
+    //     let mut dish: CTorus = attr.into();
+    //     dbg!(dish.hash_mesh_params());
+    //
+    //     let idx = mgr.get_pdms_mesh_hash_key(&dish);
+    //     dbg!(idx);
+    // }
+
+    // dbg!(mgr.meshes.len());
+
+    // let refno = RefU64::from_two_nums(23584, 8839);
+    // let attr = db.get_attr(&refno).await.unwrap();
+    // dbg!(attr);
+    // let trans = db.get_world_transform(&refno).await;
+    // dbg!(&trans);
+    // let mat3: glam::f32::Mat3 = glam::f32::Mat3::from_quat(trans.rotation);
+    // dbg!(mat3);
+
+    // let result = db.get_world_transform(&refno).await;
+    // dbg!(trans.rotation.to_euler(glam::EulerRot::XYZ));
+    // // dbg!(trans.rotation.to_scaled_axis());
+    //
+    // let matrix = db.get_world_matrix(&refno).await;
+    // let quat = glam::Quat::from_affine3(&matrix);
+    // dbg!(quat.to_euler(glam::EulerRot::XYZ));
+
+    // let six_and_third = I24F8::from_num(19.23424);
+// four decimal digits for 12 binary digits
+//     dbg!(six_and_third);
+//     assert_eq!(six_and_third.to_string(), "6.3333");
+
+
+    // bonsaidb_local::cache_equip_geos_data().await;
+
+    // #[cfg(feature = "sled")]{
+
+    // sled_local::save_local().await;
+        // sled_local::cache_room_geos_data().await;
+    // }
+
+    return Ok(db_manager);
+}
 
 
 

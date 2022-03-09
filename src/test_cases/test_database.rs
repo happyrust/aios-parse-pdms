@@ -1,6 +1,6 @@
 use std::time::Instant;
 use crate::local_db::bonsaidb_local::{AiosDBManager, DbOption};
-use crate::pdms_types::{CachedMeshes, RefU64};
+use crate::pdms_types::{CachedMeshesMgr, RefU64};
 
 // #[test]
 // #[tokio::test]
@@ -20,7 +20,7 @@ pub async fn test_column(){
                                              })).await.unwrap();
     // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
     // let result = db_manager.cache_geos_data(7200).await.unwrap();
-    let mut  cache_mgr = CachedMeshes::default();
+    let mut  cache_mgr = CachedMeshesMgr::default();
     let mut time = Instant::now();
 
     let refno = RefU64::from_two_nums(23584, 5645);

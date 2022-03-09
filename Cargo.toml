@@ -30,7 +30,7 @@ async-trait = "0.1.52"
 approx = "0.5.1"
 
 #rocksdb = "0.18.0"
-sanakirja = "1.2.16"
+#sanakirja = "1.2.16"
 
 sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
@@ -73,8 +73,8 @@ crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
 #rug = "1.14.0"
 #bevy-inspector-egui = { path = "../bevy-inspector-egui" }
-#bevy = { path = "../bevy" }
-bevy = { git = "https://github.com/bevyengine/bevy", default-features = false }
+bevy = { path = "../bevy", default-features = false }
+bevy_utils = {path = "../bevy/crates/bevy_utils"}
 
 id_tree = { version = "1.8.0", features=["serde_support"] }
 smol_str = "0.1.21"
@@ -83,8 +83,10 @@ lyon = "0.17.10"
 rand = "*"
 anyhow = "*"
 env_logger = "*"
+egui = "0.16.0"
 
 transmog-bincode = "0.1"
+bevy-inspector-egui = {path = "../bevy-inspector-egui"}
 
 gdnative = {git="https://github.com/godot-rust/godot-rust"}
 
