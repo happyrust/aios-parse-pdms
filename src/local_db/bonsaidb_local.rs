@@ -94,6 +94,7 @@ pub struct PdmsConfig {
 pub struct DbOption {
     pub total_sync: bool,
     pub incr_sync: bool,
+    pub project_path: String,
 }
 
 ///MDB数据库管理
@@ -174,7 +175,7 @@ impl PdmsDataInterface for AiosDBManager {
 
 impl AiosDBManager {
     ///初始化
-    pub async fn init(dir: &str, projects: Vec<String>, mdb_name: &str, option: Option<DbOption>) -> Result<AiosDBManager, bonsaidb::core::Error> {
+    pub async fn init(dir: &str, projects: Vec<String>, option: &DbOption) -> Result<AiosDBManager, bonsaidb::core::Error> {
         let extra_storage_name = format!("./AIOS_DBS/AIOS_Extra");
         let storage = Storage::open(
             StorageConfiguration::new(extra_storage_name.as_str())
@@ -188,7 +189,6 @@ impl AiosDBManager {
             db: storage.database::<RefnoInfo>(INFO_DB_NAME).await?
         };
 
-        let option = option.unwrap_or_default();
         let mut project_map = HashMap::default();
         for project in projects {
             let mut proj = AiosPdmsProject::init(project.as_str(), dir).await?;

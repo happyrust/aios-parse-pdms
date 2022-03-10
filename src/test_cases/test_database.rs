@@ -13,11 +13,11 @@ pub async fn test_column(){
 
     let mut db_manager = AiosDBManager::init(path,
                                              vec!["Sample".to_string(), "Master".to_string()],
-                                             "Sample",
-                                             Some(DbOption {
+                                             &DbOption {
                                                  total_sync: false,
                                                  incr_sync: false,
-                                             })).await.unwrap();
+                                                 project_path: path.to_string()
+                                             }).await.unwrap();
     // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
     // let result = db_manager.cache_geos_data(7200).await.unwrap();
     let mut  cache_mgr = CachedMeshesMgr::default();

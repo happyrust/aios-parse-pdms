@@ -178,20 +178,11 @@ lazy_static! {
 //cached functions to get value
 //todo 数据分层，尽可能的用缓存
 
-pub async fn init_pdms_db(db_option: Option<DbOption>) -> anyhow::Result<AiosDBManager> {
+pub async fn init_pdms_db(db_option: &DbOption) -> anyhow::Result<AiosDBManager> {
 
     let mut time = Instant::now();
-    // #[cfg(target_arch = "arch64")]
-    let path = "../Projects";
-    let path = "G:/12.1SP4Projects";
-    let path = "/Volumes/DPC/aba";
-    // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
-    // #[cfg(target_arch = "arch64")]
-    // let path = "C:/AVEVA/Plant/Projects12.1.SP4";
-
-    let mut db_manager = AiosDBManager::init(path,
+    let mut db_manager = AiosDBManager::init(db_option.project_path.as_str(),
                                              vec!["ABA".to_string()/*, "GDP".to_string()*/],
-                                             "ABA",
                                              db_option).await.unwrap();
 
     dbg!(time.elapsed().as_millis());

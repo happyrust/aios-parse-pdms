@@ -21,4 +21,7 @@ pub trait PdmsDataInterface{
     fn get_name(&self, refno: &RefU64) -> SmolStr;
 
     fn get_name_by_hash(&self, refno: &RefU64, name_hash: u32) -> Option<SmolStr>;
+
+    //todo get_foreign_atr
+    //
 }
