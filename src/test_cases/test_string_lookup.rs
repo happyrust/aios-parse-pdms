@@ -2,7 +2,7 @@ use crate::pdms_types::StringLookupTable;
 
 #[test]
 pub fn test_lookup() {
-    let mut lookup = StringLookupTable::new("TEST");
+    let mut lookup = StringLookupTable::new();
     lookup.add_str("test");
     lookup.add_str("test");
     lookup.add_str("test1");

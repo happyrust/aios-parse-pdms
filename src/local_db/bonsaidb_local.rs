@@ -6,7 +6,7 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ptr::eq;
 use std::sync::Mutex;
 use bonsaidb::core::circulate::Message;
@@ -23,12 +23,12 @@ use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
 use once_cell::sync::Lazy;
 use smol_str::SmolStr;
-use crate::{AttrMap, db1_dehash, EleNode, GeomsInfo, parse_pdms_dir, pipes, sctn};
+use crate::{AttrMap, db1_dehash, EleNode, GeomsInfo, init_pdms_db, parse_pdms_dir, pipes, read_attr_info_config, sctn};
 use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
-use crate::parse::{PdmsDbData};
-use crate::pdms_types::{AiosStr, CachedMeshesMgr, EleGeoInstData, GeoData, PdmsMeshMgr, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom, ShapeInstancesMgr, StringLookupTable};
+use crate::parse::{NOUN_TYPES_MAP, parse_file_basic_info, PdmsDbData};
+use crate::pdms_types::{AiosStr, CachedMeshesMgr, DbnoVersion, EleGeoInstData, GeoData, PdmsMeshMgr, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom, ShapeInstancesMgr, StringLookupTable};
 use crate::prim_geo::ctorus::CTorus;
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
@@ -46,13 +46,18 @@ use crate::pdms_data::ScomInfo;
 use crate::pdms_types::AttrVal::{StringHashType, StringType};
 use crate::prim_geo::facet::{Contour, Facet, Polygon};
 use async_trait::async_trait;
+use memchr::memmem::rfind_iter;
 use ncollide3d::bounding_volume::AABB;
 use ncollide3d::na as na;
 use ncollide3d::na::{Isometry3, Translation3, UnitQuaternion};
 use ncollide3d::pipeline::{CollisionGroups, GeometricQueryType};
 use ncollide3d::query::{Ray, RayCast};
 use ncollide3d::shape::{Cuboid, ShapeHandle};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use truck_polymesh::stl::IntoSTLIterator;
+use crate::helper::{parse_to_i32, parse_to_u32};
+use crate::parse_increment_data::increment_modify::{check_increase_operate, increment_data_to_db, modify_data_to_db};
+use crate::parse_increment_data::NewDataState;
 use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::query_cata::resolve_desi_comp;
@@ -64,6 +69,7 @@ pub const TREE_DB_NAME: &'static str = "tree";
 pub const INFO_DB_NAME: &'static str = "info";
 pub const STR_DB_NAME: &'static str = "strs";
 pub const GEOM_DB_NAME: &'static str = "geoms";
+pub const DBNO_VERSIONS: &'static str = "vers";
 
 ///collision world  存储所属元件名称和GeoId
 static GLOBAL_COLLISION_WORLD: Lazy<Mutex<CollisionWorld<f32, (RefU64, RefU64)>>> = Lazy::new(|| {
@@ -155,7 +161,7 @@ impl PdmsDataInterface for AiosDBManager {
     }
 
 
-    fn get_tree(&self, project_name: &str, db_no: u32) -> Option<PdmsTree>{
+    fn get_tree(&self, project_name: &str, db_no: u32) -> Option<PdmsTree> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build().unwrap();
@@ -170,12 +176,11 @@ impl PdmsDataInterface for AiosDBManager {
         });
         r
     }
-
 }
 
 impl AiosDBManager {
     ///初始化
-    pub async fn init(dir: &str, projects: Vec<String>, option: &DbOption) -> Result<AiosDBManager, bonsaidb::core::Error> {
+    pub async fn init(dir: &str, projects: Vec<String>, option: &DbOption) -> anyhow::Result<AiosDBManager> {
         let extra_storage_name = format!("./AIOS_DBS/AIOS_Extra");
         let storage = Storage::open(
             StorageConfiguration::new(extra_storage_name.as_str())
@@ -192,12 +197,16 @@ impl AiosDBManager {
         let mut project_map = HashMap::default();
         for project in projects {
             let mut proj = AiosPdmsProject::init(project.as_str(), dir).await?;
-            //增量保存数据
+            //完全更新
             if option.total_sync {
                 proj.sync_total(&info_db).await?;
                 info_db.merge(proj.get_info_database());
-            }  //完全更新
-            if option.incr_sync {}    //todo 增量更新
+            }
+            //增量保存数据
+            if option.incr_sync {
+                proj.inc_sync(&info_db).await?;
+                info_db.merge(proj.get_info_database());
+            }
             let project_str: SmolStr = project.into();
             project_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
@@ -370,7 +379,7 @@ impl AiosDBManager {
                     let mut generic_type = None;
                     let mut item_trans = glam::TransformSRT::IDENTITY;
                     // && noun == PLOO_NOUN
-                    if PRIM_HASH_NOUNS.contains(&noun){
+                    if PRIM_HASH_NOUNS.contains(&noun) {
                         //获得类型和参考号
                         if let Some(e) = self.get_generic_type_refno(&d.refno).await {
                             type_geom_refs_map.entry(e.1).or_insert(Vec::new()).push(d.refno);
@@ -528,11 +537,11 @@ impl AiosDBManager {
 
         // cached_mesh_mgr.serialize_to_json_file();
         // cached_mesh_mgr.serialize_to_bin_file();
-        let mgr = PdmsMeshMgr{
-            inst_mgr: ShapeInstancesMgr{
+        let mgr = PdmsMeshMgr {
+            inst_mgr: ShapeInstancesMgr {
                 inst_map
             },
-            cached_mesh_mgr
+            cached_mesh_mgr,
         };
         mgr.serialize_to_json_file();
         mgr.serialize_to_bin_file();
@@ -697,7 +706,8 @@ pub struct AiosPdmsProject {
     pub dir: String,
     pub storage: Storage,
     //pdms data directory
-    pub att_db_map: HashMap<u32, Database>,   //att map 需要做分库, db_number -> database
+    pub att_db_map: HashMap<u32, Database>,
+    //att map 需要做分库, db_number -> database
     pub db_no_list: Vec<u32>,
 
     pub types_db: Database,
@@ -706,6 +716,7 @@ pub struct AiosPdmsProject {
     pub info_db: RefInoDatabase,
     pub string_db: StringDatabase,
     pub mdb_name: Option<String>,
+    pub dbno_version: Database,
 }
 
 
@@ -750,6 +761,7 @@ impl AiosPdmsProject {
                 .with_schema::<PdmsTree>()?
                 .with_schema::<AiosStr>()?
                 .with_schema::<RefnoInfo>()?
+            // .with_schema::<DbnoVersion>()?
         ).await?;
 
         //需要把所有的db number
@@ -780,6 +792,10 @@ impl AiosPdmsProject {
         storage.create_database::<RefnoInfo>(INFO_DB_NAME, true).await?;
         let info_db = storage.database::<RefnoInfo>(INFO_DB_NAME).await?;
 
+        // storage.create_database::<DbnoVersion>(DBNO_VERSIONS, true).await?;
+        // let version_db = storage.database::<DbnoVersion>(DBNO_VERSIONS).await?;
+        let version_db = Database::open::<DbnoVersion>(StorageConfiguration::new("aiox.vers")).await?;
+
         Ok(Self {
             project: project.to_string(),
             dir: dir.to_string(),
@@ -792,6 +808,7 @@ impl AiosPdmsProject {
             info_db: RefInoDatabase { db: info_db },
             string_db: StringDatabase { db: string_db },
             mdb_name: None,
+            dbno_version: version_db,
         })
     }
 
@@ -899,6 +916,7 @@ impl AiosPdmsProject {
 
         if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None) {
             let mut total_lookup = StringLookupTable::default();
+            let mut files_version = vec![];
             for (k, PdmsDbData {
                 all_attr_map,
                 ele_id_tree,
@@ -909,6 +927,8 @@ impl AiosPdmsProject {
                 field_no,
                 string_lookup,
                 children_map,
+                filename,
+                version,
                 ..
             }) in r {
                 let target_dbno = if field_no == 0 { db_no } else { field_no };
@@ -973,6 +993,8 @@ impl AiosPdmsProject {
                     self.get_info_database().apply_transaction(tx.clone()).await?;
                     external_info_db.apply_transaction(tx).await?;
                 }
+
+                files_version.push(DbnoVersion { dbno: db_no, version });
             }
 
             for chunk in &total_lookup.lookup.iter().chunks(400000usize) {
@@ -985,6 +1007,17 @@ impl AiosPdmsProject {
                 }
                 self.get_string_database().apply_transaction(tx).await?;
             }
+
+            for chunk in files_version.chunks(400000usize) {
+                let mut tx = Transaction::default();
+                for v in chunk {
+                    tx.push(transaction::Operation::overwrite_serialized::<DbnoVersion>(
+                        v.dbno,
+                        v,
+                    ).unwrap());
+                }
+                self.dbno_version.apply_transaction(tx).await?;
+            }
         }
 
         let dbs = self.storage.list_databases().await?;
@@ -993,13 +1026,103 @@ impl AiosPdmsProject {
         Ok(())
     }
 
+    pub async fn inc_sync(&mut self, external_info_db: &Database) -> anyhow::Result<()> {
+        let project = &self.project;
+        let mut data_dir = Path::new(&self.dir);
+        let project = &self.project;
+        let project_dir = data_dir.join(&project);
+
+        let mut target_dir = fs::read_dir(project_dir).unwrap().into_iter().map(|entry| {
+            let entry = entry.unwrap();
+            entry.path()
+        }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
+        let dir = PathBuf::from(target_dir);
+        let mut children_files = fs::read_dir(dir)?.into_iter().map(|entry| {
+            let entry = entry.unwrap();
+            entry.path()
+        }).collect::<Vec<PathBuf>>();
+
+
+        for path in children_files {
+            let file_name = path.file_name().unwrap().to_str().unwrap();
+            if !file_name.ends_with("com") && !file_name.ends_with("mis") {
+                println!("path={:?}", &path);
+                self.increment_parse(project, &path).await?;
+            }
+        };
+        Ok(())
+    }
     ///获得下一个Element
     #[inline]
     pub async fn next(&mut self) -> Result<(), bonsaidb::core::Error> {
         Ok(())
     }
-}
 
+    pub async fn increment_parse(&self, project: &str, path: &PathBuf) -> anyhow::Result<()> {
+        let filename = SmolStr::new(path.file_name().unwrap().to_str().unwrap());
+        let mut file = File::open(path)?;
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        let input = &buf[..];
+        let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+
+        let (db_type, file_version, mut dbno) = parse_file_basic_info(input);
+        let db_no_str = dbno.to_string();
+        let mut field_no = 0;
+        if db_type.as_str() != "SYST" && !filename.contains(&db_no_str) {
+            let _chars_len = db_no_str.len();
+            let l = filename.len();
+            dbg!(&filename);
+            let end = filename.chars().position(|x| x == '_').unwrap_or(l);
+            field_no = filename[project.len()..end].parse::<u32>().unwrap_or_default();
+        }
+        dbno = if field_no == 0 { dbno } else { field_no };
+
+        if let Some(dbno_version) = DbnoVersion::get(dbno, &self.dbno_version).await? {
+            let mut version = dbno_version.contents.version; // 从数据库中获取的 version
+            if version != file_version && version < file_version { // 如果文件的版本和数据库中存储的版本对不上 就进行增量解析
+                loop {
+                    let mut v = vec![0u8, 0, 0, 3];
+                    v.append(&mut version.to_be_bytes().to_vec());
+
+                    if let Some(pos) = rfind_iter(input, &v).next() {
+                        version = parse_to_u32(&input[pos + 20..pos + 24]);
+                        let b_version = parse_to_u32(&input[pos + 36..pos + 40]);
+                        if b_version == version {
+                            version -= 1;
+                        }
+                        let data_version = version - 4; // 参考号的版本是大版本-4 ,有遇到是-5的情况，若是-5则查不到对应的位置
+                        if let Some(refno_pos) = rfind_iter(&input[..pos], &data_version.to_be_bytes()).next() { // 通过version找到他的参考号
+                            let refno = &input[refno_pos - 8..refno_pos];
+                            let mut iter = rfind_iter(&input[..refno_pos - 8], refno); // todo 调整为在某个范围内查询
+                            while let Some(data_pos) = iter.next() { // 找到的参考号是文件里所有的
+                                let attr_type = parse_to_i32(&input[data_pos + 8..data_pos + 12]);
+                                if NOUN_TYPES_MAP.contains_key(&attr_type) {
+                                    if let Some(state) = check_increase_operate(input, data_pos, refno) {
+                                        match state {
+                                            NewDataState::Modify => { modify_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self).await? }
+                                            NewDataState::Increase => { increment_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self).await? }
+                                            // NewDataState::Delete => { delete_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800],  &pdms_database_info, dbno as u64,&dbs).await? }
+                                            _ => {
+                                                dbg!("todo delete");
+                                                ()
+                                            } // todo delete先不管，先把modify 和 increase跑通
+                                        }
+                                        // update_version_in_db(filename.clone(), version, &mut interface).await?               ;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 
 

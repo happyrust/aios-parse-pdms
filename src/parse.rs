@@ -168,12 +168,12 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> an
         children_files.remove(children_files.iter().position(|x| x == sys_file).unwrap());
     }
 
-    children_files.par_iter().for_each(|path| {
+    children_files.iter().for_each(|path| {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         // if file_name == "sam7200_0001" {
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
-            if file_name == "aba0001_0001" || file_name == "aba0011_0001"{
+            // if file_name == "aba0001_0001" || file_name == "aba0011_0001"{
                 if let Ok(mut pdms_db_data) = parse_file(&path, &database_info, file_name, project, "") {
                     pdms_db_data.filename = file_name.into();
                     let cur_dbno = pdms_db_data.db_no.to_string();
@@ -193,7 +193,7 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> an
                     pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
                 }
             }
-        }
+        // }
     });
 
     return Ok(pdms_project_data_map);
@@ -201,7 +201,8 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> an
 
 pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let time_start = std::time::Instant::now();
-    let mut file = File::open(path).unwrap();
+    dbg!(&path);
+    let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut buf);
     let input = &buf[..];
@@ -389,7 +390,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = DashMap::new();
-
     let mut string_lookup = StringLookupTable::new();
     /// 基本数据的Tree
     let mut ele_id_tree: Tree<EleNode> = Tree::new();
@@ -398,11 +398,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let time_start = std::time::Instant::now();
     let mut field_no = 0;
 
-    let (db_type, version, mut db_no) = parse_file_basic_info(input);
+    let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
     let db_no_str = db_no.to_string();
     dbg!(&db_type);
     if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
-        let chars_len = db_no_str.len();
+        let _chars_len = db_no_str.len();
         let l = file_name.len();
         dbg!(&file_name);
         let end = file_name.chars().position(|x| x == '_').unwrap_or(l);
@@ -521,7 +521,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         children_map,
         string_lookup,
         filename: file_name.into(),
-        version,
+        version:file_version,
         db_type,
         db_name: Default::default(),
         db_no,
@@ -1899,7 +1899,7 @@ pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<EleNode>>) -> DashMap<Stri
 }
 
 
-static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
+pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 
 0xCC12Di32 => "SPLOAD",
 0xE2C6Bi32 => "UDET",

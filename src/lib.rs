@@ -61,6 +61,8 @@ use std::time::Instant;
 pub mod interface;
 pub mod mesh_helper;
 pub mod test_cases;
+pub mod parse_increment_data;
+// pub mod data_to_file;
 
 pub use test_cases::read_attr_info_config;
 use crate::db_tool::db1_hash;
@@ -178,12 +180,21 @@ lazy_static! {
 //cached functions to get value
 //todo 数据分层，尽可能的用缓存
 
-pub async fn init_pdms_db(db_option: &DbOption) -> anyhow::Result<AiosDBManager> {
+pub async fn init_pdms_db(db_option: DbOption) -> anyhow::Result<AiosDBManager> {
 
     let mut time = Instant::now();
-    let mut db_manager = AiosDBManager::init(db_option.project_path.as_str(),
-                                             vec!["ABA".to_string()/*, "GDP".to_string()*/],
-                                             db_option).await.unwrap();
+    let mut db_manager = AiosDBManager::init(db_option.project_path.as_str(), vec!["Sample".to_string()/*, "GDP".to_string()*/], &db_option);
+    // #[cfg(target_arch = "arch64")]
+    // let path = "../Projects";
+    // let path = "G:/12.1SP4Projects";
+    // let path = "/Volumes/DPC/aba";
+    // /Volumes/[C] Windows 11/AVEVA/Plant/Projects12.1.SP4
+    // #[cfg(target_arch = "arch64")]
+    // let path = r"E:\AVEVA\Plant\Projects12.1.SP4";
+
+    let mut db_manager = AiosDBManager::init(&db_option.project_path,
+                                             vec!["Sample".to_string()/*, "GDP".to_string()*/],
+                                             &db_option).await.unwrap();
 
     dbg!(time.elapsed().as_millis());
     // let result = db_manager.cache_geos_data(11, "ABA").await?;

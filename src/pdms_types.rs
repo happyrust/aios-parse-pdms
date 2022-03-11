@@ -29,6 +29,7 @@ use std::result::Iter;
 use std::vec::IntoIter;
 use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
+use bevy_egui::egui;
 use egui::Key::O;
 
 pub const LEVEL_VISBLE: u32 = 6;
@@ -86,12 +87,12 @@ impl RefI32Tuple {
 
     #[inline]
     pub fn get_0(&self) -> i32 {
-        self.0 .0
+        self.0.0
     }
 
     #[inline]
     pub fn get_1(&self) -> i32 {
-        self.0 .1
+        self.0.1
     }
 }
 
@@ -235,19 +236,19 @@ impl RefU64Vec {
 
 // #[derive(Serialize, Deserialize, Clone, Debug, Default, Component, Eq, Hash, PartialEq)]
 #[derive(
-    Serialize,
-    Deserialize,
-    Clone,
-    Debug,
-    Default,
-    Component,
-    Reflect,
-    Inspectable,
-    Eq,
-    Hash,
-    PartialEq,
-    Ord,
-    PartialOrd,
+Serialize,
+Deserialize,
+Clone,
+Debug,
+Default,
+Component,
+Reflect,
+Inspectable,
+Eq,
+Hash,
+PartialEq,
+Ord,
+PartialOrd,
 )]
 #[reflect(Component)]
 pub struct NounHash(pub u32);
@@ -766,6 +767,7 @@ impl Collection for PdmsTree {
         Ok(())
     }
 }
+
 impl SerializedCollection for PdmsTree {
     type Contents = Self;
     type Format = transmog_bincode::Bincode;
@@ -778,7 +780,8 @@ impl SerializedCollection for PdmsTree {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefnoInfo {
     /// 参考号的ref0
-    pub ref_0: u32, //只需要保存一个ref0的信息，就能知道这个数据在哪个位置
+    pub ref_0: u32,
+    //只需要保存一个ref0的信息，就能知道这个数据在哪个位置
     /// 项目hash
     pub project_hash: u32,
     /// 对应db number
@@ -961,7 +964,7 @@ pub struct AiosMaterial {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum GeoData {
     Primitive(PdmsMeshIdx), //索引的哪个mesh,和对应的拉伸值， 先从dish开始判断相似性
-                            // Raw(Mesh),          //原生的Mesh
+    // Raw(Mesh),          //原生的Mesh
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -1035,7 +1038,7 @@ impl PdmsMeshMgr {
         let mut file = File::open(format!("PdmsMeshMgr.bin"))?;
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf);
-        if  let Ok(s) = bincode::deserialize(buf.as_slice()){
+        if let Ok(s) = bincode::deserialize(buf.as_slice()) {
             return Ok(s);
         }
 
@@ -1053,7 +1056,7 @@ impl PdmsMeshMgr {
         let mut file = File::open(format!("PdmsMeshMgr.json"))?;
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf);
-        if  let Ok(s) = serde_json::from_slice::<Self>(&buf){
+        if let Ok(s) = serde_json::from_slice::<Self>(&buf) {
             return Ok(s);
         }
         Err(anyhow!("error deseialised"))
@@ -1135,7 +1138,8 @@ impl CachedMeshesMgr {
 pub struct EleGeoInstData {
     pub geo_hash: String,
     pub bbox: AiosAABB,
-    pub global_transform: (Quat, Vec3, Vec3), //世界坐标系的变换, rot, translation, scale
+    pub global_transform: (Quat, Vec3, Vec3),
+    //世界坐标系的变换, rot, translation, scale
     pub visible: bool,
     pub generic_type: SmolStr, //所属一般类型，ROOM、STRU、PIPE等
 }
@@ -1150,6 +1154,7 @@ impl Collection for EleGeoInstData {
         Ok(())
     }
 }
+
 impl SerializedCollection for EleGeoInstData {
     type Contents = Self;
     type Format = transmog_bincode::Bincode;
@@ -1184,6 +1189,33 @@ pub struct EleNode {
     pub noun: u32,
     pub version: u32,
     // pub global_mat: Mat4,   //全局坐标系下的变换矩阵
+}
+
+/// 每个dbno对应的version
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct DbnoVersion {
+    pub dbno: u32,
+    pub version: u32,
+}
+
+impl Collection for DbnoVersion {
+    type PrimaryKey = u32;
+
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "vers")
+    }
+
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl SerializedCollection for DbnoVersion {
+    type Contents = Self;
+    type Format = transmog_bincode::Bincode;
+    fn format() -> Self::Format {
+        transmog_bincode::Bincode::default()
+    }
 }
 
 impl PdmsNodeTrait for EleNode {
@@ -1246,6 +1278,19 @@ fn test_dashmap() {
     });
     dbg!(&dashmap_3);
 }
+
+#[test]
+fn test_refu64() {
+    let refno = RefU64::from(RefI32Tuple(((16477, 80))));
+    println!("refno={}", refno.0);
+}
+
+// #[test]
+// fn test_ref_i32_tuple(){
+//     let refno:Refi32Tuple = RefU64(65326452626828).into();
+//     println!("refno={:?}",refno);
+// }
+
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum DbAttributeType {
@@ -1363,8 +1408,8 @@ impl Deref for AiosStr {
 
 impl hash32::Hash for AiosStr {
     fn hash<H>(&self, state: &mut H)
-    where
-        H: Hasher,
+        where
+            H: Hasher,
     {
         state.write(self.0.as_str().as_bytes());
         state.write(&[0xff]);
@@ -1439,4 +1484,9 @@ impl StringLookupTable {
         }
         None
     }
+}
+
+#[test]
+fn query_db() {
+
 }
