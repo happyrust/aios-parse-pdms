@@ -109,7 +109,7 @@ pub struct DbOption {
 ///MDB数据库管理
 #[derive(Debug, Clone)]
 pub struct AiosDBManager {
-    pub project_map: Arc<Mutex<HashMap<u32, AiosPdmsProject>>>,     //project hash -> Project DBS
+    pub project_map: HashMap<u32, AiosPdmsProject>,     //project hash -> Project DBS
     //project name hash -> Aios DB
     pub info_db: RefInoDatabase,
     //管理所有refno info的db
@@ -216,22 +216,19 @@ impl AiosDBManager {
         })
     }
 
-    fn sync_total_internal(&mut self){
-
-        let mut project_map = self.project_map.clone();
-        let mut project_map = project_map.lock().unwrap();
-
+    async fn sync_total_internal(&mut self) -> anyhow::Result<bool>{
         for project in &self.projects{
             let mut proj = AiosPdmsProject::init(project.as_str(), self.project_path.as_str()).await?;
             //增量保存数据
             // if option.total_sync {
             proj.sync_total(&self.info_db).await?;
-            info_db.merge(proj.get_info_database());
+            self.info_db.merge(proj.get_info_database());
             // }  //完全更新
             // if option.incr_sync {}    //todo 增量更新
             let project_str: SmolStr = project.into();
-            project_map.borrow_mut().insert(AiosStr(project_str).get_u32_hash(), proj);
+            self.project_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
+        Ok(true)
     }
 
     ///获得refno的project 名称
@@ -567,7 +564,8 @@ impl AiosDBManager {
             inst_mgr: ShapeInstancesMgr{
                 inst_map
             },
-            cached_mesh_mgr
+            cached_mesh_mgr,
+            level_shape_mgr
         };
         mgr.serialize_to_json_file();
         mgr.serialize_to_bin_file();

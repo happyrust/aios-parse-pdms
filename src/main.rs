@@ -93,10 +93,12 @@ async fn main() -> AiosDbError {
         ]
     ).unwrap();
 
-    parse_pdms_db::init_pdms_db(DbOption{
+    parse_pdms_db::init_pdms_db(&DbOption{
         total_sync: false,
         incr_sync: true,
-        project_path: r"E:\pdms_data_files".to_string()
+        project_path: "/Volumes/DPC/aba".to_owned(),
+        included_projects: vec!["ABA".to_string()/*, "GDP".to_string()*/],
+        included_db_files: None,
     }).await;
 
     return Ok(());
