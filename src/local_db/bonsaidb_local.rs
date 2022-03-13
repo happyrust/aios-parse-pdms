@@ -10,6 +10,7 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::ptr::eq;
 use std::sync::{Arc, Mutex};
+use anyhow::anyhow;
 use bonsaidb::core::circulate::Message;
 use bonsaidb::core::connection::{Connection, StorageConnection};
 use bonsaidb::core::schema::{Collection, CollectionName, Schematic, SerializedCollection};
@@ -123,8 +124,13 @@ pub struct AiosDBManager {
 
 #[async_trait]
 impl PdmsDataInterface for AiosDBManager {
-    fn sync_total_project(&self) -> bool {
-        true
+
+    async fn sync_total_project(&mut self) -> anyhow::Result<bool> {
+        self.sync_total_internal().await
+    }
+
+    async fn sync_incremental_project(&mut self) -> anyhow::Result<bool> {
+        self.sync_incremental_internal().await
     }
 
     #[inline]
@@ -206,25 +212,32 @@ impl AiosDBManager {
         let mut info_db = RefInoDatabase {
             db: storage.database::<RefnoInfo>(INFO_DB_NAME).await?
         };
-
-        Ok(AiosDBManager {
+        let mut mgr = AiosDBManager {
             project_map: Default::default(),
             info_db,
             storage,
             projects: option.included_projects.clone(),
             project_path: option.project_path.clone(),
-        })
+        };
+        mgr.sync_total_internal();
+
+        Ok(mgr)
     }
 
+
+    async fn sync_incremental_internal(&mut self) -> anyhow::Result<bool>{
+
+        Ok(true)
+    }
+
+    /// 需要spawn a task to run
+    ///内部实现同步所有，todo 添加部分同步
     async fn sync_total_internal(&mut self) -> anyhow::Result<bool>{
         for project in &self.projects{
             let mut proj = AiosPdmsProject::init(project.as_str(), self.project_path.as_str()).await?;
-            //增量保存数据
-            // if option.total_sync {
+            //完全同步数据
             proj.sync_total(&self.info_db).await?;
             self.info_db.merge(proj.get_info_database());
-            // }  //完全更新
-            // if option.incr_sync {}    //todo 增量更新
             let project_str: SmolStr = project.into();
             self.project_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
@@ -723,7 +736,7 @@ impl AiosDBManager {
 }
 
 /// DB 单个数据库管理
-#[derive(Debug, Clone, )]
+#[derive(Debug, Clone)]
 pub struct AiosPdmsProject {
     pub project: String,
     pub dir: String,
@@ -793,10 +806,7 @@ impl AiosPdmsProject {
         let dbs = storage.list_databases().await?;
         for x in dbs {
             if let Ok(num) = x.name.parse::<u32>() {
-                // let name = x.name.as_str();
                 db_no_list.push(num);
-                // let db = storage.database::<AttrMap>(name).await?;
-                // att_db_map.insert(num, db);
             }
         }
         storage.create_database::<PdmsTree>(TREE_DB_NAME, true).await?;
@@ -968,29 +978,34 @@ impl AiosPdmsProject {
                 let dbno_str = target_dbno.to_string();
                 self.storage.create_database::<AttrMap>(dbno_str.as_str(), true).await?;
                 let mut attr_db = self.storage.database::<AttrMap>(dbno_str.as_str()).await?;
-                //todo use multi thread
-                for chunk in &all_attr_map.iter().chunks(400000usize) {
-                    let mut tx = Transaction::default();
-                    for kv in chunk {
-                        tx.push(transaction::Operation::overwrite_serialized::<AttrMap>(
-                            kv.key().get_u32_hash(),
-                            kv.value(),
-                        ).unwrap());
-                    }
-                    attr_db.apply_transaction(tx).await?;
-                }
-                // self.att_db_map.insert(target_dbno, attr_db);
 
-                let mut tx = Transaction::default();
-                for (type_noun, v) in type_ele_map {
-                    // let k = combine_to_u64(type_noun, target_dbno as u32);
-                    let k = type_noun as u64;
-                    tx.push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
-                        k,
+                let mut txs = vec![];
+                for (i, (k, v)) in all_attr_map.into_iter().enumerate() {
+                    if i % 40000usize == 0 {
+                        txs.push(Transaction::default());
+                    }
+                    txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AttrMap>(
+                        k.get_u32_hash(),
                         &v,
                     ).unwrap());
                 }
-                self.get_type_refs_database().apply_transaction(tx).await?;
+                for tx in txs {
+                    attr_db.apply_transaction(tx).await?;
+                }
+
+                let mut txs = vec![];
+                for (i, (k, v)) in type_ele_map.into_iter().enumerate() {
+                    if i % 40000usize == 0 {
+                        txs.push(Transaction::default());
+                    }
+                    txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
+                        k as u64,
+                        &v,
+                    ).unwrap());
+                }
+                for tx in txs {
+                    self.get_type_refs_database().apply_transaction(tx).await?;
+                }
 
 
                 let mut tx = Transaction::default();
@@ -1003,43 +1018,52 @@ impl AiosPdmsProject {
                 self.get_children_database().apply_transaction(tx).await?;
 
 
-                // dbg!(refno_info_map.len());
-                for chunk in &refno_info_map.iter().chunks(400000usize) {
-                    let mut tx = Transaction::default();
-                    for (k, v) in chunk {
-                        tx.push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
-                            *k,
-                            v,
-                        ).unwrap());
+                let mut txs = vec![];
+                for (i, (k, v)) in refno_info_map.into_iter().enumerate() {
+                    if i % 40000usize == 0 {
+                        txs.push(Transaction::default());
                     }
-                    self.get_info_database().apply_transaction(tx.clone()).await?;
+                    txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
+                        k,
+                        &v,
+                    ).unwrap());
+                }
+                for tx in txs {
                     external_info_db.apply_transaction(tx).await?;
                 }
 
                 files_version.push(DbnoVersion { dbno: db_no, version });
             }
 
-            for chunk in &total_lookup.lookup.iter().chunks(400000usize) {
-                let mut tx = Transaction::default();
-                for (k, v) in chunk {
-                    tx.push(transaction::Operation::overwrite_serialized::<AiosStr>(
-                        *k,
-                        v,
-                    ).unwrap());
+            let mut txs = vec![];
+            for (i, (k, v)) in total_lookup.lookup.into_iter().enumerate() {
+                if i % 40000usize == 0 {
+                    txs.push(Transaction::default());
                 }
+                txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AiosStr>(
+                    k,
+                    &v,
+                ).unwrap());
+            }
+            for tx in txs {
                 self.get_string_database().apply_transaction(tx).await?;
             }
 
-            for chunk in files_version.chunks(400000usize) {
-                let mut tx = Transaction::default();
-                for v in chunk {
-                    tx.push(transaction::Operation::overwrite_serialized::<DbnoVersion>(
-                        v.dbno,
-                        v,
-                    ).unwrap());
+
+            let mut txs = vec![];
+            for (i, v) in files_version.into_iter().enumerate() {
+                if i % 40000usize == 0 {
+                    txs.push(Transaction::default());
                 }
+                txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<DbnoVersion>(
+                    v.dbno,
+                    &v,
+                ).unwrap());
+            }
+            for tx in txs {
                 self.dbno_version.apply_transaction(tx).await?;
             }
+
         }
 
         let dbs = self.storage.list_databases().await?;

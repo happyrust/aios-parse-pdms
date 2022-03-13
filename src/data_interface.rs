@@ -8,10 +8,12 @@ use crate::pdms_data::ScomInfo;
 #[async_trait]
 pub trait PdmsDataInterface{
 
-    fn sync_total_project(&self) -> bool;
+    async fn sync_total_project(&mut self) -> anyhow::Result<bool>{
+        Ok(true)
+    }
 
-    fn sync_incremental(&mut self) -> bool{
-        true
+    async fn sync_incremental_project(&mut self) -> anyhow::Result<bool> {
+        Ok(true)
     }
 
     async fn get_ele_attr_async(&self, refno: RefU64) -> Option<AttrMap>;

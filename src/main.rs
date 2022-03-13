@@ -94,7 +94,7 @@ async fn main() -> AiosDbError {
     ).unwrap();
 
     parse_pdms_db::init_pdms_db(&DbOption{
-        total_sync: false,
+        total_sync: true,
         incr_sync: true,
         project_path: "/Volumes/DPC/aba".to_owned(),
         included_projects: vec!["ABA".to_string()/*, "GDP".to_string()*/],
