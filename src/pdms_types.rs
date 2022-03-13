@@ -29,6 +29,7 @@ use std::result::Iter;
 use std::vec::IntoIter;
 use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
+use bevy_egui::egui;
 use egui::Key::O;
 
 pub const LEVEL_VISBLE: u32 = 6;
@@ -242,19 +243,19 @@ impl RefU64Vec {
 
 // #[derive(Serialize, Deserialize, Clone, Debug, Default, Component, Eq, Hash, PartialEq)]
 #[derive(
-    Serialize,
-    Deserialize,
-    Clone,
-    Debug,
-    Default,
-    Component,
-    Reflect,
-    Inspectable,
-    Eq,
-    Hash,
-    PartialEq,
-    Ord,
-    PartialOrd,
+Serialize,
+Deserialize,
+Clone,
+Debug,
+Default,
+Component,
+Reflect,
+Inspectable,
+Eq,
+Hash,
+PartialEq,
+Ord,
+PartialOrd,
 )]
 #[reflect(Component)]
 pub struct NounHash(pub u32);
@@ -1202,6 +1203,33 @@ pub struct EleNode {
     // pub global_mat: Mat4,   //全局坐标系下的变换矩阵
 }
 
+/// 每个dbno对应的version
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct DbnoVersion {
+    pub dbno: u32,
+    pub version: u32,
+}
+
+impl Collection for DbnoVersion {
+    type PrimaryKey = u32;
+
+    fn collection_name() -> CollectionName {
+        CollectionName::new("aios", "vers")
+    }
+
+    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl SerializedCollection for DbnoVersion {
+    type Contents = Self;
+    type Format = transmog_bincode::Bincode;
+    fn format() -> Self::Format {
+        transmog_bincode::Bincode::default()
+    }
+}
+
 impl PdmsNodeTrait for EleNode {
     #[inline]
     fn get_refno(&self) -> RefU64 {
@@ -1262,6 +1290,19 @@ fn test_dashmap() {
     });
     dbg!(&dashmap_3);
 }
+
+#[test]
+fn test_refu64() {
+    let refno = RefU64::from(RefI32Tuple(((16477, 80))));
+    println!("refno={}", refno.0);
+}
+
+// #[test]
+// fn test_ref_i32_tuple(){
+//     let refno:Refi32Tuple = RefU64(65326452626828).into();
+//     println!("refno={:?}",refno);
+// }
+
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum DbAttributeType {
@@ -1455,4 +1496,9 @@ impl StringLookupTable {
         }
         None
     }
+}
+
+#[test]
+fn query_db() {
+
 }

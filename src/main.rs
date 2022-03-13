@@ -69,10 +69,6 @@ const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
 type AiosDbError = core::result::Result<(), Box<dyn std::error::Error>>;
 
-#[tokio::test]
-async fn test() -> core::result::Result<(), Box<dyn std::error::Error>> {
-    Ok(())
-}
 #[test]
 pub fn test_hash_noun(){
     dbg!(db1_dehash(0xE5461));
@@ -97,7 +93,11 @@ async fn main() -> AiosDbError {
         ]
     ).unwrap();
 
-    parse_pdms_db::init_pdms_db().await;
+    parse_pdms_db::init_pdms_db(DbOption{
+        total_sync: false,
+        incr_sync: true,
+        project_path: r"E:\pdms_data_files".to_string()
+    }).await;
 
     return Ok(());
 }

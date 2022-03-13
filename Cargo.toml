@@ -81,9 +81,9 @@ smol_str = "0.1.21"
 ncollide3d = "0.32.0"
 lyon = "0.17.10"
 rand = "*"
-anyhow = "*"
+anyhow = "1.0"
 env_logger = "*"
-egui = "0.16.0"
+bevy_egui = { path="../bevy_egui", default-features = false, features = ["open_url"] }
 
 transmog-bincode = "0.1"
 bevy-inspector-egui = {path = "../bevy-inspector-egui"}
