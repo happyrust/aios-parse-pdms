@@ -46,7 +46,7 @@ pub async fn test_column() {
     // dbg!(refno_info);
     // dbg!(db_manager.get_project_of_refno(&refno).await);
     dbg!(db_manager.get_pretty_attr(refno).await);
-    dbg!(db_manager.get_dehashed_attr(refno).await);
+    dbg!(db_manager.get_stringfied_attr(refno).await);
     dbg!(db_manager.get_world_transform(refno).await);
     dbg!(db_manager.get_children(refno).await);
 

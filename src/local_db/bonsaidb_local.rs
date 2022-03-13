@@ -129,7 +129,7 @@ impl PdmsDataInterface for AiosDBManager {
 
     #[inline]
     async fn get_ele_attr_async(&self, refno: RefU64) -> Option<AttrMap> {
-        self.get_dehashed_attr(refno).await.unwrap()
+        self.get_stringfied_attr(refno).await.unwrap()
     }
 
     #[inline]
@@ -254,7 +254,7 @@ impl AiosDBManager {
         let mut atts = vec![];
         let mut children = self.get_children(refno).await?.unwrap_or_default();
         for child in children.drain(..) {
-            atts.push(self.get_dehashed_attr(child).await?.unwrap_or_default());
+            atts.push(self.get_stringfied_attr(child).await?.unwrap_or_default());
         }
         Ok(atts)
     }
@@ -270,9 +270,8 @@ impl AiosDBManager {
         Ok(None)
     }
 
-    ///string 被还原了的
-    #[inline]
-    pub async fn get_dehashed_attr(&self, refno: RefU64) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
+    ///string 被还原了的 属性
+    pub async fn get_stringfied_attr(&self, refno: RefU64) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
         if let Some(ref_info) = self.get_refno_info(refno).await? {
             if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 if let Some(mut attr) = db.get_attr(refno, ref_info.db_no).await? {
@@ -291,7 +290,7 @@ impl AiosDBManager {
     ///打印用
     #[inline]
     pub async fn get_pretty_attr(&self, refno: RefU64) -> Result<HashMap<String, String>, bonsaidb::core::Error> {
-        if let Some(attr) = self.get_dehashed_attr(refno).await? {
+        if let Some(attr) = self.get_stringfied_attr(refno).await? {
             return Ok(attr.to_string_hashmap());
         }
         Ok(Default::default())
@@ -693,13 +692,13 @@ impl AiosDBManager {
     ///获得structure profile构件， 返回的是截面，这里生成拉伸Z方向的单元构件
     #[inline]
     pub async fn get_sprf_geom(&self, spre: RefU64) -> Result<Option<GeoData>, bonsaidb::core::Error> {
-        if let Some(spre_attr) = self.get_dehashed_attr(spre).await? {
+        if let Some(spre_attr) = self.get_stringfied_attr(spre).await? {
             // dbg!(spre_attr.to_string_hashmap());
             if let Some(cat_ref) = spre_attr.get_foreign_refno("CATR") {
-                if let Some(cat_attr) = self.get_dehashed_attr(cat_ref).await? {
+                if let Some(cat_attr) = self.get_stringfied_attr(cat_ref).await? {
                     // dbg!(cat_attr.to_string_hashmap());
                     if let Some(gms_ref) = cat_attr.get_foreign_refno("GSTR") {
-                        if let Some(gms_attr) = self.get_dehashed_attr(gms_ref).await? {
+                        if let Some(gms_attr) = self.get_stringfied_attr(gms_ref).await? {
                             // dbg!(gms_attr.to_string_hashmap());
                             let children = self.get_children(gms_ref).await?.unwrap_or_default();
                             let mut loop_verts: Vec<Vec3> = vec![];
