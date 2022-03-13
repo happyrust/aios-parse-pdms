@@ -115,11 +115,11 @@ pub struct PdmsMongoDbInfo {
 #[test]
 fn parse_files_test() {
     let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
-    parse_pdms_dir(&dir, "", None);
+    parse_pdms_dir(&dir, "", None, &None);
 }
 
 ///解析pdms的目录
-pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> anyhow::Result<DashMap<SmolStr, PdmsDbData>> {
+pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_parsed_files: &Option<Vec<String>>) -> anyhow::Result<DashMap<SmolStr, PdmsDbData>> {
     let dir = PathBuf::from(dir);
     let mut pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?.into_iter().map(|entry| {
@@ -169,11 +169,13 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> an
     }
 
     children_files.iter().for_each(|path| {
-        let file_name = path.file_name().unwrap().to_str().unwrap();
+        let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
         // if file_name == "sam7200_0001" {
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
-            // if file_name == "aba0001_0001" || file_name == "aba0011_0001"{
+            if need_parsed_files.is_none()  || need_parsed_files.as_ref().unwrap().contains(&file_name) {
+                let file_name = file_name.as_str();
+                // if file_name == "aba0001_0001" || file_name == "aba0011_0001"{
                 if let Ok(mut pdms_db_data) = parse_file(&path, &database_info, file_name, project, "") {
                     pdms_db_data.filename = file_name.into();
                     let cur_dbno = pdms_db_data.db_no.to_string();
@@ -193,7 +195,7 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>) -> an
                     pdms_project_data_map.insert(pdms_db_data.filename.clone(), pdms_db_data);
                 }
             }
-        // }
+        }
     });
 
     return Ok(pdms_project_data_map);
@@ -521,7 +523,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         children_map,
         string_lookup,
         filename: file_name.into(),
-        version:file_version,
+        version: file_version,
         db_type,
         db_name: Default::default(),
         db_no,
@@ -870,7 +872,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                                 if array_len >= 2 {
                                     let (mut tmp_input, data_len) = be_i32(tmp_input)?;
                                     let len = data_len as usize;
-                                    let double_or_float = (array_len-1) / len;
+                                    let double_or_float = (array_len - 1) / len;
                                     if double_or_float == 2 {
                                         let mut data = vec![];
                                         for _ in 0..len {
@@ -887,7 +889,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                                         att_value = Some(DoubleArrayType(data));
                                     }
                                 }
-
                             }
                             DbAttributeType::INTVEC => {
                                 let (tmp_input, len) = be_u32(tmp_input)?;
@@ -931,7 +932,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
     Ok((input, true))
 }
 
-fn get_param_type_with_i32(input:i32) -> String {
+fn get_param_type_with_i32(input: i32) -> String {
     let mut val = String::new();
     if input >= 50 && input < 0x65 {
         let value = input - 50;

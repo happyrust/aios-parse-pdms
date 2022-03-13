@@ -9,7 +9,7 @@ use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::ptr::eq;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use anyhow::anyhow;
 use bonsaidb::core::circulate::Message;
 use bonsaidb::core::connection::{Connection, StorageConnection};
@@ -48,6 +48,7 @@ use crate::pdms_data::ScomInfo;
 use crate::pdms_types::AttrVal::{StringHashType, StringType};
 use crate::prim_geo::facet::{Contour, Facet, Polygon};
 use async_trait::async_trait;
+use dashmap::DashMap;
 use memchr::memmem::rfind_iter;
 use ncollide3d::bounding_volume::AABB;
 use ncollide3d::na as na;
@@ -110,13 +111,16 @@ pub struct DbOption {
 ///MDB数据库管理
 #[derive(Debug, Clone)]
 pub struct AiosDBManager {
-    pub project_map: HashMap<u32, AiosPdmsProject>,     //project hash -> Project DBS
+    //比 RwLock<HashMap>  效果好点
+    pub project_map: DashMap<u32, AiosPdmsProject>,     //project hash -> Project DBS
     //project name hash -> Aios DB
     pub info_db: RefInoDatabase,
     //管理所有refno info的db
     pub storage: Storage,
 
     pub projects: Vec<String>,
+
+    pub needed_parse_files: Option<Vec<String>>,
 
     pub project_path: String,  //整个项目的路径
 
@@ -125,7 +129,7 @@ pub struct AiosDBManager {
 #[async_trait]
 impl PdmsDataInterface for AiosDBManager {
 
-    async fn sync_total_project(&mut self) -> anyhow::Result<bool> {
+    async fn sync_total_project(&self) -> anyhow::Result<bool> {
         self.sync_total_internal().await
     }
 
@@ -217,6 +221,7 @@ impl AiosDBManager {
             info_db,
             storage,
             projects: option.included_projects.clone(),
+            needed_parse_files: option.included_db_files.clone(),
             project_path: option.project_path.clone(),
         };
         mgr.sync_total_internal();
@@ -226,19 +231,18 @@ impl AiosDBManager {
 
 
     async fn sync_incremental_internal(&mut self) -> anyhow::Result<bool>{
-
         Ok(true)
     }
 
     /// 需要spawn a task to run
     ///内部实现同步所有，todo 添加部分同步
-    async fn sync_total_internal(&mut self) -> anyhow::Result<bool>{
+    async fn sync_total_internal(&self) -> anyhow::Result<bool>{
         for project in &self.projects{
             let mut proj = AiosPdmsProject::init(project.as_str(), self.project_path.as_str()).await?;
             //完全同步数据
-            proj.sync_total(&self.info_db).await?;
-            self.info_db.merge(proj.get_info_database());
+            proj.sync_total(&self.info_db, &self.needed_parse_files).await?;
             let project_str: SmolStr = project.into();
+
             self.project_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
         Ok(true)
@@ -937,7 +941,7 @@ impl AiosPdmsProject {
     }
 
     //todo  infos 存储什么的问题，要不要存储dbno
-    pub async fn sync_total(&self, external_info_db: &Database) -> Result<(), bonsaidb::core::Error> {
+    pub async fn sync_total(&self, external_info_db: &Database, need_parsing_files: &Option<Vec<String>>) -> Result<(), bonsaidb::core::Error> {
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
         let project_dir = data_dir.join(&project);
@@ -946,7 +950,8 @@ impl AiosPdmsProject {
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
 
-        if let Ok(mut r) = parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None) {
+        if let Ok(mut r) =
+        parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
             let mut total_lookup = StringLookupTable::default();
             let mut files_version = vec![];
             for (k, PdmsDbData {
@@ -1065,9 +1070,6 @@ impl AiosPdmsProject {
             }
 
         }
-
-        let dbs = self.storage.list_databases().await?;
-        // dbg!(&dbs.iter().map(|x| x.name.clone()).collect::<Vec<_>>());
 
         Ok(())
     }

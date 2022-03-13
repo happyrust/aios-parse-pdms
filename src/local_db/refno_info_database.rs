@@ -34,9 +34,4 @@ impl RefInoDatabase {
     pub async fn get_refno_info(&self, refno: RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
         Ok(RefnoInfo::get(refno.get_0(), &self.db).await?.map(|x| x.contents))
     }
-
-    pub async fn merge(&mut self, other: &Self) -> Result<bool, bonsaidb::core::Error>{
-
-        Ok(true)
-    }
 }

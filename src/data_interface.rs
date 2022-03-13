@@ -8,7 +8,7 @@ use crate::pdms_data::ScomInfo;
 #[async_trait]
 pub trait PdmsDataInterface{
 
-    async fn sync_total_project(&mut self) -> anyhow::Result<bool>{
+    async fn sync_total_project(&self) -> anyhow::Result<bool>{
         Ok(true)
     }
 
