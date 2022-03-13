@@ -194,6 +194,13 @@ impl Deref for RefU64Vec {
     }
 }
 
+impl DerefMut for RefU64Vec {
+
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl IntoIterator for RefU64Vec {
     type Item = RefU64;
     type IntoIter = IntoIter<RefU64>;
@@ -1007,12 +1014,26 @@ impl AiosAABB {
 pub struct PdmsMeshMgr {
     pub inst_mgr: ShapeInstancesMgr,
     pub cached_mesh_mgr: CachedMeshesMgr,
+    pub level_shape_mgr: HashMap<RefU64, RefU64Vec>   //每个非叶子节点都知道自己的所有shape refno
 }
 
 impl PdmsMeshMgr {
     #[inline]
-    pub fn get_instants_data(&self, refno: RefU64) -> Option<&Vec<EleGeoInstData>> {
-        self.inst_mgr.inst_map.get(&refno)
+    pub fn get_instants_data(&self, refno: RefU64) -> Vec<&Vec<EleGeoInstData>> {
+        let mut results = vec![];
+        let inst_map = &self.inst_mgr.inst_map;
+        if self.level_shape_mgr.contains_key(&refno) {
+            for v in self.level_shape_mgr[&refno].iter() {
+                if inst_map.contains_key(&v) {
+                    results.push(inst_map.get(&v).unwrap());
+                }
+            }
+        }else{
+            if inst_map.contains_key(&refno) {
+                results.push(inst_map.get(&refno).unwrap());
+            }
+        }
+        results
     }
 
     // #[inline]
@@ -1035,11 +1056,8 @@ impl PdmsMeshMgr {
         let mut file = File::open(format!("PdmsMeshMgr.bin"))?;
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf);
-        if  let Ok(s) = bincode::deserialize(buf.as_slice()){
-            return Ok(s);
-        }
-
-        Err(anyhow!("error deseialised"))
+        let r = bincode::deserialize(buf.as_slice())?;
+        Ok(r)
     }
 
     pub fn serialize_to_json_file(&self) -> bool {
@@ -1053,10 +1071,8 @@ impl PdmsMeshMgr {
         let mut file = File::open(format!("PdmsMeshMgr.json"))?;
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf);
-        if  let Ok(s) = serde_json::from_slice::<Self>(&buf){
-            return Ok(s);
-        }
-        Err(anyhow!("error deseialised"))
+        let r =  serde_json::from_slice::<Self>(&buf)?;
+        Ok(r)
     }
 }
 

@@ -31,7 +31,7 @@ impl RefInoDatabase {
     }
     ///获得refno的project 名称
     #[inline]
-    pub async fn get_refno_info(&self, refno: &RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
+    pub async fn get_refno_info(&self, refno: RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
         Ok(RefnoInfo::get(refno.get_0(), &self.db).await?.map(|x| x.contents))
     }
 

@@ -7,7 +7,6 @@
 #![feature(async_closure)]
 #![feature(generic_const_exprs)]
 #[allow(dead_code, unused_imports, unused_variables, unused_imports, unused, missing_docs, unused_results, unused_must_use)]
-
 #[macro_use]
 extern crate serde;
 #[macro_use]
@@ -28,6 +27,7 @@ use futures::stream::TryStreamExt;
 
 pub mod pdms_types;
 pub mod db_tool;
+
 pub use db_tool::*;
 
 pub mod parse_explict_tools;
@@ -105,9 +105,9 @@ const ATT_PXTS: i32 = 0xFFF1F3AAu32 as i32;
 const ATT_PYTS: i32 = 0xFFF1F38Fu32 as i32;
 const ATT_PXBS: i32 = 0xFFF226ECu32 as i32;
 const ATT_PYBS: i32 = 0xFFF226D1u32 as i32;
-const ATT_PRAD : i32 = db1_hash("PRAD") as i32;
-const ATT_DRAD : i32 = db1_hash("DRAD") as i32;
-const ATT_PWID : i32 = db1_hash("PWID") as i32;
+const ATT_PRAD: i32 = db1_hash("PRAD") as i32;
+const ATT_DRAD: i32 = db1_hash("DRAD") as i32;
+const ATT_PWID: i32 = db1_hash("PWID") as i32;
 
 const ATT_PANG: i32 = 0xA5E2F;
 const IMP_PAXI: i32 = 0xB146F;
@@ -179,125 +179,15 @@ lazy_static! {
 //todo 数据分层，尽可能的用缓存
 
 pub async fn init_pdms_db(db_option: &DbOption) -> anyhow::Result<AiosDBManager> {
-
     let mut time = Instant::now();
-    let mut db_manager = AiosDBManager::init(db_option.project_path.as_str(),
-                                             vec!["ABA".to_string()/*, "GDP".to_string()*/],
-                                             db_option).await.unwrap();
+    let mut db_manager = AiosDBManager::init(
+        db_option).await.unwrap();
 
-    dbg!(time.elapsed().as_millis());
-    // let result = db_manager.cache_geos_data(11, "ABA").await?;
-    // // db_manager.build_collision_world(7200).await?;
-    // let refno = RefU64::from_two_nums(23584, 6615);
-    let refno = RefU64::from_two_nums(23584, 5575);
-    let refno = RefU64::from_two_nums(23584, 7040);
-    let refno = RefU64::from_two_nums(23584, 8544);
-    let refno = RefU64::from_two_nums(8193, 45580);
-    let refno = RefU64::from_two_nums(8193, 4363);
-    let refno = RefU64::from_two_nums(16395, 39039);
+    println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
     let refno = RefU64::from_two_nums(16395, 39308);
-    // let refno = RefU64(101292508714382);
-    // let refno = RefU64(101292508716175);
-    // //15213/499930
-    // let refno = RefU64::from_two_nums(15213, 499930);
-    // let refno = RefU64::from_two_nums(15192, 113114);
-
     //cached 一些常用的取值操作
-    // let refno_info = db_manager.get_refno_info(&refno).await;
-    // dbg!(&refno_info);
-
-    // dbg!(refno_info);
-    // dbg!(db_manager.get_project_of_refno(&refno).await);
-    // dbg!(db_manager.get_pretty_attr(&refno).await);
-    // dbg!(refno.to_refno_str());
-    // dbg!(db_manager.get_pretty_attr(&refno).await);
-    // dbg!(db_manager.get_world_transform(&refno).await);
-    // dbg!(db_manager.get_children(&refno).await);
-    // dbg!(db_manager.get_db_of_refno(&refno).await);
-
-    // let mut  cache_mgr = CachedMeshes::default();
-    // let attr = db_manager.get_dehashed_attr(&refno).await.unwrap().unwrap();
-    // dbg!(attr.get_type());
-    // if let Some(spre) = attr.get_foreign_refno("SPRE"){
-    //     let geoms = db_manager.get_design_geoms(&refno, &mut cache_mgr).await;
-    //     // dbg!(&geoms);
-    // }
-
-
-
-    // let refno = RefU64::from_two_nums(15207, 8922);
-    //
-    // //cached 一些常用的取值操作
-    // let refno_info = db_manager.get_refno_info(&refno).await;
-    //
-    // dbg!(refno_info);
-    // dbg!(db_manager.get_project_of_refno(&refno).await);
-    // dbg!(db_manager.get_attr(&refno).await);
-
-    //
-    // let children = db.get_children(&refno).await?;
-    // dbg!(&children);
-
-    // let refno = RefU64::from_two_nums(23584, 9900);
-    // let mut mgr = CachedMeshes::default();
-    // let attr = db.get_attr(&refno).await.unwrap();
-    // let ctorus: CTorus = (&attr).into();
-    // if ctorus.check_valid() {
-    //     dbg!(&ctorus);
-    //     dbg!(attr.is_visible(None));
-    //     let r = mgr.get_pdms_mesh_hash_key(Box::new(ctorus));
-    //     let geo = Some(GeoData::Primitive(r));
-    // }
-    //
-    // let trans = db.get_world_transform(&refno).await;
-    // dbg!(&trans);
-
-    // let refnos = vec![RefU64::from_two_nums(23584, 2705),
-    //                   RefU64::from_two_nums(23584, 2706),
-    //                   /*RefU64::from_two_nums(23584, 9008)*/];
-    //
-    // for refno in refnos {
-    //     let attr = db.get_attr(&refno).await;
-    //     let attr = attr.unwrap();
-    //     dbg!(attr.is_visible(None));
-    //     let mut dish: CTorus = attr.into();
-    //     dbg!(dish.hash_mesh_params());
-    //
-    //     let idx = mgr.get_pdms_mesh_hash_key(&dish);
-    //     dbg!(idx);
-    // }
-
-    // dbg!(mgr.meshes.len());
-
-    // let refno = RefU64::from_two_nums(23584, 8839);
-    // let attr = db.get_attr(&refno).await.unwrap();
-    // dbg!(attr);
-    // let trans = db.get_world_transform(&refno).await;
-    // dbg!(&trans);
-    // let mat3: glam::f32::Mat3 = glam::f32::Mat3::from_quat(trans.rotation);
-    // dbg!(mat3);
-
-    // let result = db.get_world_transform(&refno).await;
-    // dbg!(trans.rotation.to_euler(glam::EulerRot::XYZ));
-    // // dbg!(trans.rotation.to_scaled_axis());
-    //
-    // let matrix = db.get_world_matrix(&refno).await;
-    // let quat = glam::Quat::from_affine3(&matrix);
-    // dbg!(quat.to_euler(glam::EulerRot::XYZ));
-
-    // let six_and_third = I24F8::from_num(19.23424);
-// four decimal digits for 12 binary digits
-//     dbg!(six_and_third);
-//     assert_eq!(six_and_third.to_string(), "6.3333");
-
-
-    // bonsaidb_local::cache_equip_geos_data().await;
-
-    // #[cfg(feature = "sled")]{
-
-    // sled_local::save_local().await;
-        // sled_local::cache_room_geos_data().await;
-    // }
+    let refno_info = db_manager.get_refno_info(refno).await;
+    dbg!(&refno_info);
 
     return Ok(db_manager);
 }

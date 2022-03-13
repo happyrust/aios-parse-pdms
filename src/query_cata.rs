@@ -19,7 +19,7 @@ pub const DDANGLE_STR: &'static str = "DDANGLE";
 
 ///求解design component
 pub async fn resolve_desi_comp<T: PdmsDataInterface>(
-    refno: &RefU64,
+    refno: RefU64,
     interface: &T,
 ) -> Option<GeomsInfo> {
 
@@ -30,14 +30,14 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
 
     let spre_ref = attr_map.get_foreign_refno("SPRE").unwrap_or_default();
     let mut scom_ref = Some(spre_ref);
-    if let Some(spre) = interface.get_ele_attr_async(&spre_ref).await{
+    if let Some(spre) = interface.get_ele_attr_async(spre_ref).await{
         if spre.contains_attr_name("CATR") {
             scom_ref = spre.get_foreign_refno("CATR");
         }
     }
     if scom_ref.is_none() { return None; }
     let scom_ref = scom_ref.unwrap();
-    let scom_info = query_scom_info(&scom_ref, interface).await;
+    let scom_info = query_scom_info(scom_ref, interface).await;
     if scom_info.is_none() { return None; }
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     for i in 0..desp.len() {
@@ -58,7 +58,7 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
 
 ///整合SCOM对应的临时数据
 pub async fn query_scom_info<T: PdmsDataInterface>(
-    refno: &RefU64,
+    refno: RefU64,
     interface: &T,
 ) -> Option<ScomInfo> {
     if let Some(attr_map) = interface.get_ele_attr_async(refno).await {
@@ -117,7 +117,7 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
         let mut axis_params = vec![];
         let mut axis_param_numbers = vec![];
         if let Some(ptre_am) = interface
-            .get_ele_attr_async(&ptre_refno)
+            .get_ele_attr_async(ptre_refno)
             .await
         {
             let axis_param_map = query_axis_params(&ptre_am, interface).await;
@@ -129,7 +129,7 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
         let gmse_refno = attr_map.get_foreign_refno(gmref_name).unwrap_or_default();
         let mut gm_params = vec![];
         if let Some(gmse_am) = interface
-            .get_ele_attr_async(&gmse_refno)
+            .get_ele_attr_async(gmse_refno)
             .await
         {
             gm_params = query_gm_params(&gmse_am, interface).await;
@@ -159,7 +159,7 @@ pub async fn query_axis_params<T: PdmsDataInterface>(
     let mut map = BTreeMap::new();
     let refno = attr_map.get_refno().unwrap_or_default();
     let children = interface
-        .get_ele_children_attrs_async(&refno)
+        .get_ele_children_attrs_async(refno)
         .await;
     for child in children {
         let number = child.get_as_string("NUMB").unwrap_or_default().parse::<i32>().unwrap_or(-1);
@@ -176,7 +176,7 @@ pub async fn query_gm_params<T: PdmsDataInterface>(
     let mut gms = vec![];
     let refno = attr_map.get_refno().unwrap();
     let children = interface
-        .get_ele_children_attrs_async(&refno)
+        .get_ele_children_attrs_async(refno)
         .await;
     for child in children {
         let has_chidren = child.get_type_cloned() == "SPRO";//todo add other types
@@ -316,7 +316,7 @@ pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterfac
     let mut dxy = vec![];
     //大部分是顶点数据
     if has_chidren {
-        for a in interface.get_ele_children_attrs_async(&attr_map.get_refno().unwrap()).await{
+        for a in interface.get_ele_children_attrs_async(attr_map.get_refno().unwrap()).await{
             verts.push([a.get_as_string("PX").unwrap_or_default(), a.get_as_string("PY").unwrap_or_default()]);
             dxy.push([a.get_as_string("DX").unwrap_or_default(), a.get_as_string("DY").unwrap_or_default()]);
         }
@@ -360,7 +360,7 @@ pub async fn process_dtse_params<T:PdmsDataInterface>(
 
     let dtre_refno = attr_map.get_foreign_refno("DTRE").unwrap_or_default();
     let children = interface
-        .get_ele_children_attrs_async(&dtre_refno)
+        .get_ele_children_attrs_async(dtre_refno)
         .await;
     for child in children {
         let key = child.get_as_string("DKEY").unwrap_or_default();
