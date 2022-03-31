@@ -10,6 +10,7 @@ use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
 use log::kv::Source;
+use nalgebra_glm::normalize;
 use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3};
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
@@ -58,7 +59,7 @@ impl SCTorus {
             torus_info.radius = x_len / 2.0;
         } else {
             let mut y_dir = torus_info.rot_axis.cross(x_dir);
-            let ref_dir = torus_info.rot_axis.cross(self.pbax_dir.normalize());
+            let ref_dir = torus_info.rot_axis.cross(self.pbax_dir.normalize()).normalize();
             let p = self.pbax_pt - mid_pt;
             let px = p.dot(x_dir);
             let _py = p.dot(y_dir);
@@ -71,6 +72,30 @@ impl SCTorus {
         }
         return Some(torus_info);
     }
+
+    pub fn convert_to_ctorus(&self) -> Option<(CTorus, glam::TransformSRT)>{
+        if let Some(torus_info) = self.cal_torus(){
+            let mut ctorus = CTorus::default();
+            ctorus.angle = torus_info.angle;
+            ctorus.rins = torus_info.radius - self.pdia/2.0;
+            ctorus.rout = torus_info.radius + self.pdia/2.0;
+            let z_axis = -torus_info.rot_axis.normalize();
+            let x_axis = (self.pbax_pt - torus_info.center).normalize();
+            let y_axis = z_axis.cross(x_axis).normalize();
+            let mat = glam::TransformSRT{
+                rotation: bevy::prelude::Quat::from_mat3(&bevy::prelude::Mat3::from_cols(
+                    x_axis, y_axis, z_axis
+                )),
+                translation: torus_info.center,
+                ..default()
+            };
+
+            return  Some((ctorus, mat));
+        }
+
+        None
+    }
+
 }
 
 
@@ -177,9 +202,11 @@ impl BrepShapeTrait for CTorus {
     fn hash_mesh_params(&self) -> u64{
         let mut hasher = DefaultHasher::new();
         let rins = I24F8::from_num(self.rins / self.rout);
-        let beta = I24F8::from_num(self.angle);
+        let angle = I24F8::from_num(self.angle);
+        // let rout = I24F8::from_num(self.rout);
         rins.hash(&mut hasher);
-        beta.hash(&mut hasher);
+        angle.hash(&mut hasher);
+        // rout.hash(&mut hasher);
         hasher.finish()
     }
 

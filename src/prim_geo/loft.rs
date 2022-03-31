@@ -35,22 +35,13 @@ pub struct SctnSolid {
 impl SctnSolid {
 
     //is_btm 是否是底部的face
-    fn cal_sann_face(&self, is_btm: bool, angle: f32, r1: f32, r2: f32) -> Option<Face>{
+    fn cal_sann_face(&self, is_btm: bool, start_dir: Vec3, angle: f32, r1: f32, r2: f32) -> Option<Face>{
         let mut n = if is_btm { self.drns } else { self.drne };
         let h = if is_btm { 0.0 } else { self.height };
-        // let axis_dir = if is_btm { self.axis_dir } else { -self.axis_dir };
-        // let rot_angle = axis_dir.angle_between(n);
         let a = angle;
-        // dbg!(rot_angle);
-        // let rot = if rot_angle.abs() > 0.01 {
-        //     Quat::from_rotation_x(rot_angle) }
-        // else{
-        //     Quat::IDENTITY
-        // };
-        let rot = Quat::IDENTITY;
+        // let rot = Quat::IDENTITY;
         let mut rot_axis = Vec3::Z;
-        // let mut rot_axis = rot.mul_vec3(Vec3::Z).normalize();
-        // dbg!(rot_axis);
+        let rot = Quat::from_rotation_arc(Vec3::X, start_dir);
         let p1 = rot.mul_vec3(Vec3::new(r1, 0.0, h));
         let p2 = rot.mul_vec3(Vec3::new(r2, 0.0, h));
         let p3 = rot.mul_vec3(Vec3::new(r2 * a.cos(), r2 * a.sin(), h));
@@ -72,7 +63,7 @@ impl SctnSolid {
         // let wire = builder::rotated(&wire, Point3::new(0.0, 0.0, h as f64), Vector3::new(1.0, 0.0, 0.0),
         //                             Rad(rot_angle as f64));
         // try_attach_plane(&[wire.clone()]).unwrap();
-        try_attach_plane(&[wire]).ok()
+        try_attach_plane(&[wire.inverse()]).ok()
     }
 
     fn cal_spro_face(&self, is_btm: bool, verts: &Vec<[f32; 2]>) -> Option<Face>{
@@ -129,26 +120,27 @@ impl BrepShapeTrait for SctnSolid {
                 let r1 = r - w;
                 let r2 = r;
                 let d = &p.ptaxis.as_ref().unwrap().dir;
-                let dir = Vec3::new(d[0] as f32, d[1] as f32, d[2] as f32);
-                let angle = if dir.dot(Vec3::Y) < 0.0 {
-                    -p.pangle.to_radians()
-                }else{
-                    p.pangle.to_radians()
-                };
+                let dir = Vec3::new(d[0] as f32, d[1] as f32, d[2] as f32).normalize();
+                // let angle = if dir.dot(Vec3::Y) < 0.0 {
+                //     -p.pangle.to_radians()
+                // }else{
+                //     p.pangle.to_radians()
+                // };
+                let angle = p.pangle.to_radians();
                 //point needs rotate to align the center normal axis
                 //need to caculate the transform matrix
-                face_s = Some(self.cal_sann_face(true, angle, r1, r2).unwrap());
+                face_s = Some(self.cal_sann_face(true, dir, angle, r1, r2).unwrap());
 
                 let w = p.pwidth + p.dwid;
                 let r = p.pradius + p.drad;
                 let r1 = r - w;
                 let r2 = r;
-                face_e = Some(self.cal_sann_face(false, angle, r1, r2).unwrap());
+                face_e = Some(self.cal_sann_face(false, dir, angle, r1, r2).map(|x| x.inverse()).unwrap());
 
             }
             CateProfileParam::SPRO(p) =>{
                 face_s = Some(self.cal_spro_face(true, p).unwrap());
-                face_e = Some(self.cal_spro_face(false, p).unwrap());
+                face_e = Some(self.cal_spro_face(false, p).map(|x| x.inverse()).unwrap());
             }
             _ => {}
         }
@@ -163,9 +155,9 @@ impl BrepShapeTrait for SctnSolid {
                 }else{
                     let edges_cnt = face_s.boundaries()[0].len();
                     for i in 0..edges_cnt {
-                        let c1 = face_s.boundaries()[0][i].clone();
-                        let c2 = face_e.boundaries()[0][i].clone();
-                        faces.push(builder::homotopy(&c1, &c2));
+                        let c1 = &face_s.boundaries()[0][i];
+                        let c2 = &face_e.boundaries()[0][edges_cnt-i-1];
+                        faces.push(builder::homotopy(&c1.inverse(), c2));
                     }
                     faces.push(face_s);
                     faces.push(face_e);
@@ -173,8 +165,6 @@ impl BrepShapeTrait for SctnSolid {
                 }
             }
         }
-
-
         None
     }
 

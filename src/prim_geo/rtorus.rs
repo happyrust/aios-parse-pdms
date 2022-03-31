@@ -43,13 +43,8 @@ impl Default for SRTorus {
             pbax_expr: "Y".to_string(),
             pbax_pt: Vec3::new(0.0, 5.0, 0.0),
             pbax_dir: Vec3::Y,
-            pheig: 2.0,
-            pdia: 2.0,
-
-            // center: Default::default(),
-            // angle: 0.0,
-            // rot_axis: Default::default(),
-            // radius: 0.0,
+            pheig: 1.0,
+            pdia: 1.0,
         }
     }
 }
@@ -96,6 +91,29 @@ impl SRTorus {
             torus_info.center = self.pbax_pt + ref_dir * torus_info.radius;
         }
         return Some(torus_info);
+    }
+
+    pub fn convert_to_rtorus(&self) -> Option<(RTorus, glam::TransformSRT)>{
+        if let Some(torus_info) = self.cal_torus(){
+            let mut rtorus = RTorus::default();
+            rtorus.angle = torus_info.angle;
+            rtorus.height = self.pheig;
+            rtorus.rins = torus_info.radius - self.pdia/2.0;
+            rtorus.rout = torus_info.radius + self.pdia/2.0;
+            let z_axis = -torus_info.rot_axis.normalize();
+            let x_axis = (self.pbax_pt - torus_info.center).normalize();
+            let y_axis = z_axis.cross(x_axis).normalize();
+            let mat = glam::TransformSRT{
+                rotation: bevy::prelude::Quat::from_mat3(&bevy::prelude::Mat3::from_cols(
+                    x_axis, y_axis, z_axis
+                )),
+                translation: torus_info.center,
+                ..default()
+            };
+            return  Some((rtorus, mat));
+        }
+
+        None
     }
 }
 

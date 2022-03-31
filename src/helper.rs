@@ -135,7 +135,11 @@ pub fn resolve_paragon_gm_params(
 ) -> Option<CateGeoParam> {
     // dbg!(&gmse_param);
     if let Some(gm_data) = resolve_gmse_params(gm_param, context, axis_params) {
-        return resolve_to_cate_geo_params(gm_data);
+        if let Ok(s) = std::panic::catch_unwind(move || unsafe {
+            return resolve_to_cate_geo_params(gm_data);
+        }){
+            return s;
+        }
     }
     None
 }
@@ -155,6 +159,8 @@ pub fn resolve_gmse_params(
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
+
+    // dbg!(&gm.diameters);
 
     let distances = gm.distances
         .iter()

@@ -470,6 +470,19 @@ impl AttrMap {
     }
 
     #[inline]
+    pub fn get_i32(&self, key: &str) -> Option<i32> {
+        if let Some(v) = self.map.get(&key.into()) {
+            match v {
+                IntegerType(d) => {
+                    return Some(*d as i32);
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    #[inline]
     pub fn get_string(&self, key: &str) -> Option<&SmolStr> {
         if let Some(v) = self.map.get(&key.into()) {
             match v {
@@ -1020,18 +1033,18 @@ pub struct PdmsMeshMgr {
 
 impl PdmsMeshMgr {
     #[inline]
-    pub fn get_instants_data(&self, refno: RefU64) -> Vec<&Vec<EleGeoInstData>> {
-        let mut results = vec![];
+    pub fn get_instants_data(&self, refno: RefU64) -> HashMap<RefU64, &Vec<EleGeoInstData>> {
+        let mut results = HashMap::new();
         let inst_map = &self.inst_mgr.inst_map;
         if self.level_shape_mgr.contains_key(&refno) {
             for v in self.level_shape_mgr[&refno].iter() {
                 if inst_map.contains_key(&v) {
-                    results.push(inst_map.get(&v).unwrap());
+                    results.insert(v.clone(),inst_map.get(&v).unwrap());
                 }
             }
         }else{
             if inst_map.contains_key(&refno) {
-                results.push(inst_map.get(&refno).unwrap());
+                results.insert(refno.clone(), inst_map.get(&refno).unwrap());
             }
         }
         results
@@ -1155,6 +1168,8 @@ pub struct EleGeoInstData {
     pub global_transform: (Quat, Vec3, Vec3), //世界坐标系的变换, rot, translation, scale
     pub visible: bool,
     pub generic_type: SmolStr, //所属一般类型，ROOM、STRU、PIPE等
+    pub zone_refno: RefU64, // 暂时用这个
+    pub node_id: NodeId,
 }
 
 impl Collection for EleGeoInstData {

@@ -1,6 +1,7 @@
 
 pub mod helper;
 pub mod sbox;
+pub mod sphere;
 pub mod cylinder;
 pub mod snout;
 pub mod cone;
@@ -12,6 +13,9 @@ pub mod pyramid;
 pub mod rtorus;
 pub mod facet;
 pub mod loft;
+pub mod tubing;
+
+pub mod category;
 
 
 

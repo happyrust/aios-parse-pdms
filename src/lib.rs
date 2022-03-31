@@ -6,6 +6,7 @@
 #![feature(once_cell)]
 #![feature(async_closure)]
 #![feature(generic_const_exprs)]
+#![feature(default_free_fn)]
 #[allow(dead_code, unused_imports, unused_variables, unused_imports, unused, missing_docs, unused_results, unused_must_use)]
 
 #[macro_use]
@@ -183,8 +184,7 @@ lazy_static! {
 
 pub async fn init_pdms_db(db_option: &DbOption) -> anyhow::Result<AiosDBManager> {
     let mut time = Instant::now();
-    let mut db_manager = AiosDBManager::init(
-        db_option).await.unwrap();
+    let mut db_manager = AiosDBManager::init(db_option).await.unwrap();
 
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
     let refno = RefU64::from_two_nums(16395, 39308);

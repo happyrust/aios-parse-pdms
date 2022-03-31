@@ -213,6 +213,7 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
 
     //保温层厚度
     cur_context.insert("IPARAM0".into(), "0".into());
+    cur_context.insert("IPARAM".into(), "0".into());
     let params = get_attr_value_f64_vec(&scom_info.attr_map, "PARA").unwrap_or_default();
     for i in 0..params.len() {
         cur_context.insert(format!("PARAM{}", i + 1).into(), params[i].to_string().into());

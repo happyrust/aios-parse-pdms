@@ -6,14 +6,12 @@ use crate::pdms_types::GeoData;
 use crate::prim_geo::loft::SctnSolid;
 use crate::shape::pdms_shape::BrepShapeTrait;
 use std::vec::Vec;
-use glam::Vec3;
+use bevy::prelude::Transform;
+use glam::{TransformSRT, Vec3};
 use crate::data_interface::PdmsDataInterface;
+use crate::prim_geo::category::CateBrepShape;
 
-//sctn 的hash 函数，需要涵盖截面的旋转
-
-
-pub async fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &T) -> Vec<Box<dyn BrepShapeTrait>> {
-
+pub async fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &T) -> Vec<CateBrepShape>  {
     let mut brep_shapes = vec![];
     let geoms = &geom_info.geometries;
     if geoms.len() == 0 { return brep_shapes; }
@@ -41,15 +39,11 @@ pub async fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsI
     } else { None };
 
     let mut height = 0.0;
-    // let mut axis_dir = Some(Vec3::Z);
     if let Some(poss) = att.get_poss() {
         if let Some(pose) = att.get_pose() {
-            // axis_dir = Some((pose - poss).normalize());
             height = pose.distance(poss);
         }
     }
-
-
     let drns = att.get_vec3("DRNS").unwrap_or_default();
     let drne = att.get_vec3("DRNE").unwrap_or_default();
     //rotate the profile
@@ -59,11 +53,15 @@ pub async fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsI
                 profile: profile.clone(),
                 drns,
                 drne,
-                // axis_dir,
                 height,
                 arc_path,
             };
-            brep_shapes.push(Box::new(loft));
+            brep_shapes.push(CateBrepShape{
+                brep_shape: Box::new(loft),
+                transform: TransformSRT::IDENTITY,
+                visible: true,
+                is_tubing: false
+            });
         }
     }
 

@@ -310,7 +310,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
         // dbg!(last_att_info.value());
-        is_double = last_att_info.offset + 1 < (origin_impl_len / 4) as u32;   //如果最后的
+        is_double = last_att_info.offset + 1 <= (origin_impl_len / 4) as u32;   //如果最后的
     }
     for i in 0..sorted_noun_hash.len() {
         let noun_hash = sorted_noun_hash[i];
@@ -372,6 +372,10 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     attr_data_map.insert_by_att_name("TYPE", WordType(noun_name.clone()));
     attr_data_map.insert_by_att_name("REFNO", RefU64Type(refno.into()));
     let mut name_hash = attr_data_map.get_name_hash();
+
+    if refno == RefI32Tuple::from("23584/2830") {
+        dbg!(attr_data_map.to_string_hashmap());
+    }
     //todo make a method return name
     // if !attr_data_map.contains_attr_name("NAME"){
     //     let name = format!("{} {indx}", &noun_name);
@@ -920,7 +924,11 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         }
 
         if let Some(v) = att_value {
-            attr_data_map.insert(NounHash(hash_val as u32), v);
+            if EXPR_ATT_SET.contains(&(hash_val as i32)) {
+                attr_data_map.insert(NounHash(hash_val), v);
+            } else {
+                attr_data_map.entry(NounHash(hash_val)).or_insert(v);
+            }
         }
 
         // if let Some(n) = att_name {
@@ -938,7 +946,8 @@ fn get_param_type_with_i32(input: i32) -> String {
         let value = input - 50;
         val = format!("DESIGN PARAM {}", value);
     } else if input >= 0x65 && input < 0x1F5 {
-        let value = (((input - 0x64) as f32 + 0.005) * 100.0).round() / 100.0;
+        // let value = (((input - 0x64) as f32 + 0.005) * 100.0).round() / 100.0;
+        let value = ((((input - 0x64) as f32 + 0.005) * 100.0).round() / 100.0) as i32;
         val = format!("IPARAM {}", value);
     } else if input >= 0x1F5 {
         let value = input - 0x1F4;

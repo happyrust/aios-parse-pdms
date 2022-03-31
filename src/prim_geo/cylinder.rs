@@ -45,7 +45,6 @@ impl VerifiedShape for LCylinder {
     }
 }
 
-
 impl BrepShapeTrait for LCylinder {
 
     #[inline]
@@ -131,7 +130,7 @@ impl Default for SCylinder {
 impl VerifiedShape for SCylinder {
     #[inline]
     fn check_valid(&self) -> bool {
-       self.pdia > EPSILON && self.phei > EPSILON
+       self.pdia > EPSILON && self.phei.abs() > EPSILON
     }
 }
 
@@ -146,13 +145,16 @@ impl BrepShapeTrait for SCylinder {
         let pt0 = c_pt + ref_axis * r;
         let mut ext_len = self.phei;
         let mut ext_dir = dir.vector3();
+        let mut  reverse_dir = false;
         if ext_len < 0.0 {
-            ext_dir = -ext_dir;
-            ext_len = -ext_len;
+            // ext_dir = -ext_dir;
+            // ext_len = -ext_len;
+            reverse_dir = true;
         }
         let v = builder::vertex(pt0.point3());
         let w = builder::rsweep(&v, center, ext_dir, Rad(7.0));
-        if  let Ok(f) = builder::try_attach_plane(&[w]){
+        if  let Ok(mut f) = builder::try_attach_plane(&[w]){
+            if reverse_dir { f = f.inverse(); }
             let mut s = builder::tsweep(&f, ext_dir * ext_len as f64).into_boundaries();
             return s.pop()
         }
@@ -160,7 +162,11 @@ impl BrepShapeTrait for SCylinder {
     }
 
     fn hash_mesh_params(&self) -> u64{
-        2u64 //代表BOX
+        if self.phei < 0.0 {
+            102u64
+        }else{
+            2u64 //代表cylinder
+        }
     }
 
 
@@ -170,21 +176,8 @@ impl BrepShapeTrait for SCylinder {
 
     #[inline]
     fn get_scaled_vec3(&self) -> Vec3 {
-        Vec3::new(self.pdia, self.pdia, self.phei)
+        Vec3::new(self.pdia, self.pdia, self.phei.abs())
     }
-}
-
-#[derive(Component, Debug, /*Inspectable,*/ Reflect, Clone, Serialize, Deserialize)]
-// #[reflect(Component)]
-pub struct Cylinder {
-    pub paxi_expr: String,
-    pub paxi_pt: Vec3,   //A Axis point
-    pub paxi_dir: Vec3,   //A Axis Direction
-
-    pub pdis: f32, //dist to bottom
-    pub phei: f32, // height
-    pub pdia: f32, //diameter
-    pub negative: bool,
 }
 
 impl From<&AttrMap> for SCylinder {

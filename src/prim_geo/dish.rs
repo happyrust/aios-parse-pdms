@@ -14,6 +14,7 @@ use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
+//可不可以用来表达 sphere
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Dish {

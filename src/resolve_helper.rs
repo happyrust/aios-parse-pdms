@@ -176,7 +176,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     }
     let mut ns = fasteval::EmptyNamespace;
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
-        // if let Ok(val) = fasteval::ez_eval(&result_string.to_lowercase(), &mut ns) {
         if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
             (val * 100.0).round() / 100.0
         } else {
@@ -396,21 +395,21 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 tube_flag: gmse.tube_flag,
             }))
         }
-        "SSLC" => {
+        // "SSLC" => {
             //todo
-            Some(CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam {
-                axis: Some(gmse.paxises[0].clone()),
-                height: gmse.phei,
-                diameter: gmse.diameters[0],
-                distance: gmse.distances[0],
-                x_shear: 0.0,
-                y_shear: 0.0,
-                alt_x_shear: 0.0,
-                alt_y_shear: 0.0,
-                centre_line_flag: gmse.centre_line_flag,
-                tube_flag: gmse.tube_flag,
-            }))
-        }
+            // Some(CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam {
+            //     axis: Some(gmse.paxises[0].clone()),
+            //     height: gmse.phei,
+            //     diameter: gmse.diameters[0],
+            //     distance: gmse.distances[0],
+            //     x_shear: 0.0,
+            //     y_shear: 0.0,
+            //     alt_x_shear: 0.0,
+            //     alt_y_shear: 0.0,
+            //     centre_line_flag: gmse.centre_line_flag,
+            //     tube_flag: gmse.tube_flag,
+            // }))
+        // }
         "SSPH" => {
             // 球
             Some(CateGeoParam::Sphere(CateSphereParam {

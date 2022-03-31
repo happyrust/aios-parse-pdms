@@ -12,8 +12,9 @@ use std::hash::Hash;
 use glam::TransformSRT;
 use crate::shape::pdms_shape::{BrepMathTrait, PdmsMesh};
 use crate::shape::pdms_shape::{BrepShapeTrait, VerifiedShape};
+use crate::tool::hash_tool::hash_vec3;
 
-#[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
+#[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct LSnout {
     pub paax_expr: String,
@@ -70,11 +71,12 @@ impl BrepShapeTrait for LSnout {
         let p1 = a_dir * self.ptdi + self.paax_pt + self.poff * b_dir;
         let p2 = b_dir * rt + p1;
         let p3 = b_dir * rb + p0;
-        let _v0 = builder::vertex(p0.point3());
-        let _v1 = builder::vertex(p1.point3());
+        // let _v0 = builder::vertex(p0.point3());
+        // let _v1 = builder::vertex(p1.point3());
         let v2 = builder::vertex(p2.point3());
         let v3 = builder::vertex(p3.point3());
 
+        //todo 表达cone的情况
         let rot_axis = a_dir.vector3();
         let mut circle1 = builder::rsweep(&v3, p0.point3(), rot_axis, Rad(7.0));
         let c1 = circle1.clone();
@@ -99,33 +101,63 @@ impl BrepShapeTrait for LSnout {
 
     fn hash_mesh_params(&self) -> u64{
         let mut hasher = DefaultHasher::new();
+        //对于有偏移的，直接不复用，后面看情况再考虑复用
+        if self.poff >= EPSILON {
+            //当有偏移的时候，需要特殊处理，pa 和 pb的方向也考虑其中
+            // hash_vec3(&self.paax_dir, &mut hasher);
+            // hash_vec3(&self.pbax_dir, &mut hasher);
+            // offset.hash(&mut hasher);
+            let bytes = bincode::serialize(self).unwrap();
+            let mut hasher = DefaultHasher::default();
+            bytes.hash(&mut hasher);
+            dbg!("offset here");
+            return hasher.finish();
+        }
         let pheight = self.ptdi - self.pbdi;
-        let alpha = self.ptdm / self.pbdm;
+        let alpha = if self.pbdm != 0.0 {
+            self.ptdm / self.pbdm
+        }else{
+            0.0
+        };
         let beta = self.poff / pheight;
         let alpha = I24F8::from_num(alpha);   //上下圆比例
         let beta = I24F8::from_num(beta);   //形状要相似  offset / h
+        // let offset = I24F8::from_num(self.poff);
         alpha.hash(&mut hasher);
         beta.hash(&mut hasher);
         hasher.finish()
     }
 
+    //参考圆点在中心位置
     fn gen_unit_shape(&self) -> PdmsMesh{
         let ptdm = self.ptdm / self.pbdm;
-        let unit = Self{
-            ptdi: 0.5,
-            pbdi: -0.5,
-            ptdm,
-            pbdm: 1.0,
-            poff: self.poff,
-            ..Default::default()
-        };
-        unit.gen_mesh(Some(0.002))
+       if self.poff > EPSILON {
+           // let mut d = self.clone();
+           // let ptdi= (d.ptdi - d.dist_to_btm) as f32;
+           // poff_shape.ptdi =
+            self.gen_mesh(None)
+        }else{
+            Self{
+                ptdi: 0.5,
+                pbdi: -0.5,
+                ptdm,
+                pbdm: 1.0,
+                poff: self.poff,
+                ..Default::default()
+            }.gen_mesh(Some(0.002))
+        }
+
     }
 
     #[inline]
     fn get_scaled_vec3(&self) -> Vec3{
         let pheight = self.ptdi - self.pbdi;
-        Vec3::new(self.pbdm, self.pbdm, pheight)
+        if self.poff > EPSILON {
+            Vec3::ONE
+        }else{
+            Vec3::new(self.pbdm, self.pbdm, pheight)
+        }
+
     }
 }
 

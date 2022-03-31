@@ -29,8 +29,6 @@ impl Default for SBox {
     }
 }
 
-
-
 impl VerifiedShape for SBox {
     #[inline]
     fn check_valid(&self) -> bool {
@@ -69,7 +67,7 @@ impl From<&AttrMap> for SBox {
             center: Default::default(),
             size: Vec3::new(m.get_f32("XLEN").unwrap_or_default(),
                             m.get_f32("YLEN").unwrap_or_default(),
-                            m.get_f32("ZLEN").unwrap_or_default(), ),
+                            m.get_f32("ZLEN").unwrap_or_default(),),
         }
     }
 }

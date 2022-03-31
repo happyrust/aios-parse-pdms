@@ -93,13 +93,15 @@ async fn main() -> AiosDbError {
         ]
     ).unwrap();
 
-    parse_pdms_db::init_pdms_db(&DbOption{
+    let mut mgr = parse_pdms_db::init_pdms_db(&DbOption{
         total_sync: true,
-        incr_sync: true,
+        incr_sync: false,
         project_path: "/Volumes/DPC/aba".to_owned(),
         included_projects: vec!["ABA".to_string()/*, "GDP".to_string()*/],
-        included_db_files: None,
-    }).await;
+        included_db_files: Some(vec!["aba0011_0001".to_string()])
+    }).await?;
+
+    mgr.cache_geos_data(11, "ABA").await?;
 
     return Ok(());
 }

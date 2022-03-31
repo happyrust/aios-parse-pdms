@@ -129,8 +129,9 @@ impl PdmsMesh {
 
 pub trait BrepShapeTrait: VerifiedShape + Debug {
 
-    fn gen_brep_shell(&self) -> Option<Shell>;
-
+    fn gen_brep_shell(&self) -> Option<Shell>{
+        return  None;
+    }
 
     //todo 实现模型的hash，主要是看比列
     //通过比例缩放可以更大的共享几何信息
@@ -164,7 +165,6 @@ pub trait BrepShapeTrait: VerifiedShape + Debug {
 
 
     fn gen_mesh(&self, tol: Option<f32>) -> PdmsMesh {
-        // let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         let mut aabb = AABB::new_invalid();
         if let Some(brep) = self.gen_brep_shell() {
             let brep_bbox = gen_bounding_box(&brep);
@@ -189,12 +189,6 @@ pub trait BrepShapeTrait: VerifiedShape + Debug {
                     indices.push(i[1].pos as u32);
                     indices.push(i[2].pos as u32);
                 }
-                // mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-                // mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-                // mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-                // mesh.set_indices(Some(Indices::U16(
-                //     indices
-                // )));
                 let a = aabb.mins;
                 let b = aabb.maxs;
                 return PdmsMesh {
