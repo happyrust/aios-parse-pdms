@@ -400,7 +400,8 @@ impl AiosDBManager {
                 }
             } else if type_name == "BRAN" {   //先暂时只让旋转用bran
                 let bran_transform = self.get_world_transform(refno).await.unwrap();
-                let bran_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").unwrap());
+                let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").unwrap());
+                let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS").unwrap());
                 let htube_ref = desi_att.get_foreign_refno("HSTU").unwrap();
                 let mut bore = 0.0f32;
                 if let Some(hstube_att) = self.get_attr(htube_ref).await.unwrap(){
@@ -411,14 +412,18 @@ impl AiosDBManager {
                     }
                 }
                 let mut current_tubing = PdmsTubing{
-                    start_pt: bran_pt,
+                    start_pt: bran_htube_pt,
                     end_pt: Vec3::ZERO,
                     bore,
                     finished: false
                 };
                 dbg!(&current_tubing);
-                if let Some(children) = self.get_children(refno).await.unwrap() {
+                if let Some(children) = self.get_children(refno).await.unwrap()  {
+                    if children.len() == 0 {
+                        return result_map;
+                    }
                     //第一遍完成后，然后生成tubing
+                    let last_child = children.last().unwrap().clone();
                     for child in children {
                         let world_trans = self.get_world_transform(child).await.unwrap();
                         let mut result_shapes = vec![];
@@ -433,6 +438,7 @@ impl AiosDBManager {
                                 if geoms.axis_map.contains_key(&arrive) {
                                     let p = &geoms.axis_map[&arrive].pt;
                                     let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
+                                    dbg!(&a_pos);
                                     if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > EPSILON {
                                         current_tubing.end_pt = a_pos;
                                         current_tubing.finished = true;
@@ -680,9 +686,24 @@ impl AiosDBManager {
                         // if child == RefU64::from_two_nums(23584, 5569) {
                         //     dbg!(&result_shapes);
                         // }
+
+                        if child == last_child {
+                            //todo 加入获取arrive position 的方法
+                            dbg!(&current_tubing);
+                            dbg!(&bran_ttube_pt);
+                            dbg!(bran_ttube_pt.distance(current_tubing.start_pt));
+                            if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > EPSILON {
+                                current_tubing.end_pt = bran_ttube_pt;
+                                current_tubing.finished = true;
+                                dbg!(&current_tubing);
+                                result_shapes.push(current_tubing.convert_to_shape());
+                            }
+                        }
+
                         result_map.insert(child, result_shapes);
                     }
                 }
+               
             }
         }
         result_map
@@ -837,8 +858,8 @@ impl AiosDBManager {
                             }
                         }
                     } else {
-                        // if d.refno != RefU64::from_two_nums(23584, 5443) {
-                            // continue;
+                        // if d.refno != RefU64::from_two_nums(23584, 7903) {
+                        //     continue;
                         // }
                         let ele_type = attr.get_type();
                         let owner = self.get_attr(attr.get_owner().unwrap()).await?;

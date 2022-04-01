@@ -24,18 +24,6 @@ impl DerefMut for StringDatabase {
 }
 
 impl StringDatabase {
-    // pub async fn init(path: &str) -> Self {
-    //     Self {
-    //         db: if cfg!(feature = "compression") {
-    //             Database::open::<AiosStr>(StorageConfiguration::new(path)
-    //                 .default_compression(Compression::Lz4)
-    //             ).await.expect("path not correct")
-    //         } else {
-    //             Database::open::<AiosStr>(StorageConfiguration::new(path)
-    //             ).await.expect("path not correct")
-    //         }
-    //     }
-    // }
     ///获得refno的project 名称
     #[inline]
     pub async fn get_string(&self, hash: AiosStrHash) -> Result<Option<AiosStr>, bonsaidb::core::Error> {
