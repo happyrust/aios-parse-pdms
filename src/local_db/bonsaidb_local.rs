@@ -67,7 +67,7 @@ use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::query_cata::resolve_desi_comp;
 use clap::{Parser, ValueHint};
-use crate::prim_geo::category::CateBrepShape;
+use crate::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
 use std::panic::catch_unwind;
 use crate::prim_geo::sphere::Sphere;
 use crate::prim_geo::tubing::PdmsTubing;
@@ -393,12 +393,29 @@ impl AiosDBManager {
         let mut result_map = HashMap::new();
         if let Some(desi_att) = self.get_attr(refno).await.unwrap() {
             let type_name = desi_att.get_type();
-            if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
+            let is_tube = type_name == "BRAN";
+            // if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
+            if !is_tube {
                 //如果是SCTN，使用SCTN的方法创建GeoData
+                // dbg!(type_name);
                 if let Some(geoms) = crate::query_cata::resolve_desi_comp(refno, self).await {
-                    result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self).await);
+                    if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
+                        result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self).await);
+                    }else /*if type_name == "NOZZ" || type_name == "PCLA"*/{
+                        let mut result_shapes = vec![];
+                        // dbg!(&geoms);
+                        for geom in geoms.geometries {
+                            if let Some(cate_shape) = convert_to_brep_shapes(&geom){
+                                result_shapes.push(cate_shape);
+                            }
+                        } // end geoms.geometries
+                        result_map.insert(refno, result_shapes);
+                    }
+                    // else{
+                    //     dbg!(&type_name);
+                    // }
                 }
-            } else if type_name == "BRAN" {   //先暂时只让旋转用bran
+            } else {   //先暂时只让旋转用bran
                 let bran_transform = self.get_world_transform(refno).await.unwrap();
                 let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").unwrap());
                 let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS").unwrap());
@@ -417,7 +434,7 @@ impl AiosDBManager {
                     bore,
                     finished: false
                 };
-                dbg!(&current_tubing);
+                // dbg!(&current_tubing);
                 if let Some(children) = self.get_children(refno).await.unwrap()  {
                     if children.len() == 0 {
                         return result_map;
@@ -429,30 +446,26 @@ impl AiosDBManager {
                         let mut result_shapes = vec![];
                         if let Some(geoms) = crate::query_cata::resolve_desi_comp(child, self).await {
                             let attr = self.get_attr(child).await.unwrap().unwrap();
-                            // dbg!(self.get_pretty_attr(child).await.unwrap());
-                            // if child == RefU64::from_two_nums(23584, 5570) {
-                            //     dbg!(&geoms);
-                            // }
                             if let Some(arrive) = attr.get_i32("ARRI") {
                                 //todo 加入获取arrive position 的方法
                                 if geoms.axis_map.contains_key(&arrive) {
                                     let p = &geoms.axis_map[&arrive].pt;
                                     let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                                    dbg!(&a_pos);
+                                    // dbg!(&a_pos);
                                     if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > EPSILON {
                                         current_tubing.end_pt = a_pos;
                                         current_tubing.finished = true;
-                                        dbg!(&current_tubing);
+                                        // dbg!(&current_tubing);
                                         result_shapes.push(current_tubing.convert_to_shape());
                                     }
                                 }
-                                dbg!(arrive);
+                                // dbg!(arrive);
                             }
 
                             if let Some(lstube) =  attr.get_foreign_refno("LSTU") {
                                 if  let Some(lstube_att) = self.get_attr(lstube).await.unwrap(){
                                     let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap()).await.unwrap().unwrap();
-                                    dbg!(lstube_cat_att.to_string_hashmap());
+                                    // dbg!(lstube_cat_att.to_string_hashmap());
                                     let params = lstube_cat_att.get_f64_vec("PARA").unwrap();
                                     if params.len() >= 2 {
                                         current_tubing.bore = params[1] as f32;
@@ -469,217 +482,13 @@ impl AiosDBManager {
                                     current_tubing.start_pt = l_pos;
                                     current_tubing.finished = false;
                                 }
-                                dbg!(leave);
+                                // dbg!(leave);
                             }
                             //管件的生成
                             //return pipes::create_geo(&desi_att, &geoms);
                             for geom in geoms.geometries {
-                                match geom {
-                                    CateGeoParam::Torus(d) => {
-                                        let pa = d.pa.unwrap();
-                                        let pb = d.pb.unwrap();
-                                        //需要转换成CTorus
-                                        let sc_torus = SCTorus {
-                                            paax_expr: "PAAX".to_string(),
-                                            paax_pt: Vec3::new(pa.pt[0] as f32, pa.pt[1] as f32, pa.pt[2] as f32),
-                                            paax_dir: Vec3::new(pa.dir[0] as f32, pa.dir[1] as f32, pa.dir[2] as f32),
-                                            pbax_expr: "PBAX".to_string(),
-                                            pbax_pt: Vec3::new(pb.pt[0] as f32, pb.pt[1] as f32, pb.pt[2] as f32),
-                                            pbax_dir: Vec3::new(pb.dir[0] as f32, pb.dir[1] as f32, pb.dir[2] as f32),
-                                            pdia: d.diameter as f32,
-                                        };
-                                        if let Some((torus, transform)) = sc_torus.convert_to_ctorus() {
-                                            let brep_shape: Box<dyn BrepShapeTrait> = Box::new(torus);
-                                            dbg!(&brep_shape);
-                                            // dbg!(transform.rotation.to_euler(EulerRot::XYZ));
-                                            result_shapes.push(CateBrepShape{
-                                                brep_shape,
-                                                transform,
-                                                visible: d.tube_flag,
-                                                is_tubing: false
-                                            });
-                                        }
-                                    }
-                                    CateGeoParam::RectTorus(d) => {
-                                        let pa = d.pa.unwrap();
-                                        let pb = d.pb.unwrap();
-                                        //需要转换成CTorus
-                                        let sr_torus = SRTorus {
-                                            paax_expr: "PAAX".to_string(),
-                                            paax_pt: Vec3::new(pa.pt[0] as f32, pa.pt[1] as f32, pa.pt[2] as f32),
-                                            paax_dir: Vec3::new(pa.dir[0] as f32, pa.dir[1] as f32, pa.dir[2] as f32),
-                                            pbax_expr: "PBAX".to_string(),
-                                            pbax_pt: Vec3::new(pb.pt[0] as f32, pb.pt[1] as f32, pb.pt[2] as f32),
-                                            pbax_dir: Vec3::new(pb.dir[0] as f32, pb.dir[1] as f32, pb.dir[2] as f32),
-                                            pheig: d.height as f32,
-                                            pdia: d.diameter as f32,
-                                        };
-                                        if let Some((torus, transform)) = sr_torus.convert_to_rtorus() {
-                                            let brep_shape: Box<dyn BrepShapeTrait> = Box::new(torus);
-                                            dbg!(&brep_shape);
-                                            // dbg!(transform.rotation.to_euler(EulerRot::XYZ));
-                                            result_shapes.push(CateBrepShape{
-                                                brep_shape,
-                                                transform,
-                                                visible: d.tube_flag,
-                                                is_tubing: false
-                                            });
-                                        }
-                                    }
-                                    CateGeoParam::Box(d) => {
-                                        let brep_shape: Box<dyn BrepShapeTrait> = Box::new(SBox {
-                                            size: Vec3::new(d.size[0] as f32, d.size[1] as f32, d.size[2] as f32),
-                                            ..default()
-                                        });
-                                        let transform = TransformSRT{
-                                            translation: Vec3::new(d.offset[0] as f32, d.offset[1] as f32, d.offset[2] as f32),
-                                            ..default()
-                                        };
-                                        result_shapes.push(CateBrepShape{
-                                            brep_shape,
-                                            transform,
-                                            visible: d.tube_flag,
-                                            is_tubing: false
-                                        });
-                                    }
-                                    CateGeoParam::Dish(d) => {
-                                        let axis = d.axis.unwrap();
-                                        let dir = Vec3::new(axis.dir[0] as f32, axis.dir[1] as f32, axis.dir[2] as f32);
-                                        let translation = dir * (d.dist_to_btm as f32 ) + Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32);
-                                        let transform = TransformSRT{
-                                            rotation: Quat::from_rotation_arc(Vec3::Z, dir),
-                                            translation,
-                                            ..default()
-                                        };
-                                        let pheig = d.height as f32;
-                                        let pdia = d.diameter as f32;
-                                        let brep_shape: Box<dyn BrepShapeTrait> = Box::new( Dish{
-                                            pdis: 0.0,
-                                            pheig,
-                                            pdia,
-                                            ..default()
-                                        });
-                                        result_shapes.push(CateBrepShape{
-                                            brep_shape,
-                                            transform,
-                                            visible: d.tube_flag,
-                                            is_tubing: false
-                                        });
-                                    }
-                                    CateGeoParam::Snout(d) => {
-                                        // if child == RefU64::from_two_nums(23584, 5570) {
-                                        //     dbg!(&d);
-                                        // }
-                                        let z = d.pa.unwrap();
-                                        let x = d.pb.unwrap();
-                                        let z_axis = Vec3::new(z.dir[0] as f32, z.dir[1] as f32, z.dir[2] as f32).normalize();
-                                        let x_axis = Vec3::new(x.dir[0] as f32, x.dir[1] as f32, x.dir[2] as f32).normalize();
-
-                                        let y_axis = z_axis.cross(x_axis).normalize();
-                                        let origin = Vec3::new(z.pt[0] as f32, z.pt[1] as f32, z.pt[2] as f32);
-                                        let height = (d.dist_to_top - d.dist_to_btm) as f32;
-                                        let translation = origin + z_axis * (d.dist_to_btm as f32 + height / 2.0);
-                                        // if child == RefU64::from_two_nums(23584, 5570) {
-                                        //     dbg!(&z_axis);
-                                        // }
-                                        let transform = glam::TransformSRT{
-                                            rotation: bevy::prelude::Quat::from_mat3(&bevy::prelude::Mat3::from_cols(
-                                                x_axis, y_axis, z_axis
-                                            )),
-                                            translation,
-                                            ..default()
-                                        };
-                                        let brep_shape: Box<dyn BrepShapeTrait> = Box::new(LSnout {
-                                            ptdi: height / 2.0,
-                                            pbdi: -height / 2.0,   //为了能够实现复用
-                                            ptdm: d.top_diameter as f32,
-                                            pbdm: d.btm_diameter as f32,
-                                            poff: d.offset as f32,
-                                            ..Default::default()
-                                        });
-                                        result_shapes.push(CateBrepShape{
-                                            brep_shape,
-                                            transform,
-                                            visible: d.tube_flag,
-                                            is_tubing: false
-                                        });
-                                    }
-                                    CateGeoParam::SCylinder(d) => {
-                                        let axis = d.axis.unwrap();
-                                        let dir = Vec3::new(axis.dir[0] as f32, axis.dir[1] as f32, axis.dir[2] as f32);
-                                        let phei = d.height as f32;
-                                        let pdia = d.diameter as f32;
-                                        let rotation = Quat::from_rotation_arc(Vec3::Z, dir);
-                                        let translation = dir * (d.dist_to_btm as f32 + phei as f32 / 2.0) +
-                                            Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32) ;
-                                        let transform = TransformSRT{
-                                            rotation,
-                                            translation,
-                                            ..default()
-                                        };
-                                        // 是以中心为原点，所以需要移动到中心位置
-                                        let brep_shape: Box<dyn BrepShapeTrait> = Box::new(SCylinder {
-                                            phei,
-                                            pdia,
-                                            pdis: 0.0,
-                                            ..default()
-                                        });
-                                        result_shapes.push(CateBrepShape{
-                                            brep_shape,
-                                            transform,
-                                            visible: d.tube_flag,
-                                            is_tubing: false
-                                        });
-                                    }
-                                    CateGeoParam::LCylinder(d) => {
-                                        let axis = d.axis.unwrap();
-                                        let dir = Vec3::new(axis.dir[0] as f32, axis.dir[1] as f32, axis.dir[2] as f32);
-                                        let phei = (d.dist_to_top - d.dist_to_btm) as f32;
-                                        let pdia = d.diameter as f32;
-                                        let rotation = Quat::from_rotation_arc(Vec3::Z, dir);
-                                        if child == RefU64::from_two_nums(23584, 5569) {
-                                            dbg!(dir * (d.dist_to_btm as f32 + phei as f32 / 2.0));
-                                            dbg!(Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32));
-                                        }
-                                        let translation = dir * (d.dist_to_btm as f32 + phei as f32 / 2.0) + Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32) ;
-                                        let transform = TransformSRT{
-                                            rotation,
-                                            translation,
-                                            ..default()
-                                        };
-
-                                        // 是以中心为原点，所以需要移动到中心位置
-                                        let brep_shape: Box<dyn BrepShapeTrait> = Box::new(SCylinder {
-                                            phei,
-                                            pdia,
-                                            pdis: 0.0,
-                                            ..default()
-                                        });
-                                        result_shapes.push(CateBrepShape{
-                                            brep_shape,
-                                            transform,
-                                            visible: d.tube_flag,
-                                            is_tubing: false
-                                        });
-                                    }
-                                    CateGeoParam::Sphere(d) =>{
-                                        let brep_shape: Box<dyn BrepShapeTrait> = Box::new(Sphere {
-                                            radius: d.diameter as f32 / 2.0,
-                                            ..default()
-                                        });
-                                        let axis = d.axis.unwrap();
-                                        let transform = TransformSRT{
-                                            translation: Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32),
-                                            ..default()
-                                        };
-                                        result_shapes.push(CateBrepShape{
-                                            brep_shape,
-                                            transform,
-                                            visible: d.tube_flag,
-                                            is_tubing: false
-                                        });
-                                    }
-                                    _ => {}
+                                if let Some(cate_shape) = convert_to_brep_shapes(&geom){
+                                    result_shapes.push(cate_shape);
                                 }
                             } // end geoms.geometries
                         }  // end for
@@ -689,17 +498,16 @@ impl AiosDBManager {
 
                         if child == last_child {
                             //todo 加入获取arrive position 的方法
-                            dbg!(&current_tubing);
-                            dbg!(&bran_ttube_pt);
-                            dbg!(bran_ttube_pt.distance(current_tubing.start_pt));
+                            // dbg!(&current_tubing);
+                            // dbg!(&bran_ttube_pt);
+                            // dbg!(bran_ttube_pt.distance(current_tubing.start_pt));
                             if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > EPSILON {
                                 current_tubing.end_pt = bran_ttube_pt;
                                 current_tubing.finished = true;
-                                dbg!(&current_tubing);
+                                // dbg!(&current_tubing);
                                 result_shapes.push(current_tubing.convert_to_shape());
                             }
                         }
-
                         result_map.insert(child, result_shapes);
                     }
                 }
@@ -858,20 +666,28 @@ impl AiosDBManager {
                             }
                         }
                     } else {
-                        // if d.refno != RefU64::from_two_nums(23584, 7903) {
-                        //     continue;
+                        // if d.refno != RefU64::from_two_nums(23584, 7468) {
+                            // continue;
                         // }
+                        // dbg!(d.refno);
                         let ele_type = attr.get_type();
                         let owner = self.get_attr(attr.get_owner().unwrap()).await?;
+                        let has_catref = /*attr.get_foreign_refno("CATR").is_some() ||*/ attr.get_foreign_refno("SPRE").is_some();
+                        dbg!(d.refno.to_refno_str());
+                        //todo fix these types
+                        // if ele_type == "PFIT" || ele_type == "FITT" {
+                        //     continue;
+                        // }
                         //针对管道特殊处理
-                        if  ele_type == "BRAN" || (owner.is_some() && owner.unwrap().get_type() !="BRAN" && attr.get_foreign_refno("SPRE").is_some()) {
-                        //     if  ele_type == "SCTN"  {
+                        if  ele_type == "BRAN" || (owner.is_some() && owner.unwrap().get_type() !="BRAN" && has_catref) {
+                        // if  ele_type == "NOZZ"  {
                             let mut node_ids_map = HashMap::new();
                             for node_id in cur_node.children(){
                                 let data = tree.get(node_id).unwrap().data();
                                 node_ids_map.insert(data.refno, node_id.clone());
                             }
                             let brep_shapes = self.get_design_geoms(d.refno, &mut cached_mesh_mgr).await;
+                            // dbg!(&brep_shapes);
                             // dbg!(d.refno.to_refno_str());
                             // if d.refno == RefU64::from_two_nums(23584, 5563) {
                             //     dbg!(&brep_shapes);
@@ -1322,24 +1138,35 @@ impl AiosPdmsProject {
                     if let Some(pose) = attr.get_pose() {
                         let w_poss = tr.transform_point3(poss);
                         let w_pose = tr.transform_point3(pose);
-                        let extru_dir: Vec3 = (w_pose - w_poss).normalize();
+                        let extru_dir: Vec3 = (pose - poss).normalize();
                         let bangle = attr.get_f32("BANG").unwrap_or_default();
-                        // dbg!(&bangle);
                         //如果和Z轴平行，需要使用Y轴作为参考轴
-                        // abs_diff_eq!(1.0, 1.0, epsilon = f32::EPSILON);
                         let d = extru_dir.dot(Vec3::Z).abs();
                         let mut ref_axis = if abs_diff_eq!(1.0, d, epsilon = f32::EPSILON) {
                             Vec3::Y
                         } else { Vec3::Z };
-                        // dbg!(&ref_axis);
+
                         let p_axis = ref_axis.cross(extru_dir).normalize();
-                        // dbg!(&p_axis);
+
                         let y_axis = extru_dir.cross(p_axis).normalize();
-                        // dbg!(&y_axis);
+
                         final_rot = Quat::from_mat3(&glam::f32::Mat3::from_cols_array_2d(
                             &[p_axis.to_array(), y_axis.to_array(), extru_dir.to_array()]
                         )/*.transpose()*/) * Quat::from_rotation_z(bangle.to_radians());
-                        let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
+                        // let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
+                        // if refno == RefU64::from_two_nums(23584, 8549) {
+                        //     dbg!(w_poss);
+                        //     dbg!(w_pose);
+                        //     dbg!(extru_dir);
+                        //     dbg!(bangle);
+                        //
+                        //     dbg!(&ref_axis);
+                        //     dbg!(&p_axis);
+                        //     dbg!(&y_axis);
+                        //     dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
+                        // }
+                        // final_rot = Quat::from_rotation_arc();
+                        // let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
                         // dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
                     }
                 }
@@ -1365,7 +1192,7 @@ impl AiosPdmsProject {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
-        dbg!(&target_dir);
+        // dbg!(&target_dir);
 
         if let Ok(mut r) =
         parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
@@ -1536,7 +1363,7 @@ impl AiosPdmsProject {
         if db_type.as_str() != "SYST" && !filename.contains(&db_no_str) {
             let _chars_len = db_no_str.len();
             let l = filename.len();
-            dbg!(&filename);
+            // dbg!(&filename);
             let end = filename.chars().position(|x| x == '_').unwrap_or(l);
             field_no = filename[project.len()..end].parse::<u32>().unwrap_or_default();
         }
@@ -1568,7 +1395,7 @@ impl AiosPdmsProject {
                                             NewDataState::Increase => { increment_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self).await? }
                                             // NewDataState::Delete => { delete_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800],  &pdms_database_info, dbno as u64,&dbs).await? }
                                             _ => {
-                                                dbg!("todo delete");
+                                                // dbg!("todo delete");
                                                 ()
                                             } // todo delete先不管，先把modify 和 increase跑通
                                         }

@@ -14,7 +14,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     if input_expr.trim() == "unset" {
         return Some(0.0);
     }
-    // dbg!(&input_expr);
+    dbg!(&input_expr);
     let _has_desparam = false;
     let mut exp = input_expr.trim_end_matches('\0')
         .to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
@@ -30,12 +30,32 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     if seg_strs.len() == 0 {
         return None;
     }
-    // dbg!(&seg_strs);
+    dbg!(&seg_strs);
     let mut p_vals: Vec<SmolStr> = Vec::new();
     let mut i = 0;
     while i < seg_strs.len() {
         let mut key = SmolStr::default();
-        let s = seg_strs[i].as_str();
+        let mut s = seg_strs[i].as_str();
+        if s.len() == 0 { continue; }
+
+        let mut slice_index = 0;
+        if s.len() >= 2 {
+            let first_char = s.chars().next().unwrap();
+            if first_char == '-' ||
+                first_char == '+' ||
+                first_char == '/' ||
+                first_char == '*' {
+                p_vals.push(first_char.to_string().into());
+                let mut test_str = String::new();
+                p_vals.iter().for_each(|x|{
+                    test_str.push_str(x.as_str());
+                    test_str.push_str(" ");
+                });
+                dbg!(&test_str);
+                slice_index = 1;
+            }
+        }
+        s = &s[slice_index..];
         if (s == "PARAM" || s == "IPARAM") && i < seg_strs.len() {
             key = convert_to_context_key(s, &mut i, &seg_strs).unwrap_or_default();
         } else if s == "ATTRIB" && i < seg_strs.len() - 1 {
@@ -83,9 +103,13 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                     key = convert_to_context_key(s, &mut j, &seg_strs).unwrap_or_default();
                     j += 1;
                 }
-                p_vals.push(context[&key].clone());
+                if context.contains_key(&key) {
+                    p_vals.push(context[&key].clone());
+                }
             } else {
-                p_vals.push(context[&key].clone());
+                if context.contains_key(&key) {
+                    p_vals.push(context[&key].clone());
+                }
             }
             i += 1;
             continue;
@@ -174,6 +198,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         result_string.push(' ');
         i += 1;
     }
+    dbg!(&result_string);
     let mut ns = fasteval::EmptyNamespace;
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
         if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
@@ -196,7 +221,7 @@ pub fn test_expression() {
     //let r = tinyexpr::interp("2+2*2").unwrap();
     let s = tinyexpr::interp("  sqrt (  pow ( 1, 2 )  )");
     //let s  = fasteval::ez_eval("( 2 ^ 2 )", &mut ns);
-    dbg!(s);
+    // dbg!(s);
 }
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
@@ -438,6 +463,7 @@ pub fn resolve_dir_and_pos(axis: &AxisParam,
                            context: &HashMap<SmolStr, SmolStr>) -> (Vec<f64>, Vec<f64>) {
     //替换掉中间出现dataset的值的这种情况 X ( ATTRIB RPRO ANGL ) Z
     let mut dir_str = axis.direction.trim().to_string();
+    // dbg!(&dir_str);
     if dir_str.contains("(") {
         let s: Vec<_> = dir_str.split("(").collect();
         if s.len() > 1 {
@@ -453,10 +479,10 @@ pub fn resolve_dir_and_pos(axis: &AxisParam,
     let mut pos = vec![0.0f64; 3];
 
     let re = Regex::new(r"^P\d+$").unwrap();
-    // ////dbg!(dir_str);
+    // dbg!(&dir_str);
     if re.is_match(&dir_str) {
         let pnt_indx = dir_str[1..].parse::<i32>().unwrap_or(i32::MAX);
-        // ////dbg!(pnt_indx);
+        // dbg!(pnt_indx);
         if let Some(indx) = scom.axis_param_numbers.iter().position(|&x| x == pnt_indx) {
             if let Some(axis) = resolve_axis_param(&scom.axis_params[indx], scom, context) {
                 dir = axis.dir.clone();

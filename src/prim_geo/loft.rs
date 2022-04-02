@@ -1,5 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 use std::f32::EPSILON;
 use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
@@ -36,12 +36,22 @@ impl SctnSolid {
 
     //is_btm 是否是底部的face
     fn cal_sann_face(&self, is_btm: bool, start_dir: Vec3, angle: f32, r1: f32, r2: f32) -> Option<Face>{
-        let mut n = if is_btm { self.drns } else { self.drne };
+        use truck_base::cgmath64::*;
+        let mut n = if is_btm { self.drns.normalize() } else { self.drne.normalize() };
+        dbg!(&n);
         let h = if is_btm { 0.0 } else { self.height };
         let a = angle;
         // let rot = Quat::IDENTITY;
-        let mut rot_axis = Vec3::Z;
+        let mut z_axis = Vec3::Z;
+        let z_angle: f32 = z_axis.angle_between(n);
+        if z_angle == FRAC_PI_2 { return None; }
+        dbg!(z_angle);
+        let mut y_axis_scale = (1.0 / z_angle.cos()) as f64;
+        dbg!(y_axis_scale);
+        // let long_axis_len_2 = r2 / z_angle.cos();
+        let mut rot_face = Quat::from_rotation_arc(Vec3::Z, n.normalize());
         let rot = Quat::from_rotation_arc(Vec3::X, start_dir);
+
         let p1 = rot.mul_vec3(Vec3::new(r1, 0.0, h));
         let p2 = rot.mul_vec3(Vec3::new(r2, 0.0, h));
         let p3 = rot.mul_vec3(Vec3::new(r2 * a.cos(), r2 * a.sin(), h));
@@ -51,14 +61,25 @@ impl SctnSolid {
         let v2 = builder::vertex(p2.point3());
         let v3 = builder::vertex(p3.point3());
         let v4 = builder::vertex(p4.point3());
+        //try to make it as ellipse wire
+        let center_pt = Point3::new(0.0, 0.0, h as f64);
         let mut wire = Wire::from(vec![
             builder::line(&v1, &v2),
-            builder::circle_arc_with_center(Point3::new(0.0, 0.0, h as f64),
-                                            &v2, &v3, rot_axis.vector3(), Rad(a as f64)),
+            builder::circle_arc_with_center(center_pt,
+                                            &v2, &v3, z_axis.vector3(), Rad(a as f64)),
             builder::line(&v3, &v4),
-            builder::circle_arc_with_center(Point3::new(0.0, 0.0, h as f64),
-                                            &v4, &v1, rot_axis.vector3(), Rad(-a as f64)),
+            builder::circle_arc_with_center(center_pt,
+                                            &v4, &v1, z_axis.vector3(), Rad(-a as f64)),
         ]);
+
+        let mat0 = Matrix4::from_translation(-center_pt.to_vec());
+        // y_axis_scale = 5.0;
+        let mat1 = Matrix4::from_nonuniform_scale(1.0, y_axis_scale, 1.0);
+        let mat2 = Matrix4::from_angle_z(Rad(z_angle as f64));
+        let mat3 = Matrix4::from_translation(center_pt.to_vec());
+        // let new_wire = builder::transformed(&wire, mat3 * mat2 * /*mat1 **/ mat0);
+
+        // let wire = builder::scaled(&wire, center_pt, Vector3::new(1.0, 1.0, z_axis_scale));
         // let (axis, angle) = rots.to_axis_angle();
         // let wire = builder::rotated(&wire, Point3::new(0.0, 0.0, h as f64), Vector3::new(1.0, 0.0, 0.0),
         //                             Rad(rot_angle as f64));
@@ -205,13 +226,14 @@ impl BrepShapeTrait for SctnSolid {
 
         match &self.profile {
             CateProfileParam::SANN(p) => {
-                if let Some(s) = &p.ptaxis {
-                    vec = Vec3::new(s.dir[0] as f32, s.dir[1] as f32, s.dir[2] as f32);
-                }
+                // if let Some(s) = &p.ptaxis {
+                //     vec = Vec3::new(s.dir[0] as f32, s.dir[1] as f32, s.dir[2] as f32);
+                // }
                 return TransformSRT {
                     rotation: Quat::IDENTITY,//Quat::from_rotation_arc(Vec3::Y, vec),
                     scale: self.get_scaled_vec3(),
-                    translation: Vec3::new(p.xy[0] + p.dxy[0], p.xy[1] + p.dxy[1], 0.0),
+                    translation: Vec3::ZERO,
+                    // translation: Vec3::new(p.xy[0] + p.dxy[0], p.xy[1] + p.dxy[1], 0.0),
                 };
             }
             CateProfileParam::SPRO(_) => {

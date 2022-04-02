@@ -28,13 +28,18 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     let attr_map = attr_map.unwrap();
     let mut desp = get_attr_value_int_vec(&attr_map, "DESP");
 
-    let spre_ref = attr_map.get_foreign_refno("SPRE").unwrap_or_default();
-    let mut scom_ref = Some(spre_ref);
-    if let Some(spre) = interface.get_ele_attr_async(spre_ref).await{
-        if spre.contains_attr_name("CATR") {
-            scom_ref = spre.get_foreign_refno("CATR");
+    let mut scom_ref = None;
+    if let Some(catref) = attr_map.get_foreign_refno("CATR") {
+        scom_ref  = Some(catref);
+    }else{
+        let spre_ref = attr_map.get_foreign_refno("SPRE").unwrap_or_default();
+        if let Some(spre) = interface.get_ele_attr_async(spre_ref).await {
+            if spre.contains_attr_name("CATR") {
+                scom_ref = spre.get_foreign_refno("CATR");
+            }
         }
-    }
+    };
+    dbg!(&scom_ref);
     if scom_ref.is_none() { return None; }
     let scom_ref = scom_ref.unwrap();
     let scom_info = query_scom_info(scom_ref, interface).await;
@@ -46,11 +51,19 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
             desp[i].to_string().into(),
         );
     }
-    context.insert(DDHEIGHT_STR.into(), attr_map.get_as_string("HEIG").unwrap_or("0.0".into()));
-    context.insert(DDANGLE_STR.into(), attr_map.get_as_string("ANGL").unwrap_or("0.0".into()));
-    context.insert(DDRADIUS_STR.into(), attr_map.get_as_string("RADI").unwrap_or("0.0".into()));
+    let height = attr_map.get_as_string("HEIG").unwrap_or("0.0".into());
+    context.insert(DDHEIGHT_STR.into(), height.clone());
+    context.insert("HEIG".into(), height);
 
-    dbg!(&context);
+    let angle = attr_map.get_as_string("ANGL").unwrap_or("0.0".into());
+    context.insert(DDANGLE_STR.into(), angle.clone());
+    context.insert("ANGL".into(), angle);
+
+    let radi = attr_map.get_as_string("RADI").unwrap_or("0.0".into());
+    context.insert(DDRADIUS_STR.into(), radi.clone());
+    context.insert("RADI".into(), radi);
+
+    // dbg!(&context);
     let mut geom_info = resolve_cata_comp(scom_info.as_ref().unwrap(), interface, Some(context)).await;
     Some(geom_info)
 }
@@ -225,7 +238,7 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
     // dbg!(&axis_map);
     //求解子节点几何模型的数据
 
-    //if gmse
+    // dbg!(&scom_info.gm_params);
     let geometries = resolve_gms(&scom_info.gm_params, &cur_context, &axis_map, None);
     // dbg!(&geometries);
     GeomsInfo {

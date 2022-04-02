@@ -133,9 +133,10 @@ pub fn resolve_paragon_gm_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<CateGeoParam> {
-    // dbg!(&gmse_param);
+    dbg!(&gm_param);
     if let Some(gm_data) = resolve_gmse_params(gm_param, context, axis_params) {
         if let Ok(s) = std::panic::catch_unwind(move || unsafe {
+            dbg!(&gm_data);
             return resolve_to_cate_geo_params(gm_data);
         }){
             return s;
@@ -149,19 +150,15 @@ pub fn resolve_gmse_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> Option<GmseParamData> {
-
-    dbg!(gm.refno.to_refno_str());
+    // dbg!(gm.refno.to_refno_str());
     let angle = context[DDANGLE_STR].parse::<f64>().unwrap_or(0.0f64).to_radians();
     let radius = context[DDRADIUS_STR].parse::<f64>().unwrap_or(0.0f64);
     let height = context[DDHEIGHT_STR].parse::<f64>().unwrap_or(0.0f64);
-
     let diameters = gm.diameters
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
         .collect::<Vec<f64>>();
-
     // dbg!(&gm.diameters);
-
     let distances = gm.distances
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
@@ -295,6 +292,7 @@ pub fn resolve_axis_param(
             let x = eval_str_to_f64(&axis_param.x, &context).unwrap_or_default();
             let y = eval_str_to_f64(&axis_param.y, &context).unwrap_or_default();
             let z = eval_str_to_f64(&axis_param.z, &context).unwrap_or_default();
+            // dbg!(axis_param.attr_map.to_string_hashmap());
             let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);
             Some(CateAxisParam { pt: vec![pos[0] + x, pos[1] + y, pos[2] + z], dir: dir.to_vec(), pconnect, pbore })
         }
