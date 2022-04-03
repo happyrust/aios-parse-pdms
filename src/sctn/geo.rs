@@ -11,24 +11,24 @@ use glam::{TransformSRT, Vec3};
 use crate::data_interface::PdmsDataInterface;
 use crate::prim_geo::category::CateBrepShape;
 
-pub async fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &T) -> Vec<CateBrepShape>  {
+pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &T) -> Vec<CateBrepShape>  {
     let mut brep_shapes = vec![];
     let geoms = &geom_info.geometries;
     if geoms.len() == 0 { return brep_shapes; }
 
     let type_name = att.get_type();
     let arc_path = if type_name == "GENSEC" {
-        let parent_pos = interface.get_ele_world_transform_async(att.get_refno().unwrap()).await.translation;
+        let parent_pos = interface.get_ele_world_transform(att.get_refno().unwrap()).translation;
         dbg!(parent_pos);
-        let children_hash = interface.get_ele_children_refs_async(att.get_refno().unwrap()).await;
+        let children_hash = interface.get_ele_children_refs(att.get_refno().unwrap());
         let mut res = None;
         for x in children_hash {
-            let refs = interface.get_ele_children_refs_async(x).await;
+            let refs = interface.get_ele_children_refs(x);
             if refs.len() >= 3 {
                 res = Some((
-                    interface.get_ele_world_transform_async(refs[0]).await.translation - parent_pos,
-                    interface.get_ele_world_transform_async(refs[1]).await.translation - parent_pos,
-                    interface.get_ele_world_transform_async(refs[2]).await.translation - parent_pos,
+                    interface.get_ele_world_transform(refs[0]).translation - parent_pos,
+                    interface.get_ele_world_transform(refs[1]).translation - parent_pos,
+                    interface.get_ele_world_transform(refs[2]).translation - parent_pos,
                 ));
             }
         }

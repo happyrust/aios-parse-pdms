@@ -373,9 +373,9 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     attr_data_map.insert_by_att_name("REFNO", RefU64Type(refno.into()));
     let mut name_hash = attr_data_map.get_name_hash();
 
-    if refno == RefI32Tuple::from("23584/2830") {
-        dbg!(attr_data_map.to_string_hashmap());
-    }
+    // if refno == RefI32Tuple::from("23584/2830") {
+    //     dbg!(attr_data_map.to_string_hashmap());
+    // }
     //todo make a method return name
     // if !attr_data_map.contains_attr_name("NAME"){
     //     let name = format!("{} {indx}", &noun_name);

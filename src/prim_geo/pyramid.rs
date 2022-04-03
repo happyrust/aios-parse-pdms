@@ -20,30 +20,30 @@ use crate::tool::hash_tool::{hash_f32, hash_vec3};
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct LPyramid {
-    pub pbax_expr: String,
+    // pub pbax_expr: String,
     pub pbax_pt: Vec3,
     //B Axis point
     pub pbax_dir: Vec3,   //B Axis Direction
 
-    pub pcax_expr: String,
+    // pub pcax_expr: String,
     pub pcax_pt: Vec3,
     //B Axis point
-    pub pcax_dir: Vec3,   //B Axis Direction
+    pub pcax_dir: Vec3,   //C Axis Direction
 
-    pub paax_expr: String,
+    // pub paax_expr: String,
     pub paax_pt: Vec3,
     //A Axis point
     pub paax_dir: Vec3,   //A Axis Direction
 
 
-    pub pbtp: f32,
-    pub pctp: f32,
+    pub pbtp: f32,  //x top
+    pub pctp: f32,  //y top
 
-    pub pbbt: f32,
-    pub pcbt: f32,
+    pub pbbt: f32,  // x bottom
+    pub pcbt: f32,  // y bottom
 
-    pub ptdi: f32,
-    pub pbdi: f32,
+    pub ptdi: f32,  //dist to top
+    pub pbdi: f32,  //dist to bottom
 
     pub pbof: f32,
     pub pcof: f32,
@@ -52,13 +52,13 @@ pub struct LPyramid {
 impl Default for LPyramid {
     fn default() -> Self {
         Self {
-            pbax_expr: "X".to_string(),  //todo 方位都想方法设法还原到原点坐标系
+            // pbax_expr: "X".to_string(),  //todo 方位都想方法设法还原到原点坐标系
             pbax_pt: Default::default(),
             pbax_dir: Vec3::X,
-            pcax_expr: "Y".to_string(),
+            // pcax_expr: "Y".to_string(),
             pcax_pt: Default::default(),
             pcax_dir: Vec3::Y,
-            paax_expr: "Z".to_string(),
+            // paax_expr: "Z".to_string(),
             paax_pt: Default::default(),
             paax_dir: Vec3::Z,
             pbtp: 1.0,
@@ -78,6 +78,7 @@ impl VerifiedShape for LPyramid {
 }
 
 impl BrepShapeTrait for LPyramid {
+
     fn hash_mesh_params(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         let r = vec![self.pbtp,
@@ -164,16 +165,22 @@ impl BrepShapeTrait for LPyramid {
         }
 
 
-        let mut wires = vec![];
+        let mut faces = vec![];
 
+        //todo 还要处理其他情况
         if ebs.len() == 4 {
-            wires.push(Wire::from_iter(&ebs));
+            if let Ok(f) =   try_attach_plane(&[Wire::from_iter(&ebs)]) {
+                faces.push(f.inverse());
+            }
         }
         if ets.len() == 4 {
-            wires.push(Wire::from_iter(&ets).inverse());
+            if let Ok(f) =   try_attach_plane(&[Wire::from_iter(&ets)]) {
+                faces.push(f);
+            }
         }
 
-        let mut shell: Shell = wires.into_iter().map(|w| try_attach_plane(&[w]).unwrap()).collect();
+
+        let mut shell: Shell = Shell::from(faces);
         if ebs.len() == 4 && ets.len() == 4 {
             shell.push(builder::homotopy(&ebs[0], &ets[0]));
             shell.push(builder::homotopy(&ebs[1], &ets[1]));
@@ -205,13 +212,10 @@ impl From<&AttrMap> for LPyramid {
 
 
         LPyramid {
-            pbax_expr: "X".to_string(),
             pbax_pt: Default::default(),
             pbax_dir: Vec3::X,
-            pcax_expr: "Y".to_string(),
             pcax_pt: Default::default(),
             pcax_dir: Vec3::Y,
-            paax_expr: "Z".to_string(),
             paax_pt: Default::default(),
             paax_dir: Vec3::Z,
             pbtp: xtop,

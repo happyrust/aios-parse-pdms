@@ -31,6 +31,7 @@ use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
 use bevy_egui::egui;
 use egui::Key::O;
+use bonsaidb::core::schema::*;
 
 pub const LEVEL_VISBLE: u32 = 6;
 

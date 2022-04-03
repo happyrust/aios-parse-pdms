@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
+use bevy_utils::HashMap;
 use dashmap::DashMap;
 use nalgebra_glm::exp;
 use nom::IResult;
@@ -25,6 +26,41 @@ const ATT_PPRO: i32 = 0xFFF32DC0u32 as i32;
 const ATT_DPRO: i32 = 0xFFF32DCCu32 as i32;
 const ATT_BTHK: i32 = 0xFFF47D68u32 as i32;
 const ATT_PTCDI: i32 = 0x95A34;
+
+// pub static STRING_LOOKUP: Lazy<Mutex<StringLookupTable>> = Lazy::new(|| {
+//     Mutex::new(StringLookupTable::default())
+// });
+lazy_static! {
+    pub static ref MATH_OPERATOR_MAP: HashMap<i32, &'static str> = {
+         // &[0x0, 0x0, 0x3, 0x89] => {
+         //            let value = result_stack.pop().unwrap_or_default();
+         //            symbol = format!("ACOS({})", value);
+         //        }
+        let mut s = HashMap::new();
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x21]), "(-{})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x22]), "({}+{})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x23]), "({}-{})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x24]), "{}*{}");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x25]), "{}/{}");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xE9]), "SQRT({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x85]), "SIN({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x86]), "COS({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x87]), "TAN({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x88]), "ASIN({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x89]), "ACOS({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x8A]), "ATAN({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x8B]), "ATAN({},{})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xEA]), "POW({},{})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xEB]), "LOG({}");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xEC]), "ALOG({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xED]), "INT({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xEE]), "NINT({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xEF]), "ABS({})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xF0]), "MAX({},{})");
+        s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0xF1]), "MIN({},{})");
+        s
+    };
+}
 
 
 #[inline]
@@ -81,19 +117,19 @@ pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (St
             match &expression_data[..16] {
                 &[0x0, 0x8, 0x9C, 0x41, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
                     let expression = "ATTRIB PARA";
-                    let value = result_stack.pop().unwrap();
+                    let value = result_stack.pop().unwrap_or_default();
                     let value = format!("{}[{}]", expression, value);
                     result_stack.push(value);
                 }
                 &[0x0, 0xD, 0x88, 0x79, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
                     let expression = "ATTRIB IPAR";
-                    let value = result_stack.pop().unwrap();
+                    let value = result_stack.pop().unwrap_or_default();
                     let value = format!("{}[{}]", expression, value);
                     result_stack.push(value);
                 }
                 &[0x0, 0xD, 0xDF, 0x8A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0] => {
-                    let expression="ATTRIB WDESP";
-                    let value = result_stack.pop().unwrap();
+                    let expression = "ATTRIB WDESP";
+                    let value = result_stack.pop().unwrap_or_default();
                     let value = format!("{}[{}]", expression, value);
                     result_stack.push(value);
                 }
@@ -136,92 +172,9 @@ pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (St
         while &expression_data[..4] != &[0x0, 0x0, 0x0, 0x65] && expression_data.len() >= 4 && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x6A] {
             let mut symbol = "+".to_string();
             match &expression_data[..4] {
-                &[0x0, 0x0, 0x3, 0x21] => {
-                    // 这是负号
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("(-{})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x22] => {
-                    let value2 = result_stack.pop().unwrap();
-                    let value1 = result_stack.pop().unwrap();
-                    symbol = format!("({}+{})", value1, value2);
-                }
-                &[0x0, 0x0, 0x3, 0x23] => {
-                    let value2 = result_stack.pop().unwrap();
-                    let value1 = result_stack.pop().unwrap();
-                    symbol = format!("({}-{})", value1, value2);
-                }
-                &[0x0, 0x0, 0x3, 0x24] => {
-                    let value2 = result_stack.pop().unwrap();
-                    let value1 = result_stack.pop().unwrap();
-                    symbol = format!("{}*{}", value1, value2);
-                }
-                &[0x0, 0x0, 0x3, 0x25] => {
-                    let value2 = result_stack.pop().unwrap();
-                    let value1 = result_stack.pop().unwrap();
-                    symbol = format!("{}/{}", value1, value2);
-                }
-                &[0x0, 0x0, 0x3, 0xE9] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("SQRT({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x85] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("SIN({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x86] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("COS({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x87] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("TAN({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x88] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("ASIN({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x89] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("ACOS({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x8A] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("ATAN({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0x8B] => {  //这个ATAN有两个值
-                    let value1 = result_stack.pop().unwrap();
-                    let value2 = result_stack.pop().unwrap();
-                    symbol = format!("ATAN({},{})", value2, value1);
-                }
-                &[0x0, 0x0, 0x3, 0xEA] => {
-                    let value1 = result_stack.pop().unwrap();
-                    let value2 = result_stack.pop().unwrap();
-                    symbol = format!("POW({},{})", value2, value1);
-                }
-                &[0x0, 0x0, 0x3, 0xEB] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("LOG({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0xEC] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("ALOG({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0xED] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("INT({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0xEE] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("NINT({})", value);
-                }
-                &[0x0, 0x0, 0x3, 0xEF] => {
-                    let value = result_stack.pop().unwrap();
-                    symbol = format!("ABS({})", value);
-                }
                 &[0x0, 0x0, 0x3, 0xF0] => {
-                    let value1 = result_stack.pop().unwrap();
-                    let value2 = result_stack.pop().unwrap();
+                    let value1 = result_stack.pop().unwrap_or_default();
+                    let value2 = result_stack.pop().unwrap_or_default();
                     let mut max_array = format!("{},{}", value2, value1);
                     while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF0] {
                         let expression_data_value = &expression_data[12..24];
@@ -236,8 +189,8 @@ pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (St
                     symbol = format!("MAX({})", max_array);
                 }
                 &[0x0, 0x0, 0x3, 0xF1] => {
-                    let value1 = result_stack.pop().unwrap();
-                    let value2 = result_stack.pop().unwrap();
+                    let value1 = result_stack.pop().unwrap_or_default();
+                    let value2 = result_stack.pop().unwrap_or_default();
                     let mut max_array = format!("{},{}", value2, value1);
                     while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF1] {
                         let expression_data_value = &expression_data[12..24];
@@ -251,7 +204,23 @@ pub fn get_expression_attr(explict_num: i32, input: &[u8]) -> IResult<&[u8], (St
                     }
                     symbol = format!("MIN({})", max_array);
                 }
-                _ => {}
+                _ => {
+                    let op_key = i32::from_be_bytes(expression_data[..4].try_into().unwrap());
+                    use dynfmt::{Format, SimpleCurlyFormat};
+                    if MATH_OPERATOR_MAP.contains_key(&op_key) {
+                        let s: &'static str = MATH_OPERATOR_MAP[&op_key];
+                        let input_count = s.matches("{}").count() ;
+                        if input_count == 2 {
+                            let value2 = result_stack.pop().unwrap_or_default();
+                            let value1 = result_stack.pop().unwrap_or_default();
+                            // dynfmt::SimpleCurlyFormat.format("{} says hello to {} but not to {}", &["A", "B", "C"]);
+                            symbol = SimpleCurlyFormat.format(s, &[value1, value2]).unwrap().to_string();
+                        }else if input_count == 1 {
+                            let value1 = result_stack.pop().unwrap_or_default();
+                            symbol = SimpleCurlyFormat.format(s, &[value1]).unwrap().to_string();
+                        }
+                    }
+                }
             }
             result_stack.push(symbol);
             if expression_data.len() > 4 {
@@ -285,7 +254,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
         let (_, axis) = convert_to_explicit_axis_string(expression_data)?;
-        let mut result:SmolStr = "".into();
+        let mut result: SmolStr = "".into();
         match axis {
             StringType(value) => {
                 result = value;
@@ -296,14 +265,20 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
     } else {
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
+        if (expression_length as usize * 4 + 8) > input.len() {
+            return Err(nom::Err::Incomplete(nom::Needed::Unknown));
+        }
         let mut expression_data = &input[16..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
         // 表达式都是以0x0 0 0 1开头的
         let _expression_start = &expression_data[..4];
         expression_data = &expression_data[4..];
         // 这是表达式数字的起始标志
-        let mut result_stack = vec!["".to_string()];
-        while expression_data.len() >= 8 && (&expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] || &expression_data[..4] == &[0x0, 0x0, 0x0, 0x6A] || &expression_data[..3] == &[0x0, 0x0, 0x3] || &expression_data[..4] == &[0x0, 0x0, 0x0, 0x3]) {
+        let mut result_stack = vec![];
+        while expression_data.len() >= 8 && (&expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] ||
+            &expression_data[..4] == &[0x0, 0x0, 0x0, 0x6A] ||
+            &expression_data[..3] == &[0x0, 0x0, 0x3] ||
+            &expression_data[..4] == &[0x0, 0x0, 0x0, 0x3]) {
             if &expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] {
                 expression_data = &expression_data[8..];
                 // 表达式的值
@@ -349,13 +324,13 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
             //若后面是6A 则代表该值没完
             while expression_data.len() > 4 && &expression_data[..4] == &[0x0u8, 0x0, 0x0, 0x6A][..] {
                 // 跳6A
-                expression_data=&expression_data[4..];
+                expression_data = &expression_data[4..];
                 match &expression_data[..8] {
                     &[0x0, 0x0, 0x0, 0x1, 0x0, 0xE, 0x95, 0xA5] => {
                         //todo replase this as -1
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB MCOU".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB MCOU".to_string();
@@ -365,7 +340,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x2, 0x0, 0x8, 0x9C, 0x41] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB PARA";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{}[{}]", expression, value);
                             result_stack.push(value);
                         } else {
@@ -377,7 +352,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0x88, 0x79] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB IPAR";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{}[{}] ", expression, value);
                             result_stack.push(value);
                         } else {
@@ -388,7 +363,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0x20, 0xC7] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB DESP";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
@@ -399,7 +374,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0xDF, 0x77] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB DDESP";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
@@ -410,7 +385,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x2, 0x17, 0xEF, 0x4B, 0x61] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB :HXYsize";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
@@ -421,7 +396,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x6, 0x0, 0xD, 0x88, 0x87] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB WPAR";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
@@ -432,7 +407,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x6, 0x0, 0xD, 0xDF, 0x8A] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB WDESP";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{} [{}]", expression, value);
                             result_stack.push(value);
                         } else {
@@ -443,7 +418,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0xCA, 0x5F ] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB DTXR ".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB DTXR".to_string();
@@ -453,7 +428,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0xC, 0x2C, 0xA0] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB FLNM".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB FLNM".to_string();
@@ -463,7 +438,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0x8, 0x82, 0xE3] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB BDIA".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB BDIA".to_string();
@@ -473,7 +448,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0xD, 0x33, 0x70] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB BTYP".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB BTYP".to_string();
@@ -483,7 +458,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x2, 0x0, 0xB, 0xCB, 0xFF ] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB ANGL".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB ANGL".to_string();
@@ -495,7 +470,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0xB, 0x20, 0x9F] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO DIAJ".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO DIAJ".to_string();
@@ -505,7 +480,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0xA, 0x5E, 0x97] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO LENG".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO LENG".to_string();
@@ -515,7 +490,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0xA, 0xBD, 0x47] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO FLTH".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO FLTH".to_string();
@@ -525,7 +500,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0x8, 0x1C, 0x03] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO R".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO R".to_string();
@@ -535,7 +510,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0xA, 0x50, 0x56] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO HEIG".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO HEIG".to_string();
@@ -545,7 +520,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0xE, 0x2A, 0x1B] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO WIDT".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO WIDT".to_string();
@@ -555,7 +530,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0x7, 0x44, 0x59] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO CNE".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO CNE".to_string();
@@ -565,7 +540,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             &[0x0, 0x8, 0x82, 0xE3] => {
                                 if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                                     let expression = "ATTRIB RPRO BDIA".to_string();
-                                    result_stack.pop().unwrap();
+                                    result_stack.pop().unwrap_or_default();
                                     result_stack.push(expression);
                                 } else {
                                     let expression = "ATTRIB RPRO BDIA".to_string();
@@ -578,7 +553,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x4, 0x0, 0xF, 0xAD, 0x95] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB SKEY".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB SKEY".to_string();
@@ -588,7 +563,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x2, 0x0, 0xD, 0x88, 0x73] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB CPAR";
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{}[{}] ", expression, value);
                             result_stack.push(value);
                         } else {
@@ -599,19 +574,29 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x5, 0x0, 0xD, 0xBC, 0xF9] => {
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
                             let expression = "ATTRIB CATR".to_string();
-                            result_stack.pop().unwrap();
+                            result_stack.pop().unwrap_or_default();
                             result_stack.push(expression);
                         } else {
                             let expression = "ATTRIB CATR".to_string();
                             result_stack.push(expression);
                         }
                     }
+                    &[0, 0, 0, 2, 0, 0xA, 0x50, 0x56] => {
+                        if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
+                            let expression = "ATTRIB HEIG".to_string();
+                            result_stack.pop().unwrap_or_default();
+                            result_stack.push(expression);
+                        } else {
+                            let expression = "ATTRIB HEIG".to_string();
+                            result_stack.push(expression);
+                        }
+                    }
 
                     _ => {
                         expression_data = &expression_data[4..];
-                        let (_,n)=get_expression_func_name(&expression_data[..8])?;
+                        let (_, n) = get_expression_func_name(&expression_data[..8])?;
                         if &expression_data[8..16] == &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] {
-                            let value = result_stack.pop().unwrap();
+                            let value = result_stack.pop().unwrap_or_default();
                             let value = format!("{}[{}] ", n, value);
                             result_stack.push(value);
                         } else {
@@ -627,7 +612,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     while expression_input.len() > 4 {
                         let expression = get_expression_of_func(&expression_input[..4]);
                         if expression != "".to_string() {
-                            let func = result_stack.pop().unwrap();
+                            let func = result_stack.pop().unwrap_or_default();
                             let result = format!("{} OF {} ", func, expression);
                             result_stack.push(result);
                             if expression_input.len() < 20 {
@@ -642,14 +627,14 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                         expression_input = &expression_tmp[..];
                         if refno0 == 0 {
                             let expression = get_expression_of_func(&expression_input[..4]);
-                            let func = result_stack.pop().unwrap();
+                            let func = result_stack.pop().unwrap_or_default();
                             let result = format!("{} OF {} ", func, expression);
                             result_stack.push(result);
                             //func后面有3个word的数据不知道是干什么的
                             expression_input = &expression_input[16..];
                         } else {
                             let refno = format!("{}/{}", refno0, refno1);
-                            let func = result_stack.pop().unwrap();
+                            let func = result_stack.pop().unwrap_or_default();
                             let result = format!("( {} OF = {} )", func, refno);
                             return Ok((input, (expression_type, result.into())));
                         }
@@ -666,103 +651,103 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                 match &expression_data[..4] {
                     &[0x0, 0x0, 0x3, 0x21] => {
                         // 这是负号
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("( - {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x22] => {
                         if result_stack.len() > 1 {
-                            let value2 = result_stack.pop().unwrap();
-                            let value1 = result_stack.pop().unwrap();
+                            let value2 = result_stack.pop().unwrap_or_default();
+                            let value1 = result_stack.pop().unwrap_or_default();
                             symbol = format!("( {} + {} )", value1, value2);
                         }
                     }
                     &[0x0, 0x0, 0x3, 0x23] => {
                         if result_stack.len() > 1 {
-                            let value2 = result_stack.pop().unwrap();
-                            let value1 = result_stack.pop().unwrap();
+                            let value2 = result_stack.pop().unwrap_or_default();
+                            let value1 = result_stack.pop().unwrap_or_default();
                             symbol = format!("( {} - {} )", value1, value2);
                         }
                     }
                     &[0x0, 0x0, 0x3, 0x24] => {
                         if result_stack.len() > 1 {
-                            let value2 = result_stack.pop().unwrap();
-                            let value1 = result_stack.pop().unwrap();
+                            let value2 = result_stack.pop().unwrap_or_default();
+                            let value1 = result_stack.pop().unwrap_or_default();
                             symbol = format!("{} * {}", value1, value2);
                         }
                     }
                     &[0x0, 0x0, 0x3, 0x25] => {
                         if result_stack.len() > 1 {
-                            let value2 = result_stack.pop().unwrap();
-                            let value1 = result_stack.pop().unwrap();
+                            let value2 = result_stack.pop().unwrap_or_default();
+                            let value1 = result_stack.pop().unwrap_or_default();
                             symbol = format!("{}/{}", value1, value2);
                         }
                     }
                     &[0x0, 0x0, 0x3, 0xE9] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("SQRT ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x85] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("SIN ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x86] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("COS ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x87] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("TAN ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x88] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("ASIN ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x89] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("ACOS ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x8A] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("ATAN ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0x8B] => {  //这个ATAN有两个值
                         if result_stack.len() > 1 {
-                            let value1 = result_stack.pop().unwrap();
-                            let value2 = result_stack.pop().unwrap();
+                            let value1 = result_stack.pop().unwrap_or_default();
+                            let value2 = result_stack.pop().unwrap_or_default();
                             symbol = format!("ATAN ( {} , {} )", value2, value1);
                         }
                     }
                     &[0x0, 0x0, 0x3, 0xEA] => {
                         if result_stack.len() > 1 {
-                            let value1 = result_stack.pop().unwrap();
-                            let value2 = result_stack.pop().unwrap();
+                            let value1 = result_stack.pop().unwrap_or_default();
+                            let value2 = result_stack.pop().unwrap_or_default();
                             symbol = format!("POW ( {} , {} )", value2, value1);
                         }
                     }
                     &[0x0, 0x0, 0x3, 0xEB] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("LOG ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0xEC] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("ALOG ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0xED] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("INT ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0xEE] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("NINT ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0xEF] => {
-                        let value = result_stack.pop().unwrap();
+                        let value = result_stack.pop().unwrap_or_default();
                         symbol = format!("ABS ( {} )", value);
                     }
                     &[0x0, 0x0, 0x3, 0xF0] => {
                         if result_stack.len() > 1 {
-                            let value1 = result_stack.pop().unwrap();
-                            let value2 = result_stack.pop().unwrap();
+                            let value1 = result_stack.pop().unwrap_or_default();
+                            let value2 = result_stack.pop().unwrap_or_default();
                             let mut max_array = format!("{},{}", value2, value1);
                             while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF0] {
                                 let expression_data_value = &expression_data[12..24];
@@ -779,8 +764,8 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     }
                     &[0x0, 0x0, 0x3, 0xF1] => {
                         if result_stack.len() > 1 {
-                            let value1 = result_stack.pop().unwrap();
-                            let value2 = result_stack.pop().unwrap();
+                            let value1 = result_stack.pop().unwrap_or_default();
+                            let value2 = result_stack.pop().unwrap_or_default();
                             let mut max_array = format!("{},{}", value2, value1);
                             while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF1] {
                                 let expression_data_value = &expression_data[12..24];
@@ -798,8 +783,8 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                     &[0x0, 0x0, 0x0, 0x3] => {
                         if &expression_data[4..8] == &[0x0, 0x0, 0x6, 0xA5] {
                             if result_stack.len() > 1 {
-                                let value1 = result_stack.pop().unwrap();
-                                let value2 = result_stack.pop().unwrap();
+                                let value1 = result_stack.pop().unwrap_or_default();
+                                let value2 = result_stack.pop().unwrap_or_default();
                                 symbol = format!("{} OF = {}", value2, value1);
                             }
                         }
@@ -812,24 +797,24 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                 if expression_data.len() > 4 {
                     expression_data = &expression_data[4..];
                 } else {
-                    let result = format!("( {} )", result_stack.pop().unwrap());
+                    let result = format!("( {} )", result_stack.pop().unwrap_or_default());
                     return Ok((input, (expression_type, result.into())));
                 }
             }
         }
-        let result = format!("( {} )", result_stack.pop().unwrap());
+        let result = format!("( {} )", result_stack.pop().unwrap_or_default());
         Ok((input, (expression_type, result.into())))
     }
 }
 
 /// 返回ATTRIB PARA类的函数名
-pub fn get_expression_func_name(input:&[u8]) -> IResult<&[u8],String> {
-    let mut result="".to_string();
-    let (_,v)=be_u32(&input[4..8])?;
+pub fn get_expression_func_name(input: &[u8]) -> IResult<&[u8], String> {
+    let mut result = "".to_string();
+    let (_, v) = be_u32(&input[4..8])?;
     if v > 0x81BF1 {
-        result=format!("ATTRIB {}",db1_dehash(v));
+        result = format!("ATTRIB {}", db1_dehash(v));
     }
-    Ok((input,result))
+    Ok((input, result))
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种

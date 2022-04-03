@@ -27,6 +27,50 @@ pub struct CateBrepShape{
 
 pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape>{
     match geom {
+        CateGeoParam::Pyramid(d) => {   //now dont resue pyramid
+            let pa = d.pa.as_ref().unwrap();
+            let pb = d.pb.as_ref().unwrap();
+            let pc = d.pc.as_ref().unwrap();
+            //需要转换成CTorus
+
+            let pheight = (d.dist_to_top - d.dist_to_btm) as f32;
+            let pyramid = LPyramid {
+                paax_pt: Vec3::new(pa.pt[0] as f32, pa.pt[1] as f32, pa.pt[2] as f32),
+                paax_dir: Vec3::new(pa.dir[0] as f32, pa.dir[1] as f32, pa.dir[2] as f32).normalize(),
+                pbax_pt: Vec3::new(pb.pt[0] as f32, pb.pt[1] as f32, pb.pt[2] as f32),
+                pbax_dir: Vec3::new(pb.dir[0] as f32, pb.dir[1] as f32, pb.dir[2] as f32).normalize(),
+                pcax_pt: Vec3::new(pc.pt[0] as f32, pc.pt[1] as f32, pc.pt[2] as f32),
+                pcax_dir: Vec3::new(pc.pt[0] as f32, pc.pt[1] as f32, pc.pt[2] as f32).normalize(),
+                pbtp: d.x_top as f32,
+                pctp: d.y_top as f32,
+                pbbt: d.x_bottom as f32,
+                pcbt: d.y_bottom as f32,
+                ptdi: pheight,
+                pbdi: 0.0,
+                pbof: d.x_offset as f32,
+                pcof: d.y_offset as f32,
+            };
+            let pdist = d.dist_to_btm as f32;
+            let x_axis = pyramid.pbax_dir;
+            let y_axis = pyramid.pcax_dir;
+            let z_axis = pyramid.paax_dir;
+            let translation = z_axis * pdist;
+            let brep_shape: Box<dyn BrepShapeTrait> = Box::new(pyramid);
+            // dbg!(&brep_shape);
+            return Some(CateBrepShape{
+                brep_shape,
+                transform: TransformSRT{
+                    rotation:  bevy::prelude::Quat::from_mat3(&bevy::prelude::Mat3::from_cols(
+                        x_axis, y_axis, z_axis
+                    )),
+                    translation,
+                    ..default()
+                },
+                visible: d.tube_flag,
+                is_tubing: false
+                });
+        }
+
         CateGeoParam::Torus(d) => {
             let pa = d.pa.as_ref().unwrap();
             let pb = d.pb.as_ref().unwrap();

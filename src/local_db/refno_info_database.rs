@@ -24,14 +24,14 @@ impl DerefMut for RefInoDatabase {
 }
 
 impl RefInoDatabase {
-    pub async fn init(path: &str) -> Self{
+    pub fn init(path: &str) -> Self{
         Self{
-            db: Database::open::<RefnoInfo>(StorageConfiguration::new(path)).await.expect("path not correct"),
+            db: Database::open::<RefnoInfo>(StorageConfiguration::new(path)).expect("path not correct"),
         }
     }
     ///获得refno的project 名称
     #[inline]
-    pub async fn get_refno_info(&self, refno: RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
-        Ok(RefnoInfo::get(refno.get_0(), &self.db).await?.map(|x| x.contents))
+    pub fn get_refno_info(&self, refno: RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
+        Ok(RefnoInfo::get(refno.get_0(), &self.db)?.map(|x| x.contents))
     }
 }

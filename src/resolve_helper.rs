@@ -199,13 +199,28 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         i += 1;
     }
     dbg!(&result_string);
-    let mut ns = fasteval::EmptyNamespace;
+    // let mut ns = fasteval::EmptyNamespace;
+    let mut interpreter = rsc::Interpreter::default();
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
-        if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
-            (val * 100.0).round() / 100.0
+        // if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
+        let mut value = None;
+        match rsc::tokenize(&result_string.to_lowercase()) {
+            Ok(tokens) => match rsc::parse(&tokens) {
+                Ok(expr) => match interpreter.eval(&expr) { // Step 3: interprets the Expr
+                    Ok(result) => {
+                        value = Some(result);
+                    },
+                    Err(interpret_error) => eprintln!("{:?}", interpret_error),
+                },
+                _ => {}
+            }
+            _ => {}
+        }
+        if value.is_some() {
+            (value.unwrap() * 100.0).round() / 100.0
         } else {
             let mut stack = Stack::new(&result_string);
-            stack.eval()
+            (stack.eval())
         }
     }) {
         return Some(f);
@@ -219,9 +234,9 @@ pub fn test_expression() {
     let mut ns = fasteval::EmptyNamespace;
     // power ( 0 ,2 )
     //let r = tinyexpr::interp("2+2*2").unwrap();
-    let s = tinyexpr::interp("  sqrt (  pow ( 1, 2 )  )");
+    let s = tinyexpr::interp(" ( / 2 + 60 )");
     //let s  = fasteval::ez_eval("( 2 ^ 2 )", &mut ns);
-    // dbg!(s);
+    dbg!(s);
 }
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {

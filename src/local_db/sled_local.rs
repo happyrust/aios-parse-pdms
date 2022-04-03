@@ -13,7 +13,6 @@ use crate::{AttrMap, db1_dehash, parse_pdms_dir};
 use crate::parse::PdmsDbData;
 use crate::pdms_types::{EleGeoInstData, RefI32Tuple, RefU64, RefU64Vec};
 // sanakirja 不支持动态大小
-// use sanakirja::*;
 
 #[derive(Default, Debug)]
 pub struct PdmsConfig{

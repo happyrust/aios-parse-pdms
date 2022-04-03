@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::ops::Neg;
 use dashmap::DashMap;
 use itertools::Itertools;
-use mongodb::{Database, bson::doc, Client};
 use smol_str::SmolStr;
 use crate::AttrMap;
 use crate::db_tool::db1_dehash;
@@ -136,7 +135,7 @@ pub fn resolve_paragon_gm_params(
     dbg!(&gm_param);
     if let Some(gm_data) = resolve_gmse_params(gm_param, context, axis_params) {
         if let Ok(s) = std::panic::catch_unwind(move || unsafe {
-            dbg!(&gm_data);
+            // dbg!(&gm_data);
             return resolve_to_cate_geo_params(gm_data);
         }){
             return s;

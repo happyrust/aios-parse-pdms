@@ -16,33 +16,31 @@ pub const DDRADIUS_STR: &'static str = "DDRADIUS";
 pub const DDANGLE_STR: &'static str = "DDANGLE";
 
 
-
 ///求解design component
-pub async fn resolve_desi_comp<T: PdmsDataInterface>(
+pub fn resolve_desi_comp<T: PdmsDataInterface>(
     refno: RefU64,
     interface: &T,
 ) -> Option<GeomsInfo> {
-
-    let attr_map = interface.get_ele_attr_async(refno).await;
+    let attr_map = interface.get_ele_attr(refno);
     if attr_map.is_none() { return None; }
     let attr_map = attr_map.unwrap();
     let mut desp = get_attr_value_int_vec(&attr_map, "DESP");
 
     let mut scom_ref = None;
     if let Some(catref) = attr_map.get_foreign_refno("CATR") {
-        scom_ref  = Some(catref);
-    }else{
+        scom_ref = Some(catref);
+    } else {
         let spre_ref = attr_map.get_foreign_refno("SPRE").unwrap_or_default();
-        if let Some(spre) = interface.get_ele_attr_async(spre_ref).await {
+        if let Some(spre) = interface.get_ele_attr(spre_ref) {
             if spre.contains_attr_name("CATR") {
                 scom_ref = spre.get_foreign_refno("CATR");
             }
         }
     };
-    dbg!(&scom_ref);
     if scom_ref.is_none() { return None; }
+    // dbg!(&scom_ref);
     let scom_ref = scom_ref.unwrap();
-    let scom_info = query_scom_info(scom_ref, interface).await;
+    let scom_info = query_scom_info(scom_ref, interface);
     if scom_info.is_none() { return None; }
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     for i in 0..desp.len() {
@@ -64,42 +62,42 @@ pub async fn resolve_desi_comp<T: PdmsDataInterface>(
     context.insert("RADI".into(), radi);
 
     // dbg!(&context);
-    let mut geom_info = resolve_cata_comp(scom_info.as_ref().unwrap(), interface, Some(context)).await;
+    let mut geom_info = resolve_cata_comp(scom_info.as_ref().unwrap(), interface, Some(context));
     Some(geom_info)
 }
 
 
 ///整合SCOM对应的临时数据
-pub async fn query_scom_info<T: PdmsDataInterface>(
+pub fn query_scom_info<T: PdmsDataInterface>(
     refno: RefU64,
     interface: &T,
 ) -> Option<ScomInfo> {
-    if let Some(attr_map) = interface.get_ele_attr_async(refno).await {
+    if let Some(attr_map) = interface.get_ele_attr(refno) {
         let type_noun = attr_map.get_type_cloned();
         let is_sprf = type_noun == "SPRF";
         // if type_noun == "SPRF" {
         //     let gmss_refno = attr_map.get_foreign_refno("GSTR").unwrap_or_default();
         //     if let Some(gmss_attr) = interface
         //         .get_ele_attr(&gmss_refno)
-        //         .await
+        //         
         //     {
         //         let gmss_refno = gmss_attr.get_refno().unwrap();
         //         // dbg!(gmss_refno.to_refno_str());
         //         let children = interface
-        //             .get_ele_children_refs_async(&gmss_refno)
-        //             .await;
+        //             .get_ele_children_refsc(&gmss_refno)
+        //             ;
         //         let mut gm_params = vec![];
         //         for child in children {
         //             let mut gm_param = GmParam::default();
         //             gm_param.visible_flag = true;
-        //             let attr_map = interface.get_ele_attr(&child).await.unwrap();
+        //             let attr_map = interface.get_ele_attr(&child).unwrap();
         //             let tmp_type = attr_map.get_type();
         //             if tmp_type.as_str() == "SPRO" {
         //                 let spve = interface
-        //                     .get_ele_children_refs_async(&child)
-        //                     .await;
+        //                     .get_ele_children_refsc(&child)
+        //                     ;
         //                 for v in spve {
-        //                     let attr_map = interface.get_ele_attr(&v).await.unwrap();
+        //                     let attr_map = interface.get_ele_attr(&v).unwrap();
         //                     gm_param.verts.push([
         //                         attr_map.get_as_string("PX").unwrap_or_default(),
         //                         attr_map.get_as_string("PY").unwrap_or_default(),
@@ -125,27 +123,27 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
         // }
 
         //todo collect PLIN data
-        let ptref_name = if is_sprf { "PSTR" } else { "PTRE"};
+        let ptref_name = if is_sprf { "PSTR" } else { "PTRE" };
         let ptre_refno = attr_map.get_foreign_refno(ptref_name).unwrap_or_default();
         let mut axis_params = vec![];
         let mut axis_param_numbers = vec![];
         if let Some(ptre_am) = interface
-            .get_ele_attr_async(ptre_refno)
-            .await
+            .get_ele_attr(ptre_refno)
+
         {
-            let axis_param_map = query_axis_params(&ptre_am, interface).await;
+            let axis_param_map = query_axis_params(&ptre_am, interface);
             axis_params = axis_param_map.values().cloned().collect::<Vec<_>>();
             axis_param_numbers = axis_param_map.keys().cloned().collect::<Vec<_>>();
         }
 
-        let gmref_name = if is_sprf { "GSTR" } else { "GMRE"};
+        let gmref_name = if is_sprf { "GSTR" } else { "GMRE" };
         let gmse_refno = attr_map.get_foreign_refno(gmref_name).unwrap_or_default();
         let mut gm_params = vec![];
         if let Some(gmse_am) = interface
-            .get_ele_attr_async(gmse_refno)
-            .await
+            .get_ele_attr(gmse_refno)
+
         {
-            gm_params = query_gm_params(&gmse_am, interface).await;
+            gm_params = query_gm_params(&gmse_am, interface);
         }
 
         return Some(ScomInfo {
@@ -164,16 +162,14 @@ pub async fn query_scom_info<T: PdmsDataInterface>(
     None
 }
 
-pub async fn query_axis_params<T: PdmsDataInterface>(
+pub fn query_axis_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
     interface: &T,
 ) -> BTreeMap<i32, AxisParam> {
     // 查找ptse
     let mut map = BTreeMap::new();
     let refno = attr_map.get_refno().unwrap_or_default();
-    let children = interface
-        .get_ele_children_attrs_async(refno)
-        .await;
+    let children = interface.get_ele_children_attrs(refno);
     for child in children {
         let number = child.get_as_string("NUMB").unwrap_or_default().parse::<i32>().unwrap_or(-1);
         map.entry(number).or_insert(get_axis_param(&child));
@@ -182,31 +178,31 @@ pub async fn query_axis_params<T: PdmsDataInterface>(
 }
 
 ///查询gmse的参数
-pub async fn query_gm_params<T: PdmsDataInterface>(
+pub fn query_gm_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
     interface: &T,
 ) -> Vec<GmParam> {
     let mut gms = vec![];
     let refno = attr_map.get_refno().unwrap();
     let children = interface
-        .get_ele_children_attrs_async(refno)
-        .await;
+        .get_ele_children_attrs(refno)
+        ;
     for child in children {
         let has_chidren = child.get_type_cloned() == "SPRO";//todo add other types
-        gms.push(query_gm_param(&child, interface, has_chidren).await);
+        gms.push(query_gm_param(&child, interface, has_chidren));
     }
     gms
 }
 
 
 ///对元件库的SCOM Element进行求值计算
-pub async fn resolve_cata_comp<T: PdmsDataInterface>(
+pub fn resolve_cata_comp<T: PdmsDataInterface>(
     scom_info: &ScomInfo,
     interface: &T,
-    context: Option<HashMap<SmolStr, SmolStr>>
+    context: Option<HashMap<SmolStr, SmolStr>>,
 ) -> GeomsInfo {
     let mut cur_context = HashMap::new();
-    if context.is_some(){
+    if context.is_some() {
         cur_context = context.unwrap();
     }
     //默认值
@@ -220,7 +216,7 @@ pub async fn resolve_cata_comp<T: PdmsDataInterface>(
         .entry(DDANGLE_STR.into())
         .or_insert("0.0".into());
     //获取DTSE的expression
-    process_dtse_params(&scom_info.attr_map, interface, &mut cur_context).await;
+    process_dtse_params(&scom_info.attr_map, interface, &mut cur_context);
 
     // dbg!(&scom_info);
 
@@ -310,7 +306,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
 }
 
 ///获得gmse的params
-pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> GmParam {
+pub fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> GmParam {
     // dbg!(attr_map.to_string_hashmap());
     let mut paxises = get_attr_strings_db(attr_map, &["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = attr_map.get_val("PTS") {
@@ -330,13 +326,13 @@ pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterfac
     let mut dxy = vec![];
     //大部分是顶点数据
     if has_chidren {
-        for a in interface.get_ele_children_attrs_async(attr_map.get_refno().unwrap()).await{
+        for a in interface.get_ele_children_attrs(attr_map.get_refno().unwrap()) {
             verts.push([a.get_as_string("PX").unwrap_or_default(), a.get_as_string("PY").unwrap_or_default()]);
             dxy.push([a.get_as_string("DX").unwrap_or_default(), a.get_as_string("DY").unwrap_or_default()]);
         }
-    }else{
-        verts = vec![[attr_map.get_as_string("PX").unwrap_or_default(),attr_map.get_as_string("PY").unwrap_or_default()]];
-        dxy = vec![[attr_map.get_as_string("DX").unwrap_or_default(),attr_map.get_as_string("DY").unwrap_or_default()]];
+    } else {
+        verts = vec![[attr_map.get_as_string("PX").unwrap_or_default(), attr_map.get_as_string("PY").unwrap_or_default()]];
+        dxy = vec![[attr_map.get_as_string("DX").unwrap_or_default(), attr_map.get_as_string("DY").unwrap_or_default()]];
     }
     GmParam {
         refno: attr_map.get_refno().unwrap_or_default(),
@@ -366,16 +362,15 @@ pub async fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterfac
 }
 
 ///获得dtse的参数信息
-pub async fn process_dtse_params<T:PdmsDataInterface>(
+pub fn process_dtse_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
     interface: &T,
     context: &mut HashMap<SmolStr, SmolStr>,
-){
-
+) {
     let dtre_refno = attr_map.get_foreign_refno("DTRE").unwrap_or_default();
     let children = interface
-        .get_ele_children_attrs_async(dtre_refno)
-        .await;
+        .get_ele_children_attrs(dtre_refno)
+        ;
     for child in children {
         let key = child.get_as_string("DKEY").unwrap_or_default();
         let exp = child.get_as_string("PPRO").unwrap_or_default();

@@ -26,8 +26,7 @@ impl DerefMut for StringDatabase {
 impl StringDatabase {
     ///获得refno的project 名称
     #[inline]
-    pub async fn get_string(&self, hash: AiosStrHash) -> Result<Option<AiosStr>, bonsaidb::core::Error> {
-        // self.get_refno_info_by_hash(refno.get_u32_hash())
-        Ok(AiosStr::get(hash, &self.db).await?.map(|x| x.contents))
+    pub fn get_string(&self, hash: AiosStrHash) -> Result<Option<AiosStr>, bonsaidb::core::Error> {
+        Ok(AiosStr::get(hash, &self.db)?.map(|x| x.contents))
     }
 }
