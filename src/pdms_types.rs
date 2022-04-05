@@ -6,10 +6,10 @@ use crate::pdms_types::AttrVal::{
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{widgets::InspectableButton, Inspectable, InspectorPlugin};
-use bonsaidb::core::schema::{
-    Collection, CollectionName, DefaultSerialization, Schematic, SerializedCollection,
-};
-use bonsaidb::core::Error;
+// use bonsaidb::core::schema::{
+//     Collection, CollectionName, DefaultSerialization, Schematic, SerializedCollection,
+// };
+// use bonsaidb::core::Error;
 use dashmap::DashMap;
 use glam::TransformSRT;
 use hash32::Hasher;
@@ -31,7 +31,6 @@ use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
 use bevy_egui::egui;
 use egui::Key::O;
-use bonsaidb::core::schema::*;
 
 pub const LEVEL_VISBLE: u32 = 6;
 
@@ -213,27 +212,27 @@ impl IntoIterator for RefU64Vec {
 }
 
 //存储children，也可以这么去存储
-impl Collection for RefU64Vec {
-    type PrimaryKey = u64;
-
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "refnos")
-    }
-
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl SerializedCollection for RefU64Vec {
-    type Format = transmog_bincode::Bincode;
-    type Contents = Self;
-
-    fn format() -> Self::Format {
-        // The bincode options can be set on this type
-        transmog_bincode::Bincode::default()
-    }
-}
+// impl Collection for RefU64Vec {
+//     type PrimaryKey = u64;
+//
+//     fn collection_name() -> CollectionName {
+//         CollectionName::new("aios", "refnos")
+//     }
+//
+//     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+//         Ok(())
+//     }
+// }
+//
+// impl SerializedCollection for RefU64Vec {
+//     type Format = transmog_bincode::Bincode;
+//     type Contents = Self;
+//
+//     fn format() -> Self::Format {
+//         // The bincode options can be set on this type
+//         transmog_bincode::Bincode::default()
+//     }
+// }
 
 impl RefU64Vec {
     #[inline]
@@ -757,44 +756,44 @@ impl AttrMap {
     }
 }
 
-impl Collection for AttrMap {
-    type PrimaryKey = u32;
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "attr")
-    }
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl SerializedCollection for AttrMap {
-    type Contents = Self;
-    type Format = transmog_bincode::Bincode;
-    fn format() -> Self::Format {
-        transmog_bincode::Bincode::default()
-    }
-}
+// impl Collection for AttrMap {
+//     type PrimaryKey = u32;
+//     fn collection_name() -> CollectionName {
+//         CollectionName::new("aios", "attr")
+//     }
+//     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+//         Ok(())
+//     }
+// }
+//
+// impl SerializedCollection for AttrMap {
+//     type Contents = Self;
+//     type Format = transmog_bincode::Bincode;
+//     fn format() -> Self::Format {
+//         transmog_bincode::Bincode::default()
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct PdmsTree(pub Tree<EleNode>);
 
-impl Collection for PdmsTree {
-    type PrimaryKey = u64;
-
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "tree")
-    }
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-impl SerializedCollection for PdmsTree {
-    type Contents = Self;
-    type Format = transmog_bincode::Bincode;
-    fn format() -> Self::Format {
-        transmog_bincode::Bincode::default()
-    }
-}
+// impl Collection for PdmsTree {
+//     type PrimaryKey = u64;
+//
+//     fn collection_name() -> CollectionName {
+//         CollectionName::new("aios", "tree")
+//     }
+//     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+//         Ok(())
+//     }
+// }
+// impl SerializedCollection for PdmsTree {
+//     type Contents = Self;
+//     type Format = transmog_bincode::Bincode;
+//     fn format() -> Self::Format {
+//         transmog_bincode::Bincode::default()
+//     }
+// }
 
 /// 一个参考号是有可能重复的，project信息可以不用存储，获取信息时必须要带上 db_no
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -807,24 +806,24 @@ pub struct RefnoInfo {
     pub db_no: u32,
 }
 
-impl Collection for RefnoInfo {
-    type PrimaryKey = u32;
-
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "info")
-    }
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl SerializedCollection for RefnoInfo {
-    type Contents = Self;
-    type Format = transmog_bincode::Bincode;
-    fn format() -> Self::Format {
-        transmog_bincode::Bincode::default()
-    }
-}
+// impl Collection for RefnoInfo {
+//     type PrimaryKey = u32;
+//
+//     fn collection_name() -> CollectionName {
+//         CollectionName::new("aios", "info")
+//     }
+//     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+//         Ok(())
+//     }
+// }
+//
+// impl SerializedCollection for RefnoInfo {
+//     type Contents = Self;
+//     type Format = transmog_bincode::Bincode;
+//     fn format() -> Self::Format {
+//         transmog_bincode::Bincode::default()
+//     }
+// }
 
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[derive(Serialize, Deserialize, Clone, Debug, Component, Reflect)]
@@ -1173,23 +1172,23 @@ pub struct EleGeoInstData {
     pub node_id: NodeId,
 }
 
-impl Collection for EleGeoInstData {
-    type PrimaryKey = u64;
-
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "geoms")
-    }
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-impl SerializedCollection for EleGeoInstData {
-    type Contents = Self;
-    type Format = transmog_bincode::Bincode;
-    fn format() -> Self::Format {
-        transmog_bincode::Bincode::default()
-    }
-}
+// impl Collection for EleGeoInstData {
+//     type PrimaryKey = u64;
+//
+//     fn collection_name() -> CollectionName {
+//         CollectionName::new("aios", "geoms")
+//     }
+//     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+//         Ok(())
+//     }
+// }
+// impl SerializedCollection for EleGeoInstData {
+//     type Contents = Self;
+//     type Format = transmog_bincode::Bincode;
+//     fn format() -> Self::Format {
+//         transmog_bincode::Bincode::default()
+//     }
+// }
 
 pub trait PdmsNodeTrait {
     #[inline]
@@ -1226,25 +1225,25 @@ pub struct DbnoVersion {
     pub version: u32,
 }
 
-impl Collection for DbnoVersion {
-    type PrimaryKey = u32;
-
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "vers")
-    }
-
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl SerializedCollection for DbnoVersion {
-    type Contents = Self;
-    type Format = transmog_bincode::Bincode;
-    fn format() -> Self::Format {
-        transmog_bincode::Bincode::default()
-    }
-}
+// impl Collection for DbnoVersion {
+//     type PrimaryKey = u32;
+//
+//     fn collection_name() -> CollectionName {
+//         CollectionName::new("aios", "vers")
+//     }
+//
+//     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+//         Ok(())
+//     }
+// }
+//
+// impl SerializedCollection for DbnoVersion {
+//     type Contents = Self;
+//     type Format = transmog_bincode::Bincode;
+//     fn format() -> Self::Format {
+//         transmog_bincode::Bincode::default()
+//     }
+// }
 
 impl PdmsNodeTrait for EleNode {
     #[inline]
@@ -1444,24 +1443,24 @@ impl hash32::Hash for AiosStr {
     }
 }
 
-impl Collection for AiosStr {
-    type PrimaryKey = u32;
-
-    fn collection_name() -> CollectionName {
-        CollectionName::new("aios", "strings")
-    }
-    fn define_views(schema: &mut Schematic) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl SerializedCollection for AiosStr {
-    type Contents = Self;
-    type Format = transmog_bincode::Bincode;
-    fn format() -> Self::Format {
-        transmog_bincode::Bincode::default()
-    }
-}
+// impl Collection for AiosStr {
+//     type PrimaryKey = u32;
+//
+//     fn collection_name() -> CollectionName {
+//         CollectionName::new("aios", "strings")
+//     }
+//     fn define_views(schema: &mut Schematic) -> Result<(), Error> {
+//         Ok(())
+//     }
+// }
+//
+// impl SerializedCollection for AiosStr {
+//     type Contents = Self;
+//     type Format = transmog_bincode::Bincode;
+//     fn format() -> Self::Format {
+//         transmog_bincode::Bincode::default()
+//     }
+// }
 
 //todo make it as database
 #[derive(Component, Debug, Default, Clone, Serialize, Deserialize)]

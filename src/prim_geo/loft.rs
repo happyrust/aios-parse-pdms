@@ -4,14 +4,12 @@ use std::f32::EPSILON;
 use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
 use truck_modeling::{builder, Face, Shell, Surface, Wire};
-// use bevy_inspector_egui::Inspectable;
 use truck_meshalgo::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
-use gdnative::prelude::VariantType::Vector3;
 use glam::{TransformRT, TransformSRT, Vec3};
-use log::kv::Source;
+
 use truck_modeling::builder::try_attach_plane;
 use crate::AttrMap;
 use crate::parsed_data::CateProfileParam;

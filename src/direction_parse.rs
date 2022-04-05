@@ -1,18 +1,22 @@
 use glam::*;
 use nom::number::complete:: float;
-
 use nom::*;
-
-use static_init::{dynamic};
 use std::collections::HashMap;
 
-#[dynamic]
-static AXISES_MAP: HashMap<&'static str, Vec3> = vec![("X", Vec3::X),
-                                                      ("Y", Vec3::Y),
-                                                      ("Z", Vec3::Z),
-                                                      ("-X", Vec3::new(-1.0, 0.0, 0.0)),
-                                                      ("-Y", Vec3::new(0.0, -1.0, 0.0)),
-                                                      ("-Z", Vec3::new(0.0, 0.0, -1.0)), ].into_iter().collect();
+
+lazy_static! {
+    pub static ref AXISES_MAP: HashMap<&'static str, Vec3> = {
+        let mut s = HashMap::new();
+        s.insert("X", Vec3::X);
+        s.insert("Y", Vec3::X);
+        s.insert("Z", Vec3::X);
+        s.insert("-X", -Vec3::X);
+        s.insert("-Y", -Vec3::X);
+        s.insert("-Z", -Vec3::X);
+        s
+    };
+}
+
 
 #[derive(Debug, Default)]
 struct Rotation {

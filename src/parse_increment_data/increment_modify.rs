@@ -15,7 +15,6 @@ use crate::helper::{parse_to_i32, parse_to_u16, parse_to_u32};
 use crate::parse::{NOUN_TYPES_MAP, parse_ele_data, parse_file_basic_info, PdmsMongoDbInfo};
 use crate::pdms_types::{AiosStr, DbnoVersion, EleNodeMongoDb, PdmsDatabaseInfo, RefU64Vec, StringLookupTable};
 use crate::{AttrMap, doc, read_attr_info_config};
-use crate::local_db::bonsaidb_local::AiosPdmsProject;
 use crate::parse_increment_data::NewDataState;
 use std::vec::Vec;
 use anyhow::anyhow;

@@ -17,8 +17,6 @@ extern crate approx;
 extern crate hash32_derive;
 extern crate hash32;
 
-use mongodb::Client;
-use mongodb::bson::doc;
 use std::collections::HashSet;
 use std::error::Error;
 use crate::parsed_data::GeomsInfo;
@@ -62,13 +60,12 @@ use std::time::Instant;
 
 pub mod interface;
 pub mod mesh_helper;
-pub mod test_cases;
+// pub mod test_cases;
 pub mod parse_increment_data;
 // pub mod data_to_file;
 
-pub use test_cases::read_attr_info_config;
+// pub use test_cases::read_attr_info_config;
 use crate::db_tool::db1_hash;
-use crate::local_db::bonsaidb_local::{AiosDBManager, DbOption};
 
 pub mod notify_file_change;
 
@@ -182,18 +179,19 @@ lazy_static! {
 //cached functions to get value
 //todo 数据分层，尽可能的用缓存
 
-pub fn init_pdms_db(db_option: &DbOption) -> anyhow::Result<AiosDBManager> {
-    let mut time = Instant::now();
-    let mut db_manager = AiosDBManager::init(db_option).unwrap();
-
-    println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
-    let refno = RefU64::from_two_nums(16395, 39308);
-    //cached 一些常用的取值操作
-    let refno_info = db_manager.get_refno_info(refno);
-    dbg!(&refno_info);
-
-    return Ok(db_manager);
-}
+//todo wasm need use feature
+// pub fn init_pdms_db(db_option: &DbOption) -> anyhow::Result<AiosDBManager> {
+//     let mut time = Instant::now();
+//     let mut db_manager = AiosDBManager::init(db_option).unwrap();
+//
+//     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
+//     let refno = RefU64::from_two_nums(16395, 39308);
+//     //cached 一些常用的取值操作
+//     let refno_info = db_manager.get_refno_info(refno);
+//     dbg!(&refno_info);
+//
+//     return Ok(db_manager);
+// }
 
 
 

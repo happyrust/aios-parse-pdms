@@ -7,7 +7,6 @@ use truck_polymesh::stl::IntoSTLIterator;
 // use bevy_inspector_egui::Inspectable;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
-use log::kv::Source;
 use lyon::math::size;
 use crate::prim_geo::helper::quad_indices;
 use crate::AttrMap;

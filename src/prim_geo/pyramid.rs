@@ -10,7 +10,7 @@ use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
 use glam::Vec3;
-use log::kv::Source;
+
 use truck_modeling::builder::try_attach_plane;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;

@@ -1,6 +1,4 @@
 
-use mongodb::Client;
-use mongodb::bson::doc;
 use std::collections::HashSet;
 use std::error::Error;
 use dashmap::DashMap;

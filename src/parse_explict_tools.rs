@@ -32,10 +32,6 @@ const ATT_PTCDI: i32 = 0x95A34;
 // });
 lazy_static! {
     pub static ref MATH_OPERATOR_MAP: HashMap<i32, &'static str> = {
-         // &[0x0, 0x0, 0x3, 0x89] => {
-         //            let value = result_stack.pop().unwrap_or_default();
-         //            symbol = format!("ACOS({})", value);
-         //        }
         let mut s = HashMap::new();
         s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x21]), "(-{})");
         s.insert(i32::from_be_bytes([0x0, 0x0, 0x3, 0x22]), "({}+{})");

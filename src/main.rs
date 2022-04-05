@@ -18,7 +18,6 @@ use phf::phf_map;
 use dashmap::DashMap;
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
-use mongodb::bson::{doc, Document};
 use std::fs;
 use std::env::current_dir;
 use std::ffi::OsStr;
@@ -33,8 +32,7 @@ extern crate clap;
 use clap::clap_app;
 use log::LevelFilter;
 use log::info;
-use log::kv::Source;
-use mongodb::options::{ClientOptions, FindOneAndReplaceOptions, FindOneAndUpdateOptions, FindOneOptions};
+
 // use mysql::Pool;
 // use mysql::prelude::Queryable;
 use rayon::prelude::IntoParallelRefIterator;
@@ -42,8 +40,6 @@ use simplelog::{CombinedLogger, WriteLogger};
 // use mysql::*;
 // use mysql::prelude::*;
 // use mysql::time::{Instant, parse};
-use mongodb::IndexModel;
-use mongodb::options::IndexOptions;
 use parse_pdms_db::db_tool;
 use parse_pdms_db::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use parse_pdms_db::parse::*;
@@ -56,14 +52,12 @@ use futures::TryStreamExt;
 use id_tree::Tree;
 use nalgebra_glm::Mat3;
 use smol_str::SmolStr;
-use parse_pdms_db::local_db::{bonsaidb_local, sled_local};
-use parse_pdms_db::local_db::bonsaidb_local::{AiosDBManager, DbOption};
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
 use parse_pdms_db::prim_geo::ctorus::CTorus;
 use parse_pdms_db::prim_geo::dish::Dish;
 use parse_pdms_db::shape::pdms_shape::{BrepShapeTrait, VerifiedShape};
-use parse_pdms_db::test_cases::test_database::test_column;
+// use parse_pdms_db::test_cases::test_database::test_column;
 
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
@@ -85,23 +79,24 @@ fn main_1() {
     notify_file();
 }
 
-#[tokio::main]
-async fn main() -> AiosDbError {
-    CombinedLogger::init(
-        vec![
-            WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
-        ]
-    ).unwrap();
-
-    let mut mgr = parse_pdms_db::init_pdms_db(&DbOption{
-        total_sync: true,
-        incr_sync: false,
-        project_path: "/Volumes/DPC/aba".to_owned(),
-        included_projects: vec!["ABA".to_string()/*, "GDP".to_string()*/],
-        included_db_files: Some(vec!["aba0011_0001".to_string()])
-    }).await?;
-
-    mgr.cache_geos_data(11, "ABA").await?;
+// #[tokio::main]
+//async
+fn main() -> AiosDbError {
+    // CombinedLogger::init(
+    //     vec![
+    //         WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
+    //     ]
+    // ).unwrap();
+    //
+    // let mut mgr = parse_pdms_db::init_pdms_db(&DbOption{
+    //     total_sync: true,
+    //     incr_sync: false,
+    //     project_path: "/Volumes/DPC/aba".to_owned(),
+    //     included_projects: vec!["ABA".to_string()/*, "GDP".to_string()*/],
+    //     included_db_files: Some(vec!["aba0011_0001".to_string()])
+    // }).await?;
+    //
+    // mgr.cache_geos_data(11, "ABA").await?;
 
     return Ok(());
 }

@@ -108,25 +108,7 @@ pub struct PdmsConfig {
     pub mdb_name: String,
 }
 
-#[derive(Debug, Default, Clone, Parser)]
-pub struct DbOption {
-    #[clap(long)]
-    pub total_sync: bool,
-    #[clap(long)]
-    pub incr_sync: bool,
-    #[clap(long, default_value = "12.1SP4Projects")]
-    pub project_path: String,
-    //#[clap(long, default_value = "MASTER", "SAMPLE")]
-    pub included_projects: Vec<String>,
-    #[clap(skip)]
-    pub included_db_files: Option<Vec<String>>,  //if none all files parsed, if not, only included parsed
-    #[clap(long)]
-    pub mdb_name: String,
-    #[clap(long)]
-    pub project_name: String,
-    #[clap(short)]
-    pub main_db_code: u32,
-}
+
 
 ///MDB数据库管理
 #[derive(Debug, Clone)]
