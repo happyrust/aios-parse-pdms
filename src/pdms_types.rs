@@ -1215,7 +1215,7 @@ pub struct EleNode {
     pub name_hash: AiosStrHash,
     pub noun: u32,
     pub version: u32,
-    // pub global_mat: Mat4,   //全局坐标系下的变换矩阵
+    pub children_count: usize,
 }
 
 /// 每个dbno对应的version
