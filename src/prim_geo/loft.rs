@@ -22,12 +22,8 @@ use crate::tool::hash_tool::{hash_f32, hash_vec3};
 #[derive(Component, Debug, Clone)]
 pub struct SctnSolid {
     pub profile: CateProfileParam,
-
     pub drns: Vec3,
     pub drne: Vec3,
-
-    // pub axis_dir: Vec3,
-
     pub height: f32,
     pub arc_path: Option<(Vec3, Vec3, Vec3)>,  //p1, p2, center  弧形的路径
 }
@@ -160,8 +156,8 @@ impl BrepShapeTrait for SctnSolid {
 
             }
             CateProfileParam::SPRO(p) =>{
-                face_s = Some(self.cal_spro_face(true, p).unwrap());
-                face_e = Some(self.cal_spro_face(false, p).map(|x| x.inverse()).unwrap());
+                face_s = Some(self.cal_spro_face(true, p).map(|x| x.inverse()).unwrap());
+                face_e = Some(self.cal_spro_face(false, p).unwrap());
             }
             _ => {}
         }

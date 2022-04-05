@@ -1067,8 +1067,8 @@ impl PdmsMeshMgr {
         true
     }
 
-    pub fn deserialize_from_bin_file() -> anyhow::Result<Self> {
-        let mut file = File::open(format!("PdmsMeshMgr.bin"))?;
+    pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
+        let mut file = File::open(format!("PdmsMeshMgr_{}.bin", db_code))?;
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf);
         let r = bincode::deserialize(buf.as_slice())?;

@@ -109,7 +109,6 @@ pub struct PdmsConfig {
 }
 
 #[derive(Debug, Default, Clone, Parser)]
-#[clap(name = "AIOS Database")]
 pub struct DbOption {
     #[clap(long)]
     pub total_sync: bool,
@@ -121,6 +120,12 @@ pub struct DbOption {
     pub included_projects: Vec<String>,
     #[clap(skip)]
     pub included_db_files: Option<Vec<String>>,  //if none all files parsed, if not, only included parsed
+    #[clap(long)]
+    pub mdb_name: String,
+    #[clap(long)]
+    pub project_name: String,
+    #[clap(short)]
+    pub main_db_code: u32,
 }
 
 ///MDB数据库管理
@@ -736,21 +741,20 @@ impl AiosDBManager {
                             }
                         }
                     } else {
-
                         // if d.refno != RefU64::from_two_nums(23584, 7468) {
-                        continue;
+                        // continue;
                         // }
                         // dbg!(d.refno);
                         let ele_type = attr.get_type();
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
-                        let has_catref = /*attr.get_foreign_refno("CATR").is_some() ||*/ attr.get_foreign_refno("SPRE").is_some();
+                        let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
                         // dbg!(d.refno.to_refno_str());
                         //todo fix these types
                         if ele_type == "PFIT" /*|| ele_type == "FITT"*/ {
                             continue;
                         }
                         //针对管道特殊处理
-                        if ele_type == "BRAN" || (owner.is_some() && owner.unwrap().get_type() != "BRAN" && has_catref) {
+                        if ele_type == "BRAN"  || (owner.is_some() && owner.unwrap().get_type() != "BRAN" && has_catref) {
                             // if  ele_type == "NOZZ"  {
                             let mut node_ids_map = HashMap::new();
                             for node_id in cur_node.children() {
