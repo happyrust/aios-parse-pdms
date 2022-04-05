@@ -1,4 +1,5 @@
 use smol_str::SmolStr;
+use crate::db1_dehash;
 use crate::parse::parse_ele_data;
 use crate::pdms_types::{AttrVal, StringLookupTable};
 use crate::test_cases::{convert_str_to_bytes, read_attr_info_config};
@@ -296,9 +297,107 @@ fn test_atta() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
-    //     dbg!(map.value());
-    // }
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let mut value = SmolStr::new("");
+    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+}
+
+
+//test height
+//issue: height is 0
+#[test]
+fn test_aba_height() {
+    // issue : https://gitee.com/happydpc/aios-parse-pdms/issues/I4QDGE
+    let data_str = "
+00 00 00 11 00 00 40 04 00 00 1C 2C 00 0C C9 49
+00 00 40 04 00 00 1C 2B 00 00 00 00 00 00 00 00
+00 00 2F 6F 00 0F 60 01 00 00 00 08 45 7A 00 00
+00 0E 48 9E 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 02 00 0D 00 00 40 04 00 00 1C 2C
+00 00 00 00 00 00 00 00 00 00 40 04 00 00 1C 2D
+00 00 40 04 00 00 1C 2E 00 00 40 04 00 00 1C 2F
+00 00 40 04 00 00 1C 30 00 00 00 1D 00 00 40 04
+00 00 1C 2D 00 09 DB 31 00 00 40 04 00 00 1C 2C
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let mut value = SmolStr::new("");
+    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+}
+
+
+
+//issue: position is zero
+#[test]
+fn test_aba_positon() {
+    dbg!(db1_dehash(u32::from_be_bytes([0x0D, 0xC3, 0x4A, 0xB5])));
+    // dbg!(db1_dehash(u32::from_be_bytes([0x4D, 0x7C, 0x74, 0xD0])));
+    let data_str = "
+00 00 00 2F 00 00 20 04 00 00 2A 3A 02 C7 5C 2C
+00 00 20 04 00 00 2A 39 00 00 03 02 00 17 80 01
+00 00 03 02 00 16 60 01 00 02 00 04 00 09 5B 08
+00 00 1A F4 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 01 4D 7C 74 D0 00 00 00 03 C6 0F C0 00
+C7 30 2C 00 43 48 00 00 00 00 00 03 00 00 00 00
+00 00 00 00 C2 B4 00 00 00 00 00 00 00 02 00 09
+00 00 20 04 00 00 2A 3A 00 00 00 00 00 00 00 00
+00 00 20 04 00 00 2A 3B 00 00 20 04 00 00 2A 3E
+00 01 00 0D 00 00 20 04 00 00 2A 3A 00 00 00 00
+00 00 00 00 00 09 C1 8E 3C 00 00 06 00 00 00 13
+2F 31 44 42 32 30 30 30 31 48 4D 2F 31 30 33 2F
+45 43 48 00
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let mut value = SmolStr::new("");
+    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+}
+
+
+
+//issue: position is zero
+#[test]
+fn test_sample_positon() {
+    let data_str = "
+00 00 00 1D 00 00 5C 20 00 00 25 DF 00 0E A0 01
+00 00 5C 20 00 00 21 7E 00 00 05 47 00 3C A0 01
+00 00 05 47 00 38 40 01 20 02 80 1E 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
+40 C7 CC 00 00 00 00 00 40 B2 16 00 00 00 00 00
+40 B3 1A 00 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 02 00 23 00 00 5C 20 00 00 25 DF
+00 00 00 00 00 00 00 00 00 00 5C 20 00 00 25 E0
+00 00 5C 20 00 00 25 E1 00 00 5C 20 00 00 25 E2
+00 00 5C 20 00 00 25 E3 00 00 5C 20 00 00 26 98
+00 00 5C 20 00 00 26 AA 00 00 5C 20 00 00 26 B4
+00 00 5C 20 00 00 26 BD 00 00 5C 20 00 00 26 C6
+00 00 5C 20 00 00 26 D4 00 00 5C 20 00 00 26 D7
+00 00 5C 20 00 00 26 E5 00 00 5C 20 00 00 26 E8
+00 00 5C 20 00 00 26 EE 00 00 5C 20 00 00 26 F9
+00 01 00 0F 00 00 5C 20 00 00 25 DF 00 00 00 00
+00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
+00 0E A0 01 00 09 C1 8E 3C 00 00 04 00 00 00 0B
+2F 53 54 41 49 52 43 2E 54 4F 50 00
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");

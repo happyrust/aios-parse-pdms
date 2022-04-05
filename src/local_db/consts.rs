@@ -10,6 +10,7 @@ pub const RTOR_NOUN: u32 = db1_hash("RTOR");
 pub const PYRA_NOUN: u32 = db1_hash("PYRA");
 pub const LOOP_NOUN: u32 = db1_hash("LOOP");
 pub const PLOO_NOUN: u32 = db1_hash("PLOO");
+pub const SPINE_NOUN: u32 = db1_hash("SPINE");
 pub const GENSEC_NOUN: u32 = db1_hash("GENSEC");
 pub const POHE_NOUN: u32 = db1_hash("POHE");    //多边形的处理
 pub const REVO_NOUN: u32 = db1_hash("REVO");

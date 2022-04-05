@@ -49,20 +49,6 @@ use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_t
 use anyhow::*;
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
-
-//todo 改成使用调试信息蚕食
-struct DebugParseConfig {
-    //调试的配置信息
-    // limited_cnt: u32, b_save_to_log: bool, print_refno_str: &str, target_refno_str: &str
-}
-
-// #[derive(Debug, Serialize, Deserialize)]
-// struct PdmsAttr {
-//     pub timestamp: ,
-//     pub contents: String,
-// }
-
-
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PdmsDbData {
@@ -310,7 +296,13 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
         // dbg!(last_att_info.value());
-        is_double = last_att_info.offset + 1 <= (origin_impl_len / 4) as u32;   //如果最后的
+        let step = match last_att_info.att_type {
+            // DbAttributeType::BOOL | DbAttributeType::DOUBLE | DbAttributeType::WORD => 1,
+            DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => 3 * 2,
+            DbAttributeType::ELEMENT => 2,
+            _ => 1,
+        };
+        is_double = last_att_info.offset + step <= (origin_impl_len / 4) as u32;
     }
     for i in 0..sorted_noun_hash.len() {
         let noun_hash = sorted_noun_hash[i];
@@ -325,6 +317,14 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             match attr_info.att_type {
                 DbAttributeType::BOOL => { cur_len = 1; }
                 DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
+                    if attr_info.att_type != DbAttributeType::DOUBLE {
+                        let nums = u32::from_be_bytes(implicit_data[cur_offset as usize * 4..cur_offset as usize * 4+4].try_into().unwrap());
+                        //num 不对  00 00 00 01 4D 7C 74 D0 00 00 00 03 C6 0F C0 00
+                        // C7 30 2C 00 43 48 00 00   todo SPAMAP用来做啥
+                        if nums == 1  {
+                            cur_offset += 2;
+                        }
+                    }
                     if !is_double {
                         cur_len = (cur_len - 1) / 2 + 1;
                     }
@@ -538,6 +538,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32, string_lookup: &mut StringLookupTable) -> IResult<&'a [u8], (usize, AttrVal)> {
+    // dbg!(format!("{:#4X?}", input));
+    // dbg!(attr_info.name.as_str());
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
     let b_expr = check_is_expr(attr_info.hash);
@@ -642,6 +644,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                 }
                 DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
                     let mut data = [0f64; 3];
+                    advance_offset = 0;
                     let (input, cnt) = be_i32(input)?;
                     let l = input;
                     let tmp_len = l.len() / 4;   //WORD个数
@@ -654,10 +657,10 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                         }
                         if !is_f32 {
                             data = parse_to_f64_arr(l);
-                            advance_offset = 7;
+                            advance_offset += 7;
                         } else {
                             data = parse_to_f32_arr(l);
-                            advance_offset = 4;
+                            advance_offset += 4;
                         }
                     }
                     val = AttrVal::Vec3Type(data);

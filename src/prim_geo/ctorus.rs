@@ -43,12 +43,10 @@ impl SCTorus {
         let pa_dir = Vec3::new(self.paax_dir.x, self.paax_dir.y, self.paax_dir.z).normalize();
         let pb_dir = Vec3::new(self.pbax_dir.x, self.pbax_dir.y, self.pbax_dir.z).normalize();
         let x_dir = (self.pbax_pt - self.paax_pt).normalize();
-        // let dir = (x_dir);
         let quat = rotate_from_vec3_to_vec3(x_dir, -pa_dir, pb_dir);
         let (mut axis_z, angle) = quat.to_axis_angle();
         torus_info.rot_axis = axis_z;
         torus_info.angle = angle.to_degrees();
-        // godot_dbg!(self.angle);
         let mid_pt = (self.paax_pt + self.pbax_pt) / 2.0;
         let x_len = x_dir.length();
         if x_len < 1.0e-3 {

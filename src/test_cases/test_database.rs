@@ -17,14 +17,14 @@ pub async fn test_column() {
             project_path: path.to_string(),
             included_projects: vec!["Sample".to_string(), "Master".to_string()],
             included_db_files: None,
-        }).await.unwrap();
+        }).unwrap();
     // let mut db = db_manager.db_map.get_mut("Sample").unwrap();
     // let result = db_manager.cache_geos_data(7200).await.unwrap();
     let mut cache_mgr = CachedMeshesMgr::default();
     let mut time = Instant::now();
 
     let refno = RefU64::from_two_nums(23584, 5563);
-    let attr = db_manager.get_attr(refno).await.unwrap().unwrap();
+    let attr = db_manager.get_attr(refno).unwrap().unwrap();
     dbg!(attr);
     // let geoms = db_manager.get_design_geoms(refno, &mut cache_mgr).await;
     //

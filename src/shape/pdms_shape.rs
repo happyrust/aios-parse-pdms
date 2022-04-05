@@ -177,7 +177,7 @@ pub trait BrepShapeTrait: VerifiedShape + Debug {
             if size <= f64::EPSILON {
                 return PdmsMesh::default();
             }
-            let tolerance = tol.unwrap_or((TRIANGLE_TOL * size) as f32) as f64;
+            let tolerance = (tol.unwrap_or((TRIANGLE_TOL) as f32)) as f64 * size;
             if let Some(s) = brep.triangulation(tolerance) {
                 let polygon = s.to_polygon();
                 let vertices = polygon.positions().iter().map(|&x| x.array()).collect::<Vec<_>>();

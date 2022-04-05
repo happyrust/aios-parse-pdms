@@ -91,7 +91,7 @@ static GLOBAL_COLLISION_WORLD: Lazy<Mutex<CollisionWorld<f32, (RefU64, RefU64)>>
 
 static PRIM_HASH_NOUNS: Lazy<Vec<u32>> = Lazy::new(|| {
     vec![BOX_NOUN, CYLI_NOUN, SPHE_NOUN, CONE_NOUN, CTOR_NOUN, DISH_NOUN,
-         LOOP_NOUN, PYRA_NOUN, RTOR_NOUN, REVO_NOUN, POHE_NOUN, PLOO_NOUN]
+         LOOP_NOUN, PYRA_NOUN, RTOR_NOUN, REVO_NOUN, POHE_NOUN, PLOO_NOUN, SPINE_NOUN]
 });
 
 static GENRIC_NOUN_NAMES: Lazy<Vec<SmolStr>> = Lazy::new(|| {
@@ -545,7 +545,10 @@ impl AiosDBManager {
                     let d = cur_node.data();
                     let noun = d.noun;
                     // dbg!(d.refno.to_refno_str());
-                    // if d.refno != RefU64::from_two_nums(23584, 5563){
+                    //8193/110
+                    // if d.refno != RefU64::from_two_nums(23584, 6981)
+                    //     // && d.refno != RefU64::from_two_nums(8193, 62492)
+                    // {
                     //     continue;
                     // }
                     let attr = self.get_attr(d.refno)?.ok_or(bonsaidb::core::Error::Database("No attr map".to_string()))?;
@@ -567,10 +570,12 @@ impl AiosDBManager {
                             let mut parent_att = self.get_attr(parent)?.unwrap();
                             let parent_noun_name = parent_att.get_type();
                             let mut loop_verts: Vec<Vec3> = vec![];
+                            let mut fradius_vec: Vec<f32> = vec![];
                             if let Some(children_refs) = self.get_children(d.refno)? {
                                 for x in children_refs {
                                     if let Some(a) = self.get_attr(x)? {
                                         loop_verts.push(a.get_position());
+                                        fradius_vec.push(a.get_f32("FRAD").unwrap_or_default());
                                     } else {
                                         break;
                                     }
@@ -586,7 +591,7 @@ impl AiosDBManager {
                                             angle,
                                             ..Default::default()
                                         });
-                                        // //dbg!(&revo);
+                                        //dbg!(&revo);
                                         if revo.check_valid() {
                                             item_trans = revo.get_trans();
                                             let r = cached_mesh_mgr.get_pdms_mesh_hash_key(revo);
@@ -601,14 +606,30 @@ impl AiosDBManager {
                                 } else if let Some(v) = parent_att.get_val("HEIG") {
                                     height = v.f32_value().unwrap_or_default();
                                 }
+                                // dbg!(height);
+                                // let mut grand_att = self.get_attr(parent_att.get_owner().unwrap())?.unwrap();
+                                // let grand_noun_name = grand_att.get_type();
+                                // dbg!(&grand_noun_name);
+                                // let is_circle = grand_noun_name == "CFLOOR";
                                 if height >= f32::EPSILON {
                                     let extrusion = Box::new(Extrusion {
                                         loop_verts,
                                         height,
+                                        fradius_vec,
+                                        // is_circle,
                                         ..Default::default()
                                     });
+                                    // dbg!(target_refno.to_refno_str());
+                                    // dbg!(&extrusion);
                                     if extrusion.check_valid() {
                                         item_trans = extrusion.get_trans();
+                                        if noun == PLOO_NOUN {
+                                            if let Some(sjus) = attr.get_string("SJUS"){
+                                                if sjus.as_str() == "UTOP"  || sjus.as_str() == "DTOP" {
+                                                    item_trans.translation = item_trans.translation + Vec3::new(0.0,0.0, -height);
+                                                }
+                                            }
+                                        }
                                         let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
                                         geo_hash = Some(r);
                                     }
@@ -647,7 +668,65 @@ impl AiosDBManager {
                                 let r = cached_mesh_mgr.get_pdms_mesh_hash_key(Box::new(facet));
                                 geo_hash = Some(r);
                             }
-                        } else {
+                        }
+                        else if noun == SPINE_NOUN{
+                            let parent = attr.get_owner().unwrap();
+                            target_refno = parent;
+                            target_node_id = cur_node.parent().unwrap().clone();
+                            let mut parent_att = self.get_attr(parent)?.unwrap();
+                            let parent_noun_name = parent_att.get_type();
+                            //todo 假定圆心是 O
+                            let center = Vec3::ZERO;
+                            let params = parent_att.get_f64_vec("DESP").unwrap_or_default();
+                            if params.len() >= 2 {
+                                let thick = params[0] as f32;
+                                let height = params[1] as f32;
+                                if height >= f32::EPSILON && thick >= f32::EPSILON {
+                                    let mut loop_verts: Vec<Vec3> = vec![];
+                                    let mut loop_back_verts: Vec<Vec3> = vec![];
+                                    let mut fradius_vec: Vec<f32> = vec![];
+                                    let mut fradius_back_vec: Vec<f32> = vec![];
+                                    if let Some(children_refs) = self.get_children(d.refno)? {
+                                        for x in children_refs {
+                                            if let Some(a) = self.get_attr(x)? {
+                                                let p = a.get_position();
+                                                let v = (p-center).normalize();
+                                                loop_verts.push( p - v * thick / 2.0);
+                                                loop_back_verts.push( p + v * thick / 2.0);
+                                                let c_rad = a.get_f32("RADI").unwrap_or_default();
+                                                if abs_diff_eq!(c_rad, 0.0) {
+                                                    fradius_vec.push(0.0);
+                                                    fradius_back_vec.push(0.0);
+                                                }else{
+                                                    fradius_vec.push(c_rad - thick / 2.0);
+                                                    fradius_back_vec.push(c_rad + thick / 2.0);
+                                                }
+
+                                            }
+                                        }
+                                    }
+                                    loop_back_verts.reverse();
+                                    loop_verts.extend_from_slice(&loop_back_verts);
+                                    fradius_back_vec.reverse();
+                                    fradius_vec.extend_from_slice(&fradius_back_vec);
+
+                                    let extrusion = Box::new(Extrusion {
+                                        loop_verts,
+                                        height,
+                                        fradius_vec,
+                                        ..Default::default()
+                                    });
+                                    // dbg!(&extrusion);
+                                    if extrusion.check_valid() {
+                                        item_trans = extrusion.get_trans();
+                                        let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
+                                        geo_hash = Some(r);
+                                    }
+                                }
+                            }
+
+                        }
+                        else {
                             if let Some(brep_obj) = attr.create_brep_shape() {
                                 if brep_obj.check_valid() {
                                     item_trans = brep_obj.get_trans();
@@ -657,6 +736,7 @@ impl AiosDBManager {
                             }
                         }
                     } else {
+
                         // if d.refno != RefU64::from_two_nums(23584, 7468) {
                         continue;
                         // }
@@ -713,10 +793,6 @@ impl AiosDBManager {
                                     if !visible || !brep_shape.check_valid() { continue; }
                                     item_trans = brep_shape.get_trans();
                                     let geo_hash = cached_mesh_mgr.get_pdms_mesh_hash_key(brep_shape);
-                                    // if cur_refno == RefU64::from_two_nums(23584, 5566) {
-                                    //     let xyz = desi_trans.rotation.to_euler(glam::EulerRot::XYZ);
-                                    //     dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
-                                    // }
                                     let mut desi_trans = desi_trans_origin.clone();
                                     if !is_tubing {
                                         desi_trans.translation = desi_trans.translation + desi_trans.rotation * transform.translation;
@@ -749,7 +825,10 @@ impl AiosDBManager {
                             let p_refno = ancestor.data().refno;
                             level_shape_mgr.entry(p_refno).or_insert(RefU64Vec::default()).push(target_refno);
                         }
-                        let tr: TransformSRT = item_trans * self.get_world_transform(d.refno)?;
+                        let tr: TransformSRT = item_trans * self.get_world_transform(target_refno)?;
+                        // let xyz = tr.rotation.to_euler(glam::EulerRot::XYZ);
+                        // dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
+                        // dbg!(&tr);
                         let mut bbox = cached_mesh_mgr.get_bbox(&geo_hash).unwrap();
                         bbox.scaled(&tr.scale);
                         let geom_data = EleGeoInstData {

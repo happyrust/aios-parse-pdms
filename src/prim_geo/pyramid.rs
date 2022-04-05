@@ -36,17 +36,20 @@ pub struct LPyramid {
     pub paax_dir: Vec3,   //A Axis Direction
 
 
-    pub pbtp: f32,  //x top
+    pub pbtp: f32,
+    //x top
     pub pctp: f32,  //y top
 
-    pub pbbt: f32,  // x bottom
+    pub pbbt: f32,
+    // x bottom
     pub pcbt: f32,  // y bottom
 
-    pub ptdi: f32,  //dist to top
+    pub ptdi: f32,
+    //dist to top
     pub pbdi: f32,  //dist to bottom
 
-    pub pbof: f32,
-    pub pcof: f32,
+    pub pbof: f32,  // x offset
+    pub pcof: f32,  // y offset
 }
 
 impl Default for LPyramid {
@@ -78,7 +81,6 @@ impl VerifiedShape for LPyramid {
 }
 
 impl BrepShapeTrait for LPyramid {
-
     fn hash_mesh_params(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         let r = vec![self.pbtp,
@@ -109,21 +111,22 @@ impl BrepShapeTrait for LPyramid {
         let x_dir = self.pbax_dir.normalize().vector3();
         //暂时没用到 x y 的点信息
         let z_dir = self.paax_dir.normalize().vector3();
-        let y_dir = z_dir.cross(x_dir);
+        let y_dir = self.pcax_dir.normalize().vector3();
         let z_pt = self.paax_pt.point3();
 
-        let t_x = self.pbtp as f64 / 2.0;
-        let t_y = self.pctp as f64 / 2.0;
+        //todo 以防止出现有单个点的情况，暂时用这个模拟
+        let t_x = (self.pbtp as f64 / 2.0).max(0.001);
+        let t_y = (self.pctp as f64 / 2.0).max(0.001);
         if t_x * t_y <= f64::EPSILON {
             return None;
         }
-        let b_x = self.pbbt as f64 / 2.0;
-        let b_y = self.pcbt as f64 / 2.0;
+        let b_x = (self.pbbt as f64 / 2.0).max(0.001);;
+        let b_y = (self.pcbt as f64 / 2.0).max(0.001);
         //todo 暂时不考虑这种情况, 退化成一条边和一点的情况
-        if b_x * b_y <= f64::EPSILON {
-            return None;
-        }
-        let btm_center = z_pt + z_dir * self.pbdi as f64;
+        // if b_x * b_y <= f64::EPSILON {
+        //     return None;
+        // }
+        let btm_center = z_pt + z_dir * self.pbdi as f64 - x_dir * self.pbof as f64 - y_dir * self.pcof as f64;;
         let top_center = z_pt + z_dir * self.ptdi as f64 + x_dir * self.pbof as f64 + y_dir * self.pcof as f64;
         let len = btm_center.distance(top_center);
         let b1 = x_dir * b_x;
@@ -169,12 +172,12 @@ impl BrepShapeTrait for LPyramid {
 
         //todo 还要处理其他情况
         if ebs.len() == 4 {
-            if let Ok(f) =   try_attach_plane(&[Wire::from_iter(&ebs)]) {
+            if let Ok(f) = try_attach_plane(&[Wire::from_iter(&ebs)]) {
                 faces.push(f.inverse());
             }
         }
         if ets.len() == 4 {
-            if let Ok(f) =   try_attach_plane(&[Wire::from_iter(&ets)]) {
+            if let Ok(f) = try_attach_plane(&[Wire::from_iter(&ets)]) {
                 faces.push(f);
             }
         }
@@ -222,8 +225,8 @@ impl From<&AttrMap> for LPyramid {
             pctp: ytop,
             pbbt: xbot,
             pcbt: ybot,
-            ptdi: height/2.0,
-            pbdi: -height/2.0,
+            ptdi: height / 2.0,
+            pbdi: -height / 2.0,
             pbof: xoff,
             pcof: yoff,
         }
