@@ -436,7 +436,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         name_hash,
         noun,
         version,
-        children_count: children.0.len(),
+        // children_count: children.0.len(),
     };
 
     all_attr_map.insert(refno, attr_data_map);
@@ -489,7 +489,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         name_hash,
                         noun,
                         version,
-                        children_count: children.0.len(),
+                        // children_count: children.0.len(),
                     };
 
 

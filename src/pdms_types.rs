@@ -773,6 +773,43 @@ impl AttrMap {
 //         transmog_bincode::Bincode::default()
 //     }
 // }
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
+pub struct PdmsCachedAttrMap(pub HashMap<RefU64, AttrMap>);
+
+impl PdmsCachedAttrMap {
+    pub fn serialize_to_bin_file(&self, db_code: u32) -> bool {
+        let mut file = File::create(format!("PdmsCachedAttrMap_{}.bin", db_code)).unwrap();
+        let serialized = bincode::serialize(&self).unwrap();
+        file.write_all(serialized.as_slice()).unwrap();
+        true
+    }
+
+    pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
+        let mut file = File::open(format!("PdmsCachedAttrMap_{}.bin", db_code))?;
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        let r = bincode::deserialize(buf.as_slice())?;
+        Ok(r)
+    }
+}
+
+impl PdmsTree {
+    pub fn serialize_to_bin_file(&self, db_code: u32) -> bool {
+        let mut file = File::create(format!("PdmsTree_{}.bin", db_code)).unwrap();
+        let serialized = bincode::serialize(&self).unwrap();
+        file.write_all(serialized.as_slice()).unwrap();
+        true
+    }
+
+    pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
+        let mut file = File::open(format!("PdmsTree_{}.bin", db_code))?;
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        let r = bincode::deserialize(buf.as_slice())?;
+        Ok(r)
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct PdmsTree(pub Tree<EleNode>);
@@ -1215,7 +1252,7 @@ pub struct EleNode {
     pub name_hash: AiosStrHash,
     pub noun: u32,
     pub version: u32,
-    pub children_count: usize,
+    // pub children_count: usize,
 }
 
 /// 每个dbno对应的version
@@ -1510,6 +1547,20 @@ impl StringLookupTable {
             return serde_json::from_slice::<Self>(bytes.as_slice()).ok();
         }
         None
+    }
+    pub fn serialize_to_bin_file(&self, db_code: u32) -> bool {
+        let mut file = File::create(format!("StringLookupTable_{}.bin", db_code)).unwrap();
+        let serialized = bincode::serialize(&self).unwrap();
+        file.write_all(serialized.as_slice()).unwrap();
+        true
+    }
+
+    pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
+        let mut file = File::open(format!("StringLookupTable_{}.bin", db_code))?;
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf);
+        let r = bincode::deserialize(buf.as_slice())?;
+        Ok(r)
     }
 }
 

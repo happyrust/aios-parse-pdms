@@ -154,8 +154,8 @@ impl BrepShapeTrait for SctnSolid {
 
             }
             CateProfileParam::SPRO(p) =>{
-                face_s = Some(self.cal_spro_face(true, p).map(|x| x.inverse()).unwrap());
-                face_e = Some(self.cal_spro_face(false, p).unwrap());
+                face_s = Some(self.cal_spro_face(true, p).unwrap());
+                face_e = Some(self.cal_spro_face(false, p).map(|x| x.inverse()).unwrap());
             }
             _ => {}
         }
