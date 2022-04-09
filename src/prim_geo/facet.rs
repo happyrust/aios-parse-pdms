@@ -90,7 +90,7 @@ impl BrepShapeTrait for Facet {
                         closed: true
                     });
                 }else{
-                    // dbg!(&d);   //暂时不考虑直线的情况
+                    // //dbg!(&d);   //暂时不考虑直线的情况
                 }
             }
             let path = path.build();
@@ -154,7 +154,7 @@ impl Facet {
             y_n = coord_sys[2];
         }
 
-        // dbg!(&y_n);
+        // //dbg!(&y_n);
         for idx in 0..pts.len() {
             let to_p = Vec3::from_slice(&pts[idx]) - v0;
             polygon2d.push(lyon::math::Point::new(to_p.dot(x_n) as f32, to_p.dot(y_n) as f32));

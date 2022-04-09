@@ -1,4 +1,5 @@
-// pub mod increment_modify;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod increment_modify;
 
 pub enum NewDataState {
     Modify,

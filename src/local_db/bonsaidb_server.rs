@@ -99,7 +99,7 @@ async fn do_some_database_work<'a, C: Connection>(
     database: C,
     client_name: &str,
 ) -> Result<(), bonsaidb::core::Error> {
-    dbg!(client_name);
+    //dbg!(client_name);
     // Insert 50 random shapes
     // for _ in 0u32..50 {
     //     let sides = {

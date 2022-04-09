@@ -65,7 +65,7 @@ named!(parse_axis_rotation<&str, Rotation>, do_parse!(
 ///解析expression到direction
 pub fn parse_expr_to_dir(expr: &str) -> Vec3 {
     if let Ok((_, res)) = parse_rotation_struct(expr) {
-        // //////dbg!(&res);
+        // ////////dbg!(&res);
         let mut axis = res.origin_axis;
         if res.rot1.is_some() {
             let rot1 = res.rot1.as_ref().unwrap();
@@ -88,17 +88,17 @@ pub fn parse_expr_to_dir(expr: &str) -> Vec3 {
 fn test_parse_vector() {
     let test_str = "X30Y";
     let dir = parse_expr_to_dir(test_str);
-    dbg!(dir);
+    //dbg!(dir);
     // let dir = parse_rotation_struct(test_str);
-    //////dbg!(&dir);
-    // //////dbg!(AXISES_MAP.get("-X"));
+    ////////dbg!(&dir);
+    // ////////dbg!(AXISES_MAP.get("-X"));
     // let mut  org_vec = Vec3::X;
     // let mut quat1 = Quat::from_axis_angle(Vec3::Y, 30.0f32.to_radians());
     // let mut quat2 = Quat::from_axis_angle(Vec3::Z, 30.0f32.to_radians());
     //
     // // let mut vec1 = quat2 * quat1 * org_vec;
     // let mut vec1 = quat2 * quat1 * org_vec;
-    // //////dbg!(vec1);
+    // ////////dbg!(vec1);
     // let test_str = "-X(59)Y";
     // let res= parse_axis(test_str);
     // println!("{:?}",res);

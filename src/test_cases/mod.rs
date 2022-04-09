@@ -20,11 +20,3 @@ mod test_nom;
 
 mod test_string_lookup;
 pub mod test_database;
-
-
-pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
-    let mut file = File::open(config_path).unwrap();
-    let mut attr_buf: Vec<u8> = Vec::new();
-    file.read_to_end(&mut attr_buf);
-    bincode::deserialize(&attr_buf).unwrap()
-}

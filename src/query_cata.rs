@@ -8,6 +8,7 @@ use crate::pdms_types::{AttrVal, PdmsRefno, RefU64};
 use crate::AttrMap;
 use dashmap::DashMap;
 use std::collections::{BTreeMap, HashMap};
+use anyhow::anyhow;
 use smol_str::SmolStr;
 use crate::data_interface::PdmsDataInterface;
 
@@ -20,12 +21,9 @@ pub const DDANGLE_STR: &'static str = "DDANGLE";
 pub fn resolve_desi_comp<T: PdmsDataInterface>(
     refno: RefU64,
     interface: &T,
-) -> Option<GeomsInfo> {
+) -> anyhow::Result<GeomsInfo> {
     let attr_map = interface.get_ele_attr(refno);
-    if attr_map.is_none() { return None; }
-    let attr_map = attr_map.unwrap();
-    let mut desp = get_attr_value_int_vec(&attr_map, "DESP");
-
+    let attr_map = attr_map.ok_or(anyhow!("AttrMapo not exist".to_string()))?;
     let mut scom_ref = None;
     if let Some(catref) = attr_map.get_foreign_refno("CATR") {
         scom_ref = Some(catref);
@@ -37,18 +35,34 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
             }
         }
     };
-    if scom_ref.is_none() { return None; }
-    // dbg!(&scom_ref);
-    let scom_ref = scom_ref.unwrap();
-    let scom_info = query_scom_info(scom_ref, interface);
-    if scom_info.is_none() { return None; }
+    let scom_ref = scom_ref.ok_or(anyhow!("SCOM ref not exist".to_string()))?;
+    let scom_info = query_scom_info(scom_ref, interface).ok_or(anyhow!("SCOM attmap not exist".to_string()))?;
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
+
+    let mut desp = attr_map.get_f64_vec("DESP").unwrap_or_default();
     for i in 0..desp.len() {
         context.insert(
             format!("DESP{}", i + 1).into(),
             desp[i].to_string().into(),
         );
     }
+    let mut desp = attr_map.get_f64_vec("DESI").unwrap_or_default();
+    for i in 0..desp.len() {
+        context.insert(
+            format!("DESI{}", i + 1).into(),
+            desp[i].to_string().into(),
+        );
+    }
+    // let mut desp = attr_map.get_f64_vec("OPAR").unwrap_or_default();
+    // for i in 0..desp.len() {
+    //     context.insert(
+    //         format!("OPAR{}", i + 1).into(),
+    //         desp[i].to_string().into(),
+    //     );
+    // }
+
+
+
     let height = attr_map.get_as_string("HEIG").unwrap_or("0.0".into());
     context.insert(DDHEIGHT_STR.into(), height.clone());
     context.insert("HEIG".into(), height);
@@ -61,9 +75,13 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
     context.insert(DDRADIUS_STR.into(), radi.clone());
     context.insert("RADI".into(), radi);
 
-    // dbg!(&context);
-    let mut geom_info = resolve_cata_comp(scom_info.as_ref().unwrap(), interface, Some(context));
-    Some(geom_info)
+    //dbg!(&context);
+    let mut geom_info = resolve_cata_comp(&scom_info, interface, Some(context));
+    if geom_info.is_err() {
+        dbg!(geom_info.as_ref().err());
+        dbg!(attr_map.to_string_hashmap());
+    }
+    geom_info
 }
 
 
@@ -82,7 +100,7 @@ pub fn query_scom_info<T: PdmsDataInterface>(
         //         
         //     {
         //         let gmss_refno = gmss_attr.get_refno().unwrap();
-        //         // dbg!(gmss_refno.to_refno_str());
+        //         // //dbg!(gmss_refno.to_refno_str());
         //         let children = interface
         //             .get_ele_children_refsc(&gmss_refno)
         //             ;
@@ -185,8 +203,7 @@ pub fn query_gm_params<T: PdmsDataInterface>(
     let mut gms = vec![];
     let refno = attr_map.get_refno().unwrap();
     let children = interface
-        .get_ele_children_attrs(refno)
-        ;
+        .get_ele_children_attrs(refno);
     for child in children {
         let has_chidren = child.get_type_cloned() == "SPRO";//todo add other types
         gms.push(query_gm_param(&child, interface, has_chidren));
@@ -200,11 +217,8 @@ pub fn resolve_cata_comp<T: PdmsDataInterface>(
     scom_info: &ScomInfo,
     interface: &T,
     context: Option<HashMap<SmolStr, SmolStr>>,
-) -> GeomsInfo {
-    let mut cur_context = HashMap::new();
-    if context.is_some() {
-        cur_context = context.unwrap();
-    }
+) -> anyhow::Result<GeomsInfo> {
+    let mut cur_context = context.unwrap_or_default();
     //默认值
     cur_context
         .entry(DDHEIGHT_STR.into())
@@ -218,30 +232,32 @@ pub fn resolve_cata_comp<T: PdmsDataInterface>(
     //获取DTSE的expression
     process_dtse_params(&scom_info.attr_map, interface, &mut cur_context);
 
-    // dbg!(&scom_info);
-
     //保温层厚度
-    cur_context.insert("IPARAM0".into(), "0".into());
-    cur_context.insert("IPARAM".into(), "0".into());
+    cur_context.insert("IPARA0".into(), "0".into());
+    cur_context.insert("IPARA".into(), "0".into());
+    //PARA
     let params = get_attr_value_f64_vec(&scom_info.attr_map, "PARA").unwrap_or_default();
     for i in 0..params.len() {
+        cur_context.insert(format!("OPAR{}", i + 1).into(), params[i].to_string().into());
+        cur_context.insert(format!("CPAR{}", i + 1).into(), params[i].to_string().into());
+        cur_context.insert(format!("PARA{}", i + 1).into(), params[i].to_string().into());
         cur_context.insert(format!("PARAM{}", i + 1).into(), params[i].to_string().into());
-        cur_context.insert(format!("IPARAM{}", i + 1).into(), "0".to_string().into());
+        cur_context.insert(format!("IPARA{}", i + 1).into(), "0".to_string().into());
     }
     //求解AXIS的数据
-    // dbg!(&scomp_info.axis_params);
+    // //dbg!(&scomp_info.axis_params);
     let axis_map = resolve_axis_params(scom_info, &cur_context);
-    // dbg!(&axis_map);
+    // //dbg!(&axis_map);
     //求解子节点几何模型的数据
 
-    // dbg!(&scom_info.gm_params);
-    let geometries = resolve_gms(&scom_info.gm_params, &cur_context, &axis_map, None);
-    // dbg!(&geometries);
-    GeomsInfo {
+    // //dbg!(&scom_info.gm_params);
+    let geometries = resolve_gms(&scom_info.gm_params, &cur_context, &axis_map, None)?;
+    // //dbg!(&geometries);
+    Ok(GeomsInfo {
         geometries,
         axis_map,
         tubi_bore: None,
-    }
+    })
 }
 
 ///获得AxisParam
@@ -307,7 +323,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> AxisParam {
 
 ///获得gmse的params
 pub fn query_gm_param(attr_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> GmParam {
-    // dbg!(attr_map.to_string_hashmap());
+    // //dbg!(attr_map.to_string_hashmap());
     let mut paxises = get_attr_strings_db(attr_map, &["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = attr_map.get_val("PTS") {
         match val {

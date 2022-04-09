@@ -25,10 +25,10 @@ pub async fn test_column() {
 
     let refno = RefU64::from_two_nums(23584, 5563);
     let attr = db_manager.get_attr(refno).unwrap().unwrap();
-    dbg!(attr);
+    //dbg!(attr);
     // let geoms = db_manager.get_design_geoms(refno, &mut cache_mgr).await;
     //
-    // dbg!(geoms);
+    // //dbg!(geoms);
 
     // let refno = RefU64::from_two_nums(23584, 6370);
     // let refno = RefU64::from_two_nums(23584, 6370);
@@ -36,23 +36,23 @@ pub async fn test_column() {
     //
     // //cached 一些常用的取值操作
     // let refno_info = db_manager.get_refno_info(refno).await.unwrap().unwrap();
-    // dbg!(&refno_info);
+    // //dbg!(&refno_info);
     //
     // let attr = db_manager.get_attr(refno).await.unwrap().unwrap();
     // if let Some(spre) = attr.get_foreign_refno("SPRE") {
     //     let geom = db_manager.get_sprf_geom(spre).await.unwrap();
     //
-    //     dbg!(&geom);
+    //     //dbg!(&geom);
     // }
 
 
     //
-    // dbg!(refno_info);
-    // dbg!(db_manager.get_project_of_refno(&refno).await);
-    // dbg!(db_manager.get_pretty_attr(refno).await);
-    // dbg!(db_manager.get_stringfied_attr(refno).await);
-    // dbg!(db_manager.get_world_transform(refno).await);
-    // dbg!(db_manager.get_children(refno).await);
+    // //dbg!(refno_info);
+    // //dbg!(db_manager.get_project_of_refno(&refno).await);
+    // //dbg!(db_manager.get_pretty_attr(refno).await);
+    // //dbg!(db_manager.get_stringfied_attr(refno).await);
+    // //dbg!(db_manager.get_world_transform(refno).await);
+    // //dbg!(db_manager.get_children(refno).await);
     //
-    // dbg!(time.elapsed().as_millis());
+    // //dbg!(time.elapsed().as_millis());
 }

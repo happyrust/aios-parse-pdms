@@ -56,7 +56,7 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape>{
             let z_axis = pyramid.paax_dir;
             let translation = z_axis * pdist;
             let brep_shape: Box<dyn BrepShapeTrait> = Box::new(pyramid);
-            // dbg!(&brep_shape);
+            // //dbg!(&brep_shape);
             return Some(CateBrepShape{
                 brep_shape,
                 transform: TransformSRT{
@@ -86,7 +86,7 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape>{
             };
             if let Some((torus, transform)) = sc_torus.convert_to_ctorus() {
                 let brep_shape: Box<dyn BrepShapeTrait> = Box::new(torus);
-                // dbg!(&brep_shape);
+                // //dbg!(&brep_shape);
                 return Some(CateBrepShape{
                     brep_shape,
                     transform,
@@ -111,8 +111,8 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape>{
             };
             if let Some((torus, transform)) = sr_torus.convert_to_rtorus() {
                 let brep_shape: Box<dyn BrepShapeTrait> = Box::new(torus);
-                dbg!(&brep_shape);
-                // dbg!(transform.rotation.to_euler(EulerRot::XYZ));
+                //dbg!(&brep_shape);
+                // //dbg!(transform.rotation.to_euler(EulerRot::XYZ));
                 return Some(CateBrepShape{
                     brep_shape,
                     transform,
@@ -163,7 +163,7 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape>{
         }
         CateGeoParam::Snout(d) => {
             // if child == RefU64::from_two_nums(23584, 5570) {
-            //     dbg!(&d);
+            //     //dbg!(&d);
             // }
             let z = d.pa.as_ref().unwrap();
             let x = d.pb.as_ref().unwrap();
@@ -175,7 +175,7 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape>{
             let height = (d.dist_to_top - d.dist_to_btm) as f32;
             let translation = origin + z_axis * (d.dist_to_btm as f32 + height / 2.0);
             // if child == RefU64::from_two_nums(23584, 5570) {
-            //     dbg!(&z_axis);
+            //     //dbg!(&z_axis);
             // }
             let transform = glam::TransformSRT{
                 rotation: bevy::prelude::Quat::from_mat3(&bevy::prelude::Mat3::from_cols(
@@ -233,8 +233,8 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape>{
             let pdia = d.diameter as f32;
             let rotation = Quat::from_rotation_arc(Vec3::Z, dir);
             // if child == RefU64::from_two_nums(23584, 5569) {
-            //     dbg!(dir * (d.dist_to_btm as f32 + phei as f32 / 2.0));
-            //     dbg!(Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32));
+            //     //dbg!(dir * (d.dist_to_btm as f32 + phei as f32 / 2.0));
+            //     //dbg!(Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32));
             // }
             let translation = dir * (d.dist_to_btm as f32 + phei as f32 / 2.0) + Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32) ;
             let transform = TransformSRT{

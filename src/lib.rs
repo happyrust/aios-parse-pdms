@@ -188,7 +188,7 @@ lazy_static! {
 //     let refno = RefU64::from_two_nums(16395, 39308);
 //     //cached 一些常用的取值操作
 //     let refno_info = db_manager.get_refno_info(refno);
-//     dbg!(&refno_info);
+//     //dbg!(&refno_info);
 //
 //     return Ok(db_manager);
 // }

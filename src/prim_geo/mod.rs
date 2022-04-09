@@ -18,6 +18,10 @@ pub mod tubing;
 pub mod category;
 
 
+pub mod experiment;
+
+
+
 
 //pub mod hash mesh 表
 //是这个Mehs的 Scaled 表达， 特别是Extrude是需要这个 extrude的，不然模型会非常大

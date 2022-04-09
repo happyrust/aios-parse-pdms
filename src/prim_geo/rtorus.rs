@@ -11,7 +11,7 @@ use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
 
 use crate::AttrMap;
-use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3};
+use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3, RotateInfo};
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, Clone,  Reflect)]
@@ -58,43 +58,9 @@ struct TorusInfo{
 }
 
 impl SRTorus {
-    fn cal_torus(&self) -> Option<TorusInfo> {
-        let mut torus_info = TorusInfo::default();
-        let pa_dir = Vec3::new(self.paax_dir.x, self.paax_dir.y, self.paax_dir.z).normalize();
-        let pb_dir = Vec3::new(self.pbax_dir.x, self.pbax_dir.y, self.pbax_dir.z).normalize();
-        let x_dir = (self.pbax_pt - self.paax_pt).normalize();
-        // let dir = (x_dir);
-        let quat = rotate_from_vec3_to_vec3(x_dir, -pa_dir, pb_dir);
-        let (mut axis_z, angle) = quat.to_axis_angle();
-        torus_info.rot_axis = axis_z;
-        torus_info.angle = angle.to_degrees();
-        // godot_dbg!(self.angle);
-        let mid_pt = (self.paax_pt + self.pbax_pt) / 2.0;
-        let x_len = x_dir.length();
-        if x_len < 1.0e-3 {
-            return None;
-        }
-        if (torus_info.angle - std::f32::consts::PI).abs() < 1.0e-3 {
-            torus_info.center = mid_pt;
-            torus_info.radius = x_len / 2.0;
-        } else {
-            let mut y_dir = torus_info.rot_axis.cross(x_dir);
-            let ref_dir = torus_info.rot_axis.cross(self.pbax_dir.normalize());
-            let p = self.pbax_pt - mid_pt;
-            let px = p.dot(x_dir);
-            let _py = p.dot(y_dir);
-            if px < 1.0e-3 {
-                return None;
-            }
-            let beta = torus_info.angle.to_radians() / 2.0;
-            torus_info.radius = px / beta.sin().abs();
-            torus_info.center = self.pbax_pt + ref_dir * torus_info.radius;
-        }
-        return Some(torus_info);
-    }
 
     pub fn convert_to_rtorus(&self) -> Option<(RTorus, glam::TransformSRT)>{
-        if let Some(torus_info) = self.cal_torus(){
+        if let Some(torus_info) = RotateInfo::cal_rotate_info(self.paax_dir, self.paax_pt, self.pbax_dir, self.pbax_pt){
             let mut rtorus = RTorus::default();
             rtorus.angle = torus_info.angle;
             rtorus.height = self.pheig;
@@ -126,7 +92,7 @@ impl VerifiedShape for SRTorus {
 impl BrepShapeTrait for SRTorus {
 
     fn gen_brep_shell(& self) -> Option<Shell> {
-        if let Some(torus_info) = self.cal_torus(){
+        if let Some(torus_info) = RotateInfo::cal_rotate_info(self.paax_dir, self.paax_pt, self.pbax_dir, self.pbax_pt){
             use truck_modeling::*;
             let circle_origin = self.paax_pt.point3();
             let z_axis = self.paax_dir.normalize().vector3();

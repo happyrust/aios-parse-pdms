@@ -71,11 +71,11 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x85897i32) {
-    //     dbg!(map.value());
+    //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
-    dbg!(&ele_data);
+    //dbg!(&ele_data);
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn test_aba_14352_102824() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
-    //     dbg!(map.value());
+    //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
@@ -174,7 +174,7 @@ fn test_aba_8193_90707() {
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
-    dbg!(&ele_data);
+    //dbg!(&ele_data);
 }
 
 #[test]
@@ -257,12 +257,12 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCA78Ci32) {
-    //     dbg!(map.value());
+    //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");
-    dbg!(&ele_data);
+    //dbg!(&ele_data);
 }
 
 
@@ -300,7 +300,7 @@ fn test_atta() {
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");
-    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
 
 
@@ -331,7 +331,7 @@ fn test_aba_height() {
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");
-    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
 
 
@@ -339,8 +339,8 @@ fn test_aba_height() {
 //issue: position is zero
 #[test]
 fn test_aba_positon() {
-    dbg!(db1_dehash(u32::from_be_bytes([0x0D, 0xC3, 0x4A, 0xB5])));
-    // dbg!(db1_dehash(u32::from_be_bytes([0x4D, 0x7C, 0x74, 0xD0])));
+    //dbg!(db1_dehash(u32::from_be_bytes([0x0D, 0xC3, 0x4A, 0xB5])));
+    // //dbg!(db1_dehash(u32::from_be_bytes([0x4D, 0x7C, 0x74, 0xD0])));
     let data_str = "
 00 00 00 2F 00 00 20 04 00 00 2A 3A 02 C7 5C 2C
 00 00 20 04 00 00 2A 39 00 00 03 02 00 17 80 01
@@ -366,7 +366,7 @@ C7 30 2C 00 43 48 00 00 00 00 00 03 00 00 00 00
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");
-    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
 
 
@@ -401,7 +401,7 @@ fn test_sample_positon() {
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");
-    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
 
 

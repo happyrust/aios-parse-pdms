@@ -2,7 +2,6 @@
 #![feature(type_ascription)]
 
 #[allow(dead_code, unused_imports, unused_variables, unused_imports, unused, missing_docs, unused_results, unused_must_use)]
-
 #[macro_use]
 extern crate nom;
 #[macro_use]
@@ -52,6 +51,9 @@ use futures::TryStreamExt;
 use id_tree::Tree;
 use nalgebra_glm::Mat3;
 use smol_str::SmolStr;
+use parse_pdms_db::data_interface::PdmsDataInterface;
+use parse_pdms_db::local_db::bonsaidb_local::AiosDBManager;
+use parse_pdms_db::local_db::DbOption;
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
 use parse_pdms_db::prim_geo::ctorus::CTorus;
@@ -61,18 +63,19 @@ use parse_pdms_db::shape::pdms_shape::{BrepShapeTrait, VerifiedShape};
 
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
+
 type AiosDbError = core::result::Result<(), Box<dyn std::error::Error>>;
 
 #[test]
-pub fn test_hash_noun(){
-    dbg!(db1_dehash(0xE5461));
-    dbg!(db1_dehash(0x95A34));
-    dbg!(db1_dehash(0xC89B3));
-    dbg!(db1_dehash(0x9298B));
-    dbg!(db1_dehash(0x9CAF3));
-    dbg!(db1_dehash(0x9BBDAC));
+pub fn test_hash_noun() {
+    //dbg!(db1_dehash(0xE5461));
+    //dbg!(db1_dehash(0x95A34));
+    //dbg!(db1_dehash(0xC89B3));
+    //dbg!(db1_dehash(0x9298B));
+    //dbg!(db1_dehash(0x9CAF3));
+    //dbg!(db1_dehash(0x9BBDAC));
 
-    dbg!(db1_dehash(convert_to_hash([0xFF, 0xF6, 0x94, 0x65].as_slice())));
+    //dbg!(db1_dehash(convert_to_hash([0xFF, 0xF6, 0x94, 0x65].as_slice())));
 }
 
 fn main_1() {
@@ -88,17 +91,58 @@ fn main() -> AiosDbError {
     //     ]
     // ).unwrap();
     //
-    // let mut mgr = parse_pdms_db::init_pdms_db(&DbOption{
-    //     total_sync: true,
-    //     incr_sync: false,
-    //     project_path: "/Volumes/DPC/aba".to_owned(),
-    //     included_projects: vec!["ABA".to_string()/*, "GDP".to_string()*/],
-    //     included_db_files: Some(vec!["aba0011_0001".to_string()])
-    // }).await?;
-    //
-    // mgr.cache_geos_data(11, "ABA").await?;
+    let mut db_option = DbOption {
+        total_sync: false,
+        incr_sync: false,
+        project_path: "D:/aba".to_string(),
+        included_projects: vec!["ABA".to_owned(), "GDP".to_owned()],
+        // included_db_files: Some(vec!["gdp5500_0001".to_owned()])
+        // included_db_files: Some(vec!["aba0001_0001".to_owned()]),
+        included_db_files: None,
+        mdb_name: "ABA".to_string(),
+        project_name: "ABA".to_string(),
+        main_db_code: 1
+    };
+
+    let mut time = Instant::now();
+    let mut mgr = AiosDBManager::init(&db_option).unwrap();
+
+    println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
+
+    cache_viewer_data(&mut mgr, &db_option);
 
     return Ok(());
 }
 
 
+pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool>{
+
+    // //dbg!(mgr.get_pretty_attr(RefU64::from_tow_(8193, 5322)));
+    mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
+    let mut string_lookup = StringLookupTable::default();
+    let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
+
+    let db_no = db_option.main_db_code;
+    let tree = mgr.get_tree(db_option.project_name.as_str(),
+                            db_no).unwrap_or_default();
+    tree.serialize_to_bin_file(db_no);
+    let tree = &tree.0;
+    if let Some(proj_db) = mgr.project_map.get(&AiosStr(db_option.project_name.clone().into()).get_u32_hash()){
+        let node_id = tree.root_node_id().unwrap();
+        if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
+            while let Some(mut cur_node_id) = nodes.next() {
+                let cur_node = tree.get(&cur_node_id).unwrap();
+                let d = cur_node.data();
+                if let Some(s) = proj_db.get_string(d.name_hash).unwrap(){
+                    string_lookup.lookup.insert(d.name_hash, s);
+                }
+                cached_attr_map.0.insert(d.refno, mgr.get_stringfied_attr(d.refno).unwrap().unwrap());
+            }
+        }
+        string_lookup.serialize_to_bin_file(db_no);
+        cached_attr_map.serialize_to_bin_file(db_option.main_db_code);
+    }
+
+
+    Ok(true)
+}

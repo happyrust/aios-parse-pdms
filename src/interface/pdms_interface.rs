@@ -75,7 +75,7 @@ impl PdmsInterface {
     pub async fn get_des_ele_geoms_async(&mut self, refno: &str) -> MResult<Option<GeomsInfo>> {
         if let Some(client) = self.connect().await {
             if let Some(geoms) = resolve_desi_comp(refno, self).await?{
-                // dbg!(&geoms);
+                // //dbg!(&geoms);
                 return Ok(Some(geoms));
             }
         }
@@ -314,23 +314,23 @@ impl PdmsInterface {
 fn get_ele_attr_map_test() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
     if let Some(v) = interface.get_ele_attr_map("15392/2") {
-        dbg!(v);
+        //dbg!(v);
     }
 }
 
 #[test]
 pub fn test_get_cata_geoms() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
-    dbg!(interface.get_cata_ele_geoms("15192/43621"));
+    //dbg!(interface.get_cata_ele_geoms("15192/43621"));
 }
 
 #[test]
 pub fn test_get_des_geoms() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
     let geoms = interface.get_des_ele_geoms("23584/5850");
-    dbg!(geoms);
+    //dbg!(geoms);
     // let mat = interface.get_des_matrix("23584/5457");
-    // dbg!(mat);
+    // //dbg!(mat);
 }
 
 
@@ -339,7 +339,7 @@ fn test_get_children() {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
     let children = interface.get_children("16476/8");
     for child in children {
-        dbg!(&child.ref_no);
+        //dbg!(&child.ref_no);
     }
 }
 
@@ -354,6 +354,6 @@ fn get_world_test() {
 async fn get_attr_in_db_test() -> MResult<()> {
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
     let result = interface.get_db_info_of_ele("15192/222818").await?;
-    dbg!(&result);
+    //dbg!(&result);
     Ok(())
 }

@@ -19,7 +19,7 @@ pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, i
     let type_name = att.get_type();
     let arc_path = if type_name == "GENSEC" {
         let parent_pos = interface.get_ele_world_transform(att.get_refno().unwrap()).translation;
-        dbg!(parent_pos);
+        //dbg!(parent_pos);
         let children_hash = interface.get_ele_children_refs(att.get_refno().unwrap());
         let mut res = None;
         for x in children_hash {
@@ -33,7 +33,7 @@ pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, i
             }
         }
         if res.is_some() {
-            dbg!(&res);
+            //dbg!(&res);
         }
         res
     } else { None };

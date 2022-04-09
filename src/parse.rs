@@ -165,8 +165,8 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
                             pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
                         }
                     } else {
-                        dbg!(&pdms_db_data.filename);
-                        dbg!(pdms_db_data.field_no);
+                        //dbg!(&pdms_db_data.filename);
+                        //dbg!(pdms_db_data.field_no);
                         if pdms_db_name_map.contains_key(&pdms_db_data.field_no) {
                             pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.field_no).unwrap().clone();
                         } else {
@@ -184,7 +184,7 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
 
 pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let time_start = std::time::Instant::now();
-    dbg!(&path);
+    //dbg!(&path);
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut buf);
@@ -250,7 +250,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let noun = type_hash as u32;
     // db1_dehash(parse_to_u32(input.try_into().unwrap())).into()
     let noun_name: SmolStr = db1_dehash(noun).into();  //类型hash  12-16
-    // dbg!(db1_dehash(type_hash as u32));
+    // //dbg!(db1_dehash(type_hash as u32));
     let attr_info_map = &*attr_info_map.get(&type_hash).unwrap();
 
     let owner = RefU64::from(&input[16..24]);
@@ -290,7 +290,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
-        // dbg!(last_att_info.value());
+        // //dbg!(last_att_info.value());
         let step = match last_att_info.att_type {
             // DbAttributeType::BOOL | DbAttributeType::DOUBLE | DbAttributeType::WORD => 1,
             DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => 3 * 2,
@@ -369,7 +369,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let mut name_hash = attr_data_map.get_name_hash();
 
     // if refno == RefI32Tuple::from("23584/2830") {
-    //     dbg!(attr_data_map.to_string_hashmap());
+    //     //dbg!(attr_data_map.to_string_hashmap());
     // }
     //todo make a method return name
     // if !attr_data_map.contains_attr_name("NAME"){
@@ -401,11 +401,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
     let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
     let db_no_str = db_no.to_string();
-    dbg!(&db_type);
+    //dbg!(&db_type);
     if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
         let _chars_len = db_no_str.len();
         let l = file_name.len();
-        dbg!(&file_name);
+        //dbg!(&file_name);
         let end = file_name.chars().position(|x| x == '_').unwrap_or(l);
         field_no = file_name[project.len()..end].parse::<u32>().unwrap_or_default();
     }
@@ -465,7 +465,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                 let pos = entry.pos;
                 let type_hash = entry.noun_hash;
                 // if refno == RefI32Tuple::new(16395, 32938) {
-                //     dbg!(db1_dehash(noun));
+                //     //dbg!(db1_dehash(noun));
                 // }
                 // 判断反序列话的DashMap中有无对应的type
                 if noun_attr_info_map.contains_key(&type_hash) {
@@ -509,7 +509,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         });
                         pending_refnos.push((cur_id, children));
                     }
-                    // dbg!(all_attr_map.len());
+                    // //dbg!(all_attr_map.len());
                 }
             }
         });
@@ -535,8 +535,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32, string_lookup: &mut StringLookupTable) -> IResult<&'a [u8], (usize, AttrVal)> {
-    // dbg!(format!("{:#4X?}", input));
-    // dbg!(attr_info.name.as_str());
+    // //dbg!(format!("{:#4X?}", input));
+    // //dbg!(attr_info.name.as_str());
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
     let b_expr = check_is_expr(attr_info.hash);
@@ -691,7 +691,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                 be_u16, //属性的长度
             ))(&residual[..])?;
             let type_len = type_len as usize;
-            // dbg!(db1_dehash(explict_hash as u32));
+            // //dbg!(db1_dehash(explict_hash as u32));
             if type_len * 4 <= l.len() {
                 residual = &l[type_len * 4..];
                 // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
@@ -1540,7 +1540,7 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
     path_buf.sort_by(|a, b| fs::metadata(b).unwrap().len().partial_cmp(&fs::metadata(a).unwrap().len()).unwrap());
 
     for path in path_buf {
-        dbg!(&path);
+        //dbg!(&path);
         let mut file = File::open(&path).unwrap();
         let mut buf = vec![0u8; 36];
         file.read_exact(&mut buf)?;
@@ -1653,7 +1653,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefI32
                 let next_len = be_u32(&input[tmp_pos..tmp_pos + 4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
                 is_ok = next_len & 0xFFFFFF00 == 0;
                 if !is_ok {
-                    // dbg!(next_len);
+                    // //dbg!(next_len);
                 }
             }
         }
@@ -1663,8 +1663,8 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefI32
                 noun_hash,
             }));
         } else {
-            // dbg!(offset);
-            // dbg!((refno_0, refno_1));
+            // //dbg!(offset);
+            // //dbg!((refno_0, refno_1));
         }
     }
     Ok((input, refno_entry))
@@ -1836,7 +1836,7 @@ pub struct DbInfo {
 /// 利用这个层级关系去解析数据，加快速度
 pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefI32Tuple, EleDataEntry>, RefI32Tuple) {
     let refno_0_set = get_total_refno_0s(input);
-    // dbg!(refno_0_set.len());
+    // //dbg!(refno_0_set.len());
     let mut world_refno = Arc::new(Mutex::new(RefI32Tuple::default()));
     let mut refno_table = DashMap::new();
     refno_0_set.par_iter().for_each(|ref_0| {
@@ -1853,7 +1853,7 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefI32Tuple, EleDataEntr
             }
         }
     });
-    dbg!(refno_table.len());
+    //dbg!(refno_table.len());
     let lock = Arc::try_unwrap(world_refno).expect("Lock still has multiple owners");
     (refno_table, lock.into_inner().expect("Mutex cannot be locked"))
 }

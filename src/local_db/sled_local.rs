@@ -41,7 +41,7 @@ pub async fn save_local() -> Result<(), sled::Error> {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
-        dbg!(&target_dir);
+        //dbg!(&target_dir);
         //todo have a test on versioned database, make a custom version
         if let Ok(attr_db) = sled::open(format!("./{project}/attrs.db")){
             if let Ok(type_refs_db) = sled::open(format!("./{project}/type_refs.db")) {
@@ -56,9 +56,9 @@ pub async fn save_local() -> Result<(), sled::Error> {
                         refno_info_map,
                         ..
                     }) in r {
-                        dbg!(all_attr_map.len());
+                        //dbg!(all_attr_map.len());
                         let mut file_name = &k;
-                        dbg!(&db_name);
+                        //dbg!(&db_name);
                         //属性全部插入
                         for (refno, v) in all_attr_map {
                             let bytes = bincode::serialize(&v).unwrap();
@@ -149,21 +149,21 @@ pub async fn cache_room_geos_data() -> Result<(), sled::Error> {
     let equip_type = format!("EQUI_{db_code}");
     let project = "Sample";
     if let Ok(attr_db) = sled::open(format!("./{project}/attrs.db")) {
-        dbg!(attr_db.len());
+        //dbg!(attr_db.len());
         if let Ok(type_refs_db) = sled::open(format!("./{project}/type_refs.db")) {
-            dbg!(type_refs_db.len());
+            //dbg!(type_refs_db.len());
             //get the equip refnos
             if let Some(d) = type_refs_db.get(equip_type).unwrap(){
                 let refnos = bincode::deserialize::<RefU64Vec>(&d).unwrap();
-                dbg!(refnos.0.len());
-                // dbg!(refnos.0.iter().map(|x| Refi32Tuple::from(x)).collect::<Vec<_>>());
-                // dbg!(refnos.0.iter().map(|x| get_attr(x, &attr_db)).collect::<Vec<_>>());
+                //dbg!(refnos.0.len());
+                // //dbg!(refnos.0.iter().map(|x| Refi32Tuple::from(x)).collect::<Vec<_>>());
+                // //dbg!(refnos.0.iter().map(|x| get_attr(x, &attr_db)).collect::<Vec<_>>());
                 let first = refnos.0.first().unwrap();
                 let ancestors = get_ancestors_attrs(first, &attr_db);
-                dbg!(&ancestors);
+                //dbg!(&ancestors);
 
                 let world_mat = get_world_matrix(first,&attr_db);
-                dbg!(world_mat);
+                //dbg!(world_mat);
 
                 //get the equip's geoms node
 

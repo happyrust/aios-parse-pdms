@@ -110,7 +110,7 @@ impl BrepShapeTrait for LSnout {
             let bytes = bincode::serialize(self).unwrap();
             let mut hasher = DefaultHasher::default();
             bytes.hash(&mut hasher);
-            dbg!("offset here");
+            //dbg!("offset here");
             return hasher.finish();
         }
         let pheight = self.ptdi - self.pbdi;

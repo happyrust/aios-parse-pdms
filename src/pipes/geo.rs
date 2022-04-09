@@ -44,7 +44,7 @@ pub fn create_geo(att: &AttrMap, geom_info: &GeomsInfo) -> Option<GeoData> {
 
 
     // if let Some(geoms) = crate::query_cata::resolve_desi_comp(&refno, self).await {
-    //     dbg!(&geoms);
+    //     //dbg!(&geoms);
     //     if geoms.geometries.len() == 0 { return None; }
     //     if let Some(poss) = desi_att.get_poss() {
     //         if let Some(pose) = desi_att.get_pose() {

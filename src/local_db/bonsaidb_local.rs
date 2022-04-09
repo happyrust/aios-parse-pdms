@@ -26,7 +26,7 @@ use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
 use once_cell::sync::Lazy;
 use smol_str::SmolStr;
-use crate::{AttrMap, db1_dehash, EleNode, GeomsInfo, init_pdms_db, parse_pdms_dir, pipes, read_attr_info_config, sctn};
+use crate::{AttrMap, db1_dehash, EleNode, GeomsInfo, parse_pdms_dir, read_attr_info_config, sctn};
 use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
@@ -73,6 +73,7 @@ use crate::prim_geo::sphere::Sphere;
 use crate::prim_geo::tubing::PdmsTubing;
 use bonsaidb::core::connection::StorageConnection;
 use bonsaidb::core::connection::LowLevelConnection;
+use crate::local_db::DbOption;
 
 pub const ATT_DB_NAME: &'static str = "attr";
 pub const TYPES_DB_NAME: &'static str = "refs";
@@ -169,9 +170,6 @@ impl PdmsDataInterface for AiosDBManager {
 
 
     fn get_name(&self, refno: RefU64) -> SmolStr {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build().unwrap();
         "unset".into()
     }
 
@@ -200,7 +198,7 @@ impl AiosDBManager {
         )?;
 
         let db_names = storage.list_databases()?.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
-        dbg!(&db_names);
+        //dbg!(&db_names);
         if !db_names.contains(&INFO_DB_NAME.to_string()) {
             storage.create_database::<RefnoInfo>(INFO_DB_NAME, true)?;
         }
@@ -374,13 +372,13 @@ impl AiosDBManager {
             // if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
             if !is_tube {
                 //如果是SCTN，使用SCTN的方法创建GeoData
-                // dbg!(type_name);
-                if let Some(geoms) = crate::query_cata::resolve_desi_comp(refno, self) {
+                // //dbg!(type_name);
+                if let Ok(geoms) = crate::query_cata::resolve_desi_comp(refno, self) {
                     if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
                         result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self));
                     } else /*if type_name == "NOZZ" || type_name == "PCLA"*/ {
                         let mut result_shapes = vec![];
-                        // dbg!(&geoms);
+                        // //dbg!(&geoms);
                         for geom in geoms.geometries {
                             if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
                                 result_shapes.push(cate_shape);
@@ -389,7 +387,7 @@ impl AiosDBManager {
                         result_map.insert(refno, result_shapes);
                     }
                     // else{
-                    //     dbg!(&type_name);
+                    //     //dbg!(&type_name);
                     // }
                 }
             } else {   //先暂时只让旋转用bran
@@ -411,7 +409,7 @@ impl AiosDBManager {
                     bore,
                     finished: false,
                 };
-                // dbg!(&current_tubing);
+                // //dbg!(&current_tubing);
                 if let Some(children) = self.get_children(refno).unwrap() {
                     if children.len() == 0 {
                         return result_map;
@@ -421,28 +419,28 @@ impl AiosDBManager {
                     for child in children {
                         let world_trans = self.get_world_transform(child).unwrap();
                         let mut result_shapes = vec![];
-                        if let Some(geoms) = crate::query_cata::resolve_desi_comp(child, self) {
+                        if let Ok(geoms) = crate::query_cata::resolve_desi_comp(child, self) {
                             let attr = self.get_attr(child).unwrap().unwrap();
                             if let Some(arrive) = attr.get_i32("ARRI") {
                                 //todo 加入获取arrive position 的方法
                                 if geoms.axis_map.contains_key(&arrive) {
                                     let p = &geoms.axis_map[&arrive].pt;
                                     let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                                    // dbg!(&a_pos);
+                                    // //dbg!(&a_pos);
                                     if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > EPSILON {
                                         current_tubing.end_pt = a_pos;
                                         current_tubing.finished = true;
-                                        // dbg!(&current_tubing);
+                                        // //dbg!(&current_tubing);
                                         result_shapes.push(current_tubing.convert_to_shape());
                                     }
                                 }
-                                // dbg!(arrive);
+                                // //dbg!(arrive);
                             }
 
                             if let Some(lstube) = attr.get_foreign_refno("LSTU") {
                                 if let Some(lstube_att) = self.get_attr(lstube).unwrap() {
                                     let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap()).unwrap().unwrap();
-                                    // dbg!(lstube_cat_att.to_string_hashmap());
+                                    // //dbg!(lstube_cat_att.to_string_hashmap());
                                     let params = lstube_cat_att.get_f64_vec("PARA").unwrap();
                                     if params.len() >= 2 {
                                         current_tubing.bore = params[1] as f32;
@@ -459,7 +457,7 @@ impl AiosDBManager {
                                     current_tubing.start_pt = l_pos;
                                     current_tubing.finished = false;
                                 }
-                                // dbg!(leave);
+                                // //dbg!(leave);
                             }
                             //管件的生成
                             //return pipes::create_geo(&desi_att, &geoms);
@@ -470,18 +468,18 @@ impl AiosDBManager {
                             } // end geoms.geometries
                         }  // end for
                         // if child == RefU64::from_two_nums(23584, 5569) {
-                        //     dbg!(&result_shapes);
+                        //     //dbg!(&result_shapes);
                         // }
 
                         if child == last_child {
                             //todo 加入获取arrive position 的方法
-                            // dbg!(&current_tubing);
-                            // dbg!(&bran_ttube_pt);
-                            // dbg!(bran_ttube_pt.distance(current_tubing.start_pt));
+                            // //dbg!(&current_tubing);
+                            // //dbg!(&bran_ttube_pt);
+                            // //dbg!(bran_ttube_pt.distance(current_tubing.start_pt));
                             if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > EPSILON {
                                 current_tubing.end_pt = bran_ttube_pt;
                                 current_tubing.finished = true;
-                                // dbg!(&current_tubing);
+                                // //dbg!(&current_tubing);
                                 result_shapes.push(current_tubing.convert_to_shape());
                             }
                         }
@@ -512,8 +510,6 @@ impl AiosDBManager {
     ///缓存所有几何体
     pub fn cache_geos_data(&mut self, db_code: u32, project: &str) -> anyhow::Result<PdmsMeshMgr> {
         let project_hash = AiosStr(project.into()).get_u32_hash();
-        // dbg!(project_hash);
-
         let mut main_db = self.project_map.get(&project_hash).ok_or(anyhow!(format!("{project} not exist")))?;
 
         let mut cached_mesh_mgr = CachedMeshesMgr::default();
@@ -528,13 +524,13 @@ impl AiosDBManager {
             if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
                 while let Some(mut cur_node_id) = nodes.next() {
                     let cur_node = tree.get(&cur_node_id).unwrap();
-                    // dbg!(cur_node);
+                    // //dbg!(cur_node);
                     let d = cur_node.data();
                     let noun = d.noun;
-                    // dbg!(d.refno.to_refno_str());
-                    //8193/110
-                    // if d.refno != RefU64::from_two_nums(23584, 6981)
-                    //     // && d.refno != RefU64::from_two_nums(8193, 62492)
+
+                    // if d.refno != RefU64::from_two_nums(8193, 52046)
+                    //    /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
+                    //     // && d.refno != RefU64::from_two_nums(8193, 16231)
                     // {
                     //     continue;
                     // }
@@ -568,7 +564,6 @@ impl AiosDBManager {
                                     }
                                 }
                             }
-                            //todo 旋转类型另外处理
                             if parent_noun_name == "REVO" {
                                 if let Some(v) = parent_att.get_val("ANGL") {
                                     let angle = v.f32_value().unwrap_or_default();
@@ -578,7 +573,7 @@ impl AiosDBManager {
                                             angle,
                                             ..Default::default()
                                         });
-                                        //dbg!(&revo);
+                                        ////dbg!(&revo);
                                         if revo.check_valid() {
                                             item_trans = revo.get_trans();
                                             let r = cached_mesh_mgr.get_pdms_mesh_hash_key(revo);
@@ -586,18 +581,13 @@ impl AiosDBManager {
                                         }
                                     }
                                 }
-                            } else if parent_noun_name != "NXTR" && parent_noun_name != "NREV"{
+                            } else if parent_noun_name != "NXTR" && parent_noun_name != "NREV" && parent_noun_name != "SCREED"{
                                 let mut height = 0.0;
                                 if let Some(v) = attr.get_val("HEIG") {
                                     height = v.f32_value().unwrap_or_default();
                                 } else if let Some(v) = parent_att.get_val("HEIG") {
                                     height = v.f32_value().unwrap_or_default();
                                 }
-                                // dbg!(height);
-                                // let mut grand_att = self.get_attr(parent_att.get_owner().unwrap())?.unwrap();
-                                // let grand_noun_name = grand_att.get_type();
-                                // dbg!(&grand_noun_name);
-                                // let is_circle = grand_noun_name == "CFLOOR";
                                 if height >= f32::EPSILON {
                                     let extrusion = Box::new(Extrusion {
                                         loop_verts,
@@ -606,8 +596,8 @@ impl AiosDBManager {
                                         // is_circle,
                                         ..Default::default()
                                     });
-                                    // dbg!(target_refno.to_refno_str());
-                                    // dbg!(&extrusion);
+                                    // //dbg!(target_refno.to_refno_str());
+                                    // //dbg!(&extrusion);
                                     if extrusion.check_valid() {
                                         item_trans = extrusion.get_trans();
                                         if noun == PLOO_NOUN {
@@ -697,13 +687,17 @@ impl AiosDBManager {
                                     fradius_back_vec.reverse();
                                     fradius_vec.extend_from_slice(&fradius_back_vec);
 
+                                    // for i in 0..loop_verts.len(){
+                                    //     loop_verts[i].z = 0.0;
+                                    // }
+
                                     let extrusion = Box::new(Extrusion {
                                         loop_verts,
                                         height,
                                         fradius_vec,
                                         ..Default::default()
                                     });
-                                    // dbg!(&extrusion);
+                                    // //dbg!(&extrusion);
                                     if extrusion.check_valid() {
                                         item_trans = extrusion.get_trans();
                                         let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
@@ -726,11 +720,11 @@ impl AiosDBManager {
                         // if d.refno != RefU64::from_two_nums(23584, 7468) {
                         // continue;
                         // }
-                        // dbg!(d.refno);
+                        // //dbg!(d.refno);
                         let ele_type = attr.get_type();
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
                         let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
-                        // dbg!(d.refno.to_refno_str());
+                        // //dbg!(d.refno.to_refno_str());
                         //todo fix these types
                         if ele_type == "PFIT" /*|| ele_type == "FITT"*/ {
                             continue;
@@ -744,10 +738,10 @@ impl AiosDBManager {
                                 node_ids_map.insert(data.refno, node_id.clone());
                             }
                             let brep_shapes = self.get_design_geoms(d.refno, &mut cached_mesh_mgr);
-                            // dbg!(&brep_shapes);
-                            // dbg!(d.refno.to_refno_str());
+                            // //dbg!(&brep_shapes);
+                            // //dbg!(d.refno.to_refno_str());
                             // if d.refno == RefU64::from_two_nums(23584, 5563) {
-                            //     dbg!(&brep_shapes);
+                            //     //dbg!(&brep_shapes);
                             // }
                             for (cur_refno, value_vec) in brep_shapes {
                                 //记录对应的不同颜色类型
@@ -756,7 +750,7 @@ impl AiosDBManager {
                                     color_type = Some(e.0.clone());
                                 }
                                 // if d.refno == RefU64::from_two_nums(23584, 5570) {
-                                //     dbg!(&value_vec);
+                                //     //dbg!(&value_vec);
                                 // }
                                 //维护每个节点有那些几何实例
                                 let ancestors = tree.ancestors(&cur_node_id).unwrap();
@@ -813,8 +807,8 @@ impl AiosDBManager {
                         }
                         let tr: TransformSRT = item_trans * self.get_world_transform(target_refno)?;
                         // let xyz = tr.rotation.to_euler(glam::EulerRot::XYZ);
-                        // dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
-                        // dbg!(&tr);
+                        // //dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
+                        // //dbg!(&tr);
                         let mut bbox = cached_mesh_mgr.get_bbox(&geo_hash).unwrap();
                         bbox.scaled(&tr.scale);
                         let geom_data = EleGeoInstData {
@@ -832,13 +826,13 @@ impl AiosDBManager {
             }
         }
 
-        let mut file = File::create(format!("{db_code}_geoms.json")).unwrap();
-        let serialized = serde_json::to_string(&inst_map).unwrap();
-        file.write_all(serialized.as_bytes()).unwrap();
-
-        let mut file = File::create(format!("type_geoms.json")).unwrap();
-        let serialized = serde_json::to_string(&type_geom_refs_map).unwrap();
-        file.write_all(serialized.as_bytes()).unwrap();
+        // let mut file = File::create(format!("{db_code}_geoms.json")).unwrap();
+        // let serialized = serde_json::to_string(&inst_map).unwrap();
+        // file.write_all(serialized.as_bytes()).unwrap();
+        //
+        // let mut file = File::create(format!("type_geoms.json")).unwrap();
+        // let serialized = serde_json::to_string(&type_geom_refs_map).unwrap();
+        // file.write_all(serialized.as_bytes()).unwrap();
 
         // let mut file = File::create(format!("./AIOS_DBS/room_geoms.json")).unwrap();
         // let serialized = serde_json::to_string(&room_geom_refs_map).unwrap();
@@ -925,7 +919,7 @@ impl AiosDBManager {
             let (axis, angle) = r.to_axis_angle();
             let axisangle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
             let room_iso = Isometry3::new(translation, axisangle);
-            // dbg!(&room_iso);
+            // //dbg!(&room_iso);
 
             let room_tri_mesh = cached_meshes.meshes.get(&mesh_indx).unwrap().get_tri_mesh(TransformSRT {
                 rotation: r,
@@ -936,7 +930,7 @@ impl AiosDBManager {
             for x in interferences {
                 let generic_refno = x.1.data().0.clone();   //类型的参考号
                 let geom_refno = x.1.data().1.clone();
-                // dbg!(geom_refno.to_refno_str());
+                // //dbg!(geom_refno.to_refno_str());
                 if let Some(geo_data) = geo_map.get(&geom_refno.to_refno_str()) {
                     let mesh_indx = &geo_data.geo_hash;
                     let pt = geo_data.global_transform.1;
@@ -948,7 +942,7 @@ impl AiosDBManager {
                     let ray_x = room_tri_mesh.toi_with_ray(&room_iso, &ray_x, std::f32::MAX, false);
                     let ray_neg_x = room_tri_mesh.toi_with_ray(&room_iso, &ray_neg_x, std::f32::MAX, false);
                     if ray_x.is_some() && ray_neg_x.is_some() {
-                        // dbg!(geom_refno.to_refno_str());
+                        // //dbg!(geom_refno.to_refno_str());
                         aabb_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(generic_refno.to_refno_str());
                         room_final_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(geom_refno.to_refno_str());
                     } else {
@@ -980,13 +974,13 @@ impl AiosDBManager {
     #[inline]
     pub fn get_sprf_geom(&self, spre: RefU64) -> Result<Option<GeoData>, bonsaidb::core::Error> {
         if let Some(spre_attr) = self.get_stringfied_attr(spre)? {
-            // dbg!(spre_attr.to_string_hashmap());
+            // //dbg!(spre_attr.to_string_hashmap());
             if let Some(cat_ref) = spre_attr.get_foreign_refno("CATR") {
                 if let Some(cat_attr) = self.get_stringfied_attr(cat_ref)? {
-                    // dbg!(cat_attr.to_string_hashmap());
+                    // //dbg!(cat_attr.to_string_hashmap());
                     if let Some(gms_ref) = cat_attr.get_foreign_refno("GSTR") {
                         if let Some(gms_attr) = self.get_stringfied_attr(gms_ref)? {
-                            // dbg!(gms_attr.to_string_hashmap());
+                            // //dbg!(gms_attr.to_string_hashmap());
                             let children = self.get_children(gms_ref)?.unwrap_or_default();
                             let mut loop_verts: Vec<Vec3> = vec![];
                             if children.len() > 0 {
@@ -998,7 +992,7 @@ impl AiosDBManager {
                                 }
                             }
 
-                            // dbg!(&loop_verts);
+                            // //dbg!(&loop_verts);
                         }
                     }
                 }
@@ -1210,19 +1204,19 @@ impl AiosPdmsProject {
                         )/*.transpose()*/) * Quat::from_rotation_z(bangle.to_radians());
                         // let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
                         // if refno == RefU64::from_two_nums(23584, 8549) {
-                        //     dbg!(w_poss);
-                        //     dbg!(w_pose);
-                        //     dbg!(extru_dir);
-                        //     dbg!(bangle);
+                        //     //dbg!(w_poss);
+                        //     //dbg!(w_pose);
+                        //     //dbg!(extru_dir);
+                        //     //dbg!(bangle);
                         //
-                        //     dbg!(&ref_axis);
-                        //     dbg!(&p_axis);
-                        //     dbg!(&y_axis);
-                        //     dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
+                        //     //dbg!(&ref_axis);
+                        //     //dbg!(&p_axis);
+                        //     //dbg!(&y_axis);
+                        //     //dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
                         // }
                         // final_rot = Quat::from_rotation_arc();
                         // let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
-                        // dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
+                        // //dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
                     }
                 }
                 final_rot
@@ -1247,7 +1241,7 @@ impl AiosPdmsProject {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
-        // dbg!(&target_dir);
+        // //dbg!(&target_dir);
 
         if let Ok(mut r) =
         parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
@@ -1278,7 +1272,7 @@ impl AiosPdmsProject {
                 self.get_tree_database().apply_transaction(tx)?;
 
                 // 属性全部插入
-                // dbg!(all_attr_map.len());
+                // //dbg!(all_attr_map.len());
                 let dbno_str = target_dbno.to_string();
                 self.storage.create_database::<AttrMap>(dbno_str.as_str(), true)?;
                 let mut attr_db = self.storage.database::<AttrMap>(dbno_str.as_str())?;
@@ -1418,7 +1412,7 @@ impl AiosPdmsProject {
         if db_type.as_str() != "SYST" && !filename.contains(&db_no_str) {
             let _chars_len = db_no_str.len();
             let l = filename.len();
-            // dbg!(&filename);
+            // //dbg!(&filename);
             let end = filename.chars().position(|x| x == '_').unwrap_or(l);
             field_no = filename[project.len()..end].parse::<u32>().unwrap_or_default();
         }
@@ -1450,7 +1444,7 @@ impl AiosPdmsProject {
                                             NewDataState::Increase => { increment_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self)? }
                                             // NewDataState::Delete => { delete_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800],  &pdms_database_info, dbno as u64,&dbs)? }
                                             _ => {
-                                                // dbg!("todo delete");
+                                                // //dbg!("todo delete");
                                                 ()
                                             } // todo delete先不管，先把modify 和 increase跑通
                                         }

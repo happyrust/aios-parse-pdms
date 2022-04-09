@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Neg;
+use anyhow::anyhow;
 use dashmap::DashMap;
 use itertools::Itertools;
 use smol_str::SmolStr;
@@ -117,13 +118,13 @@ pub fn resolve_gms(
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
     ddangle: Option<f64>,
-) -> Vec<CateGeoParam> {
+) -> anyhow::Result<Vec<CateGeoParam>> {
     gmse_strs
         .iter()
-        .filter_map(|gmse_str| {
+        .map(|gmse_str| {
             resolve_paragon_gm_params(&gmse_str, context, axis_params)
         })
-        .collect::<Vec<CateGeoParam>>()
+        .collect::<_>()
 }
 
 /// 解析gmes的参数
@@ -131,37 +132,40 @@ pub fn resolve_paragon_gm_params(
     gm_param: &GmParam,
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
-) -> Option<CateGeoParam> {
-    dbg!(&gm_param);
-    if let Some(gm_data) = resolve_gmse_params(gm_param, context, axis_params) {
-        if let Ok(s) = std::panic::catch_unwind(move || unsafe {
-            // dbg!(&gm_data);
-            return resolve_to_cate_geo_params(gm_data);
-        }){
-            return s;
-        }
-    }
-    None
+) -> anyhow::Result<CateGeoParam> {
+    //dbg!(&gm_param);
+    let gm_data = resolve_gmse_params(gm_param, context, axis_params)?;
+    // if let Some(gm_data) = resolve_gmse_params(gm_param, context, axis_params) {
+    //     if let Ok(s) = std::panic::catch_unwind(move || unsafe {
+    //         // //dbg!(&gm_data);
+    //
+    //     }){
+    //         return s;
+    //     }
+    // }
+    resolve_to_cate_geo_params(gm_data).ok_or(anyhow!("Resolve gm params failed".to_string()))
+    // Err(anyhow!("Resolve gm params failed".to_string()))
 }
 
 pub fn resolve_gmse_params(
     gm: &GmParam,
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
-) -> Option<GmseParamData> {
-    // dbg!(gm.refno.to_refno_str());
+) -> anyhow::Result<GmseParamData> {
+    // //dbg!(gm.refno.to_refno_str());
     let angle = context[DDANGLE_STR].parse::<f64>().unwrap_or(0.0f64).to_radians();
     let radius = context[DDRADIUS_STR].parse::<f64>().unwrap_or(0.0f64);
     let height = context[DDHEIGHT_STR].parse::<f64>().unwrap_or(0.0f64);
+
     let diameters = gm.diameters
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
-        .collect::<Vec<f64>>();
-    // dbg!(&gm.diameters);
+        .map(|exp| eval_str_to_f64(&exp, context))
+        .collect::<anyhow::Result<Vec<f64>>>()?;
+    // //dbg!(&gm.diameters);
     let distances = gm.distances
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
-        .collect::<Vec<f64>>();
+        .map(|exp| eval_str_to_f64(&exp, context))
+        .collect::<anyhow::Result<Vec<f64>>>()?;
 
     let verts = gm.verts
         .iter()
@@ -169,14 +173,14 @@ pub fn resolve_gmse_params(
             eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default() as f32])
         .collect::<Vec<[f32; 2]>>();
 
-    let phei = eval_str_to_f64(&gm.phei, context).unwrap_or_default();
-    let offset = eval_str_to_f64(&gm.offset, context).unwrap_or_default();
+    let phei = eval_str_to_f64(&gm.phei, context)?;
+    let offset = eval_str_to_f64(&gm.offset, context)?;
 
-    let pang = eval_str_to_f64(&gm.pang, context).unwrap_or_default();
-    let prad = eval_str_to_f64(&gm.prad, context).unwrap_or_default();
-    let pwid = eval_str_to_f64(&gm.pwid, context).unwrap_or_default();
-    let drad = eval_str_to_f64(&gm.drad, context).unwrap_or_default();
-    let dwid = eval_str_to_f64(&gm.dwid, context).unwrap_or_default();
+    let pang = eval_str_to_f64(&gm.pang, context)?;
+    let prad = eval_str_to_f64(&gm.prad, context)?;
+    let pwid = eval_str_to_f64(&gm.pwid, context)?;
+    let drad = eval_str_to_f64(&gm.drad, context)?;
+    let dwid = eval_str_to_f64(&gm.dwid, context)?;
 
     let dxy = gm.dxy
         .iter()
@@ -187,13 +191,13 @@ pub fn resolve_gmse_params(
 
     let box_lengths = gm.box_lengths
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
-        .collect::<Vec<f64>>();
+        .map(|exp| eval_str_to_f64(&exp, context))
+        .collect::<anyhow::Result<Vec<f64>>>()?;
 
     let xyz = gm.xyz
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context).unwrap_or_default())
-        .collect::<Vec<f64>>();
+        .map(|exp| eval_str_to_f64(&exp, context))
+        .collect::<anyhow::Result<Vec<f64>>>()?;
 
     let mut paxises: Vec<CateAxisParam> = Vec::new();
     for name in gm.paxises.iter() {
@@ -217,7 +221,7 @@ pub fn resolve_gmse_params(
                                     axis_param_map[&index].clone()
                                 });
                             } else {
-                                return None;
+                                return Err(anyhow!("Axis index not exist".to_string()));
                             }
                         }
                     }
@@ -238,7 +242,7 @@ pub fn resolve_gmse_params(
         }
     }
     let type_name = gm.gm_type.clone();
-    Some(GmseParamData {
+    Ok(GmseParamData {
         type_name,
         radius,
         angle,
@@ -291,7 +295,7 @@ pub fn resolve_axis_param(
             let x = eval_str_to_f64(&axis_param.x, &context).unwrap_or_default();
             let y = eval_str_to_f64(&axis_param.y, &context).unwrap_or_default();
             let z = eval_str_to_f64(&axis_param.z, &context).unwrap_or_default();
-            // dbg!(axis_param.attr_map.to_string_hashmap());
+            // //dbg!(axis_param.attr_map.to_string_hashmap());
             let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);
             Some(CateAxisParam { pt: vec![pos[0] + x, pos[1] + y, pos[2] + z], dir: dir.to_vec(), pconnect, pbore })
         }

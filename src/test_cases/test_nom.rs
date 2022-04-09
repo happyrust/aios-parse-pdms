@@ -36,7 +36,7 @@ pub fn test_take_till(){
     let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |x| *x == 0), verify(be_i32, |x| *x == 7))(data.as_slice());
     // let s: IResult<&[u8], (Vec<bool>, &[u8])>  = pmany_till(map(be_i32, |x| x == 0), tag([0x0, 0x0, 0x0, 0x7]))(data.as_slice());
     // let s: IResult<&[u8], &[u8]> = take_until( map(be_i32, |x| x != 0))(data.as_slice());
-    dbg!(s);
+    //dbg!(s);
     // many_till( tag( "ab", () ), tag("ef", ()))("ababefg");
 
 }

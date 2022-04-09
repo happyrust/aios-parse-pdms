@@ -41,7 +41,6 @@ pub fn rotate_from_vec3_to_vec3(dir: Vec3, from: Vec3, to: Vec3) -> Quat {
     }
 }
 
-
 pub fn quad_indices(indices: &mut Vec<usize>, l: &mut usize, o: usize, v0: usize, v1: usize, v2: usize, v3: usize){
     indices.push(o + v0);
     indices.push(o + v1);
@@ -50,4 +49,50 @@ pub fn quad_indices(indices: &mut Vec<usize>, l: &mut usize, o: usize, v0: usize
     indices.push(o + v3);
     indices.push(o + v0);
     *l += 6;
+}
+
+
+#[derive(Default, Debug)]
+pub struct RotateInfo {
+    pub center: Vec3,
+    pub angle: f32,
+    pub rot_axis: Vec3,
+    pub radius: f32,
+}
+
+impl RotateInfo {
+    pub fn cal_rotate_info(paax_dir: Vec3, paax_pt: Vec3, pbax_dir: Vec3, pbax_pt: Vec3) -> Option<RotateInfo> {
+        let mut rotate_info = RotateInfo::default();
+        let pa_dir = Vec3::new(paax_dir.x, paax_dir.y, paax_dir.z).normalize();
+        let pb_dir = Vec3::new(pbax_dir.x, pbax_dir.y, pbax_dir.z).normalize();
+        let x_dir = (pbax_pt - paax_pt).normalize();
+        let quat = rotate_from_vec3_to_vec3(x_dir, -pa_dir, pb_dir);
+        let (mut axis_z, angle) = quat.to_axis_angle();
+        rotate_info.rot_axis = axis_z;
+        rotate_info.angle = angle.to_degrees();
+        let mid_pt = (paax_pt + pbax_pt) / 2.0;
+        let x_len = x_dir.length();
+        if x_len < 1.0e-3 {
+            return None;
+        }
+        if (rotate_info.angle - std::f32::consts::PI).abs() < 1.0e-3 {
+            rotate_info.center = mid_pt;
+            rotate_info.radius = x_len / 2.0;
+        } else {
+            let mut y_dir = rotate_info.rot_axis.cross(x_dir);
+            let ref_dir = rotate_info.rot_axis.cross(pbax_dir.normalize()).normalize();
+            let p = pbax_pt - mid_pt;
+            let px = p.dot(x_dir);
+            let _py = p.dot(y_dir);
+            if px < 1.0e-3 {
+                return None;
+            }
+            let beta = rotate_info.angle.to_radians() / 2.0;
+            rotate_info.radius = px / beta.sin().abs();
+            rotate_info.center = pbax_pt + ref_dir * rotate_info.radius;
+        }
+        rotate_info.angle = -rotate_info.angle;
+        rotate_info.rot_axis = -rotate_info.rot_axis;
+        return Some(rotate_info);
+    }
 }

@@ -1,5 +1,12 @@
 //todo use LRU cache the mosted used variables
 
+pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
+    let mut file = File::open(config_path).unwrap();
+    let mut attr_buf: Vec<u8> = Vec::new();
+    file.read_to_end(&mut attr_buf);
+    bincode::deserialize(&attr_buf).unwrap()
+}
+
 #[inline]
 pub fn convert_to_hash(bytes: &[u8]) -> u32{
     i32::from_be_bytes(bytes.try_into().unwrap()).abs() as u32
@@ -49,9 +56,11 @@ fn db1_dehash_test(){
     println!("{:#4X}",val);
 }
 
+use std::fs::File;
 use std::io::Read;
 use memchr::memmem::{find, find_iter};
 use nom::character::complete::char;
+use crate::pdms_types::PdmsDatabaseInfo;
 
 fn convert_to_le_i32(table: &[u8], dw_offset: usize) -> i32 {
     i32::from_le_bytes(table[dw_offset * 4..dw_offset * 4 + 4].try_into().unwrap())
@@ -144,7 +153,7 @@ pub fn decode_chars_data(input: &[u8]) -> (String, bool){
     for p in start_iter {
         res.extend_from_slice(&input[prev_pos..p]);
         if let Some(len) = find(&input[p..], &[0x20, 0x26]){
-            // dbg!(&input[p..p + len]);
+            // //dbg!(&input[p..p + len]);
             let decode_str = decode_chi_chars(table_data, &input[p..p + len + 2]);
             res.extend(decode_str.bytes());
             prev_pos = p + len + 2;
@@ -171,7 +180,7 @@ fn test_chinese_data() {
     let table_data = include_bytes!("../encode_char_table.bin");
 
     let name = decode_chars_data(&test_code);
-    dbg!(name);
+    //dbg!(name);
 }
 
 

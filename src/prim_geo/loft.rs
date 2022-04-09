@@ -32,16 +32,16 @@ impl SctnSolid {
     fn cal_sann_face(&self, is_btm: bool, start_dir: Vec3, angle: f32, r1: f32, r2: f32) -> Option<Face>{
         use truck_base::cgmath64::*;
         let mut n = if is_btm { self.drns.normalize() } else { self.drne.normalize() };
-        dbg!(&n);
+        //dbg!(&n);
         let h = if is_btm { 0.0 } else { self.height };
         let a = angle;
         // let rot = Quat::IDENTITY;
         let mut z_axis = Vec3::Z;
         let z_angle: f32 = z_axis.angle_between(n);
         if z_angle == FRAC_PI_2 { return None; }
-        dbg!(z_angle);
+        //dbg!(z_angle);
         let mut y_axis_scale = (1.0 / z_angle.cos()) as f64;
-        dbg!(y_axis_scale);
+        //dbg!(y_axis_scale);
         // let long_axis_len_2 = r2 / z_angle.cos();
         let mut rot_face = Quat::from_rotation_arc(Vec3::Z, n.normalize());
         let rot = Quat::from_rotation_arc(Vec3::X, start_dir);
@@ -144,18 +144,18 @@ impl BrepShapeTrait for SctnSolid {
                 let angle = p.pangle.to_radians();
                 //point needs rotate to align the center normal axis
                 //need to caculate the transform matrix
-                face_s = Some(self.cal_sann_face(true, dir, angle, r1, r2).unwrap());
+                face_s = self.cal_sann_face(true, dir, angle, r1, r2);
 
                 let w = p.pwidth + p.dwid;
                 let r = p.pradius + p.drad;
                 let r1 = r - w;
                 let r2 = r;
-                face_e = Some(self.cal_sann_face(false, dir, angle, r1, r2).map(|x| x.inverse()).unwrap());
+                face_e = self.cal_sann_face(false, dir, angle, r1, r2).map(|x| x.inverse());
 
             }
             CateProfileParam::SPRO(p) =>{
-                face_s = Some(self.cal_spro_face(true, p).unwrap());
-                face_e = Some(self.cal_spro_face(false, p).map(|x| x.inverse()).unwrap());
+                face_s = self.cal_spro_face(true, p);
+                face_e = self.cal_spro_face(false, p).map(|x| x.inverse());
             }
             _ => {}
         }
@@ -163,20 +163,20 @@ impl BrepShapeTrait for SctnSolid {
         if let Some(face_s) = face_s{
             if let Some(face_e) = face_e {
                 let mut faces = vec![];
-                if let Some((p1, p2, c)) = self.arc_path {
+                return if let Some((p1, p2, c)) = self.arc_path {
                     let angle = (p2 - c).angle_between(p1 - c);
                     let solid = builder::rsweep(&face_s, c.point3(), Vector3::new(0.0, 0.0, 1.0), Rad(angle as f64));
-                    return Some(solid.into_boundaries().remove(0));
-                }else{
+                    Some(solid.into_boundaries().remove(0))
+                } else {
                     let edges_cnt = face_s.boundaries()[0].len();
                     for i in 0..edges_cnt {
                         let c1 = &face_s.boundaries()[0][i];
-                        let c2 = &face_e.boundaries()[0][edges_cnt-i-1];
+                        let c2 = &face_e.boundaries()[0][edges_cnt - i - 1];
                         faces.push(builder::homotopy(&c1.inverse(), c2));
                     }
                     faces.push(face_s);
                     faces.push(face_e);
-                    return Some(faces.into());
+                    Some(faces.into())
                 }
             }
         }
