@@ -21,7 +21,7 @@ itertools = "0.10.1"
 bincode = "1.3.3"
 nalgebra = "0.26.2"
 nalgebra-glm = "0.12.0"
-glam = {version="0.20.2", features=["transform-types"]}
+glam = { version = "0.20.2", features = ["transform-types"] }
 fasteval = "0.2.4"
 regex = "1.5.4"
 futures = "0.3.19"
@@ -34,11 +34,11 @@ approx = "0.5.1"
 
 #sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
-#path="../bonsaidb/crates/bonsaidb",
-bonsaidb = { version = "0.4.1", features = ["local-full"] }
+
 
 tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }
-rsc = {git = "https://github.com/fivemoreminix/rsc.git" }
+rsc = { git = "https://github.com/fivemoreminix/rsc.git" }
+
 
 nom = "6.1.2"
 nom-derive = "0.9.0"
@@ -50,7 +50,7 @@ serde-name = "0.1.1"
 serde = { version = "1.0.133", features = ["derive"] }
 serde_derive = "1.0.133"
 phf = { version = "0.9", features = ["macros"] }
-clap = { version = "3.1.6", features = ["derive"]}
+clap = { version = "3.1.6", features = ["derive"] }
 log = "0.4.14"
 simplelog = "0.10.0"
 rayon = "1.5.1"
@@ -60,7 +60,7 @@ serde_json = { version = "1.0" }
 lazy_static = "1.4.0"
 #static_init = "1.0.2"
 cached = { version = "0.26.2", default-features = false, features = ["proc_macro"] }
-dashmap =  { version= "5.2.0" , features=["serde"] }
+dashmap = { version = "5.2.0", features = ["serde"] }
 #autowired = { path = "D:/autowired-rs" }
 hex = "0.4.3"
 notify = "4.0.17"
@@ -69,20 +69,22 @@ crossbeam-queue = "0.3.3"
 hexasphere = "7.0.0"
 #rug = "1.14.0"
 #bevy-inspector-egui = { path = "../bevy-inspector-egui" }
-bevy = { path = "../bevy", default-features = false }
-bevy_utils = {path = "../bevy/crates/bevy_utils"}
+bevy = { path = "../bevy", default-features = true }
+bevy_utils = { path = "../bevy/crates/bevy_utils" }
+egui = { path = "../egui/egui" }
 
-id_tree = { version = "1.8.0", features=["serde_support"] }
-smol_str = "0.1.21"
+id_tree = { version = "1.8.0", features = ["serde_support"] }
+smol_str = { version = "0.1.22", features = ["serde"] }
 ncollide3d = "0.32.0"
 lyon = "0.17.10"
 rand = "*"
 anyhow = "1.0"
 env_logger = "*"
-bevy_egui = { path="../bevy_egui", default-features = false, features = ["open_url"] }
+thiserror = "*"
+#bevy_egui = { path="../bevy_egui", default-features = false, features = ["open_url"] }
 
 transmog-bincode = "0.1"
-bevy-inspector-egui = {path = "../bevy-inspector-egui"}
+#bevy-inspector-egui = {path = "../bevy-inspector-egui"}
 
 truck-base = { version = "0.2.0", path = "../truck/truck-base" }
 truck-geotrait = { version = "0.1.0", path = "../truck/truck-geotrait" }
@@ -97,4 +99,8 @@ truck-rendimpl = { version = "0.3.0", path = "../truck/truck-rendimpl" }
 
 prost = "0.8.0"
 once_cell = "1.9.0"
-dynfmt = {version="0.1.5", features = ["curly"]}
+dynfmt = { version = "0.1.5", features = ["curly"] }
+
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bonsaidb = { version = "0.4.1", features = ["local-full"] }

@@ -27,6 +27,7 @@ use futures::stream::TryStreamExt;
 
 pub mod pdms_types;
 pub mod db_tool;
+pub mod error_types;
 
 pub use db_tool::*;
 

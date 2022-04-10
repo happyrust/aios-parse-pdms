@@ -9,7 +9,9 @@ use truck_base::cgmath64::{Point3, Vector3};
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
 use bevy::reflect::{Reflect, ReflectRef};
 use bevy::ecs::reflect::ReflectComponent;
-use bevy::render::render_resource::PrimitiveTopology::TriangleList;
+use bevy::render::mesh::Indices;
+use bevy::render::mesh::PrimitiveTopology::TriangleList;
+use bevy::render::primitives::Aabb;
 use fixed::types::I24F8;
 use glam::{TransformRT, TransformSRT, Vec3};
 use ncollide3d::bounding_volume::AABB;
@@ -29,8 +31,6 @@ use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::rtorus::SRTorus;
 use crate::prim_geo::sbox::SBox;
 use crate::prim_geo::snout::LSnout;
-use bevy::render::mesh::Indices;
-use bevy::render::primitives::Aabb;
 
 pub const TRIANGLE_TOL: f64 = 0.01;
 

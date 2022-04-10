@@ -789,7 +789,7 @@ impl AiosDBManager {
                                         global_transform: (desi_trans.rotation, desi_trans.translation, item_trans.scale),
                                         visible: attr.is_visible(None),
                                         generic_type: color_type.clone().unwrap_or_default(),
-                                        zone_refno: self.get_parent_att_by_type(cur_refno, "ZONE")?.unwrap().get_refno().unwrap(),
+                                        zone_refno: self.get_parent_att_by_type(cur_refno, "ZONE")?.map(|x| x.get_refno().unwrap_or_default()).unwrap_or_default(),
                                         node_id: node_ids_map.get(&cur_refno).map(|x| x.clone()).unwrap_or(cur_node_id.clone()),
                                     };
                                     inst_map.entry(cur_refno).or_insert(Vec::new()).push(geom_data);

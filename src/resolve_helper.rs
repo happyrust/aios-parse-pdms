@@ -30,10 +30,6 @@ fn test_expression_regex() {
     for cap in re.captures_iter(&new_exp) {
         println!("{} {} {}", &cap[1], &cap[2], &cap[0]);
     }
-
-
-
-
 }
 
 pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) -> anyhow::Result<f64> {
@@ -44,9 +40,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     let mut new_exp = input_expr.replace("ATTRIB", "");
     let mut result_exp = new_exp.clone();
     for cap in re.captures_iter(&new_exp) {
-        // println!("{} {} {}", &cap[1], &cap[2], &cap[0]);
         let s = &cap[0];
-        let k:SmolStr = format!("{}{}", &cap[1], &cap[2]).into();
+        let k: SmolStr = format!("{}{}", &cap[1], &cap[2]).into();
         if context.contains_key(&k) {
             result_exp = result_exp.replace(s, &context[&k]);
         }
@@ -54,18 +49,14 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     let re = Regex::new(r"PARAM\s*(\d+)").unwrap();
     let mut new_exp = result_exp.clone();
     for cap in re.captures_iter(&result_exp) {
-        // println!("{} {} {}", &cap[1], &cap[2], &cap[0]);
         let s = &cap[0];
-        let k:SmolStr = format!("PARA{}", &cap[1]).into();
+        let k: SmolStr = format!("PARA{}", &cap[1]).into();
         if context.contains_key(&k) {
             new_exp = new_exp.replace(s, &context[&k]);
         }
     }
-
-
     let seg_strs: Vec<SmolStr> = new_exp.split_whitespace().map(|x| x.trim().into()).collect::<Vec<_>>();
     if seg_strs.len() == 0 {
-        // return Err(anyhow!("表达式分段数量为 0".to_string()));
         return Ok(0.0);
     }
 
@@ -81,11 +72,11 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             "DDANGLE" => p_vals.push(context["DDANGLE"].to_string()),
             _ => {
                 if upper_s.ends_with("mm") {
-                    p_vals.push(upper_s[..upper_s.len()-2].to_string());
-                }else{
+                    p_vals.push(upper_s[..upper_s.len() - 2].to_string());
+                } else {
                     p_vals.push(upper_s.to_string())
                 }
-            },
+            }
         }
     }
 
@@ -120,43 +111,25 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 }
             }
             i += 2;
-        }else{
+        } else {
             result_string.push_str(&p_vals[i]);
             i += 1;
         }
     }
 
-    // if let Ok(f) = std::panic::catch_unwind(move || unsafe {
-    //     if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
-    //         (val * 100.0).round() / 100.0
-    //     } else {
-    //         if let Ok(mut stack) = Stack::init(&result_string){
-    //             return stack.eval();
-    //         }else{
-    //             dbg!(&context);
-    //             dbg!(&input_expr);
-    //             dbg!(&result_string);
-    //             return 0.0;
-    //         }
-    //     }
-    // }) {
-    //     return Ok(f);
-    // }else{
-    //     return Err(anyhow!(format!("求解失败 {}", input_expr)));
-    // }
-
     if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
         Ok(I24F8::from_num(val).into())
     } else {
-        if let Ok(mut stack) = Stack::init(&result_string){
+        if let Ok(mut stack) = Stack::init(&result_string) {
             return stack.eval().ok_or(anyhow!(format!("求解失败 {}", input_expr)));
-        }else{
+        } else {
             dbg!(&context);
+            dbg!(input_expr);
             dbg!(&result_string);
-            return Err(anyhow!(format!("求解失败 {}", input_expr)));;
+            return Err(anyhow!(format!("求解失败 {}", input_expr)));
+            ;
         }
     }
-
 }
 
 // fn mk_callback<'a, F>(f: F) -> Callback<'a>
@@ -182,29 +155,29 @@ fn test_eval_expression() {
     interpreter.set_var(String::from("sin"), Variant::Function(|name, args| {
         if args.len() < 1 {
             Err(InterpretError::TooFewArgs(name, 1))
-        }  else {
-            Ok( args[0].to_radians().sin() ) // get the only argument and double it
+        } else {
+            Ok(args[0].to_radians().sin()) // get the only argument and double it
         }
     }));
     interpreter.set_var(String::from("tan"), Variant::Function(|name, args| {
         if args.len() < 1 {
             Err(InterpretError::TooFewArgs(name, 1))
-        }  else {
-            Ok( args[0].to_radians().tan() ) // get the only argument and double it
+        } else {
+            Ok(args[0].to_radians().tan()) // get the only argument and double it
         }
     }));
     interpreter.set_var(String::from("tanf"), Variant::Function(|name, args| {
         if args.len() < 2 {
             Err(InterpretError::TooFewArgs(name, 2))
-        }  else {
-            Ok( args[0] * ((args[1] / 2.0).to_radians()).tan() ) // get the only argument and double it
+        } else {
+            Ok(args[0] * ((args[1] / 2.0).to_radians()).tan()) // get the only argument and double it
         }
     }));
     interpreter.set_var(String::from("twice"), Variant::Function(|name, args| {
         if args.len() < 1 {
             Err(InterpretError::TooFewArgs(name, 1))
-        }  else {
-            Ok( args[0] * 2.0 ) // get the only argument and double it
+        } else {
+            Ok(args[0] * 2.0) // get the only argument and double it
         }
     }));
     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
@@ -215,7 +188,7 @@ fn test_eval_expression() {
                 Ok(expr) => match interpreter.eval(&expr) { // Step 3: interprets the Expr
                     Ok(result) => {
                         value = Some(result);
-                    },
+                    }
                     Err(interpret_error) => eprintln!("{:?}:{:?}", &expr, interpret_error),
                 },
                 _ => {}
@@ -223,10 +196,9 @@ fn test_eval_expression() {
             _ => {}
         }
         value
-    }){
+    }) {
         println!("{:?}", f);
     }
-
 }
 
 // pub fn eval_str_to_f64_old(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) -> Option<f64> {
@@ -478,10 +450,10 @@ pub fn test_expression() {
     //dbg!(s);
 }
 
-pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
+pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeoParam> {
     let geo = match &gmse.type_name[..] {
         "SANN" => {
-            Some(CateGeoParam::Profile(CateProfileParam::SANN(SannData {
+            CateGeoParam::Profile(CateProfileParam::SANN(SannData {
                 xy: [gmse.verts[0][0], gmse.verts[0][1]],
                 dxy: [gmse.dxy[0][0], gmse.dxy[0][1]],
                 ptaxis: Some(gmse.paxises[0].clone()),
@@ -491,10 +463,10 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 drad: gmse.drad as f32,
                 dwid: gmse.dwid as f32,
             })
-            ))
+            )
         }
         "SPRO" => {   //structural profile
-            Some(CateGeoParam::Profile(CateProfileParam::SPRO(gmse.verts)))
+            CateGeoParam::Profile(CateProfileParam::SPRO(gmse.verts))
         }
         "BOXI" => {
             let z_length = if gmse.box_lengths.len() >= 3 {
@@ -502,47 +474,47 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
             } else {
                 gmse.box_lengths[1]
             };
-            Some(CateGeoParam::Boxi(CateBoxImpliedParam {
+            CateGeoParam::Boxi(CateBoxImpliedParam {
                 axis: Some(gmse.paxises[0].clone()),
                 x_length: gmse.box_lengths[0],
                 z_length,
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "LCYL" => {
             // 圆柱体
-            Some(CateGeoParam::LCylinder(CateLCylinderParam {
+            CateGeoParam::LCylinder(CateLCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
                 dist_to_top: gmse.distances[1],
-            }))
+            })
         }
         "SCYL" => {
             // 圆柱体
-            Some(CateGeoParam::SCylinder(CateSCylinderParam {
+            CateGeoParam::SCylinder(CateSCylinderParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 height: gmse.phei,
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "LINE" => {
-            Some(CateGeoParam::Line(CateLineParam {
+            CateGeoParam::Line(CateLineParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 diameter: 0.0, //gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "LPYR" => {
-            Some(CateGeoParam::Pyramid(CatePyramidParam {
+            CateGeoParam::Pyramid(CatePyramidParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 pc: Some(gmse.paxises[2].clone()),
@@ -556,10 +528,10 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 y_offset: gmse.xyz[5],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "LSNO" => {
-            Some(CateGeoParam::Snout(CateSnoutParam {
+            CateGeoParam::Snout(CateSnoutParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 dist_to_btm: gmse.distances[0],
@@ -569,10 +541,10 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 offset: gmse.offset,
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SBOX" => {
-            Some(CateGeoParam::Box(CateBoxParam {
+            CateGeoParam::Box(CateBoxParam {
                 size: vec![
                     gmse.box_lengths[0],
                     gmse.box_lengths[1],
@@ -585,27 +557,27 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 ],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SCON" => {
             // 圆锥
-            Some(CateGeoParam::Cone(CateConeParam {
+            CateGeoParam::Cone(CateConeParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SCTO" => {
             // 弯管
-            Some(CateGeoParam::Torus(CateTorusParam {
+            CateGeoParam::Torus(CateTorusParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         // "SDIS" => {
         // 圆片
@@ -618,7 +590,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
         // }))
         // }
         "SDSH" => {
-            Some(CateGeoParam::Dish(CateDishParam {
+            CateGeoParam::Dish(CateDishParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 height: gmse.phei,
@@ -626,10 +598,10 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 radius: gmse.radius,
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SEXT" => {
-            Some(CateGeoParam::Extrusion(CateExtrusionParam {
+            CateGeoParam::Extrusion(CateExtrusionParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 height: gmse.phei,
@@ -639,20 +611,20 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 verts: vec![],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SLINE" => {
             //todo
-            Some(CateGeoParam::Sline(CateSlineParam {
+            CateGeoParam::Sline(CateSlineParam {
                 start_pt: vec![0.0; 3],
                 end_pt: vec![0.0; 3],
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SREV" => {
-            Some(CateGeoParam::Revolution(CateRevolutionParam {
+            CateGeoParam::Revolution(CateRevolutionParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 angel: gmse.angle,
@@ -661,54 +633,54 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> Option<CateGeoParam> {
                 z: gmse.xyz[2],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SRTO" => { // 如 =15192/210474
             // 截面为矩形的弯管
-            Some(CateGeoParam::RectTorus(CateRectTorusParam {
+            CateGeoParam::RectTorus(CateRectTorusParam {
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 height: gmse.phei,
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         // "SSLC" => {
-            //todo
-            // Some(CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam {
-            //     axis: Some(gmse.paxises[0].clone()),
-            //     height: gmse.phei,
-            //     diameter: gmse.diameters[0],
-            //     distance: gmse.distances[0],
-            //     x_shear: 0.0,
-            //     y_shear: 0.0,
-            //     alt_x_shear: 0.0,
-            //     alt_y_shear: 0.0,
-            //     centre_line_flag: gmse.centre_line_flag,
-            //     tube_flag: gmse.tube_flag,
-            // }))
+        //todo
+        // Some(CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam {
+        //     axis: Some(gmse.paxises[0].clone()),
+        //     height: gmse.phei,
+        //     diameter: gmse.diameters[0],
+        //     distance: gmse.distances[0],
+        //     x_shear: 0.0,
+        //     y_shear: 0.0,
+        //     alt_x_shear: 0.0,
+        //     alt_y_shear: 0.0,
+        //     centre_line_flag: gmse.centre_line_flag,
+        //     tube_flag: gmse.tube_flag,
+        // }))
         // }
         "SSPH" => {
             // 球
-            Some(CateGeoParam::Sphere(CateSphereParam {
+            CateGeoParam::Sphere(CateSphereParam {
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_center: gmse.distances[0],
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            }))
+            })
         }
         "SVER" => {
-            Some(CateGeoParam::SVER(CateSverParam {
+            CateGeoParam::SVER(CateSverParam {
                 x: gmse.xyz[0],
                 y: gmse.xyz[1],
                 radius: gmse.radius,
-            }))
+            })
         }
-        _ => None,
+        _ => CateGeoParam::Unknown,
     };
-    geo
+    Ok(geo)
 }
 
 pub fn resolve_dir_and_pos(axis: &AxisParam,

@@ -46,6 +46,7 @@ use parse_pdms_db::parse_explict_tools::*;
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
+use anyhow::anyhow;
 use fixed::types::{I20F12, I24F8};
 use futures::TryStreamExt;
 use id_tree::Tree;
@@ -94,7 +95,7 @@ fn main() -> AiosDbError {
     let mut db_option = DbOption {
         total_sync: false,
         incr_sync: false,
-        project_path: "D:/aba".to_string(),
+        project_path: "/Volumes/DPC/aba".to_string(),
         included_projects: vec!["ABA".to_owned(), "GDP".to_owned()],
         // included_db_files: Some(vec!["gdp5500_0001".to_owned()])
         // included_db_files: Some(vec!["aba0001_0001".to_owned()]),
@@ -117,18 +118,16 @@ fn main() -> AiosDbError {
 
 pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool>{
 
-    // //dbg!(mgr.get_pretty_attr(RefU64::from_tow_(8193, 5322)));
     mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
     let mut string_lookup = StringLookupTable::default();
     let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
-
     let db_no = db_option.main_db_code;
-    let tree = mgr.get_tree(db_option.project_name.as_str(),
-                            db_no).unwrap_or_default();
+    let tree = mgr.get_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
     tree.serialize_to_bin_file(db_no);
     let tree = &tree.0;
+
     if let Some(proj_db) = mgr.project_map.get(&AiosStr(db_option.project_name.clone().into()).get_u32_hash()){
-        let node_id = tree.root_node_id().unwrap();
+        let node_id = tree.root_node_id().ok_or(anyhow!("root node not exist.".to_string()))?;
         if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
             while let Some(mut cur_node_id) = nodes.next() {
                 let cur_node = tree.get(&cur_node_id).unwrap();

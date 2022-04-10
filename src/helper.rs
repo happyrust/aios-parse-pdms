@@ -135,16 +135,7 @@ pub fn resolve_paragon_gm_params(
 ) -> anyhow::Result<CateGeoParam> {
     //dbg!(&gm_param);
     let gm_data = resolve_gmse_params(gm_param, context, axis_params)?;
-    // if let Some(gm_data) = resolve_gmse_params(gm_param, context, axis_params) {
-    //     if let Ok(s) = std::panic::catch_unwind(move || unsafe {
-    //         // //dbg!(&gm_data);
-    //
-    //     }){
-    //         return s;
-    //     }
-    // }
-    resolve_to_cate_geo_params(gm_data).ok_or(anyhow!("Resolve gm params failed".to_string()))
-    // Err(anyhow!("Resolve gm params failed".to_string()))
+    resolve_to_cate_geo_params(gm_data)  /*ok_or(anyhow!("Resolve gm params failed".to_string()))*/
 }
 
 pub fn resolve_gmse_params(
@@ -169,9 +160,12 @@ pub fn resolve_gmse_params(
 
     let verts = gm.verts
         .iter()
-        .map(|exp| [eval_str_to_f64(exp[0].as_str(), context).unwrap_or_default() as f32,
-            eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default() as f32])
-        .collect::<Vec<[f32; 2]>>();
+        .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
+            let f0 = eval_str_to_f64(exp[0].as_str(), context)? as f32;
+            let f1 = eval_str_to_f64(exp[1].as_str(), context)? as f32;
+            acc.push([f0, f1]);
+            Ok(acc)
+        })?;
 
     let phei = eval_str_to_f64(&gm.phei, context)?;
     let offset = eval_str_to_f64(&gm.offset, context)?;
@@ -184,10 +178,12 @@ pub fn resolve_gmse_params(
 
     let dxy = gm.dxy
         .iter()
-        .map(|exp| [eval_str_to_f64(exp[0].as_str(), context).unwrap_or_default() as f32,
-            eval_str_to_f64(exp[1].as_str(), context).unwrap_or_default() as f32])
-        .collect::<Vec<[f32; 2]>>();
-
+        .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
+            let f0 = eval_str_to_f64(exp[0].as_str(), context)? as f32;
+            let f1 = eval_str_to_f64(exp[1].as_str(), context)? as f32;
+            acc.push([f0, f1]);
+            Ok(acc)
+        })?;
 
     let box_lengths = gm.box_lengths
         .iter()

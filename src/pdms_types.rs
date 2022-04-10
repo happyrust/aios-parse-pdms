@@ -5,7 +5,7 @@ use crate::pdms_types::AttrVal::{
     RefU64Type, StringArrayType, StringHashType, StringType, Vec3Type, WordType,
 };
 use bevy::prelude::*;
-use bevy_inspector_egui::{widgets::InspectableButton, Inspectable, InspectorPlugin};
+// use bevy_inspector_egui::{widgets::InspectableButton, Inspectable, InspectorPlugin};
 use bonsaidb::core::schema::{Collection, CollectionName, DefaultSerialization, Qualified, Schematic, SerializedCollection};
 use bonsaidb::core::Error;
 use dashmap::DashMap;
@@ -27,8 +27,7 @@ use std::result::Iter;
 use std::vec::IntoIter;
 use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
-use bevy_egui::egui;
-use egui::Key::O;
+// use bevy_egui::egui;
 
 pub const LEVEL_VISBLE: u32 = 6;
 
@@ -98,18 +97,18 @@ impl RefI32Tuple {
 #[derive(Hash, Serialize, Deserialize, Clone, Copy, Default, Component, Eq, PartialEq, Hash32)]
 pub struct RefU64(pub u64);
 
-impl Inspectable for RefU64 {
-    type Attributes = (u32, u32);
-
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        options: Self::Attributes,
-        context: &mut bevy_inspector_egui::Context,
-    ) -> bool {
-        true
-    }
-}
+// impl Inspectable for RefU64 {
+//     type Attributes = (u32, u32);
+//
+//     fn ui(
+//         &mut self,
+//         ui: &mut egui::Ui,
+//         options: Self::Attributes,
+//         context: &mut bevy_inspector_egui::Context,
+//     ) -> bool {
+//         true
+//     }
+// }
 
 impl Deref for RefU64 {
     type Target = u64;
@@ -248,7 +247,7 @@ Debug,
 Default,
 Component,
 Reflect,
-Inspectable,
+// Inspectable,
 Eq,
 Hash,
 PartialEq,
@@ -297,33 +296,33 @@ pub struct AttrMap {
     pub map: bevy_utils::HashMap<NounHash, AttrVal>,
 }
 
-impl Inspectable for AttrMap {
-    type Attributes = ();
-
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        options: Self::Attributes,
-        context: &mut bevy_inspector_egui::Context,
-    ) -> bool {
-        let mut changed = false;
-        ui.vertical_centered(|ui| {
-            egui::Grid::new(context.id()).show(ui, |ui| {
-                let sort_keys = self.map.keys().cloned().sorted_by_key(|x| db1_dehash(x.0));
-                //need sort
-                for sort_key in sort_keys {
-                    ui.label(db1_dehash(sort_key.0));
-                    let v = self.map.get_mut(&sort_key).unwrap();
-                    ui.vertical(|ui| {
-                        changed |= v.ui(ui, Default::default(), context);
-                    });
-                    ui.end_row();
-                }
-            });
-        });
-        changed
-    }
-}
+// impl Inspectable for AttrMap {
+//     type Attributes = ();
+//
+//     fn ui(
+//         &mut self,
+//         ui: &mut egui::Ui,
+//         options: Self::Attributes,
+//         context: &mut bevy_inspector_egui::Context,
+//     ) -> bool {
+//         let mut changed = false;
+//         ui.vertical_centered(|ui| {
+//             egui::Grid::new(context.id()).show(ui, |ui| {
+//                 let sort_keys = self.map.keys().cloned().sorted_by_key(|x| db1_dehash(x.0));
+//                 //need sort
+//                 for sort_key in sort_keys {
+//                     ui.label(db1_dehash(sort_key.0));
+//                     let v = self.map.get_mut(&sort_key).unwrap();
+//                     ui.vertical(|ui| {
+//                         changed |= v.ui(ui, Default::default(), context);
+//                     });
+//                     ui.end_row();
+//                 }
+//             });
+//         });
+//         changed
+//     }
+// }
 
 impl Deref for AttrMap {
     type Target = bevy_utils::HashMap<NounHash, AttrVal>;
@@ -883,59 +882,59 @@ pub enum AttrVal {
     StringHashType(AiosStrHash),
 }
 
-impl Inspectable for AttrVal {
-    type Attributes = ();
-
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        options: Self::Attributes,
-        context: &mut bevy_inspector_egui::Context,
-    ) -> bool {
-        let mut changed = false;
-        match self {
-            StringType(s) | ElementType(s) | WordType(s) => {
-                s.ui(ui, Default::default(), context);
-            }
-            IntegerType(d) => {
-                d.ui(ui, Default::default(), context);
-            }
-            DoubleType(d) => {
-                d.ui(ui, Default::default(), context);
-            }
-            RefU64Type(r) => {
-                r.to_refno_str().ui(ui, Default::default(), context);
-            }
-            Vec3Type(r) => {
-                Vec3::new(r[0] as f32, r[1] as f32, r[2] as f32).ui(
-                    ui,
-                    Default::default(),
-                    context,
-                );
-            }
-            BoolType(b) => {
-                b.ui(ui, Default::default(), context);
-            }
-            BoolArrayType(bs) => {
-                for b in bs {
-                    b.ui(ui, Default::default(), context);
-                    ui.end_row();
-                }
-            }
-            DoubleArrayType(ds) => {
-                for b in ds {
-                    b.ui(ui, Default::default(), context);
-                    ui.end_row();
-                }
-            }
-            StringHashType(s) => {
-                s.ui(ui, Default::default(), context);
-            }
-            _ => {}
-        }
-        changed
-    }
-}
+// impl Inspectable for AttrVal {
+//     type Attributes = ();
+//
+//     fn ui(
+//         &mut self,
+//         ui: &mut egui::Ui,
+//         options: Self::Attributes,
+//         context: &mut bevy_inspector_egui::Context,
+//     ) -> bool {
+//         let mut changed = false;
+//         match self {
+//             StringType(s) | ElementType(s) | WordType(s) => {
+//                 s.ui(ui, Default::default(), context);
+//             }
+//             IntegerType(d) => {
+//                 d.ui(ui, Default::default(), context);
+//             }
+//             DoubleType(d) => {
+//                 d.ui(ui, Default::default(), context);
+//             }
+//             RefU64Type(r) => {
+//                 r.to_refno_str().ui(ui, Default::default(), context);
+//             }
+//             Vec3Type(r) => {
+//                 Vec3::new(r[0] as f32, r[1] as f32, r[2] as f32).ui(
+//                     ui,
+//                     Default::default(),
+//                     context,
+//                 );
+//             }
+//             BoolType(b) => {
+//                 b.ui(ui, Default::default(), context);
+//             }
+//             BoolArrayType(bs) => {
+//                 for b in bs {
+//                     b.ui(ui, Default::default(), context);
+//                     ui.end_row();
+//                 }
+//             }
+//             DoubleArrayType(ds) => {
+//                 for b in ds {
+//                     b.ui(ui, Default::default(), context);
+//                     ui.end_row();
+//                 }
+//             }
+//             StringHashType(s) => {
+//                 s.ui(ui, Default::default(), context);
+//             }
+//             _ => {}
+//         }
+//         changed
+//     }
+// }
 
 impl Default for AttrVal {
     fn default() -> Self {

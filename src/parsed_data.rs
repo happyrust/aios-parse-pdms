@@ -121,6 +121,7 @@ pub mod geo_params_data {
         Torus(super::CateTorusParam),
         TubeImplied(super::CateTubeImpliedParam),
         SVER(super::CateSverParam),
+        Unknown,
     }
 }
 #[derive(Clone, PartialEq, Serialize, Deserialize,  Debug)]
