@@ -28,10 +28,9 @@ pub struct Stack {
 }
 
 impl Stack {
-
-    //不能用空格作为分隔符，有些表达是会有 1+ 2 这种情况
     pub fn init(input: &str) -> anyhow::Result<Stack> {
         let stack = input
+            .trim()
             .split(" ")
             .map(|x| match x {
                 "+" => StackItem::Operation(Operation::Add),

@@ -51,11 +51,14 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             result_exp = result_exp.replace(s, "0.0");   //默认用0.0处理
         }
     }
-    let re = Regex::new(r"PARAM\s*(\d+)").unwrap();
+    let re = Regex::new(r"(I?PARAM?)\s*(\d+)").unwrap();
     let mut new_exp = result_exp.clone();
     for cap in re.captures_iter(&result_exp) {
         let s = &cap[0];
-        let k: SmolStr = format!("PARA{}", &cap[1]).into();
+        let l = if (&cap[1]).starts_with("IP"){
+            "IPARA".to_string()
+        }else{ "PARA".to_string() };
+        let k: SmolStr = format!("{}{}", l, &cap[2]).into();
         if context.contains_key(&k) {
             new_exp = new_exp.replace(s, &context[&k]);
         }
@@ -72,6 +75,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         match upper_s.as_str() {
             "TIMES" | "MULT" => p_vals.push("*".to_string()),
             "DIV" => p_vals.push("/".to_string()),
+            "SUM" => p_vals.push("+".to_string()),
             "DDHEIGHT" => p_vals.push(context["DDHEIGHT"].to_string()),
             "DDRADIUS" => p_vals.push(context["DDRADIUS"].to_string()),
             "DDANGLE" => p_vals.push(context["DDANGLE"].to_string()),
@@ -120,17 +124,18 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             result_string.push_str(&p_vals[i]);
             i += 1;
         }
+        result_string.push_str(" ");
     }
 
     if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
         Ok(I24F8::from_num(val).into())
     } else {
         if let Ok(mut stack) = Stack::init(&result_string) {
-            return stack.eval().ok_or(anyhow!(format!("求解失败 {}", input_expr)));
+            return stack.eval().ok_or(anyhow!(format!("后缀表达式求解失败 {}", input_expr)));
         } else {
-            // dbg!(&context);
-            // dbg!(input_expr);
-            // dbg!(&result_string);
+            dbg!(&context);
+            dbg!(input_expr);
+            dbg!(&result_string);
             return Err(anyhow!(format!("求解失败 {}", input_expr)));
         }
     }

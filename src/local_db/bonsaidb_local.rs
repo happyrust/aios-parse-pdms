@@ -412,51 +412,50 @@ impl AiosDBManager {
                         dbg!(child.to_refno_str());
                         dbg!(self.get_pretty_attr(child));
                     }
-                    if let Ok(geoms) = crate::query_cata::resolve_desi_comp(child, self) {
-                        let attr = self.get_attr(child)?.unwrap_or_default();
-                        if let Ok(arrive) = attr.get_i32("ARRI") {
-                            //todo 加入获取arrive position 的方法
-                            if geoms.axis_map.contains_key(&arrive) {
-                                let p = &geoms.axis_map[&arrive].pt;
-                                let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                                //dbg!(&a_pos);
-                                if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > EPSILON {
-                                    current_tubing.end_pt = a_pos;
-                                    current_tubing.finished = true;
-                                    result_shapes.push(current_tubing.convert_to_shape());
-                                }
+                    let geoms = crate::query_cata::resolve_desi_comp(child, self)?;
+                    let attr = self.get_attr(child)?.unwrap_or_default();
+                    if let Ok(arrive) = attr.get_i32("ARRI") {
+                        //todo 加入获取arrive position 的方法
+                        if geoms.axis_map.contains_key(&arrive) {
+                            let p = &geoms.axis_map[&arrive].pt;
+                            let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
+                            //dbg!(&a_pos);
+                            if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > EPSILON {
+                                current_tubing.end_pt = a_pos;
+                                current_tubing.finished = true;
+                                result_shapes.push(current_tubing.convert_to_shape());
                             }
                         }
+                    }
 
-                        if let Ok(lstube) = attr.get_foreign_refno("LSTU") {
-                            if let Some(lstube_att) = self.get_attr(lstube)? {
-                                let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR")?)?.unwrap_or_default();
-                                let params = lstube_cat_att.get_f64_vec("PARA")?;
-                                if params.len() >= 2 {
-                                    current_tubing.bore = params[1] as f32;
-                                }
+                    if let Ok(lstube) = attr.get_foreign_refno("LSTU") {
+                        if let Some(lstube_att) = self.get_attr(lstube)? {
+                            let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR")?)?.unwrap_or_default();
+                            let params = lstube_cat_att.get_f64_vec("PARA")?;
+                            if params.len() >= 2 {
+                                current_tubing.bore = params[1] as f32;
                             }
                         }
+                    }
 
-                        if let Ok(leave) = attr.get_i32("LEAV") {
-                            //todo 加入获取leave position 的方法
-                            // current_tubing
-                            if geoms.axis_map.contains_key(&leave) {
-                                let p = &geoms.axis_map[&leave].pt;
-                                let l_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                                current_tubing.start_pt = l_pos;
-                                current_tubing.finished = false;
-                            }
-                            // //dbg!(leave);
+                    if let Ok(leave) = attr.get_i32("LEAV") {
+                        //todo 加入获取leave position 的方法
+                        // current_tubing
+                        if geoms.axis_map.contains_key(&leave) {
+                            let p = &geoms.axis_map[&leave].pt;
+                            let l_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
+                            current_tubing.start_pt = l_pos;
+                            current_tubing.finished = false;
                         }
-                        //管件的生成
-                        //return pipes::create_geo(&desi_att, &geoms);
-                        for geom in geoms.geometries {
-                            if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
-                                result_shapes.push(cate_shape);
-                            }
-                        } // end geoms.geometries
-                    }  // end for
+                        // //dbg!(leave);
+                    }
+                    //管件的生成
+                    //return pipes::create_geo(&desi_att, &geoms);
+                    for geom in geoms.geometries {
+                        if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
+                            result_shapes.push(cate_shape);
+                        }
+                    } // end geoms.geometries
                     if child == last_child {
                         if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > EPSILON {
                             current_tubing.end_pt = bran_ttube_pt;

@@ -55,8 +55,11 @@ pub fn resolve_paragon_gm_params(
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> anyhow::Result<CateGeoParam> {
     //dbg!(&gm_param);
-    let gm_data = resolve_gmse_params(gm_param, context, axis_params)?;
-    resolve_to_cate_geo_params(gm_data)  /*ok_or(anyhow!("Resolve gm params failed".to_string()))*/
+    if let Ok(gm_data) = resolve_gmse_params(gm_param, context, axis_params){
+        resolve_to_cate_geo_params(gm_data)
+    }else{
+        Err(anyhow!(format!("几何数据解析失败: {:?}", gm_param)))
+    }
 }
 
 pub fn resolve_gmse_params(
@@ -73,7 +76,7 @@ pub fn resolve_gmse_params(
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context))
         .collect::<anyhow::Result<Vec<f64>>>()?;
-    // //dbg!(&gm.diameters);
+
     let distances = gm.distances
         .iter()
         .map(|exp| eval_str_to_f64(&exp, context))
