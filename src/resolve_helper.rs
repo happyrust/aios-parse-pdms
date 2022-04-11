@@ -41,9 +41,14 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     let mut result_exp = new_exp.clone();
     for cap in re.captures_iter(&new_exp) {
         let s = &cap[0];
-        let k: SmolStr = format!("{}{}", &cap[1], &cap[2]).into();
+        let k_str = &cap[1];
+        let n_str = &cap[2];
+        let k: SmolStr = format!("{}{}", k_str, n_str).into();
         if context.contains_key(&k) {
             result_exp = result_exp.replace(s, &context[&k]);
+        }else if k_str == "DESI" || k_str == "DESP" {
+            //todo need verify
+            result_exp = result_exp.replace(s, "0.0");   //默认用0.0处理
         }
     }
     let re = Regex::new(r"PARAM\s*(\d+)").unwrap();
@@ -123,11 +128,10 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         if let Ok(mut stack) = Stack::init(&result_string) {
             return stack.eval().ok_or(anyhow!(format!("求解失败 {}", input_expr)));
         } else {
-            dbg!(&context);
-            dbg!(input_expr);
-            dbg!(&result_string);
+            // dbg!(&context);
+            // dbg!(input_expr);
+            // dbg!(&result_string);
             return Err(anyhow!(format!("求解失败 {}", input_expr)));
-            ;
         }
     }
 }

@@ -6,16 +6,20 @@ use std::io;
 pub enum ResolveError {
     #[error("Axis index not exist {0}")]
     AxisIndeNotExist(u32),
-
     #[error("{0}")]
     IoError(#[from] io::Error),
     IoError1(io::Error),
-    // #[error("{0}")]
-    // Query(QueryPayloadError),
-    // #[error("The json payload provided is malformed. `{0}`.")]
-    // MalformedPayload(serde_json::error::Error),
-    // #[error("A json payload is missing.")]
-    // MissingPayload,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("AttError unknown")]
+pub enum AttError {
+    #[error("Refno: {0} attr not exist {1}")]
+    AttNotExist(String, String),
+    #[error("Att name: {0} is not {1}")]
+    TypeNotCorrect(String, String),
+    #[error("Vec3 lenth : {0} is not 3")]
+    Vec3LengthLess(u32),
 }
 
 fn gen_resolve_error() -> anyhow::Result<u32>{

@@ -91,8 +91,10 @@ impl RotateInfo {
             rotate_info.radius = px / beta.sin().abs();
             rotate_info.center = pbax_pt + ref_dir * rotate_info.radius;
         }
-        rotate_info.angle = -rotate_info.angle;
-        rotate_info.rot_axis = -rotate_info.rot_axis;
+        // if rotate_info.angle < 0.0 {
+        //     rotate_info.angle = -rotate_info.angle;
+        //     rotate_info.rot_axis = -rotate_info.rot_axis;
+        // }
         return Some(rotate_info);
     }
 }

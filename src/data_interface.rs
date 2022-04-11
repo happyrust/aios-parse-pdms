@@ -15,8 +15,7 @@ pub trait PdmsDataInterface {
         Ok(true)
     }
 
-    fn get_ele_attr(&self, refno: RefU64) -> Option<AttrMap>;
-
+    fn get_ele_attr(&self, refno: RefU64) -> anyhow::Result<AttrMap>;
 
     fn get_ele_children_attrs(&self, refno: RefU64) -> Vec<AttrMap>;
 

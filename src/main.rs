@@ -95,14 +95,15 @@ fn main() -> AiosDbError {
     let mut db_option = DbOption {
         total_sync: false,
         incr_sync: false,
-        project_path: "/Volumes/DPC/aba".to_string(),
+        // project_path: "/Volumes/DPC/aba".to_string(),
+        project_path: "D:/aba".to_string(),
         included_projects: vec!["ABA".to_owned(), "GDP".to_owned()],
         // included_db_files: Some(vec!["gdp5500_0001".to_owned()])
         // included_db_files: Some(vec!["aba0001_0001".to_owned()]),
         included_db_files: None,
         mdb_name: "ABA".to_string(),
         project_name: "ABA".to_string(),
-        main_db_code: 1
+        main_db_code: 117
     };
 
     let mut time = Instant::now();
@@ -118,7 +119,16 @@ fn main() -> AiosDbError {
 
 pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool>{
 
-    mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
+    //todo 可以用多线程去并发tree，获取节点下面，然后并发
+    let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
+    match r {
+        Ok(_) => {}
+        Err(err) => {
+            println!("{:?}", err);
+            return Err(err);
+        }
+    }
+    // return Ok(true);
     let mut string_lookup = StringLookupTable::default();
     let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
     let db_no = db_option.main_db_code;

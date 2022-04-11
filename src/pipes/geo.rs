@@ -12,15 +12,12 @@ pub fn create_geo(att: &AttrMap, geom_info: &GeomsInfo) -> Option<GeoData> {
     let geoms = &geom_info.geometries;
     if geoms.len() < 2 { return None; }
 
-    if let Some(poss) = att.get_poss() {
-        if let Some(pose) = att.get_pose() {
-
+    if let Ok(poss) = att.get_poss() {
+        if let Ok(pose) = att.get_pose() {
             let height = pose.distance(poss);
             if height < EPSILON { return None; }
-
             let ns = att.get_vec3("DRNS");
             let ne = att.get_vec3("DRNE");
-
             //rotate the profile
             if let CateGeoParam::Profile(profile_s) = &geoms[0]{
                 if let CateGeoParam::Profile(profile_e) = &geoms[1] {

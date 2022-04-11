@@ -123,16 +123,14 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
         let file_name = path.file_name().unwrap().to_str().unwrap();
         if file_name.ends_with("sys") {
             let mut pdms_db_data = parse_file(&path, &database_info, file_name, project, "")?;
-            pdms_db_data.all_attr_map.iter().for_each(|m| {
+            pdms_db_data.all_attr_map.iter().try_for_each::<_, anyhow::Result<()>>(|m| {
                 let map = m.value();
-                if let Some(num) = map.get_u32("NUMBDB") {
-                    if let Some(fnum) = map.get_u32("FINO") {
-                        if let Some(name) = map.get_as_string("NAME") {
-                            let db_no = if fnum == 0 { num } else { fnum };
-                            pdms_db_name_map.insert(db_no, name);
-                        }
-                    }
-                }
+                let num = map.get_u32("NUMBDB")?;
+                let fnum = map.get_u32("FINO")?;
+                let name = map.get_as_string("NAME")?;
+                let db_no = if fnum == 0 { num } else { fnum };
+                pdms_db_name_map.insert(db_no, name);
+                Ok(())
             });
             if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
                 pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
@@ -1798,24 +1796,6 @@ pub fn parse_pdms_project_name(input: &str) -> IResult<&str, &str> {
 //     Ok(())
 // }
 
-/// 返回 k:DBnumber v:Dbname
-pub fn get_numberdb(map: DashMap<i32, Vec<EleNode>>) -> DashMap<String, String> {
-    let mut result = DashMap::new();
-    // for (_, v) in map {
-    //     for node in v {
-    //         let node_map = node.attr_data_map;
-    //         if let Some(number_db) = node_map.get("NUMBDB") {
-    //             match number_db.value() {
-    //                 IntegerType(number) => {
-    //                     result.entry(number.to_string()).or_insert(node.name);
-    //                 }
-    //                 _ => {}
-    //             }
-    //         };
-    //     }
-    // }
-    result
-}
 
 
 #[derive(Default, Debug)]

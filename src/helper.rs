@@ -6,6 +6,7 @@ use itertools::Itertools;
 use smol_str::SmolStr;
 use crate::AttrMap;
 use crate::db_tool::db1_dehash;
+use crate::error_types::AttError::TypeNotCorrect;
 use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params};
 use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
 use crate::parsed_data::{CateAxisParam, GmseParamData};
@@ -13,91 +14,7 @@ use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::pdms_types::{AttrVal, EleNode};
 use crate::query_cata::{DDANGLE_STR, DDHEIGHT_STR, DDRADIUS_STR};
 
-pub fn get_attr_double_as_dehash_string(ele: &DashMap<String, AttrVal>, attr: &str) -> String {
-    if let Some(value) = ele.get(attr) {
-        match value.value() {
-            AttrVal::DoubleType(d) => {
-                return db1_dehash(*d as u32);
-            }
-            _ => {}
-        }
-    };
-    "unset".to_string()
-}
 
-
-pub fn get_attr_value_f64_vec(attr_map: &AttrMap, att: &str) -> Option<Vec<f64>> {
-    let mut v = vec![];
-    if let Some(val) = attr_map.get_val(att) {
-        match val {
-            AttrVal::DoubleArrayType(data) => {
-                v = data.clone();
-                return Some(v);
-            }
-            AttrVal::Vec3Type(data) => {
-                v = data.to_vec();
-                return Some(v);
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-pub fn get_attr_value_int(ele: &AttrMap, attr: &str) -> i32 {
-    let mut value = 0;
-    if let Some(ele_value) = ele.get_val(attr) {
-        match ele_value {
-            AttrVal::IntegerType(data) => {
-                value = *data;
-            }
-            _ => {}
-        }
-    }
-    value
-}
-
-pub fn get_attr_value_int_vec(ele: &AttrMap, attr: &str) -> Vec<i32> {
-    let mut value = vec![];
-    if let Some(ele_value) = ele.get_val(attr) {
-        match ele_value {
-            AttrVal::IntArrayType(data) => {
-                value = data.to_vec();
-            }
-            AttrVal::DoubleArrayType(data) => {
-                value = data.iter().map(|v| {
-                    *v as i32 })
-                    .collect::<Vec<i32>>();
-            }
-            _ => {}
-        }
-    }
-    value
-}
-
-pub fn get_world_matrix_f64_db(ele: &AttrMap) -> Vec<f64> {
-    let mut pos = get_attr_value_f64_vec(ele, "POS").unwrap_or(vec![0.0, 0.0, 0.0]);
-    vec![
-        1.0f64, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, pos[0], pos[1], pos[2],
-    ]
-}
-
-pub fn get_attr_strings_db(ele: &AttrMap, attrs: &[&str]) -> Vec<SmolStr> {
-    let mut results = vec![];
-    for &attr_name in attrs {
-        if let Some(result) = ele.get_val(attr_name) {
-            match result {
-                AttrVal::StringType(value) => {
-                    if value != "" {
-                        results.push(value.trim_matches('\0').to_owned().clone().into());
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    results
-}
 
 /// 求解axis的数值, 得到 {num:  }
 pub fn resolve_axis_params(
@@ -121,8 +38,12 @@ pub fn resolve_gms(
 ) -> anyhow::Result<Vec<CateGeoParam>> {
     gmse_strs
         .iter()
-        .map(|gmse_str| {
-            resolve_paragon_gm_params(&gmse_str, context, axis_params)
+        .filter_map(|g| {
+            if g.visible_flag{
+                Some(resolve_paragon_gm_params(&g, context, axis_params))
+            }else{
+                None
+            }
         })
         .collect::<_>()
 }

@@ -39,8 +39,8 @@ pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, i
     } else { None };
 
     let mut height = 0.0;
-    if let Some(poss) = att.get_poss() {
-        if let Some(pose) = att.get_pose() {
+    if let Ok(poss) = att.get_poss() {
+        if let Ok(pose) = att.get_pose() {
             height = pose.distance(poss);
         }
     }

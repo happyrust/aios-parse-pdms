@@ -32,8 +32,6 @@ pub struct SCTorus {
 
 
 impl SCTorus {
-
-
     pub fn convert_to_ctorus(&self) -> Option<(CTorus, glam::TransformSRT)>{
         if let Some(torus_info) = RotateInfo::cal_rotate_info(self.paax_dir, self.paax_pt, self.pbax_dir, self.pbax_pt){
             let mut ctorus = CTorus::default();
@@ -50,13 +48,10 @@ impl SCTorus {
                 translation: torus_info.center,
                 ..default()
             };
-
             return  Some((ctorus, mat));
         }
-
         None
     }
-
 }
 
 
@@ -91,7 +86,6 @@ impl BrepShapeTrait for SCTorus {
             let pt_0 = self.paax_pt + torus_info.rot_axis * self.pdia / 2.0;
             let v = builder::vertex(pt_0.point3());
             let rot_axis = torus_info.rot_axis.vector3();
-
             let w = builder::rsweep(
                 &v,
                 circle_origin,
@@ -113,8 +107,6 @@ impl From<AttrMap> for SCTorus {
        Default::default()
     }
 }
-
-
 
 #[derive(Component, Debug, /*Inspectable,*/ Clone,  Reflect)]
 pub struct CTorus {
@@ -142,7 +134,6 @@ impl VerifiedShape for CTorus {
 impl BrepShapeTrait for CTorus {
     fn gen_brep_shell(& self) -> Option<Shell> {
         use truck_modeling::*;
-
         let radius = ((self.rout - self.rins) /2.0) as f64;
         if radius <= 0.0 { return None; }
         let circle_origin = Point3::new(self.rins as f64 + radius, 0.0, 0.0);

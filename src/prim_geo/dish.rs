@@ -42,7 +42,9 @@ impl Default for Dish {
 }
 
 impl VerifiedShape for Dish {
-    fn check_valid(&self) -> bool { self.pdia > EPSILON && self.pheig >= 0.0 }
+    fn check_valid(&self) -> bool {
+        self.pdia > EPSILON && self.pheig > EPSILON
+    }
 }
 
 impl BrepShapeTrait for Dish {
