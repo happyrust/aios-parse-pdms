@@ -26,7 +26,7 @@ use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
 use crate::{db_tool};
 use crate::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
-use crate::parse_explict_tools::{get_explicit_attr_type, get_expression_attr, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, parse_expression_attr, times_keep_f32_two_decimal_place};
+use crate::parse_explict_tools::{get_explicit_attr_type, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, parse_expression_attr, times_keep_f32_two_decimal_place};
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
@@ -533,15 +533,16 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32, string_lookup: &mut StringLookupTable) -> IResult<&'a [u8], (usize, AttrVal)> {
-    // //dbg!(format!("{:#4X?}", input));
-    // //dbg!(attr_info.name.as_str());
+    // println!("{:#4X?}", input);
+    //dbg!(attr_info.name.as_str());
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
+    let n = db1_dehash(attr_info.hash as u32);
     let b_expr = check_is_expr(attr_info.hash);
     let data_len = input.len();
     let mut advance_offset = data_len / 4;
     if b_expr {
-        let (_, attr_val) = convert_to_implicit_axis_string(input)?;
+        let (_, attr_val) = parse_to_expression(input)?;
         val = attr_val;
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
@@ -944,7 +945,6 @@ fn get_param_type_with_i32(input: i32) -> String {
         let value = input - 50;
         val = format!("DESIGN PARAM {}", value);
     } else if input >= 0x65 && input < 0x1F5 {
-        // let value = (((input - 0x64) as f32 + 0.005) * 100.0).round() / 100.0;
         let value = ((((input - 0x64) as f32 + 0.005) * 100.0).round() / 100.0) as i32;
         val = format!("IPARAM {}", value);
     } else if input >= 0x1F5 {
@@ -988,7 +988,7 @@ pub fn round_f32(input: f32) -> f32 {
 }
 
 /// 特殊处理AXIS隐式属性
-pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> {
+pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
     // 目前都是以02开头，如果不是以02开头就记录下来
     let (tmp_input, signal) = be_u32(input)?;
     let mut val = AttrVal::StringType("".into());
@@ -1226,11 +1226,19 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
                 if value >= 50 && value < 0x65 {
                     let value = value - 50;
                     val = format!("DESIGN PARAM {}", value);
-                } else if value >= 0x65 && value < 0x3E9 {
+                }  else if value >= 500 && value < 0x3E9 {
+                    let value = value - 500;
+                    if value < 0x65 {
+                        val = format!("TWICE PARAM {}", value);
+                    } else {
+                        let value = value - 100 ;
+                        val = format!("TWICE IPARAM {}", value);
+                    }
+                }else if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
                     val = format!("IPARAM {}", value);
-                } else if value >= 0x3E9 {
+                }else if value >= 0x3E9 {
                     let value = value - 0x3E8;
                     if value >= 0x65 {
                         let value = value - 0x64;
@@ -1369,7 +1377,7 @@ pub fn convert_to_implicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
 pub fn convert_to_explicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> {
     let mut result = AttrVal::StringType("".into());
     if input.len() < 20 {
-        let (_, val) = convert_to_implicit_axis_string(input)?;
+        let (_, val) = parse_to_expression(input)?;
         result = val;
     } else {
         // 检测是否以 1A 1A 05 02 17 开头
@@ -1837,7 +1845,6 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefI32Tuple, EleDataEntr
     let lock = Arc::try_unwrap(world_refno).expect("Lock still has multiple owners");
     (refno_table, lock.into_inner().expect("Mutex cannot be locked"))
 }
-
 
 fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
     let mut data = input[20..*len].to_vec();

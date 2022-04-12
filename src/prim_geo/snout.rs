@@ -132,9 +132,6 @@ impl BrepShapeTrait for LSnout {
     fn gen_unit_shape(&self) -> PdmsMesh{
         let ptdm = self.ptdm / self.pbdm;
        if self.poff > EPSILON {
-           // let mut d = self.clone();
-           // let ptdi= (d.ptdi - d.dist_to_btm) as f32;
-           // poff_shape.ptdi =
             self.gen_mesh(None)
         }else{
             Self{

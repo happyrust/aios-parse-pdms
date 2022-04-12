@@ -8,7 +8,10 @@
 #![feature(generic_const_exprs)]
 #![feature(default_free_fn)]
 #[allow(dead_code, unused_imports, unused_variables, unused_imports, unused, missing_docs, unused_results, unused_must_use)]
-
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate derivative;
 #[macro_use]
 extern crate serde;
 #[macro_use]
@@ -28,6 +31,8 @@ use futures::stream::TryStreamExt;
 pub mod pdms_types;
 pub mod db_tool;
 pub mod error_types;
+pub mod test_cases;
+pub mod tiny_expr;
 
 pub use db_tool::*;
 

@@ -408,10 +408,10 @@ impl AiosDBManager {
                 for child in children {
                     let world_trans = self.get_world_transform(child)?;
                     let mut result_shapes = vec![];
-                    if child == RefU64::from_two_nums(16501, 829) {
-                        dbg!(child.to_refno_str());
-                        dbg!(self.get_pretty_attr(child));
-                    }
+                    // if child == RefU64::from_two_nums(16501, 829) {
+                    //     dbg!(child.to_refno_str());
+                    //     dbg!(self.get_pretty_attr(child));
+                    // }
                     let geoms = crate::query_cata::resolve_desi_comp(child, self)?;
                     let attr = self.get_attr(child)?.unwrap_or_default();
                     if let Ok(arrive) = attr.get_i32("ARRI") {
@@ -509,7 +509,7 @@ impl AiosDBManager {
                     let d = cur_node.data();
                     let noun = d.noun;
 
-                    if d.refno != RefU64::from_two_nums(16501, 825)
+                    if d.refno != RefU64::from_two_nums(16501, 831)
                     // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
                     // // && d.refno != RefU64::from_two_nums(8193, 16231)
                     {

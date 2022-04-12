@@ -12,6 +12,7 @@ use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam, CateLineParam, CateProfileParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateSverParam, CateTorusParam, GmseParamData, SannData};
 use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
+use crate::tiny_expr::expr_eval::interp;
 
 #[test]
 fn test_expression_regex() {
@@ -22,43 +23,96 @@ fn test_expression_regex() {
     map.insert("DESP1".to_string(), 1);
     map.insert("CPAR3".to_string(), 2);
 
-    // let regex_str = "";
-    let re = Regex::new(r"\d{4}-\d{2}-\d{2}$").unwrap();
-    assert!(re.is_match("xx2014-01-01"));
-
-    let re = Regex::new(r"\s+([A-a-zZ0-9]+)\s*\[(\d+)\]").unwrap();
-    for cap in re.captures_iter(&new_exp) {
-        println!("{} {} {}", &cap[1], &cap[2], &cap[0]);
+    let re = Regex::new(r"(DESIGN?\s+)?([I|C|O)]?PARAM?)\s*(\d+)").unwrap();
+    let input_exp = "DESIGN PARAM 1";
+    for cap in re.captures_iter(&input_exp) {
+        println!("{} {} {}", &cap[1], &cap[2], &cap[3]);
     }
+    let input_exp = "CPARAM 1";
+    if let Some(caps) = re.captures(&input_exp){
+        println!("{} {} {}", caps.get(1).map_or("", |m| m.as_str()), caps.get(2).map_or("", |m| m.as_str()),
+                 caps.get(3).map_or("", |m| m.as_str()));
+    }
+
+
+    let input_exp = "DESIGN IPARA 1";
+    for cap in re.captures_iter(&input_exp) {
+        println!("{} {} {}", &cap[1], &cap[2], &cap[3]);
+    }
+
+    let input_exp = "( ATTRIB PARA[3] * TAN (  ANGL [2]/2 ) )";
+    let input_exp = "( ATTRIB PARA[3] * TAN ( ATTRIB ANGL/2 ) )";
+    // let input_exp = "TANF PARAM 3 DDANGLE";
+    let new_exp = input_exp.replace("ATTRIB", "");
+    let re = Regex::new(r"([A-Z]+[0-9]*)(\s*\[(\d+)\])?").unwrap();
+    println!("Test :{input_exp}");
+    for caps in re.captures_iter(&new_exp) {
+        let c1 = caps.get(1).map_or("", |m| m.as_str());
+        let c2 = caps.get(2).map_or("", |m| m.as_str());
+        let c3 = caps.get(3).map_or("", |m| m.as_str());
+        println!("{} {}", c1, c3);
+    }
+
 }
 
 pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) -> anyhow::Result<f64> {
     if input_expr.trim().to_lowercase() == "unset" {
         return Ok(0.0);  //todo 待验证
     }
-    let re = Regex::new(r"\s+([A-a-zZ0-9]+)\s*\[(\d+)\]").unwrap();
+    let re = Regex::new(r"([A-Z]+[0-9]*)(\s*\[(\d+)\])?").unwrap();
     let mut new_exp = input_expr.replace("ATTRIB", "");
     let mut result_exp = new_exp.clone();
-    for cap in re.captures_iter(&new_exp) {
-        let s = &cap[0];
-        let k_str = &cap[1];
-        let n_str = &cap[2];
-        let k: SmolStr = format!("{}{}", k_str, n_str).into();
-        if context.contains_key(&k) {
-            result_exp = result_exp.replace(s, &context[&k]);
-        }else if k_str == "DESI" || k_str == "DESP" {
-            //todo need verify
-            result_exp = result_exp.replace(s, "0.0");   //默认用0.0处理
-        }
+    let loop_cnt = if new_exp.contains("RPRO") { 2 } else { 1 };
+    if input_expr.contains("RPRO LITH") {
+        dbg!(input_expr);
     }
-    let re = Regex::new(r"(I?PARAM?)\s*(\d+)").unwrap();
+    for _ in 0..loop_cnt {
+        for caps in re.captures_iter(&new_exp) {
+            let s = &caps[0];
+            let c1 = caps.get(1).map_or("", |m| m.as_str());
+            let c2 = caps.get(2).map_or("", |m| m.as_str());
+            let c3 = caps.get(3).map_or("", |m| m.as_str());
+            // println!("{} {}", c1, c3);
+            let k: SmolStr = format!("{}{}", c1, c3).into();
+            if context.contains_key(&k) {
+                result_exp = result_exp.replace(s, &context[&k]);
+                // dbg!(&result_exp);
+            }else{
+                // dbg!(&k);
+                // dbg!()
+            }
+            // else if k_str == "DESI" || k_str == "DESP" {
+            //     //默认用0.0处理
+            //     result_exp = result_exp.replace(s, "0.0");
+            // }
+        }
+        //如果有RPRO 需要执行两次处理
+        new_exp = result_exp.clone();
+    }
+
+    //因为 attrib 的原因，这里还需要再执行一遍处理，以防止有可能出现
+    //处理出现 DESIGN IPARA 1 这种没有 “[]”的情况
+    let re = Regex::new(r"(DESIGN?\s+)?([I|C|O)]?PARAM?)\s*(\d+)").unwrap();
     let mut new_exp = result_exp.clone();
-    for cap in re.captures_iter(&result_exp) {
-        let s = &cap[0];
-        let l = if (&cap[1]).starts_with("IP"){
-            "IPARA".to_string()
-        }else{ "PARA".to_string() };
-        let k: SmolStr = format!("{}{}", l, &cap[2]).into();
+    for caps in re.captures_iter(&result_exp) {
+        let s = &caps[0];
+        let c1 = caps.get(1).map_or("", |m| m.as_str());
+        let c2 = caps.get(2).map_or("", |m| m.as_str());
+        let c3 = caps.get(3).map_or("", |m| m.as_str());
+        let mut k = SmolStr::new("");
+        if c1.starts_with("DESIGN") {
+            k = format!("PARA{}", c3).into();
+        }else {
+            if c2.starts_with("IPAR") {
+                k = format!("IPARA{}", c3).into();
+            }else if c2.starts_with("CPAR"){
+                k = format!("IPARA{}", c3).into();
+            }else if c2.starts_with("PARA"){
+                k = format!("PARA{}", c3).into();
+            }else if c2.starts_with("OPAR"){
+                k = format!("OPAR{}", c3).into();
+            }
+        }
         if context.contains_key(&k) {
             new_exp = new_exp.replace(s, &context[&k]);
         }
@@ -91,7 +145,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
 
     let mut i = 0;
     while i < p_vals.len() {
-        if p_vals[i] == "TWICE" {
+        if p_vals[i] == "TWICE" {   //todo add function to eval
             if i + 1 < p_vals.len() {
                 if let Ok(val) = p_vals[i + 1].parse::<f64>() {
                     let v = val * 2.0f64;
@@ -99,7 +153,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 }
             }
             i += 2;
-        } else if p_vals[i] == "TANF" {
+        } else if p_vals[i] == "TANF" {  //todo add function to eval
             if i + 2 < p_vals.len() {
                 if let Ok(val) = p_vals[i + 1].parse::<f64>() {
                     if let Ok(angle) = p_vals[i + 2].parse::<f64>() {
@@ -111,15 +165,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 }
             }
             i += 3;
-        } else if p_vals[i] == "TAN" || p_vals[i] == "SIN" || p_vals[i] == "COS" {
-            if i + 1 < p_vals.len() {
-                if let Ok(val) = p_vals[i + 1].parse::<f64>() {
-                    let v = val.to_radians();
-                    result_string.push_str(&p_vals[i]);
-                    result_string.push_str(v.to_string().as_str());
-                }
-            }
-            i += 2;
         } else {
             result_string.push_str(&p_vals[i]);
             i += 1;
@@ -127,7 +172,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         result_string.push_str(" ");
     }
 
-    if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
+    // dbg!(&result_string);
+    if let Ok(val) = interp(&result_string.to_lowercase()) {
         Ok(I24F8::from_num(val).into())
     } else {
         if let Ok(mut stack) = Stack::init(&result_string) {
@@ -454,9 +500,9 @@ pub fn test_expression() {
     let mut ns = fasteval::EmptyNamespace;
     // power ( 0 ,2 )
     //let r = tinyexpr::interp("2+2*2").unwrap();
-    let s = tinyexpr::interp(" ( / 2 + 60 )");
+    let s = interp("sin (180.0/2.0)");
     //let s  = fasteval::ez_eval("( 2 ^ 2 )", &mut ns);
-    //dbg!(s);
+    dbg!(s);
 }
 
 pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeoParam> {

@@ -1,8 +1,8 @@
 use smol_str::SmolStr;
-use crate::db1_dehash;
+use crate::{db1_dehash, read_attr_info_config};
 use crate::parse::parse_ele_data;
 use crate::pdms_types::{AttrVal, StringLookupTable};
-use crate::test_cases::{convert_str_to_bytes, read_attr_info_config};
+use crate::test_cases::{convert_str_to_bytes, };
 
 #[test]
 fn test_ahu_sample_15392_7313() {
@@ -101,7 +101,7 @@ fn test_aba_14352_102824() {
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");
-    if let Some(m) = ele_data.attr_data_map.get_val("DETR") {
+    if let Ok(m) = ele_data.attr_data_map.get_val("DETR") {
         match m {
             AttrVal::ElementType(v) => {
                 value = v.clone();
@@ -208,7 +208,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
     let mut value = SmolStr::new("");
-    if let Some(m) = ele_data.attr_data_map.get_val("DX") {
+    if let Ok(m) = ele_data.attr_data_map.get_val("DX") {
         match m {
             AttrVal::StringType(v) => {
                 value = v.clone();
@@ -403,5 +403,7 @@ fn test_sample_positon() {
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
+
+
 
 

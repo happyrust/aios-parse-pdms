@@ -26,7 +26,12 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
     let attr_map = interface.get_ele_attr(refno)?;
     let mut scom_ref = None;
     if let Ok(catref) = attr_map.get_foreign_refno("CATR") {
-        scom_ref = Some(catref);
+        let c_att = interface.get_ele_attr(catref)?;
+        if c_att.contains_attr_name("CATR") {
+            scom_ref = Some(c_att.get_foreign_refno("CATR")?);
+        }else{
+            scom_ref = Some(catref);
+        }
     } else {
         let spre_ref = attr_map.get_foreign_refno("SPRE")?;
         let spre = interface.get_ele_attr(spre_ref)?;
@@ -35,6 +40,10 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
         }
     };
     let scom_ref = scom_ref.ok_or(anyhow!("SCOM ref not exist".to_string()))?;
+    if query_scom_info(scom_ref, interface).is_err() {
+        dbg!(refno.to_refno_str());
+        dbg!(scom_ref.to_refno_str());
+    }
     let scom_info = query_scom_info(scom_ref, interface)?;
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
 
@@ -62,6 +71,7 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
     context.insert(DDRADIUS_STR.into(), radi.clone());
     context.insert("RADI".into(), radi);
     // dbg!(&scom_info);
+    dbg!(refno.to_refno_str());
     let mut geom_info = resolve_cata_comp(&scom_info, interface, Some(context));
     if geom_info.is_err() {
         error!("{:?}",geom_info.as_ref().err());
@@ -80,20 +90,24 @@ pub fn query_scom_info<T: PdmsDataInterface>(
     let type_noun = attr_map.get_type_cloned();
     let is_sprf = type_noun == "SPRF";
     let ptref_name = if is_sprf { "PSTR" } else { "PTRE" };
-    let ptre_refno = attr_map.get_foreign_refno(ptref_name)?;
     let mut axis_params = vec![];
     let mut axis_param_numbers = vec![];
-    if let Ok(ptre_am) = interface.get_ele_attr(ptre_refno) {
-        let axis_param_map = query_axis_params(&ptre_am, interface)?;
-        axis_params = axis_param_map.values().cloned().collect::<Vec<_>>();
-        axis_param_numbers = axis_param_map.keys().cloned().collect::<Vec<_>>();
+    if let Ok(ptre_refno) = attr_map.get_foreign_refno(ptref_name){
+        if let Ok(ptre_am) = interface.get_ele_attr(ptre_refno) {
+            let axis_param_map = query_axis_params(&ptre_am, interface)?;
+            axis_params = axis_param_map.values().cloned().collect::<Vec<_>>();
+            axis_param_numbers = axis_param_map.keys().cloned().collect::<Vec<_>>();
+        }
     }
 
     let gmref_name = if is_sprf { "GSTR" } else { "GMRE" };
-    let gmse_refno = attr_map.get_foreign_refno(gmref_name)?;
     let mut gm_params = vec![];
-    let gmse_am = interface.get_ele_attr(gmse_refno)?;
-    gm_params = query_gm_params(&gmse_am, interface)?;
+    if let Ok(gmse_refno) = attr_map.get_foreign_refno(gmref_name){
+        let gmse_am = interface.get_ele_attr(gmse_refno)?;
+        gm_params = query_gm_params(&gmse_am, interface)?;
+    }else{
+        dbg!(attr_map.to_string_hashmap());
+    }
 
     Ok(ScomInfo {
         gtype: attr_map.get_as_string("GTYP")?,
@@ -133,6 +147,7 @@ pub fn query_gm_params<T: PdmsDataInterface>(
     let refno = attr_map.get_refno()?;
     let children = interface.get_ele_children_attrs(refno);
     for child in children {
+        dbg!(child.to_string_hashmap());
         let has_chidren = child.get_type_cloned() == "SPRO";//todo add other types
         gms.push(query_gm_param(&child, interface, has_chidren)?);
     }
@@ -271,7 +286,7 @@ pub fn query_gm_param(att_map: &AttrMap, interface: &dyn PdmsDataInterface, has_
             dxy = vec![[att_map.get_as_string("DX").unwrap_or_default(), att_map.get_as_string("DY").unwrap_or_default()]];
         }
     } else {
-        dbg!(att_map.to_string_hashmap());
+        // dbg!(att_map.to_string_hashmap());
         verts = vec![[att_map.get_as_string("PX").unwrap_or_default(), att_map.get_as_string("PY").unwrap_or_default()]];
         dxy = vec![[att_map.get_as_string("DX").unwrap_or_default(), att_map.get_as_string("DY").unwrap_or_default()]];
     }
