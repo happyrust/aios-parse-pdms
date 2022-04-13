@@ -174,7 +174,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                 // 跳6A
                 expression_data = &expression_data[4..];
                 let num = u32::from_be_bytes(expression_data[..4].try_into().unwrap());
-                println!("{:#4X?}", &expression_data[4..8]);
+                // println!("{:#4X?}", &expression_data[4..8]);
                 let att_name = db1_dehash(u32::from_be_bytes(expression_data[4..8].try_into().unwrap()));
                 // println!("{:#4X?}", &expression_data[8..16]);
                 let flags = ( parse_to_i32(&expression_data[8..12]), parse_to_i32(&expression_data[12..16]));

@@ -93,7 +93,7 @@ fn main() -> AiosDbError {
     // ).unwrap();
     //
     let mut db_option = DbOption {
-        total_sync: false,
+        total_sync: true,
         incr_sync: false,
         // project_path: "/Volumes/DPC/aba".to_string(),
         project_path: "D:/aba".to_string(),

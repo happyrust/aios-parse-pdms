@@ -4,6 +4,7 @@ use nom::combinator::{map, not, recognize, value, verify};
 use nom::IResult;
 use nom::number::complete::be_i32;
 use nom::sequence::preceded;
+use crate::db1_dehash;
 use crate::test_cases::convert_str_to_bytes;
 
 
@@ -11,20 +12,12 @@ fn parser(s: &[u8]) -> IResult<&[u8], (Vec<i32>, &[u8])> {
     many_till(map(be_i32, |x| x), tag([0x0, 0x0, 0x0, 0x7]))(s)
 }
 
-// fn last_steno_entry(input: &str) -> IResult<&str, (String, String, Option<String>)> {
-//     let (input, (steno_group, (contents, _))) = tuple((
-//         steno_group,
-//         many_till(
-//             alt((cxcomment, non_comment)),
-//             tag(r"}"))))(input)?;
-//     let translation = contents.iter()
-//         .map(|obj| match obj { TranslationItem::NotComment(s) => s.as_str(), _ => "" })
-//         .collect::<Vec<&str>>().join("").trim().to_string();
-//     let comment = match contents.iter()
-//         .map(|obj| match obj { TranslationItem::Comment(s) => s.as_str(), _ => "" })
-//         .collect::<Vec<&str>>().join("").trim() { "" => None, s => Some(s.to_string()) };
-//     Ok((input, (steno_group, translation, comment)))
-// }
+#[test]
+fn test_noun() {
+    dbg!(db1_dehash(u32::from_be_bytes([0x0, 0xB, 0x20, 0x9F])));
+    dbg!(db1_dehash(u32::from_be_bytes([0x0, 0xC, 0xD2, 0x42])));
+    dbg!(db1_dehash(u32::from_be_bytes([0x0, 0xD, 0xDF, 0x8A])));
+}
 
 #[test]
 pub fn test_take_till(){
