@@ -29,7 +29,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     let mut result = "".to_string();
     if let Ok(r) = ele_data.attr_data_map.get_val("PPRO") {
         match r {
@@ -39,7 +39,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
             _ => {}
         }
     }
-    assert_eq!("( ATTRIB FLNM OF CATR  )", result);
+    assert_eq!("ATTRIB FLNM OF CATR", result);
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn test_dbp_5194_136() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     let mut result = "".to_string();
     if let Ok(r) = ele_data.attr_data_map.get_val("PPRO") {
         match r {
@@ -76,7 +76,7 @@ fn test_dbp_5194_136() {
             _ => {}
         }
     }
-    assert_eq!("( ATTRIB WDES[40] )", result);
+    assert_eq!("ATTRIB WDES[40]", result);
 }
 
 #[test]
@@ -109,18 +109,11 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
-    // //dbg!(ele_data);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     let mut result = "".to_string();
-    if let Ok(r) = ele_data.attr_data_map.get_val("PPRO") {
-        match r {
-            AttrVal::StringType(v) => {
-                result = v.to_string();
-            }
-            _ => {}
-        }
-    }
-    assert_eq!("( ATTRIB WDESP[40] )", result);
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
+    let pbor = ele_data.attr_data_map.get_as_string("PBOR").unwrap_or_default();
+    assert_eq!("( ATTRIB DDES[2] + ATTRIB DDES[3] )", pbor.as_str());
 }
 
 #[test]
@@ -150,7 +143,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     // //dbg!(ele_data);
     let mut result = "".to_string();
     if let Ok(r) = ele_data.attr_data_map.get_val("PZLE") {
@@ -161,7 +154,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
             _ => {}
         }
     }
-    assert_eq!("( ATTRIB :HXYsize[2] )", result);
+    assert_eq!("ATTRIB :HXYS[2]", result);
 }
 
 #[test]
@@ -194,7 +187,7 @@ fn test_gdp_15194_8039() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39i32) {
     //     //dbg!(map.value());
     // }
@@ -282,17 +275,13 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     let mut result = "".to_string();
-    if let Ok(r) = ele_data.attr_data_map.get_val("PZ") {
-        match r {
-            AttrVal::StringType(v) => {
-                result = v.to_string();
-            }
-            _ => {}
-        }
-    }
-    assert_eq!("( ( ATTRIB DESP[6] - ATTRIB DESP[25]/2 ) )", result);
+
+    assert_eq!("( ATTRIB DESP[6] - ATTRIB DESP[25]/2 )", ele_data.attr_data_map.get_as_string("PZ").unwrap());
+    assert_eq!("( ( ATTRIB DESP[4] + ATTRIB DESP[26] ) + ATTRIB DESP[26] )", ele_data.attr_data_map.get_as_string("PXLE").unwrap());
+    assert_eq!("( ( ATTRIB DESP[5] + ATTRIB DESP[26] ) + ATTRIB DESP[26] )", ele_data.attr_data_map.get_as_string("PYLE").unwrap());
+    assert_eq!("ATTRIB DESP[25]", ele_data.attr_data_map.get_as_string("PZLE").unwrap());
 }
 
 #[test]
@@ -344,7 +333,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xBEEBFi32) {
     //     //dbg!(map.value());
     // }
@@ -358,7 +347,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
             _ => {}
         }
     }
-    assert_eq!("( -1 * ATTRIB ANGL/8 )", result);
+    assert_eq!("-1 * ATTRIB ANGL/8", result);
 }
 
 #[test]
@@ -386,7 +375,7 @@ FF F1 F3 AA 1C 00 00 1B 00 00 00 1A 00 00 00 1A
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     //dbg!(ele_data);
 }
 
@@ -418,7 +407,7 @@ fn test_sample_15213_499928_12_1() {
         //dbg!(map.value());
     };
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     //dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -446,6 +435,254 @@ fn test_gdb_13802_5652() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
+
+
+#[test]
+fn test_gdb_exp_attrib() {
+    let data_str = "
+00 00 00 2F 00 00 35 EA 00 00 2C 50 00 0C C7 29
+00 00 35 EA 00 00 2C 4F 00 00 17 CB 00 0C 20 01
+00 00 00 00 00 00 00 00 00 1C C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 03
+00 00 00 04 00 00 00 28 00 00 00 01 00 00 00 06
+00 00 00 00 00 00 00 04 00 00 00 28 00 00 00 01
+00 00 00 04 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 02
+00 00 00 01 00 00 00 01 00 00 00 04 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 00 00 01 00 78
+00 00 35 EA 00 00 2C 50 00 00 00 00 00 00 00 00
+FF F3 EE F8 1C 00 00 12 00 00 00 11 00 00 00 11
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 60 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 08 9C 41 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+FF F3 F0 DE 1C 00 00 12 00 00 00 11 00 00 00 11
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 70 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 08 9C 41 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+FF F5 22 84 1C 00 00 33 00 00 00 32 00 00 00 32
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 50 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 08 9C 41 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 80 00 00 00 00 00
+00 00 00 02 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 08 9C 41 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 00 80 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 03 25 00 00 03 23
+00 00 00 6A 00 00 00 02 00 0C D2 42 00 00 00 01
+00 00 00 01 00 0A BC FC 00 00 06 41 00 00 06 A5
+00 00 03 22 FF F5 24 6A 1C 00 00 14 00 00 00 13
+00 00 00 13 00 00 00 01 00 00 00 6A 00 00 00 02
+00 08 9C 41 00 00 00 04 00 00 00 04 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 6A 00 00 00 02
+00 0C D2 42 00 00 00 01 00 00 00 01 00 0A BC FC
+00 00 06 41 00 00 06 A5 00 00 03 22
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
+}
+
+
+
+
+#[test]
+fn test_gdb_exp_f32() {
+    let data_str = "
+00 00 00 22 00 00 35 E0 00 00 7C 16 00 0B FE 23
+00 00 35 E0 00 00 7C 04 00 00 16 12 00 2F 60 01
+00 00 00 00 00 00 00 00 00 15 C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0E
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 01 00 00 00 03 00 01 00 5C 00 00 35 E0
+00 00 7C 16 00 00 00 00 00 00 00 00 00 0D 17 DA
+0C 00 00 01 00 00 00 02 FF F5 22 84 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 50 00 00 00 00 00 00 00 00 03
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 2E 14 00 00 3D 80 FF FF FF FF 00 00 00 00
+00 00 00 06 00 00 03 24 FF F5 24 6A 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 50 00 00 00 00 00 00 00 00 03
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 22 8F 00 00 2E 20 FF FF FF FF 00 00 00 00
+00 00 00 06 00 00 03 24 FF F7 7D 0F 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 80 00 00 00 00 00 00 00 00 02
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 33 33 00 00 19 A0 00 00 00 01 00 00 00 00
+00 00 00 06 00 00 03 24
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
+}
+
+#[test]
+fn test_gdb_exp_f32_13792_31766() {
+    let data_str = "
+00 00 00 22 00 00 35 E0 00 00 7C 06 00 0B FE 23
+00 00 35 E0 00 00 7C 04 00 00 16 0E 00 14 40 01
+00 00 00 00 00 00 00 00 00 0E C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0E
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 03 00 00 00 07 00 01 00 40 00 00 35 E0
+00 00 7C 06 00 00 00 00 00 00 00 00 00 0D 17 DA
+0C 00 00 01 00 00 00 02 FF F5 22 84 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 58 00 00 00 00 00 00 00 00 04
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 20 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 06 00 00 03 24 FF F7 7D 0F 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 70 00 00 00 00 00 00 00 00 04
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 33 33 00 00 19 A0 FF FF FF FD 00 00 00 00
+00 00 00 06 00 00 03 24
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
+}
+
+#[test]
+fn test_gdb_exp_f32_13792_31770() {
+    let data_str = "
+00 00 00 22 00 00 35 E0 00 00 7C 1A 00 0B FE 23
+00 00 35 E0 00 00 7C 04 00 00 16 13 00 2F C0 01
+00 00 00 00 00 00 00 00 00 15 C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0E
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 01 00 00 00 03 00 01 00 5C 00 00 35 E0
+00 00 7C 1A 00 00 00 00 00 00 00 00 00 0D 17 DA
+0C 00 00 01 00 00 00 02 FF F5 22 84 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 50 00 00 00 00 00 00 00 00 03
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 33 33 00 00 19 A0 00 00 00 00 00 00 00 00
+00 00 00 06 00 00 03 24 FF F5 24 6A 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 50 00 00 00 00 00 00 00 00 03
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 3E B8 00 00 29 00 FF FF FF FF 00 00 00 00
+00 00 00 06 00 00 03 24 FF F7 7D 0F 1C 00 00 1A
+00 00 00 19 00 00 00 19 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 80 00 00 00 00 00 00 00 00 02
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 08 9C 41 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 20 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 06 00 00 03 24
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
+}
+
+#[test]
+fn test_gdb_exp_f32_13792_31779() {
+    let data_str = "
+00 00 00 1B 00 00 35 E0 00 00 7C 23 00 0C D6 96
+00 00 35 E0 00 00 7C 04 00 00 16 15 00 36 40 01
+00 00 00 00 00 00 00 00 00 07 C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0E
+00 00 00 02 00 00 00 03 00 00 03 F7 00 00 00 02
+00 00 00 03 00 00 03 F6 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 24
+00 00 35 E0 00 00 7C 23 00 00 00 00 00 00 00 00
+00 0D 17 DA 0C 00 00 01 00 00 00 02 FF F7 7D 0F
+1C 00 00 1A 00 00 00 19 00 00 00 19 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 70 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 08 9C 41 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 00 33 33 00 00 19 A0 FF FF FF FE
+00 00 00 00 00 00 00 06 00 00 03 24
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
+}
+
+
+#[test]
+fn test_gdb_exp_axis() {
+    let data_str = "
+00 00 00 2C 00 00 55 E0 00 00 83 60 00 08 73 8B
+00 00 55 E0 00 00 83 5B 00 00 95 78 00 31 20 01
+00 00 00 00 00 00 00 00 00 0F C0 00 00 00 00 11
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 28 00 00 00 01 FF FF FB 69 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 03 00 00 00 00 3F 80 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 01 00 44 00 00 55 E0 00 00 83 60 00 00 00 00
+00 00 00 00 FF F7 E1 41 1C 00 00 2A 00 00 00 29
+00 00 00 29 00 00 00 01 00 00 00 65 00 00 00 06
+00 00 60 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 08 9C 41
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 00 65 00 00 00 06 00 00 80 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 08 9C 41 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 3D 70 00 00 51 E0
+FF FF FF FC 00 00 00 00 00 00 00 06 00 00 03 24
+00 00 03 23 00 09 5A 34 1C 00 00 11 00 00 00 10
+00 00 00 10 00 00 00 05 00 00 00 02 00 00 00 16
+00 00 00 0D 00 00 00 09 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 56 80 00 00 00 00 00 00 00 08
+00 00 00 00 00 00 00 06 00 00 00 10 00 00 00 3D
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
+    dbg!(ele_data.attr_data_map.to_string_hashmap());
+}
+
+

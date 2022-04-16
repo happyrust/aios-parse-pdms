@@ -43,7 +43,7 @@ impl Default for Dish {
 
 impl VerifiedShape for Dish {
     fn check_valid(&self) -> bool {
-        self.pdia > EPSILON && self.pheig > EPSILON
+        self.pdia > f32::EPSILON && self.pheig > f32::EPSILON
     }
 }
 
@@ -53,7 +53,7 @@ impl BrepShapeTrait for Dish {
         let r = self.pdia / 2.0;
         let h = self.pheig;
         let radius = (r * r + h * h) / (2.0f32 * h);
-        if radius < EPSILON { return None; }
+        if radius < f32::EPSILON { return None; }
         let sinval = (r / radius).max(-1.0f32).min(1.0f32);
         let mut theta = (sinval).asin();
         if r < h { theta = PI - theta; }
@@ -84,7 +84,7 @@ impl BrepShapeTrait for Dish {
         let radius = (r * r + h * h) / (2.0f32 * h);
         let sinval = (r / radius).max(-1.0f32).min(1.0f32);
         let mut theta = (sinval).asin();
-        if radius < EPSILON { return 0; }
+        if radius < f32::EPSILON { return 0; }
         let mut beta = (h / radius / 2.0).atan();
         // let mut beta =
         if r < h {

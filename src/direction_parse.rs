@@ -8,11 +8,11 @@ lazy_static! {
     pub static ref AXISES_MAP: HashMap<&'static str, Vec3> = {
         let mut s = HashMap::new();
         s.insert("X", Vec3::X);
-        s.insert("Y", Vec3::X);
-        s.insert("Z", Vec3::X);
+        s.insert("Y", Vec3::Y);
+        s.insert("Z", Vec3::Z);
         s.insert("-X", -Vec3::X);
-        s.insert("-Y", -Vec3::X);
-        s.insert("-Z", -Vec3::X);
+        s.insert("-Y", -Vec3::Y);
+        s.insert("-Z", -Vec3::Z);
         s
     };
 }

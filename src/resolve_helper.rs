@@ -61,11 +61,12 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     }
     let re = Regex::new(r"([A-Z]+[0-9]*)(\s*\[(\d+)\])?").unwrap();
     let mut new_exp = input_expr.replace("ATTRIB", "");
+    let mut new_exp = new_exp.replace("RPRO", "");
     let mut result_exp = new_exp.clone();
-    let loop_cnt = if new_exp.contains("RPRO") { 2 } else { 1 };
-    if input_expr.contains("RPRO LITH") {
-        dbg!(input_expr);
-    }
+    let loop_cnt = if input_expr.contains("RPRO") { 2 } else { 1 };
+    // if input_expr.contains("RPRO LITH") {
+    //     dbg!(input_expr);
+    // }
     for _ in 0..loop_cnt {
         for caps in re.captures_iter(&new_exp) {
             let s = &caps[0];
@@ -77,9 +78,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             if context.contains_key(&k) {
                 result_exp = result_exp.replace(s, &context[&k]);
                 // dbg!(&result_exp);
-            }else{
-                // dbg!(&k);
-                // dbg!()
+            }else if c1 == "DESI" || c1 == "DESP"{
+                result_exp = result_exp.replace(s, "0.0");
             }
             // else if k_str == "DESI" || k_str == "DESP" {
             //     //默认用0.0处理
@@ -87,6 +87,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             // }
         }
         //如果有RPRO 需要执行两次处理
+        result_exp = result_exp.replace("ATTRIB", "");
         new_exp = result_exp.clone();
     }
 
@@ -129,7 +130,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         match upper_s.as_str() {
             "TIMES" | "MULT" => p_vals.push("*".to_string()),
             "DIV" => p_vals.push("/".to_string()),
-            "SUM" => p_vals.push("+".to_string()),
             "DDHEIGHT" => p_vals.push(context["DDHEIGHT"].to_string()),
             "DDRADIUS" => p_vals.push(context["DDRADIUS"].to_string()),
             "DDANGLE" => p_vals.push(context["DDANGLE"].to_string()),
@@ -165,7 +165,24 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 }
             }
             i += 3;
-        } else {
+        }else if (p_vals[i] == "SUM" || p_vals[i] == "DIFFERENCE") && i < p_vals.len() - 2 {
+            if p_vals[i] == "SUM" {
+                result_string.push_str(&format!(
+                    "({} {} {})",
+                    p_vals[i + 1],
+                    "+",
+                    p_vals[i + 2]
+                ));
+            } else {
+                result_string.push_str(&format!(
+                    "({} {} {})",
+                    p_vals[i + 1],
+                    "-",
+                    p_vals[i + 2]
+                ));
+            }
+            i += 3;
+        }else {
             result_string.push_str(&p_vals[i]);
             i += 1;
         }
@@ -500,7 +517,7 @@ pub fn test_expression() {
     let mut ns = fasteval::EmptyNamespace;
     // power ( 0 ,2 )
     //let r = tinyexpr::interp("2+2*2").unwrap();
-    let s = interp("sin (180.0/2.0)");
+    let s = interp("sin (180.0/2.0)").unwrap();
     //let s  = fasteval::ez_eval("( 2 ^ 2 )", &mut ns);
     dbg!(s);
 }
@@ -540,6 +557,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
         "LCYL" => {
             // 圆柱体
             CateGeoParam::LCylinder(CateLCylinderParam {
+                refno: gmse.refno,
                 axis: Some(gmse.paxises[0].clone()),
                 dist_to_btm: gmse.distances[0],
                 diameter: gmse.diameters[0],

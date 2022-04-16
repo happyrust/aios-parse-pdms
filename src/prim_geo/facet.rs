@@ -107,7 +107,7 @@ impl BrepShapeTrait for Facet {
                                              return 0usize;
                                          },
                 ),
-            );
+            ).ok();
             for index in outbuf.indices {
                 let endpoint_id = outbuf.vertices[index as usize];
                 indices.push((endpoint_id as usize + vert_cnt) as u32);
@@ -135,7 +135,7 @@ impl Facet {
         let mut x_n: Vec3;
         let mut y_n: Vec3;
         let mut v0: Vec3;
-        if coord_sys[1].length_squared() < EPSILON{
+        if coord_sys[1].length_squared() < f32::EPSILON{
             v0 = Vec3::from_slice(&pts[0]);
             let v1 = Vec3::from_slice(&pts[1]);
             let mut loc_x = (v1 - v0).normalize();

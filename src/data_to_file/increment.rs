@@ -53,7 +53,7 @@ async fn convert_new_node_data_test() -> MResult<()> {
     };
     let mut file = fs::File::open(r"E:\AVEVA\Plant\PDMS12.0.SP4\project\Sample\sam000\sam7600_0001").unwrap();
     let mut buf = Vec::new();
-    file.read_to_end(&mut buf);
+    file.read_to_end(&mut buf).ok();
     let mut interface = PdmsInterface::new("mongodb://localhost:27017");
     if let Some(owner) = get_owner_data(&buf, data.clone()) {
         if let Some(mut version) = interface.get_file_version_with_refno(data.owner_refno.clone()).await? {

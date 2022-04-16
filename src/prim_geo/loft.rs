@@ -116,7 +116,7 @@ impl Default for SctnSolid {
 }
 
 impl VerifiedShape for SctnSolid {
-    fn check_valid(&self) -> bool { self.height > EPSILON }
+    fn check_valid(&self) -> bool { self.height > f32::EPSILON }
 }
 
 
@@ -136,22 +136,13 @@ impl BrepShapeTrait for SctnSolid {
                 let r2 = r;
                 let d = &p.ptaxis.as_ref().unwrap().dir;
                 let dir = Vec3::new(d[0] as f32, d[1] as f32, d[2] as f32).normalize();
-                // let angle = if dir.dot(Vec3::Y) < 0.0 {
-                //     -p.pangle.to_radians()
-                // }else{
-                //     p.pangle.to_radians()
-                // };
                 let angle = p.pangle.to_radians();
-                //point needs rotate to align the center normal axis
-                //need to caculate the transform matrix
                 face_s = self.cal_sann_face(true, dir, angle, r1, r2);
-
                 let w = p.pwidth + p.dwid;
                 let r = p.pradius + p.drad;
                 let r1 = r - w;
                 let r2 = r;
                 face_e = self.cal_sann_face(false, dir, angle, r1, r2).map(|x| x.inverse());
-
             }
             CateProfileParam::SPRO(p) =>{
                 face_s = self.cal_spro_face(true, p);

@@ -3,7 +3,6 @@ use std::cell::Ref;
 use std::collections::{HashMap, HashSet};
 use std::default::default;
 use std::error::Error;
-use std::f32::EPSILON;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::mem::size_of;
@@ -33,15 +32,9 @@ use crate::local_db::helper::combine_to_u64;
 use crate::parse::{NOUN_TYPES_MAP, parse_file_basic_info, PdmsDbData};
 use crate::pdms_types::{AiosStr, CachedMeshesMgr, DbnoVersion, EleGeoInstData, GeoData, PdmsMeshMgr, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom, ShapeInstancesMgr, StringLookupTable};
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
-use crate::prim_geo::cylinder::SCylinder;
-use crate::prim_geo::dish::Dish;
 use crate::prim_geo::extrusion::{CurveType, Extrusion};
 use crate::shape::pdms_shape::{BrepShapeTrait, PdmsPrimShape, VerifiedShape};
-use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::revolution::Revolution;
-use crate::prim_geo::rtorus::{RTorus, SRTorus};
-use crate::prim_geo::sbox::SBox;
-use crate::prim_geo::snout::LSnout;
 use crate::local_db::consts::*;
 use crate::local_db::refno_info_database::RefInoDatabase;
 use crate::local_db::string_database::StringDatabase;
@@ -190,7 +183,7 @@ impl PdmsDataInterface for AiosDBManager {
 
 impl AiosDBManager {
     ///初始化
-    pub fn init(option: &DbOption) -> Result<AiosDBManager, bonsaidb::core::Error> {
+    pub fn init(option: &DbOption) -> anyhow::Result<AiosDBManager> {
         let extra_storage_name = format!("./AIOS_DBS/AIOS_Extra");
         let dir = option.project_path.as_str();
         let storage = Storage::open(
@@ -224,11 +217,10 @@ impl AiosDBManager {
         };
 
         if option.total_sync {
-            mgr.sync_total_internal();
+            mgr.sync_total_internal()?;
         }
         Ok(mgr)
     }
-
 
     fn sync_incremental_internal(&mut self) -> anyhow::Result<bool> {
         Ok(true)
@@ -338,7 +330,6 @@ impl AiosDBManager {
         Ok(None)
     }
 
-
     #[inline]
     pub fn get_cat_ref_in_desi(&self, refno: RefU64) -> Option<RefU64> {
         let att = self.get_attr(refno).ok()??;
@@ -355,8 +346,6 @@ impl AiosDBManager {
         }
         Ok(None)
     }
-
-
     //todo use anyhow
     ///返回geo data
     #[inline]
@@ -367,7 +356,7 @@ impl AiosDBManager {
             let type_name = desi_att.get_type();
             let is_bran = type_name == "BRAN";
             if !is_bran {
-                let geoms = resolve_desi_comp(refno, self)?;
+                let geoms = resolve_desi_comp(refno, self).unwrap_or_default();
                 if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
                     result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self));
                 } else {
@@ -406,13 +395,15 @@ impl AiosDBManager {
                 //第一遍完成后，然后生成tubing
                 let last_child = children.last().unwrap().clone();
                 for child in children {
+                    if child != RefU64::from_two_nums(16501, 1157) {
+                        continue;
+                    }
+                    // dbg!(self.get_pretty_attr(child));
                     let world_trans = self.get_world_transform(child)?;
+                    // dbg!(&world_trans);
                     let mut result_shapes = vec![];
-                    // if child == RefU64::from_two_nums(16501, 829) {
-                    //     dbg!(child.to_refno_str());
-                    //     dbg!(self.get_pretty_attr(child));
-                    // }
-                    let geoms = crate::query_cata::resolve_desi_comp(child, self)?;
+                    let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
+                    // dbg!(&geoms);
                     let attr = self.get_attr(child)?.unwrap_or_default();
                     if let Ok(arrive) = attr.get_i32("ARRI") {
                         //todo 加入获取arrive position 的方法
@@ -420,10 +411,10 @@ impl AiosDBManager {
                             let p = &geoms.axis_map[&arrive].pt;
                             let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
                             //dbg!(&a_pos);
-                            if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > EPSILON {
+                            if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > f32::EPSILON {
                                 current_tubing.end_pt = a_pos;
                                 current_tubing.finished = true;
-                                result_shapes.push(current_tubing.convert_to_shape());
+                                // result_shapes.push(current_tubing.convert_to_shape());
                             }
                         }
                     }
@@ -450,14 +441,13 @@ impl AiosDBManager {
                         // //dbg!(leave);
                     }
                     //管件的生成
-                    //return pipes::create_geo(&desi_att, &geoms);
                     for geom in geoms.geometries {
                         if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
                             result_shapes.push(cate_shape);
                         }
                     } // end geoms.geometries
                     if child == last_child {
-                        if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > EPSILON {
+                        if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > f32::EPSILON {
                             current_tubing.end_pt = bran_ttube_pt;
                             current_tubing.finished = true;
                             result_shapes.push(current_tubing.convert_to_shape());
@@ -508,14 +498,16 @@ impl AiosDBManager {
                     // //dbg!(cur_node);
                     let d = cur_node.data();
                     let noun = d.noun;
+                    let attr = self.get_attr(d.refno)?.ok_or(bonsaidb::core::Error::Database("No attr map".to_string()))?;
 
-                    if d.refno != RefU64::from_two_nums(16501, 831)
-                    // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
-                    // // && d.refno != RefU64::from_two_nums(8193, 16231)
+                    // if d.owner != RefU64::from_two_nums(16501, 235)
+                    if d.refno != RefU64::from_two_nums(16501, 1156)
+                    /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
+                    // && d.refno != RefU64::from_two_nums(16501, 237)
                     {
                         continue;
                     }
-                    let attr = self.get_attr(d.refno)?.ok_or(bonsaidb::core::Error::Database("No attr map".to_string()))?;
+
                     let mut geo_hash = None;
                     let mut color_type = None;
                     let mut item_trans = glam::TransformSRT::IDENTITY;
@@ -581,8 +573,7 @@ impl AiosDBManager {
                                         geo_hash = Some(r);
                                     }
                                 }
-                            }
-                            //end of LOOP_NOUN
+                            } //end of LOOP_NOUN
                         } else if noun == POHE_NOUN {  //多面体, try to save the leaf nodes in database
                             let children_hash = self.get_children(d.refno)?.unwrap_or_default();
                             let mut facet = Facet::default();
@@ -667,13 +658,7 @@ impl AiosDBManager {
                             }
                         }
                     } else {
-                        // if d.refno != RefU64::from_two_nums(23584, 7468) {
-                        // continue;
-                        // }
-                        // //dbg!(d.refno);
                         let ele_type = attr.get_type();
-                        // dbg!(ele_type);
-                        // dbg!(target_refno.to_refno_str());
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
                         let has_catref = attr.get_foreign_refno("CATR").is_ok() || attr.get_foreign_refno("SPRE").is_ok();
                         //todo fix these types
@@ -682,27 +667,18 @@ impl AiosDBManager {
                         }
                         //针对管道特殊处理
                         if ele_type == "BRAN" || (owner.is_some() && owner.unwrap().get_type() != "BRAN" && has_catref) {
-                            // if  ele_type == "NOZZ"  {
                             let mut node_ids_map = HashMap::new();
                             for node_id in cur_node.children() {
                                 let data = tree.get(node_id).unwrap().data();
                                 node_ids_map.insert(data.refno, node_id.clone());
                             }
                             let brep_shapes = self.get_design_geoms(d.refno, &mut cached_mesh_mgr)?;
-                            // //dbg!(&brep_shapes);
-                            // //dbg!(d.refno.to_refno_str());
-                            // if d.refno == RefU64::from_two_nums(23584, 5563) {
-                            //     //dbg!(&brep_shapes);
-                            // }
                             for (cur_refno, value_vec) in brep_shapes {
                                 //记录对应的不同颜色类型
                                 if let Some(e) = self.get_color_type_refno(d.refno) {
                                     type_geom_refs_map.entry(e.1).or_insert(Vec::new()).push(cur_refno);
                                     color_type = Some(e.0.clone());
                                 }
-                                // if d.refno == RefU64::from_two_nums(23584, 5570) {
-                                //     //dbg!(&value_vec);
-                                // }
                                 //维护每个节点有那些几何实例
                                 let ancestors = tree.ancestors(&cur_node_id).unwrap();
                                 for ancestor in ancestors {
@@ -741,7 +717,7 @@ impl AiosDBManager {
                                         geo_hash,
                                         bbox,
                                         global_transform: (desi_trans.rotation, desi_trans.translation, item_trans.scale),
-                                        visible: attr.is_visible(None).unwrap_or(false),
+                                        visible: true,
                                         generic_type: color_type.clone().unwrap_or_default(),
                                         zone_refno: self.get_parent_att_by_type(cur_refno, "ZONE")?.map(|x| x.get_refno().unwrap_or_default()).unwrap_or_default(),
                                         node_id: node_ids_map.get(&cur_refno).map(|x| x.clone()).unwrap_or(cur_node_id.clone()),
@@ -769,7 +745,7 @@ impl AiosDBManager {
                             geo_hash,
                             bbox,
                             global_transform: (tr.rotation, tr.translation, tr.scale),
-                            visible: attr.is_visible(None).unwrap_or(false),
+                            visible: attr.is_visible_by_level(None).unwrap_or(false),
                             generic_type: color_type.unwrap_or_default(),
                             zone_refno: self.get_parent_att_by_type(target_refno, "ZONE")?.unwrap().get_refno().unwrap(),
                             node_id: target_node_id,
@@ -783,6 +759,7 @@ impl AiosDBManager {
         // let mut file = File::create(format!("{db_code}_geoms.json")).unwrap();
         // let serialized = serde_json::to_string(&inst_map).unwrap();
         // file.write_all(serialized.as_bytes()).unwrap();
+
         //
         // let mut file = File::create(format!("type_geoms.json")).unwrap();
         // let serialized = serde_json::to_string(&type_geom_refs_map).unwrap();
@@ -802,15 +779,13 @@ impl AiosDBManager {
             level_shape_mgr,
         };
         println!("cache all geoms costs: {}ms", time.elapsed().as_millis());
-// mgr.serialize_to_json_file();
         mgr.serialize_to_bin_file(db_code);
         Ok(mgr)
     }
 
-//todo 基于元件库的模型也要生成
-//todo 房间号的算法移植
-
-    pub fn build_collision_world(&mut self, db_code: u32) -> Result<(), bonsaidb::core::Error> {
+    //todo 基于元件库的模型也要生成
+    //todo 房间号的算法移植
+    pub fn build_collision_world(&mut self, db_code: u32) -> anyhow::Result<()> {
         let mut world = GLOBAL_COLLISION_WORLD.lock().unwrap();
         // *world = CollisionWorld::<f32, (RefU64, RefU64)>::new(0.01f32);
         let query = GeometricQueryType::Proximity(0.0);
@@ -818,13 +793,13 @@ impl AiosDBManager {
 
         let mut file = File::open(format!("./AIOS_DBS/type_geoms.json")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf)?;
         let type_geom_refs_map: HashMap<RefU64, Vec<RefU64>> = serde_json::from_slice(&buf).unwrap();
 
         //暂时用json，方便调试
         let mut file = File::open(format!("../web-aios/{db_code}_geoms.json")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf)?;
         let geo_map: HashMap<SmolStr, EleGeoInstData> = serde_json::from_slice(&buf).unwrap();
 
         // 暂时找到所有的设备，在这里进行遍历，获得包围盒信息
@@ -855,7 +830,6 @@ impl AiosDBManager {
         }
 
         world.update();
-
         let mut aabb_contained = HashMap::new();
         let mut room_final_contained = HashMap::new();
         let mut room_geo_refs_map = HashMap::new();
@@ -867,15 +841,12 @@ impl AiosDBManager {
             let c = /*room_geo.global_transform.1 +*/ room_geo.bbox.get_center();
             let aabb = AABB::from_half_extents(na::Point3::new(c.x, c.y, c.z),
                                                na::Vector3::new(e.x, e.y, e.z));
-            // println!("{} : {:?}, {:?}", k.to_refno_str(), &v, &c);
             let mesh_indx = room_geo.geo_hash;
             let (r, t, s) = room_geo.global_transform;
             let translation = na::Vector3::new(t.x, t.y, t.z);
             let (axis, angle) = r.to_axis_angle();
             let axisangle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
             let room_iso = Isometry3::new(translation, axisangle);
-            // //dbg!(&room_iso);
-
             let room_tri_mesh = cached_meshes.meshes.get(&mesh_indx).unwrap().get_tri_mesh(TransformSRT {
                 rotation: r,
                 translation: t,
@@ -893,11 +864,9 @@ impl AiosDBManager {
                     let ray_x = Ray::new(first_pt, ncollide3d::na::Vector3::z());
                     let ray_neg_x = Ray::new(first_pt, -ncollide3d::na::Vector3::z());
 
-
                     let ray_x = room_tri_mesh.toi_with_ray(&room_iso, &ray_x, std::f32::MAX, false);
                     let ray_neg_x = room_tri_mesh.toi_with_ray(&room_iso, &ray_neg_x, std::f32::MAX, false);
                     if ray_x.is_some() && ray_neg_x.is_some() {
-                        // //dbg!(geom_refno.to_refno_str());
                         aabb_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(generic_refno.to_refno_str());
                         room_final_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(geom_refno.to_refno_str());
                     } else {
@@ -1111,7 +1080,8 @@ impl AiosPdmsProject {
                 let bangle = attr.get_f32("BANG").unwrap_or_default();
                 //如果和Z轴平行，需要使用Y轴作为参考轴
                 let d = extru_dir.dot(Vec3::Z).abs();
-                let mut ref_axis = if abs_diff_eq!(1.0, d, epsilon = f32::EPSILON) {
+
+                let mut ref_axis = if abs_diff_eq!(1.0, d) {
                     Vec3::Y
                 } else { Vec3::Z };
 
@@ -1307,7 +1277,7 @@ impl AiosPdmsProject {
         let filename = SmolStr::new(path.file_name().unwrap().to_str().unwrap());
         let mut file = File::open(path)?;
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf)?;
         let input = &buf[..];
         let pdms_database_info = read_attr_info_config("all_attr_info.bin");
 

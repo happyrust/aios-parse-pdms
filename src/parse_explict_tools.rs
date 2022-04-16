@@ -2,13 +2,14 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use bevy_utils::HashMap;
 use dashmap::DashMap;
+use fixed::types::I24F8;
 use nalgebra_glm::exp;
 use nom::IResult;
 use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
 use smol_str::SmolStr;
 use crate::db_tool::{convert_to_hash, db1_dehash};
-use crate::helper::parse_to_i32;
+use crate::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use crate::parse::{convert_to_explicit_axis_string, parse_to_expression};
 use crate::pdms_types::AttrVal::*;
 use crate::pdms_types::{AttrVal, DbAttributeType};
@@ -94,9 +95,11 @@ fn get_expression_attr_test() {
 
 pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> {
     let hash_val = &input[..4];
-    let expression_type = db1_dehash(convert_to_hash(hash_val));
-    // let expression_type = db1_dehash();
-    if expression_type == "PTCD" {
+    let noun_name = db1_dehash(convert_to_hash(hash_val));
+    // if noun_name.as_str() == "PBDI" {
+        // dbg!(noun_name.as_str());
+    // }
+    if noun_name == "PTCD" {
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
@@ -109,17 +112,15 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
             }
             _ => {}
         }
-        Ok((input, (expression_type, result)))
+        Ok((input, (noun_name, result)))
     } else {
         let (_, expression_length) = be_u16(&input[6..8])?;
-        // 显式属性的length后有8个byte没用的，直接跳过了
         if (expression_length as usize * 4 + 8) > input.len() {
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
         let mut expression_data = &input[16..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
         // 表达式都是以0x0 0 0 1开头的
-        let _expression_start = &expression_data[..4];
         expression_data = &expression_data[4..];
         // 这是表达式数字的起始标志
         let mut result_stack = vec![];
@@ -136,7 +137,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                         let times = 2_f32.powf((5i16 - times) as f32) as f64;
                         let (_, a) = be_i32(&expression_data[..4])?;
                         let (_, b) = be_i32(&expression_data[4..8])?;
-                        let value = (((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 100.0).round() / 100.0;
+                        let value = (((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 1000.0).round() / 1000.0;
                         result_stack.push(value.to_string());
                         expression_data = &expression_data[20..];
                     }
@@ -148,22 +149,21 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                         dst_data[0] = dst_first;
                         dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
                         let value_tmp = f64::from_be_bytes(dst_data.try_into().unwrap());
-                        let value = ((value_tmp * 100.0).round() / 100.0).to_string();
+                        let value = ((value_tmp * 1000.0).round() / 1000.0).to_string();
                         result_stack.push(value);
                         expression_data = &expression_data[12..];
-                        // 表达式 值的结束位  这里是个结束位，但是没什么用，后期判断当表达式的值特别大的时候是否有用（目前遇到的值都是三位）
-                        let _expression_data_value_end = &expression_data[..8];
                         expression_data = &expression_data[8..];
                     }
                     &[0xFF, 0xFF] => {
-                        let (_, time) = be_u16(&expression_data[10..12])?;
-                        let time = (time - 0xFFFB) as f32 * 2.0;
-                        let (_, value1) = be_i32(&expression_data[..4])?;
-                        let value1 = value1 as f32 * 0.000001f32 * time;
-                        let (_, value2) = be_i32(&expression_data[4..8])?;
-                        let value2 = value2 as f32 / (0x6680 as f32 / time) * 0.000001;
-                        let value = ((value1 + value2) * 100.0).round() / 100.0;
-                        result_stack.push(value.to_string());
+                        //0x1 00 00 代表 1
+                        let a = parse_to_i32(&expression_data[..4]);
+                        //40 00 00 00 代表 0.5
+                        let b = parse_to_i32(&expression_data[4..8]) ;
+                        let v = (a as f64 * 0.00001525) + b as f64/ 0x40000000 as f64 * 0.5;
+                        let c = 0xFFFFu32 - parse_to_u16(&expression_data[10..12]) as u32;   //parse like 0xFF FE
+                        let mut div_times = 2_i32.pow(c);
+                        let v = (v * 1000.0).round() / (div_times as f64) / 1000.0;
+                        result_stack.push(v.to_string());
                         expression_data = &expression_data[20..];
                     }
                     _ => {}
@@ -179,16 +179,29 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                 // println!("{:#4X?}", &expression_data[8..16]);
                 let flags = ( parse_to_i32(&expression_data[8..12]), parse_to_i32(&expression_data[12..16]));
 
+                let mut rpro_name = String::new();
+                let s_value = u32::from_be_bytes(expression_data[16..20].try_into().unwrap());
+                if att_name.as_str() == "RPRO" && s_value != 0{
+                    rpro_name  = db1_dehash(s_value);
+                    if !rpro_name.is_empty() {
+                        rpro_name.insert(0, ' ');
+                    }
+                }
                 let mut expression;
                 if flags == (-1, -1){
-                    if num >= 2 {
-                        let v = result_stack.pop().unwrap_or_default();
-                        expression = format!("ATTRIB {att_name}[{v}]");
-                    }else{
-                        expression = format!("ATTRIB {att_name}")
-                    };
+                    let v = result_stack.pop().unwrap_or_default();
+                    expression = format!("ATTRIB {att_name}[{v}]{rpro_name}");
                 }else {
-                    expression = format!("ATTRIB {att_name}");
+                    let num = flags.1;
+                    if s_value == 0 {
+                        if num == 1 {
+                            expression = format!("ATTRIB {att_name}");
+                        }else{
+                            expression = format!("ATTRIB {att_name}[{num}]");
+                        }
+                    }else{
+                        expression = format!("ATTRIB {att_name}{rpro_name}");
+                    }
                 }
                 result_stack.push(expression);
 
@@ -224,7 +237,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                             let refno = format!("{}/{}", refno0, refno1);
                             let func = result_stack.pop().unwrap_or_default();
                             let result = format!("( {} OF = {} )", func, refno);
-                            return Ok((input, (expression_type, result.into())));
+                            return Ok((input, (noun_name, result.into())));
                         }
                     }
                     expression_data = &expression_data[length..];
@@ -385,13 +398,13 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
                 if expression_data.len() > 4 {
                     expression_data = &expression_data[4..];
                 } else {
-                    let result = format!("( {} )", result_stack.pop().unwrap_or_default());
-                    return Ok((input, (expression_type, result.into())));
+                    let result = format!("{}", result_stack.pop().unwrap_or_default());
+                    return Ok((input, (noun_name, result.into())));
                 }
             }
         }
-        let result = format!("( {} )", result_stack.pop().unwrap_or_default());
-        Ok((input, (expression_type, result.into())))
+        let result = format!("{}", result_stack.pop().unwrap_or("".to_string()).trim());
+        Ok((input, (noun_name, result.into())))
     }
 }
 
@@ -427,14 +440,23 @@ pub fn parse_axis_explicit_value_40(data: &[u8]) -> IResult<&[u8], f64> {
 
 /// 解析axis显式属性的值，分为00 40 FF三种
 pub fn parse_axis_explicit_value_ff(data: &[u8]) -> IResult<&[u8], f64> {
-    let (_, time) = be_u16(&data[10..12])?;
-    let time = (time - 0xFFFB) as f32 * 2.0;
-    let (_, value1) = be_i32(&data[..4])?;
-    let value1 = value1 as f32 * 0.000001f32 * time;
-    let (_, value2) = be_i32(&data[4..8])?;
-    let value2 = value2 as f32 / (0x6680 as f32 / time) * 0.000001;
-    let value = ((value1 + value2) * 100.0).round() / 100.0;
-    Ok((data, value as f64))
+    // let (_, time) = be_u16(&data[10..12])?;
+    // let time = (time - 0xFFFB) as f32 * 2.0;
+    // let (_, value1) = be_i32(&data[..4])?;
+    // let value1 = value1 as f32 * 0.000001f32 * time;
+    // let (_, value2) = be_i32(&data[4..8])?;
+    // let value2 = value2 as f32 / (0x6680 as f32 / time) * 0.000001;
+    // let value = ((value1 + value2) * 100.0).round() / 100.0;
+
+    let a = parse_to_i32(&data[..4]);
+    //40 00 00 00 代表 0.5
+    let b = parse_to_i32(&data[4..8]) ;
+    let v = (a as f64 * 0.00001525) + b as f64/ 0x40000000 as f64 * 0.5;
+    let c = 0xFFFFu32 - parse_to_u16(&data[10..12]) as u32;   //parse like 0xFF FE
+    let div_times = 2_i32.pow(c);
+    let v = (v * 1000.0).round() / (div_times as f64) / 1000.0;
+
+    Ok((data, v as f64))
 }
 
 #[inline]

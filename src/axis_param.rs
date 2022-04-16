@@ -25,7 +25,7 @@ impl CateAxisParam {
         }
     }
 
-    pub fn X() -> Self {
+    pub fn x() -> Self {
         Self {
             pt: vec![0.0; 3],
             dir: vec![1.0, 0.0, 0.0],
@@ -34,7 +34,7 @@ impl CateAxisParam {
         }
     }
 
-    pub fn Y() -> Self {
+    pub fn y() -> Self {
         Self {
             pt: vec![0.0; 3],
             dir: vec![0.0, 1.0, 0.0],
@@ -43,7 +43,7 @@ impl CateAxisParam {
         }
     }
 
-    pub fn Z() -> Self {
+    pub fn z() -> Self {
         Self {
             pt: vec![0.0; 3],
             dir: vec![0.0, 0.0, 1.0],

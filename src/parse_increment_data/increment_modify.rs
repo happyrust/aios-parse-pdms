@@ -58,7 +58,7 @@ pub fn check_increase_operate(input: &[u8], pos: usize, refno: &[u8]) -> Option<
 /// 将修改数据保存到数据库
 pub fn modify_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, dbno: u64, dbs: &AiosPdmsProject) -> anyhow::Result<()> {
     let mut string_lookup = StringLookupTable::new();
-    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0);
+    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0)?;
     // 修改attrmap的数据
     let mut attr_db = dbs.storage.database::<AttrMap>(&dbno.to_string())?;
     let mut tx = Transaction::default();
@@ -85,7 +85,7 @@ pub fn modify_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, db
 
 pub fn increment_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, dbno: u64, dbs: &AiosPdmsProject) -> anyhow::Result<()> {
     let mut string_lookup = StringLookupTable::new();
-    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0);
+    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0)?;
     let noun = ele_data.noun as u64;
     // todo 插入到tree中，先把 refnoinfo 加上 nodeid 再加上该功能
     // 修改 types_db中的参考号
@@ -124,7 +124,7 @@ pub fn increment_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo,
 // delete需要调整 ， 这个返回的是delete 的node的owner，只需获得删除的refno和owner的refno就好了
 pub fn delete_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, dbno: u64, dbs: &AiosPdmsProject) -> anyhow::Result<()> {
     let mut string_lookup = StringLookupTable::new();
-    let data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0);
+    let data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0)?;
     let noun = data.noun as u64;
     // 修改 types_db中的参考号
     let mut v = RefU64Vec::get(noun, dbs.get_type_refs_database())?.unwrap();
@@ -142,34 +142,3 @@ pub fn delete_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, db
     }
     Ok(())
 }
-
-// 为了调试暂时注释了
-/// 将数据库版本号更新到文件最新版本
-// pub async fn update_version_in_db(filename: SmolStr, version: u32, interface: &mut PdmsInterface) -> anyhow::Result<()> {
-//     if let Some(client) = interface.connect() {
-//         let db = client.database("samProject");
-//         let t = db.collection::<PdmsMongoDbInfo>("PdmsMongoData");
-//         if let Some(mut v) = t.find_one(doc! {"filename":filename.clone().as_str()}, None)? {
-//             v.version = version;
-//             t.find_one_and_delete(doc! {"filename":filename.as_str()}, None)?;
-//             t.insert_one(v, None)?;
-//             println!("版本号修改成功");
-//         }
-//     }
-//     Ok(())
-// }
-fn test_increment_modify() {
-    let path = r"E:\AVEVA\Plant\PDMS12.0.SP4\project\Sample\sam000\sam7600_0001";
-    let mut buf = vec![];
-    let mut file = File::open(path).unwrap();
-    file.read_to_end(&mut buf);
-    let filename = SmolStr::new("sam7600_0001");
-    // increment_parse(&buf, filename).unwrap();
-}
-
-// fn test_query_db() -> anyhow::Result<()> {
-//     let db = Database::open::<DbnoVersion>(StorageConfiguration::new("aios.vers"))?;
-//     let ver = DbnoVersion::get(7200, &db)?.unwrap();
-//     println!("version={:?}", ver.contents);
-//     Ok(())
-// }

@@ -1,7 +1,7 @@
 use crate::parse::parse_ele_data;
 use crate::pdms_types::StringLookupTable;
 use crate::read_attr_info_config;
-use crate::test_cases::{convert_str_to_bytes, };
+use crate::test_cases::{convert_str_to_bytes};
 
 #[test]
 fn test_spine_aba_32769_21909() {

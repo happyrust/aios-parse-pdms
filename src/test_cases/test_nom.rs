@@ -4,7 +4,7 @@ use nom::combinator::{map, not, recognize, value, verify};
 use nom::IResult;
 use nom::number::complete::be_i32;
 use nom::sequence::preceded;
-use crate::db1_dehash;
+use crate::{convert_to_hash, db1_dehash};
 use crate::test_cases::convert_str_to_bytes;
 
 
@@ -14,6 +14,7 @@ fn parser(s: &[u8]) -> IResult<&[u8], (Vec<i32>, &[u8])> {
 
 #[test]
 fn test_noun() {
+    // dbg!(db1_dehash(convert_to_hash(&[0xFF, 0xFF, 0xFF, 0xFB])));
     dbg!(db1_dehash(u32::from_be_bytes([0x0, 0xB, 0x20, 0x9F])));
     dbg!(db1_dehash(u32::from_be_bytes([0x0, 0xC, 0xD2, 0x42])));
     dbg!(db1_dehash(u32::from_be_bytes([0x0, 0xD, 0xDF, 0x8A])));

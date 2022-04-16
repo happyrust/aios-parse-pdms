@@ -1,5 +1,4 @@
 use std::collections::hash_map::DefaultHasher;
-use std::f32::EPSILON;
 use std::hash::Hasher;
 use bevy::prelude::*;
 use truck_meshalgo::prelude::*;
@@ -43,8 +42,8 @@ impl Default for LSnout {
             pbax_pt: Default::default(),
             pbax_dir: Vec3::X,
 
-            ptdi: 1.0,
-            pbdi: 0.0,
+            ptdi: 0.5,
+            pbdi: -0.5,
             ptdm: 1.0,
             pbdm: 1.0,
             poff: 0.0,
@@ -55,7 +54,7 @@ impl Default for LSnout {
 impl VerifiedShape for LSnout {
     #[inline]
     fn check_valid(&self) -> bool {
-        self.ptdm > EPSILON && self.pbdm > EPSILON && self.ptdi - self.pbdi > EPSILON
+        self.ptdm > f32::EPSILON && self.pbdm > f32::EPSILON && (self.ptdi - self.pbdi).abs() > f32::EPSILON
     }
 }
 
@@ -102,7 +101,7 @@ impl BrepShapeTrait for LSnout {
     fn hash_mesh_params(&self) -> u64{
         let mut hasher = DefaultHasher::new();
         //对于有偏移的，直接不复用，后面看情况再考虑复用
-        if self.poff >= EPSILON {
+        if self.poff >= f32::EPSILON {
             //当有偏移的时候，需要特殊处理，pa 和 pb的方向也考虑其中
             // hash_vec3(&self.paax_dir, &mut hasher);
             // hash_vec3(&self.pbax_dir, &mut hasher);
@@ -131,11 +130,11 @@ impl BrepShapeTrait for LSnout {
     //参考圆点在中心位置
     fn gen_unit_shape(&self) -> PdmsMesh{
         let ptdm = self.ptdm / self.pbdm;
-       if self.poff > EPSILON {
+       if self.poff > f32::EPSILON {
             self.gen_mesh(None)
         }else{
             Self{
-                ptdi: 0.5,
+                ptdi: 0.5 ,
                 pbdi: -0.5,
                 ptdm,
                 pbdm: 1.0,
@@ -149,7 +148,7 @@ impl BrepShapeTrait for LSnout {
     #[inline]
     fn get_scaled_vec3(&self) -> Vec3{
         let pheight = self.ptdi - self.pbdi;
-        if self.poff > EPSILON {
+        if self.poff > f32::EPSILON {
             Vec3::ONE
         }else{
             Vec3::new(self.pbdm, self.pbdm, pheight)

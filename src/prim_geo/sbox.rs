@@ -31,7 +31,7 @@ impl Default for SBox {
 impl VerifiedShape for SBox {
     #[inline]
     fn check_valid(&self) -> bool {
-       self.size.x > EPSILON &&  self.size.y > EPSILON && self.size.z > EPSILON
+       self.size.x > f32::EPSILON &&  self.size.y > f32::EPSILON && self.size.z > f32::EPSILON
     }
 }
 

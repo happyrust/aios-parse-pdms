@@ -4,11 +4,8 @@ use crate::read_attr_info_config;
 use crate::test_cases::{convert_str_to_bytes};
 
 
-
-
 #[test]
-pub fn test_xxx_problem(){
-
+pub fn test_xxx_problem() {
     let data_str = "
 00 00 00 46 00 00 40 5C 00 00 00 08 00 0C 55 1C
 00 00 40 5C 00 00 00 07 00 00 00 2D 00 32 C0 01
@@ -64,14 +61,13 @@ pub fn test_xxx_problem(){
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
     //dbg!(&ele_data);
 }
 
 
 #[test]
-pub fn test_branch_sample_23584_5585(){
-
+pub fn test_branch_sample_23584_5585() {
     let data_str = "
 00 00 00 56 00 00 5C 20 00 00 15 D1 00 0C 55 1C
 00 00 5C 20 00 00 15 D0 00 00 03 1A 00 3E 20 01
@@ -133,15 +129,14 @@ pub fn test_branch_sample_23584_5585(){
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
 
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
 
     //dbg!(&ele_data);
-
 }
 
 #[test]
 pub fn test_ptax_aba_10552_1156() {
-    let data_str="
+    let data_str = "
 00 00 00 21 00 00 29 38 00 00 04 84 00 0F 56 3E
 00 00 29 38 00 00 04 82 00 00 00 7B 00 34 C0 01
 00 00 00 00 00 00 00 00 00 0F 00 00 00 00 00 02
@@ -167,14 +162,11 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 00 06 00 00 00 6A 00 00 00 02 00 08 9C 41
 FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 00 03 23 00";
-    let data=convert_str_to_bytes(data_str);
+    let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    if let Some(map)=pdms_database_info.noun_attr_info_map.get(&0xF563Ei32){
-        //dbg!(map.value());
-    }
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF563Ei32) {}
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
-    //dbg!(&ele_data);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup, 0).unwrap();
 }
 
 

@@ -26,6 +26,9 @@ pub fn db1_dehash(hash: u32) -> String{
             v8 /= 64;
         }
     } else {
+        if hash <= 0x81BF1 {
+            return "".to_string();
+        }
         let mut v6 = (hash - 0x81BF1) as i32;
         while v6 > 0 {
             result.push((v6 % 27 + 64) as u8  as char);
@@ -38,6 +41,9 @@ pub fn db1_dehash(hash: u32) -> String{
 #[inline]
 pub const fn db1_hash(hash_str: &str) -> u32{
     let mut chars = hash_str.as_bytes();
+    if chars.len() < 1 {
+        return 0;  //出错的暂时用0 表达
+    }
     let mut val = 0i64;
     let mut i = (chars.len() - 1) as i32;
     while i>=0 {
@@ -59,6 +65,7 @@ fn db1_dehash_test(){
 use std::fs::File;
 use std::io::Read;
 use memchr::memmem::{find, find_iter};
+use nom::char;
 use nom::character::complete::char;
 use crate::pdms_types::PdmsDatabaseInfo;
 

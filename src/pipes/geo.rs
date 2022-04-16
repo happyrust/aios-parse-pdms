@@ -15,7 +15,7 @@ pub fn create_geo(att: &AttrMap, geom_info: &GeomsInfo) -> Option<GeoData> {
     if let Ok(poss) = att.get_poss() {
         if let Ok(pose) = att.get_pose() {
             let height = pose.distance(poss);
-            if height < EPSILON { return None; }
+            if height < f32::EPSILON { return None; }
             let ns = att.get_vec3("DRNS");
             let ne = att.get_vec3("DRNE");
             //rotate the profile

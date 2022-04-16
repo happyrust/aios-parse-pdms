@@ -39,25 +39,22 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
             scom_ref = Some(spre.get_foreign_refno("CATR")?);
         }
     };
-    let scom_ref = scom_ref.ok_or(anyhow!("SCOM ref not exist".to_string()))?;
-    if query_scom_info(scom_ref, interface).is_err() {
-        dbg!(refno.to_refno_str());
-        dbg!(scom_ref.to_refno_str());
-    }
+    let scom_ref = scom_ref.ok_or(anyhow!(format!("SCOM not exist in element: {}", refno.to_refno_str())))?;
+    // if query_scom_info(scom_ref, interface).is_err() {
+    //     dbg!(refno.to_refno_str());
+    //     dbg!(scom_ref.to_refno_str());
+    // }
     let scom_info = query_scom_info(scom_ref, interface)?;
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
 
-    let mut desp = attr_map.get_f64_vec("DESP").unwrap_or_default();
-    for i in 0..desp.len() {
-        context.insert(
-            format!("DESP{}", i + 1).into(),
-            desp[i].to_string().into(),
-        );
-    }
     let mut desp = attr_map.get_f64_vec("DESI").unwrap_or_default();
     for i in 0..desp.len() {
         context.insert(
             format!("DESI{}", i + 1).into(),
+            desp[i].to_string().into(),
+        );
+        context.insert(
+            format!("DESP{}", i + 1).into(),
             desp[i].to_string().into(),
         );
     }
@@ -71,7 +68,7 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
     context.insert(DDRADIUS_STR.into(), radi.clone());
     context.insert("RADI".into(), radi);
     // dbg!(&scom_info);
-    dbg!(refno.to_refno_str());
+    // dbg!(refno.to_refno_str());
     let mut geom_info = resolve_cata_comp(&scom_info, interface, Some(context));
     if geom_info.is_err() {
         error!("{:?}",geom_info.as_ref().err());
@@ -132,8 +129,9 @@ pub fn query_axis_params<T: PdmsDataInterface>(
     let refno = attr_map.get_refno()?;
     let children = interface.get_ele_children_attrs(refno);
     for child in children {
+        dbg!(child.to_string_hashmap());
         let number = child.get_as_string("NUMB")?.parse::<i32>().unwrap_or(-1);
-        map.entry(number).or_insert(get_axis_param(&child)?);
+        map.insert(number, get_axis_param(&child)?);   //需要覆盖，使用最后的那一个
     }
     Ok(map)
 }
@@ -147,7 +145,13 @@ pub fn query_gm_params<T: PdmsDataInterface>(
     let refno = attr_map.get_refno()?;
     let children = interface.get_ele_children_attrs(refno);
     for child in children {
-        dbg!(child.to_string_hashmap());
+        if child.get_refno()? == RefU64::from_two_nums(21984,31629) {
+            dbg!(child.to_string_hashmap());
+        }
+        //todo 暂时把 Level 的判断加到这里
+        if !child.is_visible_by_level(None)? {
+            continue;
+        }
         let has_chidren = child.get_type_cloned() == "SPRO";//todo add other types
         gms.push(query_gm_param(&child, interface, has_chidren)?);
     }
@@ -173,7 +177,7 @@ pub fn resolve_cata_comp<T: PdmsDataInterface>(
         .entry(DDANGLE_STR.into())
         .or_insert("0.0".into());
     //获取DTSE的expression
-    process_dtse_params(&scom_info.attr_map, interface, &mut cur_context);
+    process_dtse_params(&scom_info.attr_map, interface, &mut cur_context)?;
 
     //保温层厚度
     cur_context.insert("IPARA0".into(), "0".into());
@@ -185,11 +189,13 @@ pub fn resolve_cata_comp<T: PdmsDataInterface>(
         cur_context.insert(format!("CPAR{}", i + 1).into(), params[i].to_string().into());
         cur_context.insert(format!("PARA{}", i + 1).into(), params[i].to_string().into());
         cur_context.insert(format!("IPARA{}", i + 1).into(), "0".to_string().into());
+        cur_context.insert(format!("IPAR{}", i + 1).into(), "0".to_string().into());
     }
     //求解AXIS的数据
     let axis_map = resolve_axis_params(scom_info, &cur_context);
+    // dbg!(&axis_map);
 
-    let geometries = resolve_gms(&scom_info.gm_params, &cur_context, &axis_map, None)?;
+    let geometries = resolve_gms(&scom_info.gm_params, &cur_context, &axis_map, None);
     Ok(GeomsInfo {
         geometries,
         axis_map,

@@ -38,7 +38,7 @@ impl Default for Sphere {
 impl VerifiedShape for Sphere {
     #[inline]
     fn check_valid(&self) -> bool {
-        self.radius > EPSILON
+        self.radius > f32::EPSILON
     }
 }
 

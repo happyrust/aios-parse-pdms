@@ -275,7 +275,7 @@ fn test_convert_implicit_data_to_vec() {
 pub fn change_origin_file(path: &str) -> (u32, Vec<u8>) {
     let mut file = fs::File::open(path).unwrap();
     let mut buf = Vec::new();
-    file.read_to_end(&mut buf);
+    file.read_to_end(&mut buf).ok();
     let old_version = parse_to_u32(&buf[40..44]);
     let new_version_u32 = old_version + 6;
     let new_version = (old_version + 6).to_be_bytes()[..4].to_vec();

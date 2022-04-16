@@ -74,7 +74,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
     //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     //dbg!(&ele_data);
 }
 
@@ -99,7 +99,7 @@ fn test_aba_14352_102824() {
     //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     let mut value = SmolStr::new("");
     if let Ok(m) = ele_data.attr_data_map.get_val("DETR") {
         match m {
@@ -173,7 +173,7 @@ fn test_aba_8193_90707() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     //dbg!(&ele_data);
 }
 
@@ -206,7 +206,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     let mut value = SmolStr::new("");
     if let Ok(m) = ele_data.attr_data_map.get_val("DX") {
         match m {
@@ -260,7 +260,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data);
 }
@@ -298,7 +298,7 @@ fn test_atta() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
@@ -329,7 +329,7 @@ fn test_aba_height() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
@@ -364,7 +364,7 @@ C7 30 2C 00 43 48 00 00 00 00 00 03 00 00 00 00
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
@@ -399,7 +399,7 @@ fn test_sample_positon() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }

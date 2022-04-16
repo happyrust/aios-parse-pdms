@@ -17,7 +17,7 @@ use crate::prim_geo::helper::cal_ref_axis;
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::{hash_f32, hash_vec3};
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct LPyramid {
     // pub pbax_expr: String,
@@ -82,17 +82,9 @@ impl VerifiedShape for LPyramid {
 
 impl BrepShapeTrait for LPyramid {
     fn hash_mesh_params(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        let r = vec![self.pbtp,
-                     self.pctp,
-                     self.pbbt,
-                     self.pcbt,
-                     self.ptdi,
-                     self.pbdi,
-                     self.pbof, ];
-        for v in r {
-            hash_f32::<DefaultHasher>(&v, &mut hasher);
-        }
+        let bytes = bincode::serialize(self).unwrap();
+        let mut hasher = DefaultHasher::default();
+        bytes.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -109,93 +101,57 @@ impl BrepShapeTrait for LPyramid {
     fn gen_brep_shell(&self) -> Option<Shell> {
         use truck_modeling::*;
         let x_dir = self.pbax_dir.normalize().vector3();
-        //暂时没用到 x y 的点信息
-        let z_dir = self.paax_dir.normalize().vector3();
         let y_dir = self.pcax_dir.normalize().vector3();
+        let z_dir = self.paax_dir.normalize().vector3();
         let z_pt = self.paax_pt.point3();
-
         //todo 以防止出现有单个点的情况，暂时用这个模拟
-        let t_x = (self.pbtp as f64 / 2.0).max(0.001);
-        let t_y = (self.pctp as f64 / 2.0).max(0.001);
-        if t_x * t_y <= f64::EPSILON {
-            return None;
-        }
-        let b_x = (self.pbbt as f64 / 2.0).max(0.001);;
-        let b_y = (self.pcbt as f64 / 2.0).max(0.001);
-        //todo 暂时不考虑这种情况, 退化成一条边和一点的情况
-        // if b_x * b_y <= f64::EPSILON {
-        //     return None;
-        // }
-        let btm_center = z_pt + z_dir * self.pbdi as f64 - x_dir * self.pbof as f64 - y_dir * self.pcof as f64;;
-        let top_center = z_pt + z_dir * self.ptdi as f64 + x_dir * self.pbof as f64 + y_dir * self.pcof as f64;
-        let len = btm_center.distance(top_center);
-        let b1 = x_dir * b_x;
-        let b2 = y_dir * b_y;
-        //bottom points
-        let mut bts = Vec::with_capacity(4);
-        let mut ebs = Vec::with_capacity(4);
-        bts.push(builder::vertex(btm_center - b1 - b2));   //if b1 = 0 && b2 = 0
-        if b_x.abs() >= f64::EPSILON {
-            bts.push(builder::vertex(btm_center + b1 - b2));
-            ebs.push(builder::line(&bts[0], &bts[1]));
-        }
-        if b_y.abs() >= f64::EPSILON {
-            bts.push(builder::vertex(btm_center + b1 + b2));
-            bts.push(builder::vertex(btm_center - b1 + b2));
+        let tx = (self.pbtp as f64 / 2.0).max(0.001);
+        let ty = (self.pctp as f64 / 2.0).max(0.001);
+        let bx = (self.pbbt as f64 / 2.0).max(0.001);
+        let by = (self.pcbt as f64 / 2.0).max(0.001);
+        let ox = 0.5 * self.pbof as f64;
+        let oy = 0.5 * self.pcof as f64;
+        let h2 = 0.5 * (self.ptdi - self.pbdi) as f64;
 
-            ebs.push(builder::line(&bts[1], &bts[2]));
-            ebs.push(builder::line(&bts[2], &bts[3]));
-            ebs.push(builder::line(&bts[3], &bts[0]));
-        }
+        let pts = vec![
+             builder::vertex(Point3::new(-tx + ox, -ty + oy, h2)),
+             builder::vertex(Point3::new(tx + ox, -ty + oy, h2)),
+             builder::vertex(Point3::new(tx + ox,  ty + oy, h2)),
+             builder::vertex(Point3::new(-tx + ox,  ty + oy, h2)),
+        ];
+        let mut ets = vec![
+            builder::line(&pts[0], &pts[1]),
+            builder::line(&pts[1], &pts[2]),
+            builder::line(&pts[2], &pts[3]),
+            builder::line(&pts[3], &pts[0])
+        ];
 
-        let t1 = x_dir * t_x;
-        let t2 = y_dir * t_y;
-        //top points
-        let mut tts = Vec::with_capacity(4);
-        let mut ets = Vec::with_capacity(4);
-        tts.push(builder::vertex(top_center - t1 - t2));
-        if t_x.abs() >= f64::EPSILON {
-            tts.push(builder::vertex(top_center + t1 - t2));
-            ets.push(builder::line(&tts[0], &tts[1]));
-        }
-        if t_y.abs() >= f64::EPSILON {
-            tts.push(builder::vertex(top_center + t1 + t2));
-            tts.push(builder::vertex(top_center - t1 + t2));
-
-            ets.push(builder::line(&tts[1], &tts[2]));
-            ets.push(builder::line(&tts[2], &tts[3]));
-            ets.push(builder::line(&tts[3], &tts[0]));
-        }
+        let pts = vec![
+            builder::vertex(Point3::new(-bx - ox, -by - oy, -h2)),
+            builder::vertex(Point3::new(bx - ox, -by - oy, -h2)),
+            builder::vertex(Point3::new(bx - ox,  by - oy, -h2)),
+            builder::vertex(Point3::new(-bx - ox,  by - oy, -h2))
+        ];
+        let mut ebs = vec![
+            builder::line(&pts[0], &pts[1]),
+            builder::line(&pts[1], &pts[2]),
+            builder::line(&pts[2], &pts[3]),
+            builder::line(&pts[3], &pts[0])
+        ];
 
 
         let mut faces = vec![];
-
-        //todo 还要处理其他情况
-        if ebs.len() == 4 {
-            if let Ok(f) = try_attach_plane(&[Wire::from_iter(&ebs)]) {
-                faces.push(f.inverse());
-            }
+        if let Ok(f) = try_attach_plane(&[Wire::from_iter(&ebs)]) {
+            faces.push(f.inverse());
         }
-        if ets.len() == 4 {
-            if let Ok(f) = try_attach_plane(&[Wire::from_iter(&ets)]) {
-                faces.push(f);
-            }
+        if let Ok(f) = try_attach_plane(&[Wire::from_iter(&ets)]) {
+            faces.push(f);
         }
-
-
         let mut shell: Shell = Shell::from(faces);
-        if ebs.len() == 4 && ets.len() == 4 {
-            shell.push(builder::homotopy(&ebs[0], &ets[0]));
-            shell.push(builder::homotopy(&ebs[1], &ets[1]));
-            shell.push(builder::homotopy(&ebs[2], &ets[2]));
-            shell.push(builder::homotopy(&ebs[3], &ets[3]));
-        }
-        //
-        // else if ebs.len() == 2 && ets.len() == 4 {
-        //     shell.push(builder::homotopy(&ebs[0], &ets[0]));
-        //     shell.push(builder::homotopy(&ebs[0], &ets[2]));
-        // }
-
+        shell.push(builder::homotopy(&ebs[0], &ets[0]));
+        shell.push(builder::homotopy(&ebs[1], &ets[1]));
+        shell.push(builder::homotopy(&ebs[2], &ets[2]));
+        shell.push(builder::homotopy(&ebs[3], &ets[3]));
         Some(shell)
     }
 }

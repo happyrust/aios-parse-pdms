@@ -7,6 +7,7 @@ use crate::pdms_data::GmParam;
 use crate::pdms_types::{AttrVal, EleNode};
 use serde_derive::{Deserialize, Serialize};
 use smol_str::SmolStr;
+use crate::{AttrMap, RefU64};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct DesignPipeRequest {
@@ -50,7 +51,6 @@ pub struct GeomsInfo {
     pub geometries: Vec<CateGeoParam>,
     pub axis_map: BTreeMap<i32, CateAxisParam>,
     pub tubi_bore: Option<f32>,
-    // pub matrix: glam::f32::Affine3A
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -60,6 +60,8 @@ pub struct Dataset {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct GmseParamData {
+
+    pub refno: RefU64,
     /// SCYL  LSNO  SCTO  SDSH  SBOX
     pub type_name: SmolStr,
     pub radius: f64, //desi 里的radius
@@ -169,7 +171,9 @@ pub struct CateSCylinderParam {
 }
 #[derive(Clone, PartialEq, Serialize, Deserialize,Debug)]
 pub struct CateLCylinderParam {
-    
+
+    pub refno: RefU64,
+
     pub axis: ::core::option::Option<CateAxisParam>,
     
     pub dist_to_btm: f64,

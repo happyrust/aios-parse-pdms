@@ -1,3 +1,4 @@
+#[allow(unused_mut)]
 use core::slice::SlicePattern;
 use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -163,8 +164,6 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
                             pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
                         }
                     } else {
-                        //dbg!(&pdms_db_data.filename);
-                        //dbg!(pdms_db_data.field_no);
                         if pdms_db_name_map.contains_key(&pdms_db_data.field_no) {
                             pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.field_no).unwrap().clone();
                         } else {
@@ -182,10 +181,9 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
 
 pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let time_start = std::time::Instant::now();
-    //dbg!(&path);
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buf);
+    file.read_to_end(&mut buf).ok();
     let input = &buf[..];
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
@@ -200,28 +198,6 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
     parse_db(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
 }
 
-/// 获取PdmsMongoData
-pub fn get_mongo_data(path: &PathBuf, db_name: SmolStr, type_ele_map: &DashMap<SmolStr, Vec<SmolStr>>, tree: &Vec<u8>) -> PdmsMongoDbInfo {
-    let mut file = File::open(path).unwrap();
-    let mut buf = [0; 50];
-    file.read_exact(&mut buf);
-    let (db_type, version, db_no) = parse_file_basic_info(&buf);
-    let refnos: Vec<Vec<SmolStr>> = type_ele_map.clone().iter().map(|x| {
-        x.value().to_vec()
-    }).collect();
-    let refnos: Vec<SmolStr> = refnos.into_iter().flatten().collect();
-    let tree = tree.clone();
-    PdmsMongoDbInfo {
-        filename: SmolStr::new(path.file_name().unwrap().to_str().unwrap()),
-        version,
-        db_type,
-        db_name,
-        ref_nos: refnos,
-        tree,
-        db_no,
-    }
-}
-
 #[derive(Debug, Clone, )]
 pub struct EleData {
     pub refno: RefU64,
@@ -234,15 +210,13 @@ pub struct EleData {
 }
 
 ///解析单个Element Data数据
-pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>, string_lookup: &mut StringLookupTable, indx: usize) -> EleData {
+pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>, string_lookup: &mut StringLookupTable, indx: usize) -> anyhow::Result<EleData> {
     let mut ele_node = EleNode::default();
     let mut attr_data_map = AttrMap::default();
     let mut children = RefU64Vec::default();
     let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4;  //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize;  //隐含数据长度  0-4
     let refno = RefI32Tuple::from(&input[4..12]);
-    // ele_node.ref_no = refno.into();
-
     //todo wrapper i32 to type_hash type
     let type_hash = parse_to_i32(&input[12..16]);
     let noun = type_hash as u32;
@@ -346,7 +320,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
-            parse_explict_attrs(&merged_data, &attr_info_map, &mut attr_data_map, refno, string_lookup);
+            parse_explict_attrs(&merged_data, &attr_info_map, &mut attr_data_map, refno, string_lookup)
+                .map_err(|err| err.map(| e| anyhow!(format!("{:#4X?}", e) )))?;
         }
     }
     attr_info_map.iter().for_each(|pair| {
@@ -355,7 +330,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             match name.as_str() {
                 "PTCDI" => attr_data_map.insert_by_att_name("PTCD", StringType("Y".into())),
                 "PARA" => attr_data_map.insert_by_att_name("PARA", DoubleArrayType(vec![])),
-                // "DESP"
                 _ => {}
             }
         }
@@ -365,17 +339,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     attr_data_map.insert_by_att_name("TYPE", WordType(noun_name.clone()));
     attr_data_map.insert_by_att_name("REFNO", RefU64Type(refno.into()));
     let mut name_hash = attr_data_map.get_name_hash();
-
-    // if refno == RefI32Tuple::from("23584/2830") {
-    //     //dbg!(attr_data_map.to_string_hashmap());
-    // }
-    //todo make a method return name
-    // if !attr_data_map.contains_attr_name("NAME"){
-    //     let name = format!("{} {indx}", &noun_name);
-    //     name_hash = string_lookup.add_str(name.as_str());
-    //     attr_data_map.insert_by_att_name("NAME".into(), StringHashType(name_hash));
-    // }
-    EleData {
+    Ok(EleData {
         refno: refno.into(),
         owner,
         noun,
@@ -383,7 +347,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         children,
         name_hash,
         version,
-    }
+    })
 }
 
 
@@ -426,7 +390,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         children,
         version,
         name_hash,
-    } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, &mut string_lookup, 1);
+    } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, &mut string_lookup, 1)?;
 
     let ele_node = EleNode {
         refno,
@@ -438,9 +402,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     };
 
     all_attr_map.insert(refno, attr_data_map);
-    // type_ele_map.entry(noun.clone()).or_insert_with(Vec::new).push(refno.clone());
     type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
-    let mut root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
+    let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
     let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
@@ -456,16 +419,12 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut pending_refnos = vec![(root_id, children)];
     while !pending_refnos.is_empty() {
         let (parent_id, refnos) = pending_refnos.pop().unwrap();
-        refnos.0.iter().enumerate().for_each(|(indx, r)| {
+        refnos.0.iter().enumerate().try_for_each::<_, anyhow::Result<()>>(|(indx, r)| {
             let refno: RefI32Tuple = r.into();
             if refno_table_map.contains_key(&refno) {
                 let entry = &*refno_table_map.get(&refno).unwrap();
                 let pos = entry.pos;
                 let type_hash = entry.noun_hash;
-                // if refno == RefI32Tuple::new(16395, 32938) {
-                //     //dbg!(db1_dehash(noun));
-                // }
-                // 判断反序列话的DashMap中有无对应的type
                 if noun_attr_info_map.contains_key(&type_hash) {
                     let EleData {
                         refno,
@@ -475,7 +434,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         children,
                         version,
                         name_hash,
-                    } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, &mut string_lookup, indx + 1);
+                    } = parse_ele_data(&input[pos - 4..], noun_attr_info_map, &mut string_lookup, indx + 1)?;
 
                     if children.len() > 0 {
                         children_map.insert(refno, children.clone());
@@ -487,10 +446,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         name_hash,
                         noun,
                         version,
-                        // children_count: children.0.len(),
                     };
-
-
                     //有可能重复利用的节点，所以需要放在外面
                     let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
                     if !all_attr_map.contains_key(&refno) {
@@ -507,9 +463,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         });
                         pending_refnos.push((cur_id, children));
                     }
-                    // //dbg!(all_attr_map.len());
                 }
             }
+            Ok(())
         });
     }
     let elapsed = time_start.elapsed();
@@ -1017,11 +973,30 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                         let mut result = String::new();
                         match &tmp_input[3..4] {
                             &[0xF4] => { result = format!("X {} Y", radius); }
-                            &[0xD2] => { result = format!("-X {} -Z", radius); }
+                            &[0xF3] => { result = format!("X {} Z", radius); }
+                            &[0xF1] => { result = format!("X {} -Y", radius); }
                             &[0xF0] => { result = format!("X {} -Z", radius); }
                             &[0xEB] => { result = format!("Y {} X", radius); }
-                            &[0xE0] => { result = format!("Z {} Y", radius); }
+                            &[0xE9] => { result = format!("Y {} Z", radius); }
+                            &[0xE8] => { result = format!("Y {} -X", radius); }
+                            &[0xE6] => { result = format!("Y {} -Z",radius); }
                             &[0xE1] => { result = format!("Z {} X", radius); }
+                            &[0xE0] => { result = format!("Z {} Y", radius); }
+                            &[0xDE] => { result = format!("Z {} -X", radius); }
+                            &[0xDD] => { result = format!("Z {} -Y", radius); }
+
+                            &[0xD6] => { result = format!("-X {} Y", radius); }
+                            &[0xD5] => { result = format!("-X {} Z", radius); }
+                            &[0xD3] => { result = format!("-X {} -Y", radius); }
+                            &[0xD2] => { result = format!("-X {} -Z", radius); }
+                            &[0xCD] => { result = format!("-Y {} X", radius); }
+                            &[0xCB] => { result = format!("-Y {} Z", radius); }
+                            &[0xCA] => { result = format!("-Y {} -X", radius); }
+                            &[0xC8] => { result = format!("-Y {} -Z", radius); }
+                            &[0xC3] => { result = format!("-Z {} X", radius); }
+                            &[0xC2] => { result = format!("-Z {} Y", radius); }
+                            &[0xC0] => { result = format!("-Z {} -X", radius); }
+                            &[0xBF] => { result = format!("-Z {} -Y", radius); }
                             &_ => {}
                         }
                         val = AttrVal::StringType(result.into());
@@ -1523,6 +1498,7 @@ pub fn get_implicit_angle_expression(input: &[u8]) -> String {
         }
         _ => {}
     }
+    // db1_dehash(convert_to_hash)
     val
 }
 
@@ -1537,7 +1513,7 @@ pub fn is_cata_noun(bytes: &[u8]) -> bool {
 }
 
 ///保存 noun_hash->refno  map
-pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<(), Box<dyn std::error::Error>> {
+pub fn save_type_hash_file(dir: &str, out_name: &str) -> anyhow::Result<()> {
     let mut unique_hash_refno_map = DashMap::new();
     let mut path_buf = fs::read_dir(dir)?.into_iter().map(|entry| {
         let entry = entry.unwrap();
@@ -1554,11 +1530,10 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
         let start = Instant::now();
         println!("path={:?}", path);
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
-        let input = &buf[..];
+        file.read_to_end(&mut buf)?;
         let time = start.elapsed();
         println!("read {:?} finished in {:?}", path, time);
-        process_type_hash(input, &mut unique_hash_refno_map, &path);
+        process_type_hash(&buf[..], &mut unique_hash_refno_map, &path);
         println!("noun_hash_refnos len = {:?}", unique_hash_refno_map.len());
         let encode = bincode::serialize(&unique_hash_refno_map).unwrap();
         let mut file = OpenOptions::new()
@@ -1567,14 +1542,13 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> core::result::Result<()
             .truncate(true)
             .open(out_name)
             .unwrap();
-        file.write(&encode);
-        //}
+        file.write(&encode)?;
     }
     Ok(())
 }
 
 ///处理type_hash对应的refno位置信息
-fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefI32Tuple, SmolStr)>, path: &PathBuf) -> IResult<&'a [u8], ()> {
+fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefI32Tuple, SmolStr)>, path: &PathBuf) -> bool {
     let refno_0_set = get_total_refno_0s(input);
     let path = Path::new(path);
     let file_name: SmolStr = path.file_name().unwrap().to_owned().to_string_lossy().to_string().into();
@@ -1587,7 +1561,7 @@ fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefI32Tu
             }
         }
     });
-    Ok((input, ()))
+    true
 }
 
 ///获取所有不同的 refno_0

@@ -71,11 +71,11 @@ impl RotateInfo {
         rotate_info.rot_axis = axis_z;
         rotate_info.angle = angle.to_degrees();
         let mid_pt = (paax_pt + pbax_pt) / 2.0;
-        let x_len = x_dir.length();
+        let x_len = pbax_pt.distance(paax_pt);
         if x_len < 1.0e-3 {
             return None;
         }
-        if (rotate_info.angle - std::f32::consts::PI).abs() < 1.0e-3 {
+        if (angle - std::f32::consts::PI).abs() < 1.0e-3 || angle.abs() < 1.0e-3 {
             rotate_info.center = mid_pt;
             rotate_info.radius = x_len / 2.0;
         } else {
@@ -87,14 +87,15 @@ impl RotateInfo {
             if px < 1.0e-3 {
                 return None;
             }
-            let beta = rotate_info.angle.to_radians() / 2.0;
+            let beta = angle / 2.0;
             rotate_info.radius = px / beta.sin().abs();
             rotate_info.center = pbax_pt + ref_dir * rotate_info.radius;
         }
-        // if rotate_info.angle < 0.0 {
-        //     rotate_info.angle = -rotate_info.angle;
+        // if rotate_info.angle > 180.0 {
+        //     rotate_info.angle = rotate_info.angle - 180.0;
         //     rotate_info.rot_axis = -rotate_info.rot_axis;
         // }
+        dbg!(&rotate_info);
         return Some(rotate_info);
     }
 }

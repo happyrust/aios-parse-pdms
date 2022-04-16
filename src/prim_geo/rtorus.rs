@@ -69,11 +69,12 @@ impl SRTorus {
             let z_axis = -torus_info.rot_axis.normalize();
             let x_axis = (self.pbax_pt - torus_info.center).normalize();
             let y_axis = z_axis.cross(x_axis).normalize();
+            let translation = torus_info.center;
             let mat = glam::TransformSRT{
                 rotation: bevy::prelude::Quat::from_mat3(&bevy::prelude::Mat3::from_cols(
                     x_axis, y_axis, z_axis
                 )),
-                translation: torus_info.center,
+                translation,
                 ..default()
             };
             return  Some((rtorus, mat));
@@ -140,7 +141,7 @@ impl Default for RTorus {
 impl VerifiedShape for RTorus {
     #[inline]
     fn check_valid(&self) -> bool {
-        self.rout > 0.0 && self.angle.abs() > 0.0 && (self.rout - self.rins) > EPSILON && self.height > EPSILON
+        self.rout > 0.0 && self.angle.abs() > 0.0 && (self.rout - self.rins) > f32::EPSILON && self.height > f32::EPSILON
     }
 }
 
@@ -173,15 +174,16 @@ impl BrepShapeTrait for RTorus {
 
     fn gen_brep_shell(& self) -> Option<Shell> {
         use truck_modeling::*;
-
+        //旋转圆心在中间
         let h = self.height as f64;
         let d = (self.rout - self.rins) as f64;
-        let p0 = Point3::new(self.rins as f64, 0.0, 0.0);
+        let p0 = Point3::new(self.rins as f64, 0.0, -h/2.0);
         let v = builder::vertex(p0);
         let e = builder::tsweep(&v, Vector3::new(0.0, 0.0, h));
         let f = builder::tsweep(&e,  Vector3::new(d, 0.0, 0.0));
 
-        let mut solid = builder::rsweep(&f, Point3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0), Rad(self.angle.to_radians() as f64)).into_boundaries();
+        let mut solid = builder::rsweep(&f, Point3::new(0.0, 0.0, 0.0),
+                                        Vector3::new(0.0, 0.0, 1.0), Rad(self.angle.to_radians() as f64)).into_boundaries();
         return solid.pop();
     }
 }

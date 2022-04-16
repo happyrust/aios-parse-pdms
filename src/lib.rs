@@ -8,6 +8,7 @@
 #![feature(generic_const_exprs)]
 #![feature(default_free_fn)]
 #[allow(dead_code, unused_imports, unused_variables, unused_imports, unused, missing_docs, unused_results, unused_must_use)]
+#[allow(unused_mut)]
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
@@ -148,6 +149,7 @@ const IMP_PYBS: i32 = 0xDD92F;
 
 #[macro_use]
 extern crate lazy_static;
+extern crate core;
 
 lazy_static! {
     pub static ref EXPR_ATT_SET: HashSet<i32> = {

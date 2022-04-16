@@ -130,7 +130,7 @@ impl Default for SCylinder {
 impl VerifiedShape for SCylinder {
     #[inline]
     fn check_valid(&self) -> bool {
-       self.pdia > EPSILON && self.phei.abs() > EPSILON
+       self.pdia > f32::EPSILON && self.phei.abs() > f32::EPSILON
     }
 }
 
@@ -147,8 +147,6 @@ impl BrepShapeTrait for SCylinder {
         let mut ext_dir = dir.vector3();
         let mut  reverse_dir = false;
         if ext_len < 0.0 {
-            // ext_dir = -ext_dir;
-            // ext_len = -ext_len;
             reverse_dir = true;
         }
         let v = builder::vertex(pt0.point3());

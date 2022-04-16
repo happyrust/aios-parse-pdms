@@ -1,5 +1,6 @@
-use anyhow::anyhow;
 use std::io;
+use nom::error::{ErrorKind};
+use anyhow::{anyhow, Error};
 
 #[derive(Debug, thiserror::Error)]
 #[error("...")]
@@ -14,13 +15,49 @@ pub enum ResolveError {
 #[derive(Debug, thiserror::Error)]
 #[error("AttError unknown")]
 pub enum AttError {
-    #[error("Refno: {0} attr not exist {1}")]
+    #[error("Element: {0} attr not exist {1}")]
     AttNotExist(String, String),
     #[error("Att name: {0} is not {1}")]
     TypeNotCorrect(String, String),
     #[error("Vec3 lenth : {0} is not 3")]
     Vec3LengthLess(u32),
 }
+
+#[derive(Debug)]
+pub struct NomError(pub anyhow::Error);
+
+impl std::fmt::Display for NomError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl From<NomError> for anyhow::Error {
+    fn from(e: NomError) -> Self {
+        e.0
+    }
+}
+
+impl From<anyhow::Error> for NomError {
+    fn from(e: Error) -> Self {
+        NomError(e)
+    }
+}
+
+impl nom::error::ParseError<&str> for NomError {
+    fn from_error_kind(input: &str, kind: ErrorKind) -> Self {
+        NomError(anyhow!("error {} at: {}", kind.description(), input))
+    }
+
+    fn append(input: &str, kind: ErrorKind, other: Self) -> Self {
+        NomError(other.0.context(format!("error {} at: {}", kind.description(), input)))
+    }
+}
+
+
+
+
+
 
 fn gen_resolve_error() -> anyhow::Result<u32>{
 

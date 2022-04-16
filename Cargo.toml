@@ -5,8 +5,9 @@ edition = "2021"
 
 #[profile.release]
 #debug = true
+#opt-level = 2
 [profile.release]
-opt-level = 2
+debug = true
 
 [features]
 default = ["compression"]  #"compression"
@@ -105,3 +106,4 @@ dynfmt = { version = "0.1.5", features = ["curly"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bonsaidb = { version = "0.4.1", features = ["local-full"] }
+

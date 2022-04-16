@@ -34,6 +34,7 @@ pub struct SCTorus {
 impl SCTorus {
     pub fn convert_to_ctorus(&self) -> Option<(CTorus, glam::TransformSRT)>{
         if let Some(torus_info) = RotateInfo::cal_rotate_info(self.paax_dir, self.paax_pt, self.pbax_dir, self.pbax_pt){
+            // dbg!(&torus_info);
             let mut ctorus = CTorus::default();
             ctorus.angle = torus_info.angle;
             ctorus.rins = torus_info.radius - self.pdia/2.0;
@@ -127,7 +128,7 @@ impl Default for CTorus {
 
 impl VerifiedShape for CTorus {
     fn check_valid(&self) -> bool {
-        self.rout > 0.0 && self.angle.abs() > 0.0 && (self.rout - self.rins) > EPSILON
+        self.rout > 0.0 && self.rins > 0.0 && self.angle.abs() > 0.0 && (self.rout - self.rins) > f32::EPSILON
     }
 }
 

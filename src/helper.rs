@@ -30,17 +30,18 @@ pub fn resolve_axis_params(
     map
 }
 
+///求解几何体，允许出错的情况，出错的需要跳过
 pub fn resolve_gms(
     gmse_strs: &[GmParam],
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
     ddangle: Option<f64>,
-) -> anyhow::Result<Vec<CateGeoParam>> {
+) -> Vec<CateGeoParam> {
     gmse_strs
         .iter()
         .filter_map(|g| {
             if g.visible_flag{
-                Some(resolve_paragon_gm_params(&g, context, axis_params))
+                resolve_paragon_gm_params(&g, context, axis_params).ok()
             }else{
                 None
             }
@@ -54,12 +55,13 @@ pub fn resolve_paragon_gm_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> anyhow::Result<CateGeoParam> {
-    //dbg!(&gm_param);
     if let Ok(gm_data) = resolve_gmse_params(gm_param, context, axis_params){
+        // dbg!(&gm_data);
         resolve_to_cate_geo_params(gm_data)
     }else{
         Err(anyhow!(format!("几何数据解析失败: {:?}", gm_param)))
     }
+
 }
 
 pub fn resolve_gmse_params(
@@ -67,7 +69,7 @@ pub fn resolve_gmse_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> anyhow::Result<GmseParamData> {
-    // //dbg!(gm.refno.to_refno_str());
+    //dbg!(gm.refno.to_refno_str());
     let angle = context[DDANGLE_STR].parse::<f64>().unwrap_or(0.0f64).to_radians();
     let radius = context[DDRADIUS_STR].parse::<f64>().unwrap_or(0.0f64);
     let height = context[DDHEIGHT_STR].parse::<f64>().unwrap_or(0.0f64);
@@ -163,6 +165,7 @@ pub fn resolve_gmse_params(
     }
     let type_name = gm.gm_type.clone();
     Ok(GmseParamData {
+        refno: gm.refno,
         type_name,
         radius,
         angle,
@@ -273,6 +276,11 @@ pub fn convert_to_context_key(expr: &str, i: &mut usize, strs: &Vec<SmolStr>) ->
 #[inline]
 pub fn parse_to_u16(input: &[u8]) -> u16 {
     u16::from_be_bytes(input.try_into().unwrap())
+}
+
+#[inline]
+pub fn parse_to_i16(input: &[u8]) -> i16 {
+    i16::from_be_bytes(input.try_into().unwrap())
 }
 
 #[inline]

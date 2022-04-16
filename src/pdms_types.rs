@@ -403,9 +403,9 @@ impl AttrMap {
     }
 
     ///判断构件是否可见
-    pub fn is_visible(&self, level: Option<u32>) -> anyhow::Result<bool> {
+    pub fn is_visible_by_level(&self, level: Option<u32>) -> anyhow::Result<bool> {
         let levels = self.get_level()?;
-        Ok(levels[1] >= level.unwrap_or(LEVEL_VISBLE))
+        Ok(levels[0] <= level.unwrap_or(LEVEL_VISBLE))
     }
 
     #[inline]
@@ -551,8 +551,8 @@ impl AttrMap {
 
     #[inline]
     pub fn get_val(&self, key: &str) -> anyhow::Result<&AttrVal> {
-        self.map.get(&key.into()).ok_or_else(||
-            AttNotExist(self.get_refno_as_string().unwrap_or_default().to_string(),
+        self.map.get(&db1_hash(key).into()).ok_or_else(||
+            AttNotExist(format!("{:?}", self),
                         key.to_string()).into() )
     }
 
@@ -722,7 +722,7 @@ impl PdmsCachedAttrMap {
     pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
         let mut file = File::open(format!("PdmsCachedAttrMap_{}.bin", db_code))?;
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf).ok();
         let r = bincode::deserialize(buf.as_slice())?;
         Ok(r)
     }
@@ -739,7 +739,7 @@ impl PdmsTree {
     pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
         let mut file = File::open(format!("PdmsTree_{}.bin", db_code))?;
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf).ok();
         let r = bincode::deserialize(buf.as_slice())?;
         Ok(r)
     }
@@ -1024,17 +1024,8 @@ impl PdmsMeshMgr {
         results
     }
 
-    // #[inline]
-    // pub fn get_bevy_mesh(&self, mesh_hash: &str) -> Option<Mesh> {
-    //     if let Some(cached_msh) = self.get_mesh(mesh_hash) {
-    //         let bevy_mesh = cached_msh.gen_bevy_mesh();
-    //         return Some(bevy_mesh);
-    //     }
-    //     None
-    // }
-
     pub fn serialize_to_bin_file(&self, db_code: u32) -> bool {
-        let mut file = File::create(format!("PdmsMeshMgr_{}.bin", db_code)).unwrap();
+        let mut file = File::create(format!(r"D:\aios_workspace\bevy_editor_pls\target\debug\examples\PdmsMeshMgr_{}.bin", db_code)).unwrap();
         let serialized = bincode::serialize(&self).unwrap();
         file.write_all(serialized.as_slice()).unwrap();
         true
@@ -1043,7 +1034,7 @@ impl PdmsMeshMgr {
     pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
         let mut file = File::open(format!("PdmsMeshMgr_{}.bin", db_code))?;
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf).ok();
         let r = bincode::deserialize(buf.as_slice())?;
         Ok(r)
     }
@@ -1058,7 +1049,7 @@ impl PdmsMeshMgr {
     pub fn deserialize_from_json_file() -> anyhow::Result<Self> {
         let mut file = File::open(format!("PdmsMeshMgr.json"))?;
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf).ok();
         let r = serde_json::from_slice::<Self>(&buf)?;
         Ok(r)
     }
@@ -1116,7 +1107,7 @@ impl CachedMeshesMgr {
     pub fn deserialize_from_bin_file() -> Self {
         let mut file = File::open(format!("cached_meshes.bin")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf).ok();
         bincode::deserialize(buf.as_slice()).unwrap()
     }
 
@@ -1130,7 +1121,7 @@ impl CachedMeshesMgr {
     pub fn deserialize_from_json_file() -> Self {
         let mut file = File::open(format!("cached_meshes.json")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf).ok();
         serde_json::from_slice(&buf).unwrap()
     }
 }
@@ -1500,7 +1491,7 @@ impl StringLookupTable {
     pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
         let mut file = File::open(format!("StringLookupTable_{}.bin", db_code))?;
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf);
+        file.read_to_end(&mut buf).ok();
         let r = bincode::deserialize(buf.as_slice())?;
         Ok(r)
     }
