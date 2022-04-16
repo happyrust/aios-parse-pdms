@@ -12,8 +12,8 @@ pub fn create_geo(att: &AttrMap, geom_info: &GeomsInfo) -> Option<GeoData> {
     let geoms = &geom_info.geometries;
     if geoms.len() < 2 { return None; }
 
-    if let Ok(poss) = att.get_poss() {
-        if let Ok(pose) = att.get_pose() {
+    if let Some(poss) = att.get_poss() {
+        if let Some(pose) = att.get_pose() {
             let height = pose.distance(poss);
             if height < f32::EPSILON { return None; }
             let ns = att.get_vec3("DRNS");
@@ -32,8 +32,6 @@ pub fn create_geo(att: &AttrMap, geom_info: &GeomsInfo) -> Option<GeoData> {
                     }
                 }
             }
-
-
 
         }
     }

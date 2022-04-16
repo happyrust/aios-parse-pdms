@@ -16,7 +16,7 @@ web = []   #compile for just web usage, now it is too heavy now
 
 [dependencies]
 #nom = "7.0.0"
-memchr = "2.4.1"
+memchr = {git = "https://github.com/BurntSushi/memchr.git"}
 slab_tree = "0.3.2"
 itertools = "0.10.1"
 bincode = "1.3.3"
@@ -31,6 +31,7 @@ async-trait = "0.1.52"
 approx = "0.5.1"
 bitflags = "1.3.2"
 derivative = "2.2.0"
+concurrent-queue = "1.2.2"
 #sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
 bevy_egui = {path = "../bevy_egui"}
@@ -53,7 +54,7 @@ phf = { version = "0.9", features = ["macros"] }
 clap = { version = "3.1.6", features = ["derive"] }
 log = "0.4.14"
 simplelog = "0.10.0"
-rayon = "1.5.1"
+rayon = "1.5.2"
 #tokio = { version = "1.11.0", features = ["full"] }
 #mysql = "21.0.2"
 serde_json = { version = "1.0" }

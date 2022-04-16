@@ -311,13 +311,13 @@ impl AiosDBManager {
 
     ///获取世界坐标变换矩阵
     #[inline]
-    pub fn get_world_transform(&self, refno: RefU64) -> anyhow::Result<glam::TransformRT> {
-        if let Some(ref_info) = self.get_refno_info(refno)? {
+    pub fn get_world_transform(&self, refno: RefU64) -> Option<glam::TransformRT> {
+        if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
             if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_world_transform(refno, ref_info.db_no);
             }
         }
-        Ok(glam::TransformRT::IDENTITY)
+        Some(glam::TransformRT::IDENTITY)
     }
 
     #[inline]
@@ -333,9 +333,9 @@ impl AiosDBManager {
     #[inline]
     pub fn get_cat_ref_in_desi(&self, refno: RefU64) -> Option<RefU64> {
         let att = self.get_attr(refno).ok()??;
-        let spre = att.get_foreign_refno("SPRE").ok()?;
+        let spre = att.get_foreign_refno("SPRE")?;
         let att = self.get_attr(spre).ok()??;
-        att.get_foreign_refno("CATR").ok()
+        att.get_foreign_refno("CATR")
     }
 
     #[inline]
@@ -369,14 +369,14 @@ impl AiosDBManager {
                     result_map.insert(refno, result_shapes);
                 }
             } else {   //先暂时只让旋转用bran
-                let bran_transform = self.get_world_transform(refno)?;
-                let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS")?);
-                let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS")?);
-                let htube_ref = desi_att.get_foreign_refno("HSTU")?;
+                let bran_transform = self.get_world_transform(refno).unwrap_or_default();
+                let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").ok_or(anyhow!("HPOS not exist".to_string()))?);
+                let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS").ok_or(anyhow!("TPOS not exist".to_string()))?);
+                let htube_ref = desi_att.get_foreign_refno("HSTU").unwrap_or_default();
                 let mut bore = 0.0f32;
                 if let Some(hstube_att) = self.get_attr(htube_ref)? {
-                    let hstube_cat_att = self.get_attr(hstube_att.get_foreign_refno("CATR")?)?.unwrap_or_default();
-                    let params = hstube_cat_att.get_f64_vec("PARA")?;
+                    let hstube_cat_att = self.get_attr(hstube_att.get_foreign_refno("CATR").unwrap_or_default())?.unwrap_or_default();
+                    let params = hstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
                     if params.len() >= 2 {
                         bore = params[1] as f32;
                     }
@@ -399,13 +399,13 @@ impl AiosDBManager {
                         continue;
                     }
                     // dbg!(self.get_pretty_attr(child));
-                    let world_trans = self.get_world_transform(child)?;
+                    let world_trans = self.get_world_transform(child).unwrap_or_default();
                     // dbg!(&world_trans);
                     let mut result_shapes = vec![];
                     let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
                     // dbg!(&geoms);
                     let attr = self.get_attr(child)?.unwrap_or_default();
-                    if let Ok(arrive) = attr.get_i32("ARRI") {
+                    if let Some(arrive) = attr.get_i32("ARRI") {
                         //todo 加入获取arrive position 的方法
                         if geoms.axis_map.contains_key(&arrive) {
                             let p = &geoms.axis_map[&arrive].pt;
@@ -419,17 +419,17 @@ impl AiosDBManager {
                         }
                     }
 
-                    if let Ok(lstube) = attr.get_foreign_refno("LSTU") {
+                    if let Some(lstube) = attr.get_foreign_refno("LSTU") {
                         if let Some(lstube_att) = self.get_attr(lstube)? {
-                            let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR")?)?.unwrap_or_default();
-                            let params = lstube_cat_att.get_f64_vec("PARA")?;
+                            let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap_or_default())?.unwrap_or_default();
+                            let params = lstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
                             if params.len() >= 2 {
                                 current_tubing.bore = params[1] as f32;
                             }
                         }
                     }
 
-                    if let Ok(leave) = attr.get_i32("LEAV") {
+                    if let Some(leave) = attr.get_i32("LEAV") {
                         //todo 加入获取leave position 的方法
                         // current_tubing
                         if geoms.axis_map.contains_key(&leave) {
@@ -467,7 +467,7 @@ impl AiosDBManager {
             if GENRIC_NOUN_NAMES.contains(&noun_name) {
                 return Some((noun_name, cur_refno));
             }
-            if let Ok(owner) = attr.get_owner() {
+            if let Some(owner) = attr.get_owner() {
                 cur_refno = owner;
             } else {
                 break;
@@ -530,15 +530,15 @@ impl AiosDBManager {
                             if let Some(children_refs) = self.get_children(d.refno)? {
                                 for x in children_refs {
                                     if let Some(a) = self.get_attr(x)? {
-                                        loop_verts.push(a.get_position()?);
-                                        fradius_vec.push(a.get_f32("FRAD")?);
+                                        loop_verts.push(a.get_position().unwrap_or_default());
+                                        fradius_vec.push(a.get_f32("FRAD").unwrap_or_default());
                                     } else {
                                         break;
                                     }
                                 }
                             }
                             if parent_noun_name == "REVO" {
-                                let angle = parent_att.get_f32("ANGL")?;
+                                let angle = parent_att.get_f32("ANGL").unwrap_or_default();
                                 if angle >= f32::EPSILON {
                                     let revo = Box::new(Revolution {
                                         loop_verts,
@@ -564,9 +564,10 @@ impl AiosDBManager {
                                     if extrusion.check_valid() {
                                         item_trans = extrusion.get_trans();
                                         if noun == PLOO_NOUN {
-                                            let sjus = attr.get_string("SJUS")?;
-                                            if sjus.as_str() == "UTOP" || sjus.as_str() == "DTOP" {
-                                                item_trans.translation = item_trans.translation + Vec3::new(0.0, 0.0, -height);
+                                            if let Some(sjus) = attr.get_string("SJUS"){
+                                                if sjus.as_str() == "UTOP" || sjus.as_str() == "DTOP" {
+                                                    item_trans.translation = item_trans.translation + Vec3::new(0.0, 0.0, -height);
+                                                }
                                             }
                                         }
                                         let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
@@ -585,7 +586,7 @@ impl AiosDBManager {
                                 if v_cnt >= 3 {
                                     for x in refs {
                                         let mut contour = Contour::default();
-                                        let v = self.get_attr(x)?.unwrap_or_default().get_position()?;
+                                        let v = self.get_attr(x)?.unwrap_or_default().get_position().unwrap_or_default();
                                         vertices.push([v[0], v[1], v[2]]);
                                         if tv.len() < 3 {
                                             tv.push(v);
@@ -624,7 +625,7 @@ impl AiosDBManager {
                                     if let Some(children_refs) = self.get_children(d.refno)? {
                                         for x in children_refs {
                                             if let Some(a) = self.get_attr(x)? {
-                                                let p = a.get_position()?;
+                                                let p = a.get_position().unwrap_or_default();
                                                 verts.push(p);
                                                 let c_rad = a.get_f32("RADI").unwrap_or_default();
                                                 if abs_diff_ne!(c_rad, 0.0) {
@@ -660,7 +661,7 @@ impl AiosDBManager {
                     } else {
                         let ele_type = attr.get_type();
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
-                        let has_catref = attr.get_foreign_refno("CATR").is_ok() || attr.get_foreign_refno("SPRE").is_ok();
+                        let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
                         //todo fix these types
                         if ele_type == "PFIT" /*|| ele_type == "FITT"*/ {
                             continue;
@@ -689,7 +690,7 @@ impl AiosDBManager {
                                 if d.refno != cur_refno {
                                     level_shape_mgr.entry(d.refno).or_insert(RefU64Vec::default()).push(cur_refno);
                                 }
-                                let desi_trans_origin = self.get_world_transform(cur_refno)?;
+                                let desi_trans_origin = self.get_world_transform(cur_refno).unwrap_or_default();
                                 for iter_val in value_vec {
                                     let CateBrepShape {
                                         brep_shape,
@@ -735,7 +736,7 @@ impl AiosDBManager {
                             let p_refno = ancestor.data().refno;
                             level_shape_mgr.entry(p_refno).or_insert(RefU64Vec::default()).push(target_refno);
                         }
-                        let tr: TransformSRT = item_trans * self.get_world_transform(target_refno)?;
+                        let tr: TransformSRT = item_trans * self.get_world_transform(target_refno).unwrap_or_default();
                         // let xyz = tr.rotation.to_euler(glam::EulerRot::XYZ);
                         // //dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
                         // //dbg!(&tr);
@@ -1026,25 +1027,25 @@ impl AiosPdmsProject {
     }
 
     //包含自己
-    pub fn get_ancestors_attrs(&self, refno: RefU64, db_no: u32) -> Result<Vec<AttrMap>, bonsaidb::core::Error> {
+    pub fn get_ancestors_attrs(&self, refno: RefU64, db_no: u32) -> Vec<AttrMap> {
         let mut cur_refno = refno;
         let mut r = vec![];
-        while let Some(attr) = self.get_attr(cur_refno, db_no)? {
-            if let Ok(owner) = attr.get_owner() {
+        while let Ok(Some(attr)) = self.get_attr(cur_refno, db_no) {
+            if let Some(owner) = attr.get_owner() {
                 r.push(attr);
                 cur_refno = owner;
             } else {
                 break;
             }
         }
-        Ok(r)
+        r
     }
 
     pub fn get_parent_att_by_type(&self, refno: RefU64, db_no: u32, type_name: &str) -> anyhow::Result<Option<AttrMap>> {
         let mut cur_refno = refno;
         let mut r = None;
         while let Some(attr) = self.get_attr(cur_refno, db_no)? {
-            if let Ok(owner) = attr.get_owner() {
+            if let Some(owner) = attr.get_owner() {
                 if attr.get_type() == type_name {
                     r = Some(attr);
                     break;
@@ -1059,8 +1060,8 @@ impl AiosPdmsProject {
 
 
     ///获得世界坐标系
-    pub fn get_world_transform(&self, refno: RefU64, db_no: u32) -> anyhow::Result<glam::TransformRT> {
-        let mut ancestors = self.get_ancestors_attrs(refno, db_no)?;
+    pub fn get_world_transform(&self, refno: RefU64, db_no: u32) -> Option<glam::TransformRT> {
+        let mut ancestors = self.get_ancestors_attrs(refno, db_no);
         ancestors.reverse();
         let mut rotation = Quat::IDENTITY;
         let mut translation = Vec3::ZERO;
@@ -1090,10 +1091,6 @@ impl AiosPdmsProject {
                 final_rot = Quat::from_mat3(&glam::f32::Mat3::from_cols_array_2d(
                     &[p_axis.to_array(), y_axis.to_array(), extru_dir.to_array()]
                 )) * Quat::from_rotation_z(bangle.to_radians());
-                // let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
-                // final_rot = Quat::from_rotation_arc();
-                // let xyz = final_rot.to_euler(glam::EulerRot::XYZ);
-                // //dbg!((xyz.0.to_degrees(), xyz.1.to_degrees(), xyz.2.to_degrees()));
                 final_rot
             } else {
                 attr.get_rotation().unwrap_or_default()
@@ -1101,7 +1098,7 @@ impl AiosPdmsProject {
             translation = translation + rotation * attr.get_position().unwrap_or_default();
             rotation = rotation * t;
         }
-        Ok(glam::TransformRT {
+        Some(glam::TransformRT {
             rotation,
             translation,
         })
@@ -1120,6 +1117,8 @@ impl AiosPdmsProject {
 
         if let Ok(mut r) =
         parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
+            dbg!("Parse ok");
+            // return Ok(());
             let mut total_lookup = StringLookupTable::default();
             let mut files_version = vec![];
             for (k, PdmsDbData {

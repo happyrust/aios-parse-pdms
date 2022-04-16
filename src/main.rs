@@ -93,12 +93,12 @@ fn main() -> AiosDbError {
     // ).unwrap();
     //
     let mut db_option = DbOption {
-        total_sync: false,
+        total_sync: true,
         incr_sync: false,
         // project_path: "/Volumes/DPC/aba".to_string(),
         project_path: "D:/aba".to_string(),
         included_projects: vec!["ABA".to_owned(), "GDP".to_owned()],
-        // included_db_files: Some(vec!["aba0117_0001".to_owned(), "gdp5600_0001".to_owned(), "aba6160_0001".to_string()]),
+        // included_db_files: Some(vec!["gdp5600_0001".to_string()]),
         included_db_files: None,
         mdb_name: "ABA".to_string(),
         project_name: "ABA".to_string(),

@@ -58,7 +58,7 @@ pub fn check_increase_operate(input: &[u8], pos: usize, refno: &[u8]) -> Option<
 /// 将修改数据保存到数据库
 pub fn modify_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, dbno: u64, dbs: &AiosPdmsProject) -> anyhow::Result<()> {
     let mut string_lookup = StringLookupTable::new();
-    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0)?;
+    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup,).unwrap_or_default();
     // 修改attrmap的数据
     let mut attr_db = dbs.storage.database::<AttrMap>(&dbno.to_string())?;
     let mut tx = Transaction::default();
@@ -85,7 +85,7 @@ pub fn modify_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, db
 
 pub fn increment_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, dbno: u64, dbs: &AiosPdmsProject) -> anyhow::Result<()> {
     let mut string_lookup = StringLookupTable::new();
-    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0)?;
+    let ele_data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup,).unwrap_or_default();
     let noun = ele_data.noun as u64;
     // todo 插入到tree中，先把 refnoinfo 加上 nodeid 再加上该功能
     // 修改 types_db中的参考号
@@ -124,7 +124,7 @@ pub fn increment_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo,
 // delete需要调整 ， 这个返回的是delete 的node的owner，只需获得删除的refno和owner的refno就好了
 pub fn delete_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, dbno: u64, dbs: &AiosPdmsProject) -> anyhow::Result<()> {
     let mut string_lookup = StringLookupTable::new();
-    let data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup, 0)?;
+    let data = parse_ele_data(input, &pdms_database_info.noun_attr_info_map, &mut string_lookup,).unwrap_or_default();
     let noun = data.noun as u64;
     // 修改 types_db中的参考号
     let mut v = RefU64Vec::get(noun, dbs.get_type_refs_database())?.unwrap();

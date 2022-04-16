@@ -21,7 +21,7 @@ fn test_spine_aba_32769_21909() {
         //dbg!(map.value());
     }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup);
     //dbg!(&ele_data);
 }
 
@@ -56,7 +56,7 @@ fn test_sample_15192_238890() {
         //dbg!(map.value());
     }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup);
     //dbg!(&ele_data);
 }
 
@@ -90,6 +90,6 @@ fn test_aba_14352_38281() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0);
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup);
     //dbg!(&ele_data);
 }

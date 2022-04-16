@@ -125,6 +125,12 @@ impl Debug for RefU64 {
     }
 }
 
+impl From<u64> for RefU64 {
+    fn from(d: u64) -> Self {
+        Self(d)
+    }
+}
+
 impl From<&RefI32Tuple> for RefU64 {
     fn from(n: &RefI32Tuple) -> Self {
         let bytes: Vec<u8> = [n.get_0().to_be_bytes(), n.get_1().to_be_bytes()].concat();
@@ -369,7 +375,7 @@ impl AttrMap {
 
     #[inline]
     pub fn get_name_hash(&self) -> AiosStrHash {
-        if let Ok(StringHashType(name_hash)) = self.get_val("NAME") {
+        if let Some(StringHashType(name_hash)) = self.get_val("NAME") {
             *name_hash
         } else {
             0
@@ -378,50 +384,54 @@ impl AttrMap {
 
     //获取spref
     #[inline]
-    pub fn get_foreign_refno(&self, key: &str) -> anyhow::Result<RefU64> {
+    pub fn get_foreign_refno(&self, key: &str) -> Option<RefU64> {
         if let RefU64Type(d) = self.get_val(key)? {
-            return Ok(*d);
+            return Some(*d);
         }
-        Err(anyhow!("Foreign refno is not correct".to_string()))
+        None
+        // Err(anyhow!("Foreign refno is not correct".to_string()))
     }
 
     #[inline]
-    pub fn get_refno_as_string(&self) -> anyhow::Result<SmolStr> {
+    pub fn get_refno_as_string(&self) -> Option<SmolStr> {
         self.get_as_string("REFNO")
     }
 
-    pub fn get_obstruction(&self) -> anyhow::Result<u32> {
+    pub fn get_obstruction(&self) -> Option<u32> {
         self.get_u32("OBST")
     }
 
-    pub fn get_level(&self) -> anyhow::Result<[u32; 2]> {
+    pub fn get_level(&self) -> Option<[u32; 2]> {
         let v = self.get_i32_vec("LEVE")?;
         if v.len() >= 2 {
-            return Ok([v[0] as u32, v[1] as u32]);
+            return Some([v[0] as u32, v[1] as u32]);
         }
-        Err(anyhow!("Level number is less than 2".to_string()))
+        // Err(anyhow!("Level number is less than 2".to_string()))
+        None
     }
 
     ///判断构件是否可见
-    pub fn is_visible_by_level(&self, level: Option<u32>) -> anyhow::Result<bool> {
+    pub fn is_visible_by_level(&self, level: Option<u32>) -> Option<bool> {
         let levels = self.get_level()?;
-        Ok(levels[0] <= level.unwrap_or(LEVEL_VISBLE))
+        Some(levels[0] <= level.unwrap_or(LEVEL_VISBLE))
     }
 
     #[inline]
-    pub fn get_refno(&self) -> anyhow::Result<RefU64> {
+    pub fn get_refno(&self) -> Option<RefU64> {
         if let RefU64Type(d) = self.get_val("REFNO")? {
-            return Ok(*d);
+            return Some(*d);
         }
-        return Err(anyhow!("Refno type not corrent".to_string()));
+        // return Err(anyhow!("Refno type not corrent".to_string()));
+        None
     }
 
     #[inline]
-    pub fn get_owner(&self) -> anyhow::Result<RefU64> {
+    pub fn get_owner(&self) -> Option<RefU64> {
         if let RefU64Type(d) = self.get_val("OWNER")? {
-            return Ok(*d);
+            return Some(*d);
         }
-        return Err(anyhow!("Owner type not corrent".to_string()));
+        // return Err(anyhow!("Owner type not corrent".to_string()));
+        None
     }
 
     #[inline]
@@ -440,38 +450,40 @@ impl AttrMap {
     }
 
     #[inline]
-    pub fn get_u32(&self, key: &str) -> anyhow::Result<u32> {
+    pub fn get_u32(&self, key: &str) -> Option<u32> {
         self.get_i32(key).map(|s| s as u32)
     }
 
     #[inline]
-    pub fn get_i32(&self, key: &str) -> anyhow::Result<i32> {
+    pub fn get_i32(&self, key: &str) -> Option<i32> {
         let v = self.get_val(key)?;
         match v {
             IntegerType(d) => {
-                Ok(*d as i32)
+                Some(*d as i32)
             }
             _ => {
-                Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
+                // Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
+                None
             }
         }
     }
 
     #[inline]
-    pub fn get_string(&self, key: &str) -> anyhow::Result<&SmolStr> {
+    pub fn get_string(&self, key: &str) -> Option<&SmolStr> {
         let v = self.get_val(key)?;
         match v {
             StringType(s) | WordType(s) | ElementType(s) => {
-                Ok(s)
+                Some(s)
             }
             _ => {
-                Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
+                // Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
+                None
             }
         }
     }
 
     #[inline]
-    pub fn get_as_string(&self, key: &str) -> anyhow::Result<SmolStr> {
+    pub fn get_as_string(&self, key: &str) -> Option<SmolStr> {
         let v = self.get_val(key)?;
         let s = match v {
             StringType(s) | WordType(s) | ElementType(s) => s.clone(),
@@ -509,7 +521,7 @@ impl AttrMap {
 
             _ => UNSET_STR.into(),
         };
-        Ok(s)
+        Some(s)
     }
 
     // #[inline]
@@ -542,34 +554,36 @@ impl AttrMap {
     // }
 
     #[inline]
-    pub fn get_bool(&self, key: &str) -> anyhow::Result<bool> {
+    pub fn get_bool(&self, key: &str) -> Option<bool> {
         if let AttrVal::BoolType(d) = self.get_val(key)? {
-            return Ok(*d);
+            return Some(*d);
         }
-        Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
+        None
+        // Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
     }
 
     #[inline]
-    pub fn get_val(&self, key: &str) -> anyhow::Result<&AttrVal> {
-        self.map.get(&db1_hash(key).into()).ok_or_else(||
-            AttNotExist(format!("{:?}", self),
-                        key.to_string()).into() )
+    pub fn get_val(&self, key: &str) -> Option<&AttrVal> {
+        self.map.get(&db1_hash(key).into())
+            // .ok_or_else(||
+            // AttNotExist(format!("{:?}", self),
+            //             key.to_string()).into() )
     }
 
     #[inline]
-    pub fn get_f64(&self, key: &str) -> anyhow::Result<f64> {
-        self.get_val(key)?.double_value().ok_or_else(|| TypeNotCorrect(key.to_string(), "double".to_string()).into() )
+    pub fn get_f64(&self, key: &str) -> Option<f64> {
+        self.get_val(key)?.double_value() //.ok_or_else(|| TypeNotCorrect(key.to_string(), "double".to_string()).into() )
     }
 
     #[inline]
-    pub fn get_f32(&self, key: &str) -> anyhow::Result<f32> {
+    pub fn get_f32(&self, key: &str) -> Option<f32> {
         self.get_f64(key).map(|x| x as f32)
     }
 
     #[inline]
-    pub fn get_position(&self) -> anyhow::Result<Vec3> {
-        if let Ok(pos) = self.get_f64_vec("POS") {
-            return Ok(Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
+    pub fn get_position(&self) -> Option<Vec3> {
+        if let Some(pos) = self.get_f64_vec("POS") {
+            return Some(Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
         } else {
             //如果没有POS，就以POSS来尝试
             self.get_poss()
@@ -577,38 +591,40 @@ impl AttrMap {
     }
 
     #[inline]
-    pub fn get_posse_dist(&self) -> anyhow::Result<f32> {
-        Ok(self.get_pose()?.distance(self.get_poss()?))
+    pub fn get_posse_dist(&self) -> Option<f32> {
+        Some(self.get_pose()?.distance(self.get_poss()?))
     }
 
     #[inline]
-    pub fn get_poss(&self) -> anyhow::Result<Vec3> {
+    pub fn get_poss(&self) -> Option<Vec3> {
         let pos = self.get_f64_vec("POSS")?;
         if pos.len() == 3 {
-            return Ok(Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
+            return Some(Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
         }
-        return Err(anyhow!("No start position".to_string()));
+        // return Err(anyhow!("No start position".to_string()));
+        None
     }
 
     #[inline]
-    pub fn get_pose(&self) -> anyhow::Result<Vec3> {
+    pub fn get_pose(&self) -> Option<Vec3> {
         let pos =  self.get_f64_vec("POSE")?;
         if pos.len() == 3 {
-            return Ok(Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
+            return Some(Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32));
         }
-        return Err(anyhow!("No end position".to_string()));
+        // return Err(anyhow!("No end position".to_string()));
+        None
     }
 
     #[inline]
-    pub fn get_rotation(&self) -> anyhow::Result<Quat> {
+    pub fn get_rotation(&self) -> Option<Quat> {
         let ang = self.get_f64_vec("ORI")?;
         let mat = (glam::f32::Mat3::from_rotation_z(ang[2].to_radians() as f32)
             * glam::f32::Mat3::from_rotation_y(ang[1].to_radians() as f32)
             * glam::f32::Mat3::from_rotation_x(ang[0].to_radians() as f32));
-        Ok(Quat::from_mat3(&mat))
+        Some(Quat::from_mat3(&mat))
     }
 
-    pub fn get_matrix(&self) -> anyhow::Result<Affine3A> {
+    pub fn get_matrix(&self) -> Option<Affine3A> {
         let mut affine = Affine3A::IDENTITY;
         let pos = self.get_f64_vec("POS")?;
         affine.translation = glam::f32::Vec3A::new(pos[0] as f32, pos[1] as f32, pos[2] as f32);
@@ -616,41 +632,44 @@ impl AttrMap {
         affine.matrix3 = (glam::f32::Mat3A::from_rotation_z(ang[2].to_radians() as f32)
             * glam::f32::Mat3A::from_rotation_y(ang[1].to_radians() as f32)
             * glam::f32::Mat3A::from_rotation_x(ang[0].to_radians() as f32));
-        Ok(affine)
+        Some(affine)
     }
 
     #[inline]
-    pub fn get_mat4(&self) -> anyhow::Result<Mat4> {
-        Ok(Mat4::from(self.get_matrix()?))
+    pub fn get_mat4(&self) -> Option<Mat4> {
+        Some(Mat4::from(self.get_matrix()?))
     }
 
-    pub fn get_f64_vec(&self, key: &str) -> anyhow::Result<Vec<f64>> {
+    pub fn get_f64_vec(&self, key: &str) -> Option<Vec<f64>> {
         let val = self.get_val(key)?;
         return match val {
             AttrVal::DoubleArrayType(data) => {
-                Ok(data.clone())
+                Some(data.clone())
             }
             AttrVal::Vec3Type(data) => {
-                Ok(data.to_vec())
+                Some(data.to_vec())
             }
             _ => {
-                Err(TypeNotCorrect(key.to_string(), "f64 vec".to_string()).into())
+                // Err(TypeNotCorrect(key.to_string(), "f64 vec".to_string()).into())
+                None
             }
         };
     }
 
-    pub fn get_vec3(&self, key: &str) -> anyhow::Result<Vec3> {
+    pub fn get_vec3(&self, key: &str) -> Option<Vec3> {
         if let AttrVal::Vec3Type(d) = self.get_val(key)? {
-            return Ok(Vec3::new(d[0] as f32, d[1] as f32, d[2] as f32));
+            return Some(Vec3::new(d[0] as f32, d[1] as f32, d[2] as f32));
         }
-        Err(TypeNotCorrect(key.to_string(), "Vec3Type".to_string()).into())
+        // Err(TypeNotCorrect(key.to_string(), "Vec3Type".to_string()).into())
+        None
     }
 
-    pub fn get_i32_vec(&self, key: &str) -> anyhow::Result<Vec<i32>> {
+    pub fn get_i32_vec(&self, key: &str) -> Option<Vec<i32>> {
         if let AttrVal::IntArrayType(d) = self.get_val(key)? {
-            return Ok(d.clone());
+            return Some(d.clone());
         }
-        Err(TypeNotCorrect(key.to_string(), "i32 vec".to_string()).into())
+        None
+        // Err(TypeNotCorrect(key.to_string(), "i32 vec".to_string()).into())
     }
 
     ///生成具有几何属性的element的shape
@@ -672,7 +691,7 @@ impl AttrMap {
     pub fn get_attr_strings(&self, keys: &[&str]) -> Vec<SmolStr> {
         let mut results = vec![];
         for &attr_name in keys {
-            if let Ok(result) = self.get_val(attr_name) {
+            if let Some(result) = self.get_val(attr_name) {
                 match result {
                     AttrVal::StringType(v) => {
                         if v != "" {
@@ -1375,7 +1394,7 @@ fn test_id_tree() {
 
 pub type AiosStrHash = u32;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct AiosStr(pub SmolStr);
 
 impl AiosStr {
@@ -1433,7 +1452,7 @@ impl SerializedCollection for AiosStr {
 }
 
 //todo make it as database
-#[derive(Component, Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Component, Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StringLookupTable {
     pub lookup: HashMap<u32, AiosStr>,
 }

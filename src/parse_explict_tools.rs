@@ -14,7 +14,7 @@ use crate::db_tool::{convert_to_hash, db1_dehash};
 use crate::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string, parse_to_expression};
 use crate::pdms_types::AttrVal::*;
-use crate::pdms_types::{AttrVal, DbAttributeType};
+use crate::pdms_types::{AttrVal, DbAttributeType, RefI32Tuple};
 use crate::pdms_types::DbAttributeType::*;
 
 
@@ -90,17 +90,12 @@ fn get_expression_attr_test() {
     let mut file = File::open("BDIA").unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);
-    let (_, (types, result)) = parse_expression_attr(&attr_buf).unwrap();
+    let (_, (types, result)) = parse_expression_attr(&attr_buf, ).unwrap();
     println!("type={},result={}", types, result);
 }
 
-pub fn parse_expression() {
-    //todo locate the data
-    //parse_expression_attr
-}
-
 /// 解析表达式
-pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> {
+pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val));
     // let expression_type = db1_dehash();
@@ -109,7 +104,7 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
-        let (_, axis) = convert_to_explicit_axis_string(expression_data)?;
+        let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
         let mut result: SmolStr = "".into();
         match axis {
             StringType(value) => {
@@ -130,12 +125,12 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
         let _expression_start = &expression_data[..4];
         expression_data = &expression_data[4..];
 
-        let result = parse_expression_func(expression_data)?.1;
+        let result = parse_expression_func(expression_data, refno)?.1;
         Ok((input, (expression_type, result.into())))
     }
 }
 
-pub fn parse_expression_func(input: &[u8]) -> IResult<&[u8],String>{
+pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],String>{
     // 表达式都是以0x0 0 0 1开头的
     let mut expression_data = &input[..];
     // 这是表达式数字的起始标志
@@ -248,8 +243,15 @@ pub fn parse_expression_func(input: &[u8]) -> IResult<&[u8],String>{
                 let op_str = MATH_OPERATORS_MAP[&op_key];
                 let cnt = op_str.matches("{}").count();
                 let len = result_stack.len();
-                symbol = dynfmt::SimpleCurlyFormat.format(op_str, &result_stack[len-cnt..]).unwrap_or_default().to_string();
-                result_stack.drain(len-cnt..);
+                if len >= cnt {
+                    symbol = dynfmt::SimpleCurlyFormat.format(op_str, &result_stack[len-cnt..]).unwrap_or_default().to_string();
+                    result_stack.drain(len-cnt..);
+                }else{
+                    // dbg!(&refno);
+                    // dbg!(cnt);
+                    // dbg!(op_str);
+                    // dbg!(&result_stack);
+                }
             }
             match &expression_data[..4] {
                 &[0x0, 0x0, 0x3, 0xF0] => {
@@ -315,11 +317,11 @@ pub fn parse_expression_func(input: &[u8]) -> IResult<&[u8],String>{
 }
 
 /// 返回 X () Y () Z 表达式 的 其中一个 坐标 + data 例如： X ()
-pub fn parse_xyz_data(input: &[u8]) -> IResult<&[u8], String> {
+pub fn parse_xyz_data(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String> {
     let coordinate = match_explicit_attribute_to_string(parse_to_u32(&input[..4]));
     let data_len = parse_to_u32(&input[4..8]) as usize;
     // println!("input={:#4X?}",&input[4..data_len * 4]);
-    let data = parse_expression_func(&input[8..(data_len + 1) * 4])?.1;
+    let data = parse_expression_func(&input[8..(data_len + 1) * 4], refno)?.1;
     Ok((&input[data_len * 4 + 4..], format!("{} ( {} ) ", coordinate, data)))
 }
 
