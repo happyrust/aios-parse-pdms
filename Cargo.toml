@@ -100,7 +100,7 @@ truck-rendimpl = { version = "0.3.0", path = "../truck/truck-rendimpl" }
 
 prost = "0.8.0"
 once_cell = "1.9.0"
-dynfmt = { version = "0.1.5", features = ["curly"] }
+dynfmt = { version = "0.1.5", features = ["curly", "python"] }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

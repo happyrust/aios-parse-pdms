@@ -4,6 +4,7 @@ use bevy_utils::HashMap;
 use dashmap::DashMap;
 use dynfmt::{Format, SimpleCurlyFormat};
 use fixed::types::I24F8;
+use itertools::Itertools;
 use nalgebra_glm::exp;
 use nom::IResult;
 use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
@@ -36,27 +37,27 @@ const ATT_PTCDI: i32 = 0x95A34;
 lazy_static! {
     pub static ref MATH_OPERATORS_MAP: HashMap<i32, &'static str> = {
         let mut s = HashMap::new();
-        s.insert(0x321, "(-{})");
-        s.insert(0x322, "({}+{})");
-        s.insert(0x323, "({}-{})");
-        s.insert(0x324, "{}*{}");
-        s.insert(0x325, "{}/{}");
-        s.insert(0x3E9, "SQRT({})");
-        s.insert(0x385, "SIN({})");
-        s.insert(0x386, "COS({})");
-        s.insert(0x387, "TAN({})");
-        s.insert(0x388, "ASIN({})");
-        s.insert(0x389, "ACOS({})");
-        s.insert(0x38A, "ATAN({})");
-        s.insert(0x38B, "ATAN({},{})");
-        s.insert(0x3EA, "POW({},{})");
-        s.insert(0x3EB, "LOG({}");
-        s.insert(0x3EC, "ALOG({})");
-        s.insert(0x3ED, "INT({})");
-        s.insert(0x3EE, "NINT({})");
-        s.insert(0x3EF, "ABS({})");
-        s.insert(0x3F0, "MAX({},{})");
-        s.insert(0x3F1, "MIN({},{})");
+        s.insert(0x321, "( -{} )");
+        s.insert(0x322, "( {} + {} )");
+        s.insert(0x323, "( {} - {} )");
+        s.insert(0x324, "{} * {}");
+        s.insert(0x325, "{} / {}");
+        s.insert(0x3E9, "SQRT ( {} )");
+        s.insert(0x385, "SIN ( {} )");
+        s.insert(0x386, "COS ( {} )");
+        s.insert(0x387, "TAN ( {} )");
+        s.insert(0x388, "ASIN ( {} )");
+        s.insert(0x389, "ACOS ( {} )");
+        s.insert(0x38A, "ATAN ( {} )");
+        s.insert(0x38B, "ATAN ( {},{} )");
+        s.insert(0x3EA, "POW ( {},{} )");
+        s.insert(0x3EB, "LOG ( {} )");
+        s.insert(0x3EC, "ALOG ( {} )");
+        s.insert(0x3ED, "INT ( {} )");
+        s.insert(0x3EE, "NINT ( {} )");
+        s.insert(0x3EF, "ABS ( {} )");
+        // s.insert(0x3F0, "MAX ( {},{} )");   //特殊处理
+        // s.insert(0x3F1, "MIN ( {},{} )");
         s
     };
 }
@@ -134,9 +135,9 @@ pub fn parse_expression_attr(input: &[u8]) -> IResult<&[u8], (String, SmolStr)> 
     }
 }
 
-pub fn parse_expression_func(input:&[u8]) -> IResult<&[u8],String>{
+pub fn parse_expression_func(input: &[u8]) -> IResult<&[u8],String>{
     // 表达式都是以0x0 0 0 1开头的
-    let mut expression_data = &input[4..];
+    let mut expression_data = &input[..];
     // 这是表达式数字的起始标志
     let mut result_stack = vec![];
     while expression_data.len() >= 8 && (&expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] ||
@@ -260,108 +261,14 @@ pub fn parse_expression_func(input:&[u8]) -> IResult<&[u8],String>{
             let mut symbol = String::new();
 
             let op_key = parse_to_i32(&expression_data[..4]);
-            // if MATH_OPERATORS_MAP.contains_key(&op_key) {
-            //     let op_str = MATH_OPERATORS_MAP[&op_key];
-            //     // write!(symbol, op_str, 5, 2).unwrap();
-            //     dbg!(SimpleCurlyFormat
-            //         .format("hello, {}!", op_str.to_string()));
-            // }
+            if MATH_OPERATORS_MAP.contains_key(&op_key) {
+                let op_str = MATH_OPERATORS_MAP[&op_key];
+                let cnt = op_str.matches("{}").count();
+                let len = result_stack.len();
+                symbol = dynfmt::SimpleCurlyFormat.format(op_str, &result_stack[len-cnt..]).unwrap_or_default().to_string();
+                result_stack.drain(len-cnt..);
+            }
             match &expression_data[..4] {
-                &[0x0, 0x0, 0x3, 0x21] => {
-                    // 这是负号
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("( - {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x22] => {
-                    if result_stack.len() > 1 {
-                        let value2 = result_stack.pop().unwrap_or_default();
-                        let value1 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("( {} + {} )", value1, value2);
-                    }
-                }
-                &[0x0, 0x0, 0x3, 0x23] => {
-                    if result_stack.len() > 1 {
-                        let value2 = result_stack.pop().unwrap_or_default();
-                        let value1 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("( {} - {} )", value1, value2);
-                    }
-                }
-                &[0x0, 0x0, 0x3, 0x24] => {
-                    if result_stack.len() > 1 {
-                        let value2 = result_stack.pop().unwrap_or_default();
-                        let value1 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("{} * {}", value1, value2);
-                    }
-                }
-                &[0x0, 0x0, 0x3, 0x25] => {
-                    if result_stack.len() > 1 {
-                        let value2 = result_stack.pop().unwrap_or_default();
-                        let value1 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("{}/{}", value1, value2);
-                    }
-                }
-                &[0x0, 0x0, 0x3, 0xE9] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("SQRT ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x85] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("SIN ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x86] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("COS ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x87] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("TAN ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x88] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("ASIN ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x89] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("ACOS ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x8A] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("ATAN ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0x8B] => {  //这个ATAN有两个值
-                    if result_stack.len() > 1 {
-                        let value1 = result_stack.pop().unwrap_or_default();
-                        let value2 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("ATAN ( {} , {} )", value2, value1);
-                    }
-                }
-                &[0x0, 0x0, 0x3, 0xEA] => {
-                    if result_stack.len() > 1 {
-                        let value1 = result_stack.pop().unwrap_or_default();
-                        let value2 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("POW ( {} , {} )", value2, value1);
-                    }
-                }
-                &[0x0, 0x0, 0x3, 0xEB] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("LOG ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0xEC] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("ALOG ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0xED] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("INT ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0xEE] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("NINT ( {} )", value);
-                }
-                &[0x0, 0x0, 0x3, 0xEF] => {
-                    let value = result_stack.pop().unwrap_or_default();
-                    symbol = format!("ABS ( {} )", value);
-                }
                 &[0x0, 0x0, 0x3, 0xF0] => {
                     if result_stack.len() > 1 {
                         let value1 = result_stack.pop().unwrap_or_default();
@@ -465,18 +372,11 @@ pub fn parse_axis_explicit_value_40(data: &[u8]) -> IResult<&[u8], f64> {
 
 /// 解析axis显式属性的值，分为00 40 FF三种
 pub fn parse_axis_explicit_value_ff(data: &[u8]) -> IResult<&[u8], f64> {
-    // let (_, time) = be_u16(&data[10..12])?;
-    // let time = (time - 0xFFFB) as f32 * 2.0;
-    // let (_, value1) = be_i32(&data[..4])?;
-    // let value1 = value1 as f32 * 0.000001f32 * time;
-    // let (_, value2) = be_i32(&data[4..8])?;
-    // let value2 = value2 as f32 / (0x6680 as f32 / time) * 0.000001;
-    // let value = ((value1 + value2) * 100.0).round() / 100.0;
 
     let a = parse_to_i32(&data[..4]);
     //40 00 00 00 代表 0.5
     let b = parse_to_i32(&data[4..8]);
-    let v = (a as f64 * 0.00001525) + b as f64 / 0x40000000 as f64 * 0.5;
+    let v = (a as f64 / 0x10024 as f64) + b as f64 / 0x40000000 as f64 * 0.5;
     let c = 0xFFFFu32 - parse_to_u16(&data[10..12]) as u32;   //parse like 0xFF FE
     let div_times = 2_i32.pow(c);
     let v = (v * 1000.0).round() / (div_times as f64) / 1000.0;
