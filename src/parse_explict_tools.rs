@@ -146,38 +146,21 @@ pub fn parse_expression_func(input: &[u8]) -> IResult<&[u8],String>{
         &expression_data[..4] == &[0x0, 0x0, 0x0, 0x3]) {
         if &expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] {
             expression_data = &expression_data[8..];
+            let num_flag = parse_to_i16(&expression_data[8..10]);
+            let value = if num_flag == 0i16{
+                parse_explicit_num_00(&expression_data[..12])?.1
+            } else if num_flag == 0x4000i16{
+                parse_explicit_num_40(&expression_data[..12])?.1
+            }else if num_flag == -1i16{
+                parse_explicit_num_ff(&expression_data[..12])?.1
+            }else { 0.0 };
             // 表达式的值
-            match &expression_data[8..10] {
-                &[0x0, 0x0] => {
-                    let (_,value) = parse_axis_explicit_value_00(&expression_data[..12])?;
-                    result_stack.push(value.to_string());
-                    expression_data = &expression_data[12..];
-                    // 表达式 值的结束位  这里是个结束位 结束位 00 00 00 00 00 00 00 06
-                    // 这里可能会出现没有结束位就结束的情况，所以加了一个长度判断
-                    if expression_data.len() > 8 {
-                        expression_data = &expression_data[8..];
-                    }
-                }
-
-                &[0x40, 0x0] => {
-                    let expression_data_value = &expression_data[..12];
-                    let (_,value) = parse_axis_explicit_value_40(expression_data_value)?;
-                    result_stack.push(value.to_string());
-                    expression_data = &expression_data[12..];
-                    if expression_data.len() > 8 {
-                        expression_data = &expression_data[8..];
-                    }
-                }
-
-                &[0xFF, 0xFF] => {
-                    let (_,value) = parse_axis_explicit_value_ff(&expression_data[..12])?;
-                    result_stack.push(value.to_string());
-                    expression_data = &expression_data[12..];
-                    if expression_data.len() > 8 {
-                        expression_data = &expression_data[8..];
-                    }
-                }
-                _ => {}
+            result_stack.push(value.to_string());
+            expression_data = &expression_data[12..];
+            // 表达式 值的结束位  这里是个结束位 结束位 00 00 00 00 00 00 00 06
+            // 这里可能会出现没有结束位就结束的情况，所以加了一个长度判断
+            if expression_data.len() > 8 {
+                expression_data = &expression_data[8..];
             }
         }
         //若后面是6A 则代表该值没完
@@ -351,7 +334,7 @@ pub fn get_expression_func_name(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种
-pub fn parse_axis_explicit_value_00(data: &[u8]) -> IResult<&[u8], f64> {
+pub fn parse_explicit_num_00(data: &[u8]) -> IResult<&[u8], f64> {
     let (_, times) = be_i16(&data[10..12])?;
     let times = 2_f32.powf((5i16 - times) as f32) as f64;
     let (_, a) = be_i32(&data[..4])?;
@@ -361,7 +344,7 @@ pub fn parse_axis_explicit_value_00(data: &[u8]) -> IResult<&[u8], f64> {
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种
-pub fn parse_axis_explicit_value_40(data: &[u8]) -> IResult<&[u8], f64> {
+pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
     let mut dst_data = data[..8].to_vec();
     let dst_first = (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
     dst_data[0] = dst_first;
@@ -371,8 +354,7 @@ pub fn parse_axis_explicit_value_40(data: &[u8]) -> IResult<&[u8], f64> {
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种
-pub fn parse_axis_explicit_value_ff(data: &[u8]) -> IResult<&[u8], f64> {
-
+pub fn parse_explicit_num_ff(data: &[u8]) -> IResult<&[u8], f64> {
     let a = parse_to_i32(&data[..4]);
     //40 00 00 00 代表 0.5
     let b = parse_to_i32(&data[4..8]);
@@ -380,7 +362,6 @@ pub fn parse_axis_explicit_value_ff(data: &[u8]) -> IResult<&[u8], f64> {
     let c = 0xFFFFu32 - parse_to_u16(&data[10..12]) as u32;   //parse like 0xFF FE
     let div_times = 2_i32.pow(c);
     let v = (v * 1000.0).round() / (div_times as f64) / 1000.0;
-
     Ok((data, v as f64))
 }
 
