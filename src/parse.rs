@@ -27,7 +27,7 @@ use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
 use crate::{db_tool};
 use crate::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
-use crate::parse_explict_tools::{get_explicit_attr_type, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, parse_expression_attr, times_keep_f32_two_decimal_place};
+use crate::parse_explict_tools::{get_explicit_attr_type, parse_axis_explicit_value_00, parse_axis_explicit_value_40, parse_axis_explicit_value_ff, parse_expression_attr, parse_xyz_data, times_keep_f32_two_decimal_place};
 use crate::pdms_types::*;
 use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
@@ -45,6 +45,7 @@ use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_t
 use anyhow::*;
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
+
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PdmsDbData {
@@ -153,7 +154,7 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
         // if file_name == "sam7200_0001" {
         if !file_name.ends_with("com") && !file_name.ends_with("mis") {
             println!("path={:?}", &path);
-            if need_parsed_files.is_none()  || need_parsed_files.as_ref().unwrap().contains(&file_name) {
+            if need_parsed_files.is_none() || need_parsed_files.as_ref().unwrap().contains(&file_name) {
                 let file_name = file_name.as_str();
                 // if file_name == "aba0001_0001" || file_name == "aba0011_0001"{
                 if let Ok(mut pdms_db_data) = parse_file(&path, &database_info, file_name, project, "") {
@@ -285,10 +286,10 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
                 DbAttributeType::BOOL => { cur_len = 1; }
                 DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
                     if attr_info.att_type != DbAttributeType::DOUBLE {
-                        let nums = u32::from_be_bytes(implicit_data[cur_offset as usize * 4..cur_offset as usize * 4+4].try_into().unwrap());
+                        let nums = u32::from_be_bytes(implicit_data[cur_offset as usize * 4..cur_offset as usize * 4 + 4].try_into().unwrap());
                         //num 不对  00 00 00 01 4D 7C 74 D0 00 00 00 03 C6 0F C0 00
                         // C7 30 2C 00 43 48 00 00   todo SPAMAP用来做啥
-                        if nums == 1  {
+                        if nums == 1 {
                             cur_offset += 2;
                         }
                     }
@@ -321,7 +322,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
             parse_explict_attrs(&merged_data, &attr_info_map, &mut attr_data_map, refno, string_lookup)
-                .map_err(|err| err.map(| e| anyhow!(format!("{:#4X?}", e) )))?;
+                .map_err(|err| err.map(|e| anyhow!(format!("{:#4X?}", e) )))?;
         }
     }
     attr_info_map.iter().for_each(|pair| {
@@ -979,7 +980,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                             &[0xEB] => { result = format!("Y {} X", radius); }
                             &[0xE9] => { result = format!("Y {} Z", radius); }
                             &[0xE8] => { result = format!("Y {} -X", radius); }
-                            &[0xE6] => { result = format!("Y {} -Z",radius); }
+                            &[0xE6] => { result = format!("Y {} -Z", radius); }
                             &[0xE1] => { result = format!("Z {} X", radius); }
                             &[0xE0] => { result = format!("Z {} Y", radius); }
                             &[0xDE] => { result = format!("Z {} -X", radius); }
@@ -1201,19 +1202,19 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                 if value >= 50 && value < 0x65 {
                     let value = value - 50;
                     val = format!("DESIGN PARAM {}", value);
-                }  else if value >= 500 && value < 0x3E9 {
+                } else if value >= 500 && value < 0x3E9 {
                     let value = value - 500;
                     if value < 0x65 {
                         val = format!("TWICE PARAM {}", value);
                     } else {
-                        let value = value - 100 ;
+                        let value = value - 100;
                         val = format!("TWICE IPARAM {}", value);
                     }
-                }else if value >= 0x65 && value < 0x3E9 {
+                } else if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
                     val = format!("IPARAM {}", value);
-                }else if value >= 0x3E9 {
+                } else if value >= 0x3E9 {
                     let value = value - 0x3E8;
                     if value >= 0x65 {
                         let value = value - 0x64;
@@ -1363,70 +1364,25 @@ pub fn convert_to_explicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
             be_u32,
             be_u32,
         ))(input)?;
-        if [a, b, c, d, e] == [0x1A, 0x1A, 0x5, 0x2, 0x17] {
-            match &tmp_input[24..26] {
-                &[0x0, 0x0] => {
-                    let (tmp_input, first) = be_u32(tmp_input)?;
-                    let first = match_explicit_attribute_to_string(first);
-
-                    let data = &tmp_input[16..28];
-                    let (_, first_data) = parse_axis_explicit_value_00(data)?;
-
-                    let tmp_input = &tmp_input[36..];
-                    let (tmp_input, second) = be_u32(tmp_input)?;
-                    let second = match_explicit_attribute_to_string(second);
-
-                    let data = &tmp_input[16..28];
-                    let (_, second_data) = parse_axis_explicit_value_00(data)?;
-
-                    let tmp_input = &tmp_input[36..];
-                    let (_tmp_input, third) = be_u32(tmp_input)?;
-                    let third = match_explicit_attribute_to_string(third);
-                    let combine_result = format!("{} ( {} ) {} ( {} ) {}", first, first_data, second, second_data, third);
-                    result = AttrVal::StringType(combine_result.into());
-                }
-                &[0x40, 0x0] => {
-                    let (tmp_input, first) = be_u32(tmp_input)?;
-                    let first = match_explicit_attribute_to_string(first);
-
-                    let data = &tmp_input[16..28];
-                    let (_, first_data) = parse_axis_explicit_value_40(data)?;
-
-                    let tmp_input = &tmp_input[36..];
-                    let (tmp_input, second) = be_u32(tmp_input)?;
-                    let second = match_explicit_attribute_to_string(second);
-
-                    let data = &tmp_input[16..28];
-                    let (_, second_data) = parse_axis_explicit_value_40(data)?;
-
-                    let tmp_input = &tmp_input[36..];
-                    let (_tmp_input, third) = be_u32(tmp_input)?;
-                    let third = match_explicit_attribute_to_string(third);
-                    let combine_result = format!("{} ( {} ) {} ( {} ) {}", first, first_data, second, second_data, third);
-                    result = AttrVal::StringType(combine_result.into());
-                }
-                &[0xFF, 0xFF] => {
-                    let (tmp_input, first) = be_u32(tmp_input)?;
-                    let first = match_explicit_attribute_to_string(first);
-
-                    let data = &tmp_input[16..28];
-                    let (_, first_data) = parse_axis_explicit_value_ff(data)?;
-
-                    let tmp_input = &tmp_input[36..];
-                    let (tmp_input, second) = be_u32(tmp_input)?;
-                    let second = match_explicit_attribute_to_string(second);
-
-                    let data = &tmp_input[16..28];
-                    let (_, second_data) = parse_axis_explicit_value_ff(data)?;
-
-                    let tmp_input = &tmp_input[36..];
-                    let (_tmp_input, third) = be_u32(tmp_input)?;
-                    let third = match_explicit_attribute_to_string(third);
-                    let combine_result = format!("{} ( {} ) {} ( {} ) {}", first, first_data, second, second_data, third);
-                    result = AttrVal::StringType(combine_result.into());
-                }
-                _ => {}
+        // 0x17 开头代表是 X () Y () Z 这种类型
+        if [d, e] == [0x2, 0x17] {
+            let (tmp_input, mut first_data) = parse_xyz_data(tmp_input)?;
+            if first_data.starts_with("-") {
+                first_data = format!("AXIS {}", first_data);
             }
+            let (tmp_input, second_data) = parse_xyz_data(tmp_input)?;
+            let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+            result = AttrVal::StringType(SmolStr::new(format!("{}{}{}", first_data, second_data, third)));
+        } else if [d, e] == [0x2, 0x16] {
+            // 0x16 开头就是 X () Y ... 两个坐标的类型
+            // 0x2 0x16 后面第一个就是 X Y Z 这三种坐标
+            let (tmp_input, mut first_data) = parse_xyz_data(tmp_input)?;
+            if first_data.starts_with("-") {
+                first_data = format!("AXIS {}", first_data);
+            }
+            let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+            result = AttrVal::StringType(SmolStr::new(format!("{}{}", first_data, second)));
+            // 最后以 0x3D结束
         } else {
             match &tmp_input[..8] {
                 &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("X".into()) }
@@ -1446,12 +1402,12 @@ pub fn convert_to_explicit_axis_string(input: &[u8]) -> IResult<&[u8], AttrVal> 
 #[inline]
 pub fn match_explicit_attribute_to_string(key: u32) -> String {
     match key {
-        0x10 => { "-Z".to_string() }
-        0xF => { "Z".to_string() }
-        0xE => { "-Y".to_string() }
-        0xD => { "Y".to_string() }
-        0xC => { "-X".to_string() }
         0xB => { "X".to_string() }
+        0xC => { "-X".to_string() }
+        0xD => { "Y".to_string() }
+        0xE => { "-Y".to_string() }
+        0xF => { "Z".to_string() }
+        0x10 => { "-Z".to_string() }
         _ => {
             " ".to_string()
         }
@@ -1777,9 +1733,6 @@ pub fn parse_pdms_project_name(input: &str) -> IResult<&str, &str> {
 //     println!("Save to db ok");
 //     Ok(())
 // }
-
-
-
 #[derive(Default, Debug)]
 pub struct EleDataEntry {
     pub pos: usize,
