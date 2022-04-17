@@ -96,7 +96,6 @@ pub struct PdmsMongoDbInfo {
     pub db_no: u32,
 }
 
-
 #[test]
 fn parse_files_test() {
     let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
@@ -211,7 +210,6 @@ pub struct EleData {
     pub name_hash: AiosStrHash,
     pub version: u32,
 }
-
 
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
 fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
@@ -1633,6 +1631,10 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
             be_i32,   //len
             be_u64,
         ))(&input[0..12]).ok()?;
+        let len = parse_to_u32(&input[0..4]);
+        let refno = RefU64::from(&input[4..12]);
+        let version = parse_to_u32(&input[32..36]);
+
         if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
             if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 100], &input[4..12]) {   //允许一定范围去查找
@@ -1657,9 +1659,10 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
             }
         }
         if is_ok {
-            refno_entry = Some((refno.into(), EleDataEntry {
+            refno_entry = Some((refno, EleDataEntry {
                 pos: offset as usize,
                 noun_hash,
+                version
             }));
         } else {}
     }
@@ -1797,6 +1800,7 @@ pub fn parse_pdms_project_name(input: &str) -> IResult<&str, &str> {
 pub struct EleDataEntry {
     pub pos: usize,
     pub noun_hash: i32,
+    pub version: u32,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -1840,10 +1844,9 @@ pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleData
 
     let refno_0_set_timer = Instant::now();
     // let mut world_refno = Arc::new(Mutex::new(RefU64::default()));
-    let mut refno_table = DashMap::new();
+    let mut refno_table: DashMap<RefU64, EleDataEntry> = DashMap::new();
     let mut word_refno_hashset = DashSet::new();
     //todo 需要根据文件大小去优化
-    // dbg!(refno_0_set.len());
     let segs = 4;
     let step_size = input.len() / segs;  //处理分段正好落在分割的地方的情况， 前后扩展多 20个 bytes吧
     refno_0_set.par_iter().for_each(|ref_0| {
@@ -1865,7 +1868,15 @@ pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleData
                             if refno_entry.1.noun_hash == 0xBEB83 {
                                 word_refno_hashset.insert(refno_entry.0);
                             }
-                            refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
+                            if refno_table.contains_key(&refno_entry.0) {
+                                let d = &*refno_table.get(&refno_entry.0).unwrap();
+                                if d.version < refno_entry.1.version  {
+                                    refno_table.insert(refno_entry.0, refno_entry.1);
+                                }
+                            }else{
+                                refno_table.insert(refno_entry.0, refno_entry.1);
+                            }
+                            // refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
                         }
                     }
                 }

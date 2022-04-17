@@ -1118,126 +1118,157 @@ impl AiosPdmsProject {
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
 
+        let mut children_files = fs::read_dir(target_dir)?.into_iter().map(|entry| {
+            let entry = entry.unwrap();
+            entry.path()
+        }).collect::<Vec<PathBuf>>();
+
+        let att_db = self.storage.create_database::<AttrMap>("23", true)?;
+        children_files.par_iter().for_each(|path| {
+            // let att_db = att_db.clone();
+            // let att_db_lock = att_db.lock().unwrap();
+            // let mut wtxn = env.write_txn().unwrap();
+            let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
+            let att_db = att_db.clone();
+            if !file_name.ends_with("com") && !file_name.ends_with("mis") {
+                if need_parsing_files.is_none() || need_parsing_files.as_ref().unwrap().contains(&file_name) {
+                    let file_name = file_name.as_str();
+                    println!("path={:?}", file_name);
+                    if let Ok(mut pdms_db_data) = crate::parse_file(&path, &None, file_name, project, "") {
+                        let mut tx = Transaction::default();
+                        for kv in &pdms_db_data.all_attr_map {
+                            // att_db.put(&mut wtxn, &BEU64::new(kv.key().0), kv.value());
+                            tx.push(transaction::Operation::overwrite_serialized::<AttrMap>(
+                                kv.key().get_u32_hash(),
+                                kv.value(),
+                            ).unwrap());
+                        }
+                        att_db.apply_transaction(tx).unwrap();
+                    }
+                }
+            }
+        });
+
         //todo save应该放到一个文件一个文件的处理，而不是全部解析完了，再去处理save
         //save 另外一个线程处理
-        if let Ok(mut r) =
-        parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
-            dbg!("Parse ok");
-            dbg!("Begin saving to database");
-            let mut total_lookup = StringLookupTable::default();
-            let mut files_version = vec![];
-            for (k, PdmsDbData {
-                all_attr_map,
-                ele_id_tree,
-                type_ele_map,
-                refno_info_map,
-                db_name,
-                db_no,
-                field_no,
-                string_lookup,
-                children_map,
-                filename,
-                version,
-                ..
-            }) in r {
-                let target_dbno = if field_no == 0 { db_no } else { field_no };
-                total_lookup.merge(&string_lookup);
-                let mut tx = Transaction::default();
-                tx.push(transaction::Operation::overwrite_serialized::<PdmsTree>(
-                    target_dbno as u64,
-                    &PdmsTree(ele_id_tree),
-                ).unwrap());
-                self.get_tree_database().apply_transaction(tx)?;
-
-                // 属性全部插入
-                // //dbg!(all_attr_map.len());
-                let dbno_str = target_dbno.to_string();
-                self.storage.create_database::<AttrMap>(dbno_str.as_str(), true)?;
-                let mut attr_db = self.storage.database::<AttrMap>(dbno_str.as_str())?;
-
-                let mut txs = vec![];
-                for (i, (k, v)) in all_attr_map.into_iter().enumerate() {
-                    if i % 40000usize == 0 {
-                        txs.push(Transaction::default());
-                    }
-                    txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AttrMap>(
-                        k.get_u32_hash(),
-                        &v,
-                    ).unwrap());
-                }
-                for tx in txs {
-                    attr_db.apply_transaction(tx)?;
-                }
-
-                let mut txs = vec![];
-                for (i, (k, v)) in type_ele_map.into_iter().enumerate() {
-                    if i % 40000usize == 0 {
-                        txs.push(Transaction::default());
-                    }
-                    txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
-                        k as u64,
-                        &v,
-                    ).unwrap());
-                }
-                for tx in txs {
-                    self.get_type_refs_database().apply_transaction(tx)?;
-                }
-
-
-                let mut tx = Transaction::default();
-                for (refno, v) in children_map {
-                    tx.push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
-                        refno.0,
-                        &v,
-                    ).unwrap());
-                }
-                self.get_children_database().apply_transaction(tx)?;
-
-
-                let mut txs = vec![];
-                for (i, (k, v)) in refno_info_map.into_iter().enumerate() {
-                    if i % 40000usize == 0 {
-                        txs.push(Transaction::default());
-                    }
-                    txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
-                        k,
-                        &v,
-                    ).unwrap());
-                }
-                for tx in txs {
-                    external_info_db.apply_transaction(tx)?;
-                }
-
-                files_version.push(DbnoVersion { dbno: db_no, version });
-            }
-
-            let mut txs = vec![];
-            for (i, kv) in (&*total_lookup.lookup).iter().enumerate() {
-                if i % 40000usize == 0 {
-                    txs.push(Transaction::default());
-                }
-                txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AiosStr>(
-                    *kv.key(),
-                    kv.value(),
-                ).unwrap());
-            }
-            for tx in txs {
-                self.get_string_database().apply_transaction(tx)?;
-            }
-            let mut txs = vec![];
-            for (i, v) in files_version.into_iter().enumerate() {
-                if i % 40000usize == 0 {
-                    txs.push(Transaction::default());
-                }
-                txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<DbnoVersion>(
-                    v.dbno,
-                    &v,
-                ).unwrap());
-            }
-            for tx in txs {
-                self.dbno_version.apply_transaction(tx)?;
-            }
-        }
+        // if let Ok(mut r) =
+        // parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
+        //     dbg!("Parse ok");
+        //     dbg!("Begin saving to database");
+        //     let mut total_lookup = StringLookupTable::default();
+        //     let mut files_version = vec![];
+        //     for (k, PdmsDbData {
+        //         all_attr_map,
+        //         ele_id_tree,
+        //         type_ele_map,
+        //         refno_info_map,
+        //         db_name,
+        //         db_no,
+        //         field_no,
+        //         string_lookup,
+        //         children_map,
+        //         filename,
+        //         version,
+        //         ..
+        //     }) in r {
+        //         let target_dbno = if field_no == 0 { db_no } else { field_no };
+        //         total_lookup.merge(&string_lookup);
+        //         let mut tx = Transaction::default();
+        //         tx.push(transaction::Operation::overwrite_serialized::<PdmsTree>(
+        //             target_dbno as u64,
+        //             &PdmsTree(ele_id_tree),
+        //         ).unwrap());
+        //         self.get_tree_database().apply_transaction(tx)?;
+        //
+        //         // 属性全部插入
+        //         // //dbg!(all_attr_map.len());
+        //         let dbno_str = target_dbno.to_string();
+        //         self.storage.create_database::<AttrMap>(dbno_str.as_str(), true)?;
+        //         let mut attr_db = self.storage.database::<AttrMap>(dbno_str.as_str())?;
+        //
+        //         let mut txs = vec![];
+        //         for (i, (k, v)) in all_attr_map.into_iter().enumerate() {
+        //             if i % 40000usize == 0 {
+        //                 txs.push(Transaction::default());
+        //             }
+        //             txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AttrMap>(
+        //                 k.get_u32_hash(),
+        //                 &v,
+        //             ).unwrap());
+        //         }
+        //         for tx in txs {
+        //             attr_db.apply_transaction(tx)?;
+        //         }
+        //
+        //         let mut txs = vec![];
+        //         for (i, (k, v)) in type_ele_map.into_iter().enumerate() {
+        //             if i % 40000usize == 0 {
+        //                 txs.push(Transaction::default());
+        //             }
+        //             txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
+        //                 k as u64,
+        //                 &v,
+        //             ).unwrap());
+        //         }
+        //         for tx in txs {
+        //             self.get_type_refs_database().apply_transaction(tx)?;
+        //         }
+        //
+        //
+        //         let mut tx = Transaction::default();
+        //         for (refno, v) in children_map {
+        //             tx.push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
+        //                 refno.0,
+        //                 &v,
+        //             ).unwrap());
+        //         }
+        //         self.get_children_database().apply_transaction(tx)?;
+        //
+        //
+        //         let mut txs = vec![];
+        //         for (i, (k, v)) in refno_info_map.into_iter().enumerate() {
+        //             if i % 40000usize == 0 {
+        //                 txs.push(Transaction::default());
+        //             }
+        //             txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
+        //                 k,
+        //                 &v,
+        //             ).unwrap());
+        //         }
+        //         for tx in txs {
+        //             external_info_db.apply_transaction(tx)?;
+        //         }
+        //
+        //         files_version.push(DbnoVersion { dbno: db_no, version });
+        //     }
+        //
+        //     let mut txs = vec![];
+        //     for (i, kv) in (&*total_lookup.lookup).iter().enumerate() {
+        //         if i % 40000usize == 0 {
+        //             txs.push(Transaction::default());
+        //         }
+        //         txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AiosStr>(
+        //             *kv.key(),
+        //             kv.value(),
+        //         ).unwrap());
+        //     }
+        //     for tx in txs {
+        //         self.get_string_database().apply_transaction(tx)?;
+        //     }
+        //     let mut txs = vec![];
+        //     for (i, v) in files_version.into_iter().enumerate() {
+        //         if i % 40000usize == 0 {
+        //             txs.push(Transaction::default());
+        //         }
+        //         txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<DbnoVersion>(
+        //             v.dbno,
+        //             &v,
+        //         ).unwrap());
+        //     }
+        //     for tx in txs {
+        //         self.dbno_version.apply_transaction(tx)?;
+        //     }
+        // }
 
         Ok(())
     }

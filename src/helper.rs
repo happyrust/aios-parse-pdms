@@ -293,6 +293,7 @@ pub fn parse_to_u32(input: &[u8]) -> u32 {
     u32::from_be_bytes(input.try_into().unwrap())
 }
 
+
 #[inline]
 pub fn parse_to_f32(input: &[u8]) -> f32 {
     (f32::from_be_bytes(input.try_into().unwrap()) * 100.0).round() / 100.0
