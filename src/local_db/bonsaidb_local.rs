@@ -67,6 +67,7 @@ use crate::prim_geo::sphere::Sphere;
 use crate::prim_geo::tubing::PdmsTubing;
 use bonsaidb::core::connection::StorageConnection;
 use bonsaidb::core::connection::LowLevelConnection;
+use futures::StreamExt;
 use log::Level::Debug;
 use crate::error_types::AttError::AttNotExist;
 use crate::local_db::DbOption;
@@ -1121,7 +1122,7 @@ impl AiosPdmsProject {
         if let Ok(mut r) =
         parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
             dbg!("Parse ok");
-            return Ok(());
+            // return Ok(());
             let mut total_lookup = StringLookupTable::default();
             let mut files_version = vec![];
             for (k, PdmsDbData {
@@ -1211,13 +1212,13 @@ impl AiosPdmsProject {
             }
 
             let mut txs = vec![];
-            for (i, (k, v)) in total_lookup.lookup.into_iter().enumerate() {
+            for (i, kv) in (&*total_lookup.lookup).iter().enumerate() {
                 if i % 40000usize == 0 {
                     txs.push(Transaction::default());
                 }
                 txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AiosStr>(
-                    k,
-                    &v,
+                    *kv.key(),
+                    kv.value(),
                 ).unwrap());
             }
             for tx in txs {
