@@ -1122,7 +1122,7 @@ impl AiosPdmsProject {
         if let Ok(mut r) =
         parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
             dbg!("Parse ok");
-            // return Ok(());
+            return Ok(());
             let mut total_lookup = StringLookupTable::default();
             let mut files_version = vec![];
             for (k, PdmsDbData {

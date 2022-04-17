@@ -480,6 +480,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     println!("All refnos count: {}", all_refnos.len() + 1);
     let noun_attr_info_map = Arc::new(database_info.noun_attr_info_map.clone());
     let mut eles_time = Instant::now();
+    let project_hash = string_lookup.add_str(project);
+    let db_no = if field_no == 0 { db_no } else { field_no };
     all_refnos.par_iter().for_each(|refno| {
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();
@@ -489,7 +491,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             let all_attr_map = all_attr_map.clone();
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
-            // let string_lookup_vec = string_lookup_vec.clone();
             if let Some(EleData {
                             refno,
                             owner,
@@ -499,36 +500,31 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             version,
                             name_hash,
                         }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map, &string_lookup) {
-                // if !all_attr_map.contains_key(&refno) {
-                //     all_attr_map.insert(refno, attr_data_map);
-                //     type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
-                //     let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
-                //     refno_info_map.entry(ref_0).or_insert(RefnoInfo {
-                //         ref_0,
-                //         project_hash: string_lookup.add_str(project),
-                //         db_no: if field_no == 0 { db_no } else { field_no },
-                //     });
-                // }
-                // string_lookup_vec.push(string_lookup);
+                if !all_attr_map.contains_key(&refno) {
+                    all_attr_map.insert(refno, attr_data_map);
+                    type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
+                    let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
+                    refno_info_map.entry(ref_0).or_insert(RefnoInfo {
+                        ref_0,
+                        project_hash,
+                        db_no,
+                    });
+                }
             }
         }
     });
-    // while let Ok(s) = string_lookup_vec.pop() {
-    //     string_lookup.merge(&s);
-    // }
-
     let mut parent_id = root_id;
     for (k, children) in &children_map {
         if ele_node_id_map.contains_key(k) {
             let parent_id = ele_node_id_map[k].clone();
             for c in &children.0 {
-                if let Some(att) = &all_attr_map.get(c){
+                if let Some(att) = &all_attr_map.get(c) {
                     let ele_node = EleNode {
                         refno: *c,
                         owner: *k,
                         name_hash: att.get_name_hash(),
                         noun: db1_hash(att.get_type()),
-                        version : 0,
+                        version: 0,
                     };
                     let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
                     ele_node_id_map.insert(*c, cur_id);
