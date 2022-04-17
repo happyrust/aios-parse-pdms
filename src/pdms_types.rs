@@ -23,6 +23,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::ops::{Deref, DerefMut};
 use std::result::Iter;
+use std::sync::Arc;
 use std::vec::IntoIter;
 use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
@@ -1454,15 +1455,15 @@ impl SerializedCollection for AiosStr {
 }
 
 //todo make it as database
-#[derive(Component, Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Component, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct StringLookupTable {
-    pub lookup: HashMap<u32, AiosStr>,
+    pub lookup: Arc<DashMap<u32, AiosStr>>,
 }
 
 impl StringLookupTable {
     pub fn new() -> Self {
         Self {
-            lookup: HashMap::new(),
+            lookup: Arc::new(DashMap::new()),
         }
     }
 
@@ -1470,7 +1471,7 @@ impl StringLookupTable {
         self.lookup.get(&hash).map(|x| x.0.clone())
     }
 
-    pub fn add_str(&mut self, str_val: &str) -> u32 {
+    pub fn add_str(&self, str_val: &str) -> u32 {
         use hash32::{FnvHasher, Hash, Hasher};
         let mut fnv = FnvHasher::default();
         str_val.hash(&mut fnv);
@@ -1481,8 +1482,8 @@ impl StringLookupTable {
     }
 
     pub fn merge(&mut self, other: &Self) -> bool {
-        for (k, v) in &other.lookup {
-            self.lookup.insert(*k, v.clone());
+        for kv in &*other.lookup {
+            self.lookup.insert(kv.key().clone(), kv.value().clone());
         }
         true
     }

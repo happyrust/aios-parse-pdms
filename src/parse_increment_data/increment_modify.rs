@@ -70,10 +70,10 @@ pub fn modify_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo, db
     // 插入 StringLookUp数据
     for chunk in &string_lookup.lookup.iter().chunks(400000usize) {
         let mut tx = Transaction::default();
-        for (k, v) in chunk {
+        for kv in chunk {
             tx.push(transaction::Operation::overwrite_serialized::<AiosStr>(
-                *k,
-                v,
+                kv.key().clone(),
+                kv.value(),
             ).unwrap());
         }
         dbs.get_string_database().apply_transaction(tx)?;
@@ -108,10 +108,10 @@ pub fn increment_data_to_db(input: &[u8], pdms_database_info: &PdmsDatabaseInfo,
     // 插入 StringLookUp数据
     for chunk in &string_lookup.lookup.iter().chunks(400000usize) {
         let mut tx = Transaction::default();
-        for (k, v) in chunk {
+        for kv in chunk {
             tx.push(transaction::Operation::overwrite_serialized::<AiosStr>(
-                *k,
-                v,
+                kv.key().clone(),
+                kv.value(),
             ).unwrap());
         }
         dbs.get_string_database().apply_transaction(tx)?;
