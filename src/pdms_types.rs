@@ -27,8 +27,10 @@ use std::vec::IntoIter;
 use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
 use bevy_inspector_egui::Inspectable;
+use egui::Widget;
 use futures::future::ok;
 // use bevy_egui::egui;
+
 
 pub const LEVEL_VISBLE: u32 = 6;
 
@@ -299,7 +301,7 @@ impl From<&str> for NounHash {
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component, Reflect)]
 #[reflect(Component)]
 pub struct AttrMap {
-    pub map: bevy_utils::HashMap<NounHash, AttrVal>,
+    pub map: BHashMap<NounHash, AttrVal>,
 }
 
 impl Inspectable for AttrMap {
@@ -331,7 +333,7 @@ impl Inspectable for AttrMap {
 }
 
 impl Deref for AttrMap {
-    type Target = bevy_utils::HashMap<NounHash, AttrVal>;
+    type Target = BHashMap<NounHash, AttrVal>;
 
     fn deref(&self) -> &Self::Target {
         &self.map
@@ -851,7 +853,7 @@ impl Inspectable for AttrVal {
         let mut changed = false;
         match self {
             StringType(s) | ElementType(s) | WordType(s) => {
-                s.ui(ui, Default::default(), context);
+                s.as_str().ui(ui, Default::default(), context);
             }
             IntegerType(d) => {
                 d.ui(ui, Default::default(), context);
@@ -860,7 +862,7 @@ impl Inspectable for AttrVal {
                 d.ui(ui, Default::default(), context);
             }
             RefU64Type(r) => {
-                r.to_refno_str().ui(ui, Default::default(), context);
+                r.to_refno_str().as_str().ui(ui, Default::default(), context);
             }
             Vec3Type(r) => {
                 Vec3::new(r[0] as f32, r[1] as f32, r[2] as f32).ui(
@@ -1350,7 +1352,7 @@ pub struct PdmsRefno {
     pub type_name: String,
 }
 
-use crate::db1_dehash;
+use crate::{BHashMap, db1_dehash};
 use crate::db_tool::db1_hash;
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::cylinder::SCylinder;

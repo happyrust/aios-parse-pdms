@@ -62,7 +62,7 @@ use crate::query_cata::resolve_desi_comp;
 use clap::{Parser, ValueHint};
 use crate::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
 use std::panic::catch_unwind;
-use bevy_utils::Instant;
+use std::time::Instant;
 use crate::prim_geo::sphere::Sphere;
 use crate::prim_geo::tubing::PdmsTubing;
 use bonsaidb::core::connection::StorageConnection;
@@ -229,10 +229,13 @@ impl AiosDBManager {
     /// 需要spawn a task to run
     ///内部实现同步所有，todo 添加部分同步
     fn sync_total_internal(&self) -> anyhow::Result<bool> {
+        let time = std::time::Instant::now();
+        println!("当前解析线程数量: {}", rayon::current_num_threads());
         for project in &self.project_map {
             //完全同步数据
             project.value().sync_total(&self.info_db, &self.needed_parse_files)?;
         }
+        println!("总共时间: {} ms", time.elapsed().as_millis());
         Ok(true)
     }
 
@@ -1118,7 +1121,7 @@ impl AiosPdmsProject {
         if let Ok(mut r) =
         parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
             dbg!("Parse ok");
-            // return Ok(());
+            return Ok(());
             let mut total_lookup = StringLookupTable::default();
             let mut files_version = vec![];
             for (k, PdmsDbData {

@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
-use bevy_utils::HashMap;
 use dashmap::DashMap;
 use dynfmt::{Format, SimpleCurlyFormat};
 use fixed::types::I24F8;
@@ -10,6 +9,7 @@ use nom::IResult;
 use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
 use smol_str::SmolStr;
+use crate::BHashMap;
 use crate::db_tool::{convert_to_hash, db1_dehash};
 use crate::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string, parse_to_expression};
@@ -35,8 +35,8 @@ const ATT_PTCDI: i32 = 0x95A34;
 //     Mutex::new(StringLookupTable::default())
 // });
 lazy_static! {
-    pub static ref MATH_OPERATORS_MAP: HashMap<i32, &'static str> = {
-        let mut s = HashMap::new();
+    pub static ref MATH_OPERATORS_MAP: BHashMap<i32, &'static str> = {
+        let mut s = BHashMap::new();
         s.insert(0x321, "( -{} )");
         s.insert(0x322, "( {} + {} )");
         s.insert(0x323, "( {} - {} )");
@@ -87,6 +87,7 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 
 #[test]
 fn get_expression_attr_test() {
+    // let x = BHashMap::new();
     let mut file = File::open("BDIA").unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);

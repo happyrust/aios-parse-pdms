@@ -71,6 +71,8 @@ use crate::db_tool::db1_hash;
 
 pub mod notify_file_change;
 
+pub type BHashMap<K, V> = bevy::utils::HashMap<K, V>;
+
 const ATT_PAXI: i32 = 0xB146F;
 const ATT_PAAX: i32 = 0xF543D;
 const ATT_PBAX: i32 = 0xF5458;

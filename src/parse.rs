@@ -43,7 +43,6 @@ use core::result::Result::Ok;
 use crate::consts::{ATT_BANG, ATT_LEVE, ATT_PTS, UNSET_STR};
 use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
 use anyhow::*;
-use bevy_utils::default;
 use concurrent_queue::ConcurrentQueue;
 use rayon::prelude::IntoParallelIterator;
 
@@ -193,7 +192,6 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
     if database_info.is_none() {
         if let Ok(db_info) = bincode::deserialize(include_bytes!("../all_attr_info.bin")) {
             let db_data = parse_db(input, &db_info, file_name, project, target_refno_str);
-
             return db_data;
         }
     }
@@ -391,7 +389,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let time_start = std::time::Instant::now();
     let mut field_no = 0;
 
-    let mut root_time = Instant::now();
     let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
     let db_no_str = db_no.to_string();
     //dbg!(&db_type);
@@ -404,8 +401,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     }
 
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
-
-    println!("Other cost: {}ms", root_time.elapsed().as_millis());
 
     let noun_attr_info_map = &database_info.noun_attr_info_map;
     let mut root_refno = world_refno;
@@ -427,7 +422,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         version,
         name_hash,
     } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, &mut string_lookup).unwrap_or_default();
-    println!("Parse root element cost: {} ms", root_time.elapsed().as_millis());
     let ele_node = EleNode {
         refno,
         owner,
@@ -454,26 +448,30 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         children_map.insert(refno, children.clone());
     }
 
-    let mut memb_time = Instant::now();
+    // let mut memb_time = Instant::now();
     let mut pending_refnos = children.0;
-    dbg!(refno_table_map.len());
+    // dbg!(refno_table_map.len());
     let mut all_refnos = HashSet::new();
     while !pending_refnos.is_empty() {
         let refno = pending_refnos.pop().unwrap();
+        if all_refnos.contains(&refno) { continue; }
         all_refnos.insert(refno);
         if refno_table_map.contains_key(&refno) {
             let entry = &*refno_table_map.get(&refno).unwrap();
             let pos = entry.pos;
             let membs = parse_ele_membs(&input[pos - 4..]);
-            pending_refnos.extend_from_slice(&membs);
+            for memb in &membs {
+                if !all_refnos.contains(&memb) {
+                    pending_refnos.push(*memb);
+                }
+            }
             children_map.insert(refno, RefU64Vec(membs));
         }
     }
-    println!("Parsing children members cost: {}ms", memb_time.elapsed().as_millis());
+    // println!("Parsing {} children members cost: {}ms", memb_time.elapsed().as_millis());
     println!("All refnos count: {}", all_refnos.len());
 
     let mut eles_time = Instant::now();
-    println!("当前解析线程数量: {}", rayon::current_num_threads());
     let string_lookup_vec = ConcurrentQueue::unbounded();
     all_refnos.par_iter().for_each(|refno| {
         if refno_table_map.contains_key(refno) {
@@ -528,8 +526,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         }
     }
 
-    println!("Parsing children attrs cost: {}ms", eles_time.elapsed().as_millis());
-    println!("Attr map count: {}", all_attr_map.len());
+    // println!("Parsing children attrs cost: {} ms", eles_time.elapsed().as_millis());
+    println!("DB {} attrs count: {}", file_name, all_attr_map.len());
     println!("解析db: {} 所耗时间: {:?}ms", file_name, time_start.elapsed().as_millis());
 
 
