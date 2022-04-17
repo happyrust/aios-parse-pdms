@@ -1117,12 +1117,13 @@ impl AiosPdmsProject {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
-        // //dbg!(&target_dir);
 
+        //todo save应该放到一个文件一个文件的处理，而不是全部解析完了，再去处理save
+        //save 另外一个线程处理
         if let Ok(mut r) =
         parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
             dbg!("Parse ok");
-            return Ok(());
+            dbg!("Begin saving to database");
             let mut total_lookup = StringLookupTable::default();
             let mut files_version = vec![];
             for (k, PdmsDbData {
@@ -1141,7 +1142,6 @@ impl AiosPdmsProject {
             }) in r {
                 let target_dbno = if field_no == 0 { db_no } else { field_no };
                 total_lookup.merge(&string_lookup);
-
                 let mut tx = Transaction::default();
                 tx.push(transaction::Operation::overwrite_serialized::<PdmsTree>(
                     target_dbno as u64,
@@ -1224,8 +1224,6 @@ impl AiosPdmsProject {
             for tx in txs {
                 self.get_string_database().apply_transaction(tx)?;
             }
-
-
             let mut txs = vec![];
             for (i, v) in files_version.into_iter().enumerate() {
                 if i % 40000usize == 0 {

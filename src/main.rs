@@ -97,7 +97,7 @@ fn main() -> AiosDbError {
         incr_sync: false,
         // project_path: "/Volumes/DPC/aba".to_string(),
         project_path: "D:/aba".to_string(),
-        included_projects: vec!["ABA".to_owned(), "GDP".to_owned()],
+        included_projects: vec!["ABA".to_owned()/*, "GDP".to_owned()*/],
         // included_db_files: Some(vec!["aba0117_0001".to_string()]),
         included_db_files: None,
         mdb_name: "ABA".to_string(),
@@ -111,7 +111,6 @@ fn main() -> AiosDbError {
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
 
     cache_viewer_data(&mut mgr, &db_option);
-
     return Ok(());
 }
 

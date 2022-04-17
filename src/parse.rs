@@ -389,7 +389,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = Arc::new(DashMap::new());
-    // let mut string_lookup_arc = Arc::new(Mutex(StringLookupTable::new()));
     /// 基本数据的Tree
     let mut ele_id_tree: Tree<EleNode> = Tree::new();
     /// 完整属性数据的存储
@@ -408,7 +407,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         field_no = file_name[project.len()..end].parse::<u32>().unwrap_or_default();
     }
 
+    let mut gen_ref_time = Instant::now();
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
+    println!("gen_ref_type_pos_table: {} ms", gen_ref_time.elapsed().as_millis());
 
     let noun_attr_info_map = &database_info.noun_attr_info_map;
     let mut root_refno = world_refno;
@@ -417,7 +418,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     }
     let mut refno_info_map = Arc::new(DashMap::new());
     let mut children_map = HashMap::new();
-    let mut root_time = Instant::now();
+
     let entry = &*refno_table_map.get(&root_refno).ok_or(anyhow!("Not found refno in entry"))?;
 
     let mut string_lookup = StringLookupTable::new();
@@ -456,9 +457,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         children_map.insert(refno, children.clone());
     }
 
-    // let mut memb_time = Instant::now();
+    let mut memb_time = Instant::now();
     let mut pending_refnos = children.0;
-    // dbg!(refno_table_map.len());
+    dbg!(refno_table_map.len());
     let mut all_refnos = HashSet::new();
     while !pending_refnos.is_empty() {
         let refno = pending_refnos.pop().unwrap();
@@ -476,12 +477,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             children_map.insert(refno, RefU64Vec(membs));
         }
     }
-    // println!("Parsing {} children members cost: {}ms", memb_time.elapsed().as_millis());
+    println!("Parsing children members cost: {} ms", memb_time.elapsed().as_millis());
     println!("All refnos count: {}", all_refnos.len() + 1);
     let noun_attr_info_map = Arc::new(database_info.noun_attr_info_map.clone());
     let mut eles_time = Instant::now();
     let project_hash = string_lookup.add_str(project);
     let db_no = if field_no == 0 { db_no } else { field_no };
+    dbg!("Begin parse attributes");
     all_refnos.par_iter().for_each(|refno| {
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();
@@ -513,6 +515,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             }
         }
     });
+    println!("解析属性所耗时间: {:?}ms", eles_time.elapsed().as_millis());
     let mut parent_id = root_id;
     for (k, children) in &children_map {
         if ele_node_id_map.contains_key(k) {
@@ -1573,7 +1576,7 @@ fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefU64, 
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
-            if let Ok((_, Some(refno_entry))) = get_refno_entry(input, p) {
+            if let Some(refno_entry) = get_refno_entry(input, p) {
                 type_hash.entry(refno_entry.1.noun_hash).or_insert((refno_entry.0, file_name.clone()));
                 break;  //if found, just break
             }
@@ -1620,17 +1623,16 @@ pub fn parse_file_basic_info(input: &[u8]) -> (SmolStr, u32, u32) {
 
 ///获得参考号对应的Entry
 #[inline]
-fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefU64, EleDataEntry)>> {
+fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)> {
     let input = &input[offset - 4..];
-    let (_, noun_hash) = be_i32(&input[12..16])?;
+    let noun_hash = parse_to_i32(&input[12..16]);
     let mut refno_entry = None;
-    // let mut is_world = noun_hash == 0xBEB83;
     let mut is_ok = false;
     if NOUN_TYPES_MAP.contains_key(&noun_hash) {
-        let (_, (len, refno)) = tuple((
+        let (_, (len, refno)) = tuple::<_, _, nom::error::Error<&[u8]>, _>((
             be_i32,   //len
             be_u64,
-        ))(&input[0..12])?;
+        ))(&input[0..12]).ok()?;
         if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
             if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 100], &input[4..12]) {   //允许一定范围去查找
@@ -1647,7 +1649,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefU64
                     }
                 }
             } else {
-                let next_len = be_u32(&input[tmp_pos..tmp_pos + 4])?.1;   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
+                let next_len = parse_to_u32(&input[tmp_pos..tmp_pos + 4]);   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
                 is_ok = next_len & 0xFFFFFF00 == 0;
                 if !is_ok {
                     // //dbg!(next_len);
@@ -1659,12 +1661,9 @@ fn get_refno_entry(input: &[u8], offset: usize) -> IResult<&[u8], Option<(RefU64
                 pos: offset as usize,
                 noun_hash,
             }));
-        } else {
-            // //dbg!(offset);
-            // //dbg!((refno_0, refno_1));
-        }
+        } else {}
     }
-    Ok((input, refno_entry))
+    refno_entry
 }
 
 /// map中将所有offset不为0的值进行排序, 返回Noun hash 的排序
@@ -1806,32 +1805,78 @@ pub struct DbInfo {
     pub db_name: String,
 }
 
-/// 获取 ref_no + type 的索引位置表  和 world的参考号
-/// 根据get_last_index_position返回的hashset获取所有的ref_no + type的位置
-/// 返回值是hashmap k:所有的ref_no v:(ref_no的position,type的hash)
-/// 利用这个层级关系去解析数据，加快速度
+
 pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let refno_0_set = get_total_refno_0s(input);
-    // //dbg!(refno_0_set.len());
-    let mut world_refno = Arc::new(Mutex::new(RefU64::default()));
     let mut refno_table = DashMap::new();
+    let mut word_refno_hashset = DashSet::new();
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
-        let world_refno_clone = world_refno.clone();
-        let mut w_refno = world_refno_clone.lock().unwrap();
         for p in pos_iter {
-            if let Ok((_, Some(refno_entry))) = get_refno_entry(input, p) {
+            if let Some(refno_entry) = get_refno_entry(input, p) {
                 //判断是否是World
                 if refno_entry.1.noun_hash == 0xBEB83 {
-                    *w_refno = refno_entry.0;
+                    word_refno_hashset.insert(refno_entry.0);
                 }
                 refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
             }
         }
     });
-    //dbg!(refno_table.len());
-    let lock = Arc::try_unwrap(world_refno).expect("Lock still has multiple owners");
-    (refno_table, lock.into_inner().expect("Mutex cannot be locked"))
+    let world_refno = word_refno_hashset.into_iter().next().unwrap_or_default();
+    // dbg!(world_refno.to_refno_str());
+    (refno_table, world_refno)
+}
+
+
+//todo 需要完善, 加入版本比较，不然多线程会有问题
+/// 获取 ref_no + type 的索引位置表  和 world的参考号
+/// 根据get_last_index_position返回的hashset获取所有的ref_no + type的位置
+/// 返回值是hashmap k:所有的ref_no v:(ref_no的position,type的hash)
+/// 利用这个层级关系去解析数据，加快速度
+pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
+    let get_total_timer = Instant::now();
+    let refno_0_set = get_total_refno_0s(input);
+    println!("Get total refnos {} ms", get_total_timer.elapsed().as_millis());
+
+    let refno_0_set_timer = Instant::now();
+    // let mut world_refno = Arc::new(Mutex::new(RefU64::default()));
+    let mut refno_table = DashMap::new();
+    let mut word_refno_hashset = DashSet::new();
+    //todo 需要根据文件大小去优化
+    // dbg!(refno_0_set.len());
+    let segs = 4;
+    let step_size = input.len() / segs;  //处理分段正好落在分割的地方的情况， 前后扩展多 20个 bytes吧
+    refno_0_set.par_iter().for_each(|ref_0| {
+        //分成32段
+        (0..segs).into_par_iter().for_each(|x| {
+            let start = if x != 0 { step_size * x - 20 } else { 100 };
+            if start < input.len() {
+                let data = if x == segs - 1 {
+                    &input[start..input.len()]   //最后一段
+                } else {
+                    &input[start..start + step_size]
+                };
+                if data.len() > 100 {
+                    let pos_iter = rfind_iter(data, ref_0);
+                    for p in pos_iter {
+                        if p < start {  continue; }
+                        if let Some(refno_entry) = get_refno_entry(data, p - start) {
+                            //判断是否是World
+                            if refno_entry.1.noun_hash == 0xBEB83 {
+                                word_refno_hashset.insert(refno_entry.0);
+                            }
+                            refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+    println!("refno_0_set.par_iter costs {} ms", refno_0_set_timer.elapsed().as_millis());
+    let world_refno = word_refno_hashset.into_iter().next().unwrap_or_default();
+    // dbg!(world_refno.to_refno_str());
+    (refno_table, world_refno)
 }
 
 fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
