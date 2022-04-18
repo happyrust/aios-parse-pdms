@@ -513,8 +513,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             }
         }
     });
-    println!("解析属性所耗时间: {:?}ms", eles_time.elapsed().as_millis());
+    println!("解析属性所耗时间: {:?} ms", eles_time.elapsed().as_millis());
     let mut parent_id = root_id;
+    dbg!(children_map.len());
     for (k, children) in &children_map {
         if ele_node_id_map.contains_key(k) {
             let parent_id = ele_node_id_map[k].clone();
@@ -533,6 +534,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             }
         }
     }
+    println!("Tree nodes height: {}", ele_id_tree.height());
     // println!("Parsing children attrs cost: {} ms", eles_time.elapsed().as_millis());
     println!("DB {} attrs count: {}", file_name, all_attr_map.len());
     println!("解析db: {} 所耗时间: {:?}ms", file_name, time_start.elapsed().as_millis());
@@ -1009,11 +1011,9 @@ pub fn round_f32(input: f32) -> f32 {
 
 /// 特殊处理AXIS隐式属性
 pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
-    // 目前都是以02开头，如果不是以02开头就记录下来
     let (tmp_input, signal) = be_u32(input)?;
     let mut val = AttrVal::StringType("".into());
     if signal == 2 {
-        //这里改动了一下，给tmp_input截取了..8
         match &tmp_input[..8] {
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => { val = AttrVal::StringType("X".into()) }
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => { val = AttrVal::StringType("Y".into()) }
@@ -1067,6 +1067,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                     }
                     &_ => {}
                 }
+                //todo use dynfmt
                 match &tmp_input[..4] {
                     &[0x0, 0x0, 0x0, 0x3] => {
                         let (_, value) = be_u8(&tmp_input[7..8])?;

@@ -110,7 +110,6 @@ pub struct PdmsConfig {
 ///MDB数据库管理
 #[derive(Debug, Clone)]
 pub struct AiosDBManager {
-    //比 RwLock<HashMap>  效果好点
     pub project_map: DashMap<u32, AiosPdmsProject>,
     //project hash -> Project DBS
     //project name hash -> Aios DB
