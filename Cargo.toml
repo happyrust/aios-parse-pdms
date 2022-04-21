@@ -3,6 +3,7 @@ name = "parse_pdms_db"
 version = "0.1.0"
 edition = "2021"
 
+
 [profile.dev]
 opt-level = 0
 debug = true
@@ -51,6 +52,7 @@ derivative = "2.2.0"
 concurrent-queue = "1.2.2"
 #sled = { git="https://github.com/spacejam/sled.git", features = ["compression"] }
 
+sled = { version = "0.34.7",  features = ["compression"] }
 
 
 #tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }
