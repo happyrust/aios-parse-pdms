@@ -4,7 +4,11 @@ use crate::shape::pdms_shape::BrepShapeTrait;
 // mod test_file;
 // pub mod sled_local;
 #[cfg(not(target_arch = "wasm32"))]
-pub mod bonsaidb_local;
+pub mod sled_manager;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod tikv_manager;
+
 // pub mod bonsaidb_server;
 pub mod helper;
 pub mod consts;

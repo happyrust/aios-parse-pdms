@@ -54,8 +54,8 @@ use ncollide3d::shape::{Cuboid, ShapeHandle};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use truck_polymesh::stl::IntoSTLIterator;
 use crate::helper::{parse_to_i32, parse_to_u32};
-use crate::parse_increment_data::increment_modify::{check_increase_operate, increment_data_to_db, modify_data_to_db};
-use crate::parse_increment_data::NewDataState;
+// use crate::parse_increment_data::increment_modify::{check_increase_operate, increment_data_to_db, modify_data_to_db};
+// use crate::parse_increment_data::NewDataState;
 use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::query_cata::resolve_desi_comp;
@@ -63,12 +63,14 @@ use clap::{Parser, ValueHint};
 use crate::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
 use std::panic::catch_unwind;
 use std::time::Instant;
+use bincode::deserialize;
 use crate::prim_geo::sphere::Sphere;
 use crate::prim_geo::tubing::PdmsTubing;
 use bonsaidb::core::connection::StorageConnection;
 use bonsaidb::core::connection::LowLevelConnection;
 use futures::StreamExt;
 use log::Level::Debug;
+use sled::{Db, IVec};
 use crate::error_types::AttError::AttNotExist;
 use crate::local_db::DbOption;
 
@@ -110,10 +112,10 @@ pub struct PdmsConfig {
 ///MDB数据库管理
 #[derive(Debug, Clone)]
 pub struct AiosDBManager {
-    pub project_map: DashMap<u32, AiosPdmsProject>,
+    pub project_map: DashMap<u32, AiosPdmsProjectSled>,
     //project hash -> Project DBS
     //project name hash -> Aios DB
-    pub info_db: RefInoDatabase,
+    pub info_db: sled::Db,
     //管理所有refno info的db
     pub storage: Storage,
 
@@ -156,12 +158,10 @@ impl PdmsDataInterface for AiosDBManager {
 
     fn get_tree(&self, project_name: &str, db_no: u32) -> Option<PdmsTree> {
         if let Some(db) = self.project_map.get(&AiosStr(project_name.into()).get_u32_hash()) {
-            let tree_db = db.get_tree_database();
-            if let Some(tree) = PdmsTree::get(db_no as u64, tree_db).unwrap() {
-                return Some(tree.contents);
-            }
+            db.get_tree(db_no).ok()?
+        }else{
+            None
         }
-        return None;
     }
 
 
@@ -198,12 +198,10 @@ impl AiosDBManager {
         if !db_names.contains(&INFO_DB_NAME.to_string()) {
             storage.create_database::<RefnoInfo>(INFO_DB_NAME, true)?;
         }
-        let mut info_db = RefInoDatabase {
-            db: storage.database::<RefnoInfo>(INFO_DB_NAME)?
-        };
+        let info_db = sled::open("AIOS_DBS/ref_info.sled").expect("Create info_db file");
         let project_map = DashMap::new();
         for project in &option.included_projects {
-            let mut proj = AiosPdmsProject::init(project.as_str(), option.project_path.as_str())?;
+            let mut proj = AiosPdmsProjectSled::init(project.as_str(), option.project_path.as_str(), info_db.clone())?;
             let project_str: SmolStr = project.into();
             project_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
@@ -233,7 +231,7 @@ impl AiosDBManager {
         println!("当前解析线程数量: {}", rayon::current_num_threads());
         for project in &self.project_map {
             //完全同步数据
-            project.value().sync_total(&self.info_db, &self.needed_parse_files)?;
+            project.value().sync_total(&self.needed_parse_files)?;
         }
         println!("总共时间: {} ms", time.elapsed().as_millis());
         Ok(true)
@@ -241,13 +239,20 @@ impl AiosDBManager {
 
     ///获得refno的project 名称
     #[inline]
-    pub fn get_refno_info(&self, refno: RefU64) -> Result<Option<RefnoInfo>, bonsaidb::core::Error> {
-        self.info_db.get_refno_info(refno)
+    pub fn get_refno_info(&self, refno: RefU64) -> anyhow::Result<Option<RefnoInfo>> {
+        let bytes = self.info_db.get(&refno.get_0().to_be_bytes())
+            .map_err(|_| anyhow!("get refno error".to_string()))?;
+        match bytes {
+            None => Ok(None),
+            Some(d) => {
+                Ok(Some(bincode::deserialize::<RefnoInfo>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+            }
+        }
     }
 
     /// 获得 children refno
     #[inline]
-    pub fn get_children(&self, refno: RefU64) -> Result<Option<RefU64Vec>, bonsaidb::core::Error> {
+    pub fn get_children(&self, refno: RefU64) -> anyhow::Result<Option<RefU64Vec>> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
             if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_children(refno);
@@ -258,7 +263,7 @@ impl AiosDBManager {
 
     ///获得refno的project 名称
     #[inline]
-    pub fn get_children_attrs(&self, refno: RefU64) -> Result<Vec<AttrMap>, bonsaidb::core::Error> {
+    pub fn get_children_attrs(&self, refno: RefU64) -> anyhow::Result<Vec<AttrMap>>{
         let mut atts = vec![];
         let mut children = self.get_children(refno)?.unwrap_or_default();
         for child in children.drain(..) {
@@ -269,8 +274,9 @@ impl AiosDBManager {
 
     ///获取attr 属性
     #[inline]
-    pub fn get_attr(&self, refno: RefU64) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
+    pub fn get_attr(&self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
+            dbg!(&ref_info);
             if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_attr(refno, ref_info.db_no);
             }
@@ -279,7 +285,7 @@ impl AiosDBManager {
     }
 
     #[inline]
-    pub fn get_attr_with_project(&self, refno: RefU64, project: &str, db_no: u32) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
+    pub fn get_attr_with_project(&self, refno: RefU64, project: &str, db_no: u32) -> anyhow::Result<Option<AttrMap>> {
         if let Some(db) = self.project_map.get(&AiosStr(project.into()).get_u32_hash()) {
             return db.get_attr(refno, db_no);
         }
@@ -287,7 +293,7 @@ impl AiosDBManager {
     }
 
     ///string 被还原了的 属性
-    pub fn get_stringfied_attr(&self, refno: RefU64) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
+    pub fn get_stringfied_attr(&self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
             if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 if let Some(mut attr) = db.get_attr(refno, ref_info.db_no)? {
@@ -305,7 +311,7 @@ impl AiosDBManager {
 
     ///打印用
     #[inline]
-    pub fn get_pretty_attr(&self, refno: RefU64) -> Result<HashMap<String, String>, bonsaidb::core::Error> {
+    pub fn get_pretty_attr(&self, refno: RefU64) -> anyhow::Result<HashMap<String, String>> {
         if let Some(attr) = self.get_stringfied_attr(refno)? {
             return Ok(attr.to_string_hashmap());
         }
@@ -490,8 +496,8 @@ impl AiosDBManager {
         let mut inst_map = HashMap::new();
         let mut level_shape_mgr = HashMap::new();
         let mut type_geom_refs_map = HashMap::new();
-        if let Some(d) = PdmsTree::get(db_code as u64, main_db.get_tree_database())? {
-            let tree = d.contents.0;
+        if let Some(tree) = main_db.get_tree(db_code)? {
+            let tree = tree.0;
             let root_node_id = tree.root_node_id().unwrap();
             let node_id = tree.root_node_id().unwrap();
 
@@ -567,7 +573,7 @@ impl AiosDBManager {
                                     if extrusion.check_valid() {
                                         item_trans = extrusion.get_trans();
                                         if noun == PLOO_NOUN {
-                                            if let Some(sjus) = attr.get_string("SJUS"){
+                                            if let Some(sjus) = attr.get_string("SJUS") {
                                                 if sjus.as_str() == "UTOP" || sjus.as_str() == "DTOP" {
                                                     item_trans.translation = item_trans.translation + Vec3::new(0.0, 0.0, -height);
                                                 }
@@ -898,135 +904,131 @@ impl AiosDBManager {
 
 /// DB 单个数据库管理
 #[derive(Debug, Clone)]
-pub struct AiosPdmsProject {
+pub struct AiosPdmsProjectSled {
     pub project: String,
     pub dir: String,
-    pub storage: Storage,
+    // pub storage: Storage,
     //pdms data directory
-    pub att_db_map: HashMap<u32, Database>,
+    // pub att_db_map: HashMap<u32, Database>,
     //att map 需要做分库, db_number -> database
     pub db_no_list: Vec<u32>,
 
-    pub types_db: Database,
-    pub children_db: Database,
-    pub tree_db: Database,
-    pub info_db: RefInoDatabase,
-    pub string_db: StringDatabase,
+    pub all_att_db: sled::Db,
+    pub types_db: sled::Db,
+    pub children_db: sled::Db,
+    pub tree_db: sled::Db,
+    pub info_db: sled::Db,
+    pub string_db: sled::Db,
     pub mdb_name: Option<String>,
-    pub dbno_version: Database,
+    pub version_db: sled::Db,
 }
 
 
-impl AiosPdmsProject {
+impl AiosPdmsProjectSled {
     ///获得children的数据库
     #[inline]
-    pub fn get_children_database(&self) -> &Database {
-        &self.children_db
+    pub fn get_children_database(&self) -> sled::Db {
+        self.children_db.clone()
     }
 
     ///获得tree的数据库
     #[inline]
-    pub fn get_info_database(&self) -> &RefInoDatabase {
-        &self.info_db
+    pub fn get_info_database(&self) -> sled::Db {
+        self.info_db.clone()
     }
 
     ///获得type refs的数据库
     #[inline]
-    pub fn get_type_refs_database(&self) -> &Database {
-        &self.types_db
+    pub fn get_type_refs_database(&self) -> sled::Db {
+        self.types_db.clone()
     }
 
     ///获得tree的数据库
     #[inline]
-    pub fn get_tree_database(&self) -> &Database {
-        &self.tree_db
+    pub fn get_tree_database(&self) -> sled::Db {
+        self.tree_db.clone()
     }
 
     ///获得strings的数据库
     #[inline]
-    pub fn get_string_database(&self) -> &StringDatabase {
-        &self.string_db
+    pub fn get_string_database(&self) -> sled::Db {
+        self.string_db.clone()
     }
 
-    pub fn init(project: &str, dir: &str) -> Result<Self, bonsaidb::core::Error> {
+    pub fn init(project: &str, dir: &str, info_db: Db) -> anyhow::Result<Self> {
         let cur_project = format!("./AIOS_DBS/{project}");
-        let storage = Storage::open(
-            StorageConfiguration::new(cur_project.as_str())
-                .default_compression(Compression::Lz4)
-                .with_schema::<AttrMap>()?
-                .with_schema::<RefU64Vec>()?
-                .with_schema::<PdmsTree>()?
-                .with_schema::<AiosStr>()?
-                .with_schema::<RefnoInfo>()?
-        )?;
 
-        //需要把所有的db number
-        let mut att_db_map = HashMap::new();
-        let mut db_no_list = Vec::new();
-
-        let db_names = storage.list_databases()?.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
-        for x in &db_names {
-            if let Ok(num) = x.parse::<u32>() {
-                db_no_list.push(num);
-            }
-        }
-        //没有的情况下，需要创建
-        if !db_names.contains(&TREE_DB_NAME.to_string()) {
-            storage.create_database::<PdmsTree>(TREE_DB_NAME, true)?;
-            storage.create_database::<RefU64Vec>(CHILDREN_DB_NAME, true)?;
-            storage.create_database::<RefU64Vec>(TYPES_DB_NAME, true)?;
-            storage.create_database::<AiosStr>(STR_DB_NAME, true)?;
-            storage.create_database::<RefnoInfo>(INFO_DB_NAME, true)?;
-        }
-
-        let tree_db = storage.database::<PdmsTree>(TREE_DB_NAME)?;
-        let children_db = storage.database::<RefU64Vec>(CHILDREN_DB_NAME)?;
-        let types_db = storage.database::<RefU64Vec>(TYPES_DB_NAME)?;
-        let string_db = storage.database::<AiosStr>(STR_DB_NAME)?;
-        let info_db = storage.database::<RefnoInfo>(INFO_DB_NAME)?;
-        // storage.create_database::<DbnoVersion>(DBNO_VERSIONS, true)?;
-        // let version_db = storage.database::<DbnoVersion>(DBNO_VERSIONS)?;
-        let version_db = Database::open::<DbnoVersion>(StorageConfiguration::new("aios.vers"))?;
+        let all_att_db = sled::open(format!("AIOS_DBS/{}/attr.sled", project)).expect("Create db file");
+        let children_db = sled::open(format!("AIOS_DBS/{}/children.sled", project)).expect("Create db file");
+        let types_db = sled::open(format!("AIOS_DBS/{}/type_eles.sled", project)).expect("Create db file");
+        let string_db = sled::open(format!("AIOS_DBS/{}/names.sled", project)).expect("Create db file");
+        let tree_db = sled::open(format!("AIOS_DBS/{}/tree.sled", project)).expect("Create db file");
+        let version_db = sled::open(format!("AIOS_DBS/{}/version.sled", project)).expect("Create db file");
 
         Ok(Self {
             project: project.to_string(),
             dir: dir.to_string(),
-            storage,
-            att_db_map,
-            db_no_list,
+            // storage,
+            db_no_list: vec![],
+            all_att_db,
             types_db,
             children_db,
             tree_db,
-            info_db: RefInoDatabase { db: info_db },
-            string_db: StringDatabase { db: string_db },
+            info_db,
+            string_db,
             mdb_name: None,
-            dbno_version: version_db,
+            version_db,
         })
     }
 
     //按需要打开database
     #[inline]
-    pub fn get_attr(&self, refno: RefU64, db_no: u32) -> Result<Option<AttrMap>, bonsaidb::core::Error> {
-        // if let Some(att_db) = self.att_db_map.get(&db_no) {
-        if let Ok(att_db) = self.storage.database::<AttrMap>(format!("{db_no}").as_str()) {
-            if let Ok(Some(mut d)) = AttrMap::get(refno.get_u32_hash(), &att_db) {
-                return Ok(Some(d.contents));
+    pub fn get_attr(&self, refno: RefU64, db_no: u32) -> anyhow::Result<Option<AttrMap>> {
+        let bytes = self.all_att_db.get(&refno.get_sled_key())
+            .map_err(|_| anyhow!("get attr error".to_string()))?;
+        match bytes {
+            None => Ok(None),
+            Some(d) => {
+                Ok(Some(bincode::deserialize::<AttrMap>(&*d).map_err(|e| anyhow!(e.to_string()))?))
             }
         }
-        Ok(None)
     }
 
     #[inline]
-    pub fn get_string(&self, h: u32) -> Result<Option<AiosStr>, bonsaidb::core::Error> {
-        self.get_string_database().get_string(h)
-    }
-
-    #[inline]
-    pub fn get_children(&self, refno: RefU64) -> Result<Option<RefU64Vec>, bonsaidb::core::Error> {
-        if let Ok(Some(mut d)) = RefU64Vec::get(refno.0, self.get_children_database()) {
-            return Ok(Some(d.contents));
+    pub fn get_string(&self, h: u32) -> anyhow::Result<Option<AiosStr>> {
+        let bytes = self.get_string_database().get(&h.to_be_bytes())
+            .map_err(|_| anyhow!("get string error".to_string()))?;
+        match bytes {
+            None => Ok(None),
+            Some(d) => {
+                Ok(Some(bincode::deserialize::<AiosStr>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+            }
         }
-        Ok(Default::default())
+    }
+
+    #[inline]
+    pub fn get_tree(&self, dbno: u32) -> anyhow::Result<Option<PdmsTree>> {
+        let bytes = self.get_tree_database().get(&dbno.to_be_bytes())
+            .map_err(|_| anyhow!("get string error".to_string()))?;
+        match bytes {
+            None => Ok(None),
+            Some(d) => {
+                Ok(Some(bincode::deserialize::<PdmsTree>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+            }
+        }
+    }
+
+    #[inline]
+    pub fn get_children(&self, refno: RefU64) -> anyhow::Result<Option<RefU64Vec>> {
+        let bytes = self.get_children_database().get(&refno.get_sled_key())
+            .map_err(|_| anyhow!("get string error".to_string()))?;
+
+        match bytes {
+            None => Ok(None),
+            Some(d) => {
+                Ok(Some(bincode::deserialize::<RefU64Vec>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+            }
+        }
     }
 
     //包含自己
@@ -1108,7 +1110,7 @@ impl AiosPdmsProject {
     }
 
     //todo  infos 存储什么的问题，要不要存储dbno
-    pub fn sync_total(&self, external_info_db: &Database, need_parsing_files: &Option<Vec<String>>) -> anyhow::Result<()> {
+    pub fn sync_total(&self, need_parsing_files: &Option<Vec<String>>) -> anyhow::Result<()> {
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
         let project_dir = data_dir.join(&project);
@@ -1121,165 +1123,66 @@ impl AiosPdmsProject {
             let entry = entry.unwrap();
             entry.path()
         }).collect::<Vec<PathBuf>>();
-
-        // let att_db = self.storage.create_database::<AttrMap>("23", true)?;
-        let db = sled::Config::default()
-            .temporary(false)
-            .use_compression(true)
-            .mode(sled::Mode::HighThroughput)
-            .open()?;
-        let att_sled = db.open_tree(format!("{}.sled", self.project.as_str())).expect("Create db file");
-        // let mut att_sled = sled::open(format!("{}.sled", self.project.as_str())).expect("Create db file");
+        let all_att_db = self.all_att_db.clone();
+        let types_db = self.types_db.clone();
+        let tree_db = self.tree_db.clone();
+        let string_db = self.string_db.clone();
+        let inofo_db = self.info_db.clone();
+        let children_db = self.children_db.clone();
+        let version_db = self.version_db.clone();
+        let versions_map = Arc::new(DashMap::new());
         children_files.par_iter().for_each(|path| {
             let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
-            let att_sled = att_sled.clone();
             if !file_name.ends_with("com") && !file_name.ends_with("mis") {
                 if need_parsing_files.is_none() || need_parsing_files.as_ref().unwrap().contains(&file_name) {
                     let file_name = file_name.as_str();
                     println!("path={:?}", file_name);
-                    if let Ok(mut pdms_db_data) = crate::parse_file(&path, &None, file_name, project, "") {
-                        let mut tx = Transaction::default();
-                        for (k, v) in pdms_db_data.all_attr_map {
+                    if let Ok(PdmsDbData {
+                                  all_attr_map,
+                                  ele_id_tree,
+                                  type_ele_map,
+                                  string_lookup,
+                                  refno_info_map,
+                                  children_map,
+                                  db_no,
+                                  field_no,
+                                  version,
+                                  ..
+                              }) = crate::parse_file(&path, &None, file_name, project, "") {
 
-                            att_sled.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        let versions_map = versions_map.clone();
+                        let target_dbno = if field_no == 0 { db_no } else { field_no };
+                        versions_map.insert(target_dbno, version);
 
-                            // att_db.put(&mut wtxn, &BEU64::new(kv.key().0), kv.value());
-                            // tx.push(transaction::Operation::overwrite_serialized::<AttrMap>(
-                            //     kv.key().get_u32_hash(),
-                            //     kv.value(),
-                            // ).unwrap());
+                        for (k, v) in all_attr_map {
+                            all_att_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
                         }
-                        // att_db.apply_transaction(tx).unwrap();
+                        tree_db.insert(&target_dbno.to_be_bytes(), bincode::serialize(&ele_id_tree).unwrap());
+                        for (k, v) in type_ele_map {
+                            types_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        }
+                        let lookup = Arc::try_unwrap(string_lookup.lookup).unwrap();
+                        for (k, v) in lookup {
+                            string_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        }
+                        for (k, v) in refno_info_map {
+                            inofo_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        }
+                        for (k, v) in children_map {
+                            children_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        }
                     }
                 }
             }
         });
 
-        //todo save应该放到一个文件一个文件的处理，而不是全部解析完了，再去处理save
-        //save 另外一个线程处理
-        // if let Ok(mut r) =
-        // parse_pdms_dir(target_dir.as_os_str().to_str().unwrap(), project.as_str(), None, need_parsing_files) {
-        //     dbg!("Parse ok");
-        //     dbg!("Begin saving to database");
-        //     let mut total_lookup = StringLookupTable::default();
-        //     let mut files_version = vec![];
-        //     for (k, PdmsDbData {
-        //         all_attr_map,
-        //         ele_id_tree,
-        //         type_ele_map,
-        //         refno_info_map,
-        //         db_name,
-        //         db_no,
-        //         field_no,
-        //         string_lookup,
-        //         children_map,
-        //         filename,
-        //         version,
-        //         ..
-        //     }) in r {
-        //         let target_dbno = if field_no == 0 { db_no } else { field_no };
-        //         total_lookup.merge(&string_lookup);
-        //         let mut tx = Transaction::default();
-        //         tx.push(transaction::Operation::overwrite_serialized::<PdmsTree>(
-        //             target_dbno as u64,
-        //             &PdmsTree(ele_id_tree),
-        //         ).unwrap());
-        //         self.get_tree_database().apply_transaction(tx)?;
-        //
-        //         // 属性全部插入
-        //         // //dbg!(all_attr_map.len());
-        //         let dbno_str = target_dbno.to_string();
-        //         self.storage.create_database::<AttrMap>(dbno_str.as_str(), true)?;
-        //         let mut attr_db = self.storage.database::<AttrMap>(dbno_str.as_str())?;
-        //
-        //         let mut txs = vec![];
-        //         for (i, (k, v)) in all_attr_map.into_iter().enumerate() {
-        //             if i % 40000usize == 0 {
-        //                 txs.push(Transaction::default());
-        //             }
-        //             txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AttrMap>(
-        //                 k.get_u32_hash(),
-        //                 &v,
-        //             ).unwrap());
-        //         }
-        //         for tx in txs {
-        //             attr_db.apply_transaction(tx)?;
-        //         }
-        //
-        //         let mut txs = vec![];
-        //         for (i, (k, v)) in type_ele_map.into_iter().enumerate() {
-        //             if i % 40000usize == 0 {
-        //                 txs.push(Transaction::default());
-        //             }
-        //             txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
-        //                 k as u64,
-        //                 &v,
-        //             ).unwrap());
-        //         }
-        //         for tx in txs {
-        //             self.get_type_refs_database().apply_transaction(tx)?;
-        //         }
-        //
-        //
-        //         let mut tx = Transaction::default();
-        //         for (refno, v) in children_map {
-        //             tx.push(transaction::Operation::overwrite_serialized::<RefU64Vec>(
-        //                 refno.0,
-        //                 &v,
-        //             ).unwrap());
-        //         }
-        //         self.get_children_database().apply_transaction(tx)?;
-        //
-        //
-        //         let mut txs = vec![];
-        //         for (i, (k, v)) in refno_info_map.into_iter().enumerate() {
-        //             if i % 40000usize == 0 {
-        //                 txs.push(Transaction::default());
-        //             }
-        //             txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<RefnoInfo>(
-        //                 k,
-        //                 &v,
-        //             ).unwrap());
-        //         }
-        //         for tx in txs {
-        //             external_info_db.apply_transaction(tx)?;
-        //         }
-        //
-        //         files_version.push(DbnoVersion { dbno: db_no, version });
-        //     }
-        //
-        //     let mut txs = vec![];
-        //     for (i, kv) in (&*total_lookup.lookup).iter().enumerate() {
-        //         if i % 40000usize == 0 {
-        //             txs.push(Transaction::default());
-        //         }
-        //         txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<AiosStr>(
-        //             *kv.key(),
-        //             kv.value(),
-        //         ).unwrap());
-        //     }
-        //     for tx in txs {
-        //         self.get_string_database().apply_transaction(tx)?;
-        //     }
-        //     let mut txs = vec![];
-        //     for (i, v) in files_version.into_iter().enumerate() {
-        //         if i % 40000usize == 0 {
-        //             txs.push(Transaction::default());
-        //         }
-        //         txs.last_mut().unwrap().push(transaction::Operation::overwrite_serialized::<DbnoVersion>(
-        //             v.dbno,
-        //             &v,
-        //         ).unwrap());
-        //     }
-        //     for tx in txs {
-        //         self.dbno_version.apply_transaction(tx)?;
-        //     }
-        // }
-
+        for kv in versions_map.as_ref() {
+            version_db.insert(&kv.key().to_be_bytes(), bincode::serialize(kv.value()).unwrap());
+        }
         Ok(())
     }
 
-    pub fn inc_sync(&mut self, external_info_db: &Database) -> anyhow::Result<()> {
+    pub fn inc_sync(&mut self, external_info_db: sled::Tree) -> anyhow::Result<()> {
         let project = &self.project;
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
@@ -1296,85 +1199,86 @@ impl AiosPdmsProject {
         }).collect::<Vec<PathBuf>>();
 
 
-        for path in children_files {
-            let file_name = path.file_name().unwrap().to_str().unwrap();
-            if !file_name.ends_with("com") && !file_name.ends_with("mis") {
-                println!("path={:?}", &path);
-                self.increment_parse(project, &path)?;
-            }
-        };
+        // for path in children_files {
+        //     let file_name = path.file_name().unwrap().to_str().unwrap();
+        //     if !file_name.ends_with("com") && !file_name.ends_with("mis") {
+        //         println!("path={:?}", &path);
+        //         self.increment_parse(project, &path)?;
+        //     }
+        // };
         Ok(())
     }
     ///获得下一个Element
     #[inline]
-    pub fn next(&mut self) -> Result<(), bonsaidb::core::Error> {
+    pub fn next(&mut self) -> anyhow::Result<()> {
         Ok(())
     }
 
-    pub fn increment_parse(&self, project: &str, path: &PathBuf) -> anyhow::Result<()> {
-        let filename = SmolStr::new(path.file_name().unwrap().to_str().unwrap());
-        let mut file = File::open(path)?;
-        let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf)?;
-        let input = &buf[..];
-        let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-
-        let (db_type, file_version, mut dbno) = parse_file_basic_info(input);
-        let db_no_str = dbno.to_string();
-        let mut field_no = 0;
-        if db_type.as_str() != "SYST" && !filename.contains(&db_no_str) {
-            let _chars_len = db_no_str.len();
-            let l = filename.len();
-            // //dbg!(&filename);
-            let end = filename.chars().position(|x| x == '_').unwrap_or(l);
-            field_no = filename[project.len()..end].parse::<u32>().unwrap_or_default();
-        }
-        dbno = if field_no == 0 { dbno } else { field_no };
-
-        if let Some(dbno_version) = DbnoVersion::get(dbno, &self.dbno_version)? {
-            let mut version = dbno_version.contents.version; // 从数据库中获取的 version
-            if version != file_version && version < file_version { // 如果文件的版本和数据库中存储的版本对不上 就进行增量解析
-                loop {
-                    let mut v = vec![0u8, 0, 0, 3];
-                    v.append(&mut version.to_be_bytes().to_vec());
-
-                    if let Some(pos) = rfind_iter(input, &v).next() {
-                        version = parse_to_u32(&input[pos + 20..pos + 24]);
-                        let b_version = parse_to_u32(&input[pos + 36..pos + 40]);
-                        if b_version == version {
-                            version -= 1;
-                        }
-                        let data_version = version - 4; // 参考号的版本是大版本-4 ,有遇到是-5的情况，若是-5则查不到对应的位置
-                        if let Some(refno_pos) = rfind_iter(&input[..pos], &data_version.to_be_bytes()).next() { // 通过version找到他的参考号
-                            let refno = &input[refno_pos - 8..refno_pos];
-                            let mut iter = rfind_iter(&input[..refno_pos - 8], refno); // todo 调整为在某个范围内查询
-                            while let Some(data_pos) = iter.next() { // 找到的参考号是文件里所有的
-                                let attr_type = parse_to_i32(&input[data_pos + 8..data_pos + 12]);
-                                if NOUN_TYPES_MAP.contains_key(&attr_type) {
-                                    if let Some(state) = check_increase_operate(input, data_pos, refno) {
-                                        match state {
-                                            NewDataState::Modify => { modify_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self)? }
-                                            NewDataState::Increase => { increment_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self)? }
-                                            // NewDataState::Delete => { delete_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800],  &pdms_database_info, dbno as u64,&dbs)? }
-                                            _ => {
-                                                // //dbg!("todo delete");
-                                                ()
-                                            } // todo delete先不管，先把modify 和 increase跑通
-                                        }
-                                        // update_version_in_db(filename.clone(), version, &mut interface)?               ;
-                                    }
-                                    break;
-                                }
-                            }
-                        }
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
+    // pub fn increment_parse(&self, project: &str, path: &PathBuf) -> anyhow::Result<()> {
+    //     let filename = SmolStr::new(path.file_name().unwrap().to_str().unwrap());
+    //     let mut file = File::open(path)?;
+    //     let mut buf: Vec<u8> = Vec::new();
+    //     file.read_to_end(&mut buf)?;
+    //     let input = &buf[..];
+    //     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    //
+    //     let (db_type, file_version, mut dbno) = parse_file_basic_info(input);
+    //     let db_no_str = dbno.to_string();
+    //     let mut field_no = 0;
+    //     if db_type.as_str() != "SYST" && !filename.contains(&db_no_str) {
+    //         let _chars_len = db_no_str.len();
+    //         let l = filename.len();
+    //         // //dbg!(&filename);
+    //         let end = filename.chars().position(|x| x == '_').unwrap_or(l);
+    //         field_no = filename[project.len()..end].parse::<u32>().unwrap_or_default();
+    //     }
+    //     dbno = if field_no == 0 { dbno } else { field_no };
+    //
+    //     if let Some(dbno_version) = DbnoVersion::get(dbno, &self.version_db)? {
+    //         let mut version = dbno_version.contents.version; // 从数据库中获取的 version
+    //         if version != file_version && version < file_version { // 如果文件的版本和数据库中存储的版本对不上 就进行增量解析
+    //             loop {
+    //                 let mut v = vec![0u8, 0, 0, 3];
+    //                 v.append(&mut version.to_be_bytes().to_vec());
+    //
+    //                 if let Some(pos) = rfind_iter(input, &v).next() {
+    //                     version = parse_to_u32(&input[pos + 20..pos + 24]);
+    //                     let b_version = parse_to_u32(&input[pos + 36..pos + 40]);
+    //                     if b_version == version {
+    //                         version -= 1;
+    //                     }
+    //                     let data_version = version - 4; // 参考号的版本是大版本-4 ,有遇到是-5的情况，若是-5则查不到对应的位置
+    //                     if let Some(refno_pos) = rfind_iter(&input[..pos], &data_version.to_be_bytes()).next() { // 通过version找到他的参考号
+    //                         let refno = &input[refno_pos - 8..refno_pos];
+    //                         let mut iter = rfind_iter(&input[..refno_pos - 8], refno); // todo 调整为在某个范围内查询
+    //                         while let Some(data_pos) = iter.next() { // 找到的参考号是文件里所有的
+    //                             let attr_type = parse_to_i32(&input[data_pos + 8..data_pos + 12]);
+    //                             if NOUN_TYPES_MAP.contains_key(&attr_type) {
+    //                                 if let Some(state) = check_increase_operate(input, data_pos, refno) {
+    //                                     match state {
+    //                                         NewDataState::Modify => { modify_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self)? }
+    //                                         NewDataState::Increase => { increment_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800], &pdms_database_info, dbno as u64, &self)? }
+    //                                         // NewDataState::Delete => { delete_data_to_db(&input[data_pos - 4..data_pos - 4 + 0x800],  &pdms_database_info, dbno as u64,&dbs)? }
+    //                                         _ => {
+    //                                             // //dbg!("todo delete");
+    //                                             ()
+    //                                         } // todo delete先不管，先把modify 和 increase跑通
+    //                                     }
+    //                                     // update_version_in_db(filename.clone(), version, &mut interface)?               ;
+    //                                 }
+    //                                 break;
+    //                             }
+    //                         }
+    //                     }
+    //                 } else {
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     Ok(())
+    // }
+    //
 }
 
 

@@ -122,6 +122,8 @@ pub struct RefU64(pub u64);
 //     }
 // }
 
+
+
 impl Deref for RefU64 {
     type Target = u64;
 
@@ -165,6 +167,12 @@ impl From<&[u8]> for RefU64 {
 }
 
 impl RefU64 {
+
+    #[inline]
+    pub fn get_sled_key(&self) -> [u8; 8]{
+        self.0.to_be_bytes()
+    }
+
     #[inline]
     pub fn get_0(&self) -> u32 {
         let bytes = self.0.to_be_bytes();
@@ -778,6 +786,7 @@ impl PdmsTree {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct PdmsTree(pub Tree<EleNode>);
+
 
 impl Collection for PdmsTree {
     type PrimaryKey = u64;

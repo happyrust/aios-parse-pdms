@@ -486,8 +486,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();
             let pos = entry.pos;
-            let mut string_lookup = string_lookup.clone();
-            let noun_attr_info_map = noun_attr_info_map.clone();
+            let string_lookup = string_lookup.clone();
+            // let noun_attr_info_map = noun_attr_info_map.clone();
             let all_attr_map = all_attr_map.clone();
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
