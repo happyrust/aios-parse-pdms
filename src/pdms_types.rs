@@ -1,3 +1,4 @@
+use std::cell::Ref;
 use crate::consts::UNSET_STR;
 use crate::pdms_types::AttrVal::{
     BoolArrayType, BoolType, DoubleArrayType, DoubleType, ElementType, IntArrayType, IntegerType,
@@ -28,6 +29,7 @@ use std::vec::IntoIter;
 use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
 use bevy_inspector_egui::Inspectable;
+use bonsaidb::core::key::KeyEncoding;
 use egui::Widget;
 use futures::future::ok;
 // use bevy_egui::egui;
@@ -111,6 +113,12 @@ pub struct RefU64(pub u64);
 //         context: &mut bevy_inspector_egui::Context,
 //     ) -> bool {
 //         true
+//     }
+// }
+
+// impl AsRef<[u8]> for RefU64{
+//     fn as_ref(&self) -> &[u8] {
+//         &self.0.to_be_bytes()
 //     }
 // }
 
@@ -1047,7 +1055,7 @@ impl PdmsMeshMgr {
     }
 
     pub fn serialize_to_bin_file(&self, db_code: u32) -> bool {
-        let mut file = File::create(format!(r"D:\aios_workspace\bevy_editor_pls\target\debug\examples\PdmsMeshMgr_{}.bin", db_code)).unwrap();
+        let mut file = File::create(format!(r"PdmsMeshMgr_{}.bin", db_code)).unwrap();
         let serialized = bincode::serialize(&self).unwrap();
         file.write_all(serialized.as_slice()).unwrap();
         true

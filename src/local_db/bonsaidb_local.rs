@@ -1122,27 +1122,34 @@ impl AiosPdmsProject {
             entry.path()
         }).collect::<Vec<PathBuf>>();
 
-        let att_db = self.storage.create_database::<AttrMap>("23", true)?;
+        // let att_db = self.storage.create_database::<AttrMap>("23", true)?;
+        let db = sled::Config::default()
+            .temporary(false)
+            .use_compression(true)
+            .mode(sled::Mode::HighThroughput)
+            .open()?;
+        let att_sled = db.open_tree(format!("{}.sled", self.project.as_str())).expect("Create db file");
+        // let mut att_sled = sled::open(format!("{}.sled", self.project.as_str())).expect("Create db file");
         children_files.par_iter().for_each(|path| {
-            // let att_db = att_db.clone();
-            // let att_db_lock = att_db.lock().unwrap();
-            // let mut wtxn = env.write_txn().unwrap();
             let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
-            let att_db = att_db.clone();
+            let att_sled = att_sled.clone();
             if !file_name.ends_with("com") && !file_name.ends_with("mis") {
                 if need_parsing_files.is_none() || need_parsing_files.as_ref().unwrap().contains(&file_name) {
                     let file_name = file_name.as_str();
                     println!("path={:?}", file_name);
                     if let Ok(mut pdms_db_data) = crate::parse_file(&path, &None, file_name, project, "") {
                         let mut tx = Transaction::default();
-                        for kv in &pdms_db_data.all_attr_map {
+                        for (k, v) in pdms_db_data.all_attr_map {
+
+                            att_sled.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+
                             // att_db.put(&mut wtxn, &BEU64::new(kv.key().0), kv.value());
-                            tx.push(transaction::Operation::overwrite_serialized::<AttrMap>(
-                                kv.key().get_u32_hash(),
-                                kv.value(),
-                            ).unwrap());
+                            // tx.push(transaction::Operation::overwrite_serialized::<AttrMap>(
+                            //     kv.key().get_u32_hash(),
+                            //     kv.value(),
+                            // ).unwrap());
                         }
-                        att_db.apply_transaction(tx).unwrap();
+                        // att_db.apply_transaction(tx).unwrap();
                     }
                 }
             }

@@ -71,6 +71,7 @@ impl BrepShapeTrait for Dish {
         let v2 = builder::vertex(p1.point3());
 
         let axis = ref_axis.cross(rot_axis);
+        // builder::circle_arc()
         let curve = builder::circle_arc_with_center(center.point3(), &v2, &v1, axis.vector3(), Rad(theta as f64));
         let wire: Wire = vec![builder::line(&v0, &v2), curve /*builder::line(&v1, &v0)*/].into();
         let up_axis = rot_axis.vector3();
