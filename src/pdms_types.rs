@@ -871,7 +871,7 @@ impl Inspectable for AttrVal {
         let mut changed = false;
         match self {
             StringType(s) | ElementType(s) | WordType(s) => {
-                s.as_str().ui(ui, Default::default(), context);
+                s.ui(ui, Default::default(), context);
             }
             IntegerType(d) => {
                 d.ui(ui, Default::default(), context);
@@ -880,7 +880,7 @@ impl Inspectable for AttrVal {
                 d.ui(ui, Default::default(), context);
             }
             RefU64Type(r) => {
-                r.to_refno_str().as_str().ui(ui, Default::default(), context);
+                r.to_refno_str().ui(ui, Default::default(), context);
             }
             Vec3Type(r) => {
                 Vec3::new(r[0] as f32, r[1] as f32, r[2] as f32).ui(

@@ -116,8 +116,6 @@ pub struct AiosDBManager {
     //project hash -> Project DBS
     //project name hash -> Aios DB
     pub info_db: sled::Db,
-    //管理所有refno info的db
-    pub storage: Storage,
 
     pub projects: Vec<String>,
 
@@ -164,7 +162,6 @@ impl PdmsDataInterface for AiosDBManager {
         }
     }
 
-
     fn get_name(&self, refno: RefU64) -> SmolStr {
         "unset".into()
     }
@@ -184,20 +181,7 @@ impl PdmsDataInterface for AiosDBManager {
 impl AiosDBManager {
     ///初始化
     pub fn init(option: &DbOption) -> anyhow::Result<AiosDBManager> {
-        let extra_storage_name = format!("./AIOS_DBS/AIOS_Extra");
         let dir = option.project_path.as_str();
-        let storage = Storage::open(
-            StorageConfiguration::new(extra_storage_name.as_str())
-                .default_compression(Compression::Lz4)
-                .with_schema::<AiosStr>()?
-                .with_schema::<RefnoInfo>()?
-        )?;
-
-        let db_names = storage.list_databases()?.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
-        //dbg!(&db_names);
-        if !db_names.contains(&INFO_DB_NAME.to_string()) {
-            storage.create_database::<RefnoInfo>(INFO_DB_NAME, true)?;
-        }
         let info_db = sled::open("AIOS_DBS/ref_info.sled").expect("Create info_db file");
         let project_map = DashMap::new();
         for project in &option.included_projects {
@@ -208,7 +192,6 @@ impl AiosDBManager {
         let mut mgr = AiosDBManager {
             project_map,
             info_db,
-            storage,
             projects: option.included_projects.clone(),
             needed_parse_files: option.included_db_files.clone(),
             project_path: option.project_path.clone(),

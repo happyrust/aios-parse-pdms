@@ -136,11 +136,12 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     let mut expression_data = &input[..];
     // 这是表达式数字的起始标志
     let mut result_stack = vec![];
-    while expression_data.len() >= 8 && (&expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] ||
-        &expression_data[..4] == &[0x0, 0x0, 0x0, 0x6A] ||
-        &expression_data[..3] == &[0x0, 0x0, 0x3] ||
-        &expression_data[..4] == &[0x0, 0x0, 0x0, 0x3]) {
-        if &expression_data[..8] == &[0x0, 0x0, 0x0, 0x65, 0x0, 0x0, 0x0, 0x6] {
+    let check_val1 = parse_to_i32(&expression_data[..4]);
+    let check_val2 = parse_to_i32(&expression_data[4..8]);
+    let number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
+    while expression_data.len() >= 8 && ( number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3]) {
+        //解析数值
+        if number_flag {
             expression_data = &expression_data[8..];
             let num_flag = parse_to_i16(&expression_data[8..10]);
             let value = if num_flag == 0i16{
@@ -247,11 +248,6 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                 if len >= cnt {
                     symbol = dynfmt::SimpleCurlyFormat.format(op_str, &result_stack[len-cnt..]).unwrap_or_default().to_string();
                     result_stack.drain(len-cnt..);
-                }else{
-                    // dbg!(&refno);
-                    // dbg!(cnt);
-                    // dbg!(op_str);
-                    // dbg!(&result_stack);
                 }
             }
             match &expression_data[..4] {
@@ -321,8 +317,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
 pub fn parse_xyz_data(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String> {
     let coordinate = match_explicit_attribute_to_string(parse_to_u32(&input[..4]));
     let data_len = parse_to_u32(&input[4..8]) as usize;
-    // println!("input={:#4X?}",&input[4..data_len * 4]);
-    let data = parse_expression_func(&input[8..(data_len + 1) * 4], refno)?.1;
+    let data = parse_expression_func(&input[12..(data_len + 1) * 4], refno)?.1;
     Ok((&input[data_len * 4 + 4..], format!("{} ( {} ) ", coordinate, data)))
 }
 
@@ -388,7 +383,6 @@ pub fn get_expression_of_func(input: &[u8]) -> String {
 
 #[inline]
 pub fn times_keep_f32_two_decimal_place(input: i32) -> f32 {
-    //let times=(((times as f32)/40.0f32 ) * 100.0 ).round() / 100.0;
     let input = input as f32;
     let result = input / 40.0f32 * 100.0;
     let b_seven = result as i32 % 10 == 7 && result < 100.0;

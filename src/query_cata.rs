@@ -45,6 +45,7 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
     //     dbg!(scom_ref.to_refno_str());
     // }
     let scom_info = query_scom_info(scom_ref, interface)?;
+    dbg!(&scom_info.axis_params);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
 
     let mut desp = attr_map.get_f64_vec("DESI").unwrap_or_default();

@@ -87,14 +87,15 @@ crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
 hexasphere = "7.0.0"
 #rug = "1.14.0"
-#bevy-inspector-egui = { path = "../bevy-inspector-egui" }
-#bevy = { path = "../bevy", default-features = true }
-bevy = "0.7.0"
-bevy_egui = "0.13.0"
-bevy-inspector-egui = "0.10.0"
+bevy-inspector-egui = { path = "../bevy-inspector-egui" }
+bevy = { path = "../bevy", default-features = true }
+bevy_egui = { path="../bevy_egui", default-features = false, features = ["open_url"] }
+#bevy = "0.7.0"
+#bevy_egui = "0.13.0"
+#bevy-inspector-egui = "0.10.0"
 #bevy_utils = { path = "../bevy/crates/bevy_utils" }
 #egui = { path = "../egui/egui" }
-egui = "0.17.0"
+egui = "0.16.0"
 
 id_tree = { version = "1.8.0", features = ["serde_support"] }
 smol_str = { version = "0.1.22", features = ["serde"] }
@@ -104,10 +105,8 @@ rand = "*"
 anyhow = "1.0"
 env_logger = "*"
 thiserror = "*"
-#bevy_egui = { path="../bevy_egui", default-features = false, features = ["open_url"] }
-
 transmog-bincode = "0.1"
-#bevy-inspector-egui = {path = "../bevy-inspector-egui"}
+
 
 truck-base = { version = "0.2.0", path = "../truck/truck-base" }
 truck-geotrait = { version = "0.1.0", path = "../truck/truck-geotrait" }
