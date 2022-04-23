@@ -136,9 +136,9 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     let mut expression_data = &input[..];
     // 这是表达式数字的起始标志
     let mut result_stack = vec![];
-    let check_val1 = parse_to_i32(&expression_data[..4]);
-    let check_val2 = parse_to_i32(&expression_data[4..8]);
-    let number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
+    let mut check_val1 = parse_to_i32(&expression_data[..4]);
+    let mut check_val2 = parse_to_i32(&expression_data[4..8]);
+    let mut number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
     while expression_data.len() >= 8 && ( number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3]) {
         //解析数值
         if number_flag {
@@ -307,6 +307,13 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                 let result = format!("{}", result_stack.pop().unwrap_or_default());
                 return Ok((input,  result.into()));
             }
+        }
+        if expression_data.len() >=8 {
+            check_val1 = parse_to_i32(&expression_data[..4]);
+            check_val2 = parse_to_i32(&expression_data[4..8]);
+            number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
+        }else{
+            break;
         }
     }
     let result = format!("{}", result_stack.pop().unwrap_or("".to_string()).trim());

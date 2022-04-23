@@ -482,16 +482,16 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             version,
                             name_hash,
                         }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map, &string_lookup) {
-                if !all_attr_map.contains_key(&refno) {
+                // if !all_attr_map.contains_key(&refno) {
                     all_attr_map.insert(refno, attr_data_map);
                     type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
                     let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
-                    refno_info_map.entry(ref_0).or_insert(RefnoInfo {
+                    refno_info_map.entry(ref_0).or_insert( RefnoInfo {
                         ref_0,
                         project_hash,
                         db_no,
                     });
-                }
+                // }
             }
         }
     });
