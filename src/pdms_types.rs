@@ -1222,8 +1222,6 @@ pub struct EleNode {
     pub owner: RefU64,
     pub name_hash: AiosStrHash,
     pub noun: u32,
-    pub version: u32,
-    // pub children_count: usize,
 }
 
 /// 每个dbno对应的version

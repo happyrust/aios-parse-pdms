@@ -40,6 +40,7 @@ use nalgebra_glm::{e, round};
 use serde_json::Value::Bool;
 use smol_str::SmolStr;
 use core::result::Result::Ok;
+use std::default::default;
 use crate::consts::{ATT_BANG, ATT_LEVE, ATT_PTS, UNSET_STR};
 use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
 use anyhow::*;
@@ -62,6 +63,8 @@ pub struct PdmsDbData {
     pub refno_info_map: DashMap<u32, RefnoInfo>,
     /// 所有包含子节点的map
     pub children_map: HashMap<RefU64, RefU64Vec>,
+    /// refno 到 NodeId的映射表
+    pub refno_node_id_map: HashMap<RefU64, NodeId>,
     ///字符串查找hash表
     pub string_lookup: StringLookupTable,
     ///数据文件名
@@ -434,31 +437,29 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         owner,
         name_hash,
         noun,
-        version,
-        // children_count: children.0.len(),
     };
     all_attr_map.insert(refno, attr_data_map);
     type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
     let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
-    let mut ele_node_id_map = HashMap::new();
-    ele_node_id_map.insert(refno, root_id.clone());
+    let mut refno_node_id_map = HashMap::new();
+    refno_node_id_map.insert(refno, root_id.clone());
     let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
             ref_0,
             project_hash: string_lookup.add_str(project),
             db_no: if field_no == 0 { db_no } else { field_no },  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
-            // node_id: root_id.clone(),
-            // children: children.iter().map(|c| c.get_u32_hash()).collect(),
         });
     if children.len() > 0 {
         children_map.insert(refno, children.clone());
     }
 
     let mut memb_time = Instant::now();
-    let mut pending_refnos = children.0;
+    let mut pending_refnos = vec![root_refno.clone()];
+
     dbg!(refno_table_map.len());
     let mut all_refnos = HashSet::new();
+
     while !pending_refnos.is_empty() {
         let refno = pending_refnos.pop().unwrap();
         if all_refnos.contains(&refno) { continue; }
@@ -469,6 +470,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             let membs = parse_ele_membs(&input[pos - 4..]);
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
+                    if let Some(parent_id) = refno_node_id_map.get(&refno) {
+                        let id = ele_id_tree.insert(Node::new(EleNode{
+                            refno: *memb,
+                            ..default()
+                        }), UnderNode(parent_id)).unwrap();
+                        refno_node_id_map.insert(*memb, id);
+                    }
                     pending_refnos.push(*memb);
                 }
             }
@@ -476,7 +484,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         }
     }
     println!("Parsing children members cost: {} ms", memb_time.elapsed().as_millis());
-    println!("All refnos count: {}", all_refnos.len() + 1);
+    println!("All refnos count: {}", all_refnos.len());
     let noun_attr_info_map = Arc::new(database_info.noun_attr_info_map.clone());
     let mut eles_time = Instant::now();
     let project_hash = string_lookup.add_str(project);
@@ -514,26 +522,39 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         }
     });
     println!("解析属性所耗时间: {:?} ms", eles_time.elapsed().as_millis());
-    let mut parent_id = root_id;
-    dbg!(children_map.len());
-    for (k, children) in &children_map {
-        if ele_node_id_map.contains_key(k) {
-            let parent_id = ele_node_id_map[k].clone();
-            for c in &children.0 {
-                if let Some(att) = &all_attr_map.get(c) {
-                    let ele_node = EleNode {
-                        refno: *c,
-                        owner: *k,
-                        name_hash: att.get_name_hash(),
-                        noun: db1_hash(att.get_type()),
-                        version: 0,
-                    };
-                    let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
-                    ele_node_id_map.insert(*c, cur_id);
-                }
-            }
+
+    //直接遍历tree
+    //     let cur_node = ele_id_tree.get_mut(&cur_node_id).unwrap();
+    //     let d = cur_node.data();
+    for (k, v) in &refno_node_id_map {
+        let cur_node = ele_id_tree.get_mut(v).unwrap();
+        if let Some(att) = &all_attr_map.get(k) {
+            let d = cur_node.data_mut();
+            d.noun = db1_hash(att.get_type());
+            d.owner = att.get_owner().unwrap_or_default();
+            d.name_hash = att.get_name_hash();
         }
     }
+
+    // for (k, children) in &children_map {
+    //     if refno_node_id_map.contains_key(k) {
+    //         let parent_id = refno_node_id_map[k].clone();
+    //         for c in &children.0 {
+    //             if let Some(att) = &all_attr_map.get(c) {
+    //                 let ele_node = EleNode {
+    //                     refno: *c,
+    //                     owner: *k,
+    //                     name_hash: att.get_name_hash(),
+    //                     noun: db1_hash(att.get_type()),
+    //                     version: 0,
+    //                 };
+    //                 let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
+    //                 refno_node_id_map.insert(*c, cur_id);
+    //             }
+    //         }
+    //     }
+    // }
+
     println!("Tree nodes height: {}", ele_id_tree.height());
     // println!("Parsing children attrs cost: {} ms", eles_time.elapsed().as_millis());
     println!("DB {} attrs count: {}", file_name, all_attr_map.len());
@@ -550,6 +571,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         all_attr_map: Arc::try_unwrap(all_attr_map).unwrap(),
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
         children_map,
+        refno_node_id_map,
         string_lookup,
         filename: file_name.into(),
         version: file_version,

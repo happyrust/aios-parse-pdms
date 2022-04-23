@@ -93,7 +93,7 @@ fn main() -> AiosDbError {
     // ).unwrap();
     //
     let mut db_option = DbOption {
-        total_sync: false,
+        total_sync: true,
         incr_sync: false,
         // project_path: "/Volumes/DPC/aba".to_string(),
         project_path: "D:/aba".to_string(),
@@ -109,12 +109,11 @@ fn main() -> AiosDbError {
 
     let mut time = Instant::now();
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
-
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
 
     let refno = RefU64::from_two_nums(16501, 1156);
-    dbg!(mgr.get_stringfied_attr(refno));
-    return Ok(());
+    // dbg!(mgr.get_stringfied_attr(refno));
+    // return Ok(());
 
     cache_viewer_data(&mut mgr, &db_option);
     return Ok(());

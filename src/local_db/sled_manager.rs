@@ -276,7 +276,6 @@ impl AiosDBManager {
     #[inline]
     pub fn get_attr(&self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
-            dbg!(&ref_info);
             if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_attr(refno, ref_info.db_no);
             }
@@ -504,10 +503,9 @@ impl AiosDBManager {
             if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
                 while let Some(mut cur_node_id) = nodes.next() {
                     let cur_node = tree.get(&cur_node_id).unwrap();
-                    // //dbg!(cur_node);
                     let d = cur_node.data();
                     let noun = d.noun;
-                    let attr = self.get_attr(d.refno)?.ok_or(bonsaidb::core::Error::Database("No attr map".to_string()))?;
+                    let attr = self.get_attr(d.refno)?.ok_or(anyhow!("No attr map".to_string()))?;
 
                     // if d.owner != RefU64::from_two_nums(16501, 235)
                     if d.refno != RefU64::from_two_nums(16501, 1156)
