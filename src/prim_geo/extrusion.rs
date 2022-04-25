@@ -131,7 +131,6 @@ impl Extrusion {
             let pbax_pt = v[0] + pbax_dir * b_len;
             builder::vertex(pbax_pt.point3())
         };
-        //dbg!(&origin_vert);
         let mut pre_vert = origin_vert.clone();
         //从下一个点开始
         for i in 1..=ll {
@@ -272,24 +271,16 @@ impl BrepShapeTrait for Extrusion {
             pre_hash = hash;
             retain
         });
-        //dbg!(new_verts.len());
-        //dbg!(self);
         let ll = new_verts.len();
-        // let mut verts: Vec<_> = self.loop_verts.iter().map(|x| builder::vertex(x.point3())).collect();
         if ll < 3 {
             return None;
         }
-
         let mut wire = Wire::new();
-        // dbg!(&self.cur_type);
-        // dbg!(&new_verts);
         if let CurveType::Spine(thick) = self.cur_type {
             wire = self.gen_spine_wire(new_verts, thick).ok()?;
         } else {
             wire = self.gen_fillet_wire(new_verts).ok()?;
         };
-
-        // builder::try_attach_plane(&[wire.clone()]).unwrap();
         if let Ok(mut face) = builder::try_attach_plane(&[wire]) {
             if let Surface::Plane(plane) = face.get_surface() {
                 let extrude_dir = self.pbax_dir.normalize().vector3();
@@ -312,7 +303,7 @@ impl BrepShapeTrait for Extrusion {
             hash_vec3::<DefaultHasher>(v, &mut hasher);
         });
         self.fradius_vec.iter().for_each(|v| {
-            hash_f32::<DefaultHasher>(v, &mut hasher);
+            hash_f32::<DefaultHasher>(*v, &mut hasher);
         });
         hasher.finish()
     }

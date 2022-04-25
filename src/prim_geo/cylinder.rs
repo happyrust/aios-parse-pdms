@@ -158,7 +158,6 @@ impl BrepShapeTrait for SCylinder {
         }
         None
     }
-
     fn hash_mesh_params(&self) -> u64{
         if self.phei < 0.0 {
             102u64
@@ -166,12 +165,9 @@ impl BrepShapeTrait for SCylinder {
             2u64 //代表cylinder
         }
     }
-
-
     fn gen_unit_shape(&self) -> PdmsMesh{
         SCylinder::default().gen_mesh(Some(0.001))
     }
-
     #[inline]
     fn get_scaled_vec3(&self) -> Vec3 {
         Vec3::new(self.pdia, self.pdia, self.phei.abs())

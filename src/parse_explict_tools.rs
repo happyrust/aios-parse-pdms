@@ -344,7 +344,7 @@ pub fn parse_explicit_num_00(data: &[u8]) -> IResult<&[u8], f64> {
     let times = 2_f32.powf((5i16 - times) as f32) as f64;
     let (_, a) = be_i32(&data[..4])?;
     let (_, b) = be_i32(&data[4..8])?;
-    let value = f64::trunc(((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 100.0) / 100.0;
+    let value = (((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 1000.0).round() / 1000.0;
     Ok((data, value))
 }
 

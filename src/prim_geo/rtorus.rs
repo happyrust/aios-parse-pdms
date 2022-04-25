@@ -13,6 +13,7 @@ use fixed::types::I24F8;
 use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3, RotateInfo};
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
+use crate::tool::hash_tool::hash_f32;
 
 #[derive(Component, Debug, Clone,  Reflect)]
 #[reflect(Component)]
@@ -149,10 +150,8 @@ impl BrepShapeTrait for RTorus {
 
     fn hash_mesh_params(&self) -> u64{
         let mut hasher = DefaultHasher::new();
-        let rins = I24F8::from_num(self.rins / self.rout);
-        let beta = I24F8::from_num(self.angle);
-        rins.hash(&mut hasher);
-        beta.hash(&mut hasher);
+        hash_f32(self.rins / self.rout, &mut hasher);
+        hash_f32(self.angle, &mut hasher);
         hasher.finish()
     }
 

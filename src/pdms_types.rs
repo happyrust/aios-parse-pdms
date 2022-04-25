@@ -707,7 +707,8 @@ impl AttrMap {
         };
     }
 
-    pub fn get_attr_strings(&self, keys: &[&str]) -> Vec<SmolStr> {
+    /// 获取string属性数组，忽略为空的值
+    pub fn get_attr_strings_without_default(&self, keys: &[&str]) -> Vec<SmolStr> {
         let mut results = vec![];
         for &attr_name in keys {
             if let Some(result) = self.get_val(attr_name) {
@@ -716,6 +717,21 @@ impl AttrMap {
                         if v != "" {
                             results.push(v.trim_matches('\0').to_owned().clone().into());
                         }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        results
+    }
+
+    pub fn get_attr_strings(&self, keys: &[&str]) -> Vec<SmolStr> {
+        let mut results = vec![];
+        for &attr_name in keys {
+            if let Some(result) = self.get_val(attr_name) {
+                match result {
+                    AttrVal::StringType(v) => {
+                        results.push(v.trim_matches('\0').to_owned().clone().into());
                     }
                     _ => {}
                 }

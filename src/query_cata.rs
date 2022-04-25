@@ -40,14 +40,8 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
         }
     };
     let scom_ref = scom_ref.ok_or(anyhow!(format!("SCOM not exist in element: {}", refno.to_refno_str())))?;
-    // if query_scom_info(scom_ref, interface).is_err() {
-    //     dbg!(refno.to_refno_str());
-    //     dbg!(scom_ref.to_refno_str());
-    // }
     let scom_info = query_scom_info(scom_ref, interface)?;
-    dbg!(&scom_info.axis_params);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
-
     let mut desp = attr_map.get_f64_vec("DESI").unwrap_or_default();
     for i in 0..desp.len() {
         context.insert(
@@ -68,8 +62,6 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
     let radi = attr_map.get_as_string("RADI").unwrap_or("0.0".into());
     context.insert(DDRADIUS_STR.into(), radi.clone());
     context.insert("RADI".into(), radi);
-    // dbg!(&scom_info);
-    // dbg!(refno.to_refno_str());
     let mut geom_info = resolve_cata_comp(&scom_info, interface, Some(context));
     if geom_info.is_err() {
         error!("{:?}",geom_info.as_ref().err());
@@ -97,7 +89,6 @@ pub fn query_scom_info<T: PdmsDataInterface>(
             axis_param_numbers = axis_param_map.keys().cloned().collect::<Vec<_>>();
         }
     }
-
     let gmref_name = if is_sprf { "GSTR" } else { "GMRE" };
     let mut gm_params = vec![];
     if let Some(gmse_refno) = attr_map.get_foreign_refno(gmref_name){
@@ -122,6 +113,7 @@ pub fn query_scom_info<T: PdmsDataInterface>(
     })
 }
 
+///查询 Axis 参数
 pub fn query_axis_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
     interface: &T,
@@ -131,9 +123,9 @@ pub fn query_axis_params<T: PdmsDataInterface>(
     let refno = attr_map.get_refno().unwrap_or_default();
     let children = interface.get_ele_children_attrs(refno);
     for child in children {
-        dbg!(child.to_string_hashmap());
-        let number = child.get_as_string("NUMB").unwrap_or_default().parse::<i32>().unwrap_or(-1);
-        map.insert(number, get_axis_param(&child).ok_or(anyhow!("Axis parse error".to_string()))? );   //需要覆盖，使用最后的那一个
+        // dbg!(child.to_string_hashmap());
+        let number = child.get_i32("NUMB").unwrap_or(-1);
+        map.insert(number, get_axis_param(&child).ok_or(anyhow!("Axis parse error".to_string()))? );
     }
     Ok(map)
 }
@@ -147,10 +139,7 @@ pub fn query_gm_params<T: PdmsDataInterface>(
     let refno = attr_map.get_refno().unwrap_or_default();
     let children = interface.get_ele_children_attrs(refno);
     for child in children {
-        // if child.get_refno().unwrap_or_default() == RefU64::from_two_nums(21984,31629) {
-        //     dbg!(child.to_string_hashmap());
-        // }
-        //todo 暂时把 Level 的判断加到这里
+        //暂时把 Level 的判断加到这里
         if !child.is_visible_by_level(None).unwrap_or(true) {
             continue;
         }
@@ -269,7 +258,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> Option<AxisParam> {
 
 ///获得gmse的params
 pub fn query_gm_param(att_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> Option<GmParam> {
-    let mut paxises = att_map.get_attr_strings(&["PAXI", "PAAX", "PBAX", "PCAX"]);
+    let mut paxises = att_map.get_attr_strings_without_default(&["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = att_map.get_val("PTS") {
         match val {
             IntArrayType(v) => {
@@ -286,32 +275,46 @@ pub fn query_gm_param(att_map: &AttrMap, interface: &dyn PdmsDataInterface, has_
     let centre_line_flag = att_map.get_bool("CLFL").unwrap_or(false);
     let tube_flag = att_map.get_bool("TUFL").unwrap_or(false);
     let mut verts = vec![];
+    let mut prads = vec![];
     let mut dxy = vec![];
-    //大部分是顶点数据
-    if has_chidren {
-        for a in interface.get_ele_children_attrs(att_map.get_refno().unwrap()) {
-            verts = vec![[att_map.get_as_string("PX").unwrap_or_default(), att_map.get_as_string("PY").unwrap_or_default()]];
-            dxy = vec![[att_map.get_as_string("DX").unwrap_or_default(), att_map.get_as_string("DY").unwrap_or_default()]];
+    let refno = att_map.get_refno().unwrap_or_default();
+    let type_name = att_map.get_type();
+    if type_name == "SEXT" {
+        let children = interface.get_ele_children_attrs(refno);
+        for child in children {
+            let r = child.get_refno().unwrap_or_default();
+            for a in interface.get_ele_children_attrs(r) {
+                verts.push([a.get_as_string("PX").unwrap_or_default(), a.get_as_string("PY").unwrap_or_default()]);
+                prads.push(a.get_as_string("PRAD").unwrap_or_default());
+            } 
         }
-    } else {
-        // dbg!(att_map.to_string_hashmap());
-        verts = vec![[att_map.get_as_string("PX").unwrap_or_default(), att_map.get_as_string("PY").unwrap_or_default()]];
-        dxy = vec![[att_map.get_as_string("DX").unwrap_or_default(), att_map.get_as_string("DY").unwrap_or_default()]];
+    }else{
+        if has_chidren {
+            for a in interface.get_ele_children_attrs(refno) {
+                verts.push([a.get_as_string("PX").unwrap_or_default(), a.get_as_string("PY").unwrap_or_default()]);
+                dxy.push([a.get_as_string("DX").unwrap_or_default(), a.get_as_string("DY").unwrap_or_default()]);
+            }
+        } else {
+            verts.push([att_map.get_as_string("PX").unwrap_or_default(), att_map.get_as_string("PY").unwrap_or_default()]);
+            dxy.push([att_map.get_as_string("DX").unwrap_or_default(), att_map.get_as_string("DY").unwrap_or_default()]);
+        }
     }
+
     Some(GmParam {
         refno: att_map.get_refno().unwrap_or_default(),
         gm_type: att_map.get_type_cloned(),
         prad: att_map.get_as_string("PRAD").unwrap_or_default(),
         pang: att_map.get_as_string("PANG").unwrap_or_default(),
         pwid: att_map.get_as_string("PWID").unwrap_or_default(),
-        diameters: att_map.get_attr_strings(&["PDIA", "PBDM", "PTDM", "DIAM"]),
-        distances: att_map.get_attr_strings(&["PDIS", "PBDI", "PTDI"]),
+        diameters: att_map.get_attr_strings_without_default(&["PDIA", "PBDM", "PTDM", "DIAM"]),
+        distances: att_map.get_attr_strings_without_default(&["PDIS", "PBDI", "PTDI"]),
+        shears: att_map.get_attr_strings(&["PXTS", "PYTS", "PXBS", "PYBS"]),
         phei: att_map.get_as_string("PHEI").unwrap_or_default(),
         offset: att_map.get_as_string("POFF").unwrap_or_default(),
-        box_lengths: att_map.get_attr_strings(&["PXLE", "PYLE", "PZLE"]),
-        xyz: att_map.get_attr_strings(&["PX", "PY", "PZ", "PBBT", "PCBT", "PBTP", "PCTP", "PBOF", "PCOF"],
-        ),
+        box_lengths: att_map.get_attr_strings_without_default(&["PXLE", "PYLE", "PZLE"]),
+        xyz: att_map.get_attr_strings_without_default(&["PX", "PY", "PZ", "PBBT", "PCBT", "PBTP", "PCTP", "PBOF", "PCOF"]),
         verts,
+        prads,
         dxy,
         drad: att_map.get_as_string("DRAD").unwrap_or_default(),
         dwid: att_map.get_as_string("DWID").unwrap_or_default(),

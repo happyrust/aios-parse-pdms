@@ -80,7 +80,7 @@ impl RotateInfo {
             rotate_info.radius = x_len / 2.0;
         } else {
             let mut y_dir = rotate_info.rot_axis.cross(x_dir);
-            let ref_dir = rotate_info.rot_axis.cross(pbax_dir.normalize()).normalize();
+            let ref_dir = rotate_info.rot_axis.cross(pbax_dir).normalize();
             let p = pbax_pt - mid_pt;
             let px = p.dot(x_dir);
             let _py = p.dot(y_dir);
@@ -90,6 +90,23 @@ impl RotateInfo {
             let beta = angle / 2.0;
             rotate_info.radius = px / beta.sin().abs();
             rotate_info.center = pbax_pt + ref_dir * rotate_info.radius;
+        }
+        //如果 pb 的点不满足情况
+        if (rotate_info.center.distance(paax_pt) - rotate_info.radius).abs() > 1.0  {
+            let delta = (pbax_pt - paax_pt).dot(pb_dir).abs();
+            let angle = (-paax_dir).angle_between(pb_dir);
+            let rot_axis = (-pa_dir).cross(pb_dir);
+            let f = angle.sin().abs();
+            let r = if abs_diff_eq!(f, 0.0) {
+                0.0   //todo need to test
+            }else{
+                delta / angle.sin().abs()
+            };
+            rotate_info.angle = angle.to_degrees();
+            rotate_info.radius = r;
+            let x_dir = rot_axis.cross(pb_dir);
+            rotate_info.center = pbax_pt + r * x_dir;
+            rotate_info.rot_axis = rot_axis;
         }
         return Some(rotate_info);
     }

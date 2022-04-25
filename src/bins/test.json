@@ -1,0 +1,929 @@
+Face {
+  boundaries: [
+    Wire
+    {
+      edge_list: [
+        Edge
+        {
+          vertices: (
+          Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          0.0,
+          -5.0,
+          3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          3.6739403974420594e-16,
+          -5.0,
+          -3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        ),
+        orientation
+        :
+        true,
+        curve
+        :
+        Mutex
+        {
+          data: NURBSCurve(
+          NURBSCurve(
+          BSplineCurve
+        {
+          knot_vec: KnotVec(
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.25,
+          0.5,
+          0.75,
+          1.0,
+          1.0,
+          1.0
+        ],
+        ),
+        control_points
+        :
+        [
+          Vector4
+          [
+            0.0,
+            -5.0,
+            3.0,
+            1.0
+          ],
+          Vector4
+          [
+            0.75,
+            -3.7500000000000004,
+            2.25,
+            0.75
+          ],
+          Vector4
+          [
+            1.5,
+            -2.5,
+            0.75,
+            0.5
+          ],
+          Vector4
+          [
+            1.5000000000000002,
+            -2.4999999999999996,
+            -0.7499999999999997,
+            0.5
+          ],
+          Vector4
+          [
+            0.7500000000000002,
+            -3.75,
+            -2.25,
+            0.75
+          ],
+          Vector4
+          [
+            3.6739403974420594e-16,
+            -5.0,
+            -3.0,
+            1.0
+          ]
+        ],
+        },
+        ),
+        ),
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        Edge
+        {
+          vertices: (
+          Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          3.6739403974420594e-16,
+          -5.0,
+          -3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          3.6739403974420594e-16,
+          5.0,
+          -3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        ),
+        orientation
+        :
+        true,
+        curve
+        :
+        Mutex
+        {
+          data: BSplineCurve(
+          BSplineCurve
+        {
+          knot_vec: KnotVec(
+        [
+          0.0,
+          0.0,
+          1.0,
+          1.0
+        ],
+        ),
+        control_points
+        :
+        [
+          Point3
+          [
+            3.6739403974420594e-16,
+            -5.0,
+            -3.0
+          ],
+          Point3
+          [
+            3.6739403974420594e-16,
+            5.0,
+            -3.0
+          ]
+        ],
+        },
+        ),
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        Edge
+        {
+          vertices: (
+          Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          0.0,
+          5.0,
+          3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          3.6739403974420594e-16,
+          5.0,
+          -3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        ),
+        orientation
+        :
+        false,
+        curve
+        :
+        Mutex
+        {
+          data: NURBSCurve(
+          NURBSCurve(
+          BSplineCurve
+        {
+          knot_vec: KnotVec(
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.25,
+          0.5,
+          0.75,
+          1.0,
+          1.0,
+          1.0
+        ],
+        ),
+        control_points
+        :
+        [
+          Vector4
+          [
+            0.0,
+            5.0,
+            3.0,
+            1.0
+          ],
+          Vector4
+          [
+            0.75,
+            3.7499999999999996,
+            2.25,
+            0.75
+          ],
+          Vector4
+          [
+            1.5,
+            2.5,
+            0.75,
+            0.5
+          ],
+          Vector4
+          [
+            1.5000000000000002,
+            2.5000000000000004,
+            -0.7499999999999997,
+            0.5
+          ],
+          Vector4
+          [
+            0.7500000000000002,
+            3.75,
+            -2.25,
+            0.75
+          ],
+          Vector4
+          [
+            3.6739403974420594e-16,
+            5.0,
+            -3.0,
+            1.0
+          ]
+        ],
+        },
+        ),
+        ),
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        Edge
+        {
+          vertices: (
+          Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          0.0,
+          -5.0,
+          3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        Vertex
+        {
+          point: Mutex
+        {
+          data: Point3
+        [
+          0.0,
+          5.0,
+          3.0
+        ],
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+        ),
+        orientation
+        :
+        false,
+        curve
+        :
+        Mutex
+        {
+          data: BSplineCurve(
+          BSplineCurve
+        {
+          knot_vec: KnotVec(
+        [
+          0.0,
+          0.0,
+          1.0,
+          1.0
+        ],
+        ),
+        control_points
+        :
+        [
+          Point3
+          [
+            0.0,
+            -5.0,
+            3.0
+          ],
+          Point3
+          [
+            0.0,
+            5.0,
+            3.0
+          ]
+        ],
+        },
+        ),
+        poisoned
+        :
+        false,
+        ..
+        },
+      },
+      ]
+    }
+  ],
+  orientation: true,
+  surface: Mutex {
+  data: NURBSSurface(
+  NURBSSurface(
+  BSplineSurface {
+  knot_vecs: (
+  KnotVec(
+[
+  0.0,
+  0.0,
+  0.0,
+  0.25,
+  0.5,
+  0.75,
+  1.0,
+  1.0,
+  1.0
+],
+),
+KnotVec(
+[
+0.0,
+0.0,
+1.0,
+1.0,
+],
+),
+),
+control_points: [
+[
+Vector4 [
+0.0,
+-5.0,
+3.0,
+1.0,
+],
+Vector4 [
+0.0,
+5.0,
+3.0,
+1.0,
+],
+],
+[
+Vector4 [
+0.75,
+-3.7500000000000004,
+2.25,
+0.75,
+],
+Vector4 [
+0.75,
+3.7499999999999996,
+2.25,
+0.75,
+],
+],
+[
+Vector4 [
+1.5,
+-2.5,
+0.75,
+0.5,
+],
+Vector4 [
+1.5,
+2.5,
+0.75,
+0.5,
+],
+],
+[
+Vector4 [
+1.5000000000000002,
+-2.4999999999999996,
+-0.7499999999999997,
+0.5,
+],
+Vector4 [
+1.5000000000000002,
+2.5000000000000004,
+-0.7499999999999997,
+0.5,
+],
+],
+[
+Vector4 [
+0.7500000000000002,
+-3.75,
+-2.25,
+0.75,
+],
+Vector4 [
+0.7500000000000002,
+3.75,
+-2.25,
+0.75,
+],
+],
+[
+Vector4 [
+3.6739403974420594e-16,
+-5.0,
+-3.0,
+1.0,
+],
+Vector4 [
+3.6739403974420594e-16,
+5.0,
+-3.0,
+1.0,
+],
+],
+],
+},
+),
+),
+poisoned: false,
+..
+},
+}
+[src/bins/shape_viewer.rs: 122] s = Face {
+boundaries: [
+Wire {
+edge_list: [
+Edge {
+vertices: (
+Vertex {
+point: Mutex {
+data: Point3 [
+3.6739403974420594e-16,
+-5.0,
+-3.0,
+],
+poisoned: false,
+..
+},
+},
+Vertex {
+point: Mutex {
+data: Point3 [
+0.0,
+-5.0,
+3.0,
+],
+poisoned: false,
+..
+},
+},
+),
+orientation: true,
+curve: Mutex {
+data: NURBSCurve(
+NURBSCurve(
+BSplineCurve {
+knot_vec: KnotVec(
+[
+0.0,
+0.0,
+0.0,
+0.25,
+0.5,
+0.75,
+1.0,
+1.0,
+1.0,
+],
+),
+control_points: [
+Vector4 [
+3.6739403974420594e-16,
+-5.0,
+-3.0,
+1.0,
+],
+Vector4 [
+-0.7499999999999996,
+-3.7500000000000004,
+-2.25,
+0.75,
+],
+Vector4 [
+-1.4999999999999998,
+-2.5,
+-0.7500000000000002,
+0.5,
+],
+Vector4 [
+-1.5,
+-2.4999999999999996,
+0.7499999999999994,
+0.5,
+],
+Vector4 [
+-0.7500000000000006,
+-3.75,
+2.25,
+0.75,
+],
+Vector4 [
+-7.347880794884119e-16,
+-5.0,
+3.0,
+1.0,
+],
+],
+},
+),
+),
+poisoned: false,
+..
+},
+},
+Edge {
+vertices: (
+Vertex {
+point: Mutex {
+data: Point3 [
+0.0,
+-5.0,
+3.0,
+],
+poisoned: false,
+..
+},
+},
+Vertex {
+point: Mutex {
+data: Point3 [
+0.0,
+5.0,
+3.0,
+],
+poisoned: false,
+..
+},
+},
+),
+orientation: true,
+curve: Mutex {
+data: BSplineCurve(
+BSplineCurve {
+knot_vec: KnotVec(
+[
+0.0,
+0.0,
+1.0,
+1.0,
+],
+),
+control_points: [
+Point3 [
+0.0,
+-5.0,
+3.0,
+],
+Point3 [
+0.0,
+5.0,
+3.0,
+],
+],
+},
+),
+poisoned: false,
+..
+},
+},
+Edge {
+vertices: (
+Vertex {
+point: Mutex {
+data: Point3 [
+3.6739403974420594e-16,
+5.0,
+-3.0,
+],
+poisoned: false,
+..
+},
+},
+Vertex {
+point: Mutex {
+data: Point3 [
+0.0,
+5.0,
+3.0,
+],
+poisoned: false,
+..
+},
+},
+),
+orientation: false,
+curve: Mutex {
+data: NURBSCurve(
+NURBSCurve(
+BSplineCurve {
+knot_vec: KnotVec(
+[
+0.0,
+0.0,
+0.0,
+0.25,
+0.5,
+0.75,
+1.0,
+1.0,
+1.0,
+],
+),
+control_points: [
+Vector4 [
+3.6739403974420594e-16,
+5.0,
+-3.0,
+1.0,
+],
+Vector4 [
+-0.7499999999999996,
+3.7499999999999996,
+-2.25,
+0.75,
+],
+Vector4 [
+-1.4999999999999998,
+2.5,
+-0.7500000000000002,
+0.5,
+],
+Vector4 [
+-1.5,
+2.5000000000000004,
+0.7499999999999994,
+0.5,
+],
+Vector4 [
+-0.7500000000000006,
+3.75,
+2.25,
+0.75,
+],
+Vector4 [
+-7.347880794884119e-16,
+5.0,
+3.0,
+1.0,
+],
+],
+},
+),
+),
+poisoned: false,
+..
+},
+},
+Edge {
+vertices: (
+Vertex {
+point: Mutex {
+data: Point3 [
+3.6739403974420594e-16,
+-5.0,
+-3.0,
+],
+poisoned: false,
+..
+},
+},
+Vertex {
+point: Mutex {
+data: Point3 [
+3.6739403974420594e-16,
+5.0,
+-3.0,
+],
+poisoned: false,
+..
+},
+},
+),
+orientation: false,
+curve: Mutex {
+data: BSplineCurve(
+BSplineCurve {
+knot_vec: KnotVec(
+[
+0.0,
+0.0,
+1.0,
+1.0,
+],
+),
+control_points: [
+Point3 [
+3.6739403974420594e-16,
+-5.0,
+-3.0,
+],
+Point3 [
+3.6739403974420594e-16,
+5.0,
+-3.0,
+],
+],
+},
+),
+poisoned: false,
+..
+},
+},
+],
+},
+],
+orientation: true,
+surface: Mutex {
+data: NURBSSurface(
+NURBSSurface(
+BSplineSurface {
+knot_vecs: (
+KnotVec(
+[
+0.0,
+0.0,
+0.0,
+0.25,
+0.5,
+0.75,
+1.0,
+1.0,
+1.0,
+],
+),
+KnotVec(
+[
+0.0,
+0.0,
+1.0,
+1.0,
+],
+),
+),
+control_points: [
+[
+Vector4 [
+3.6739403974420594e-16,
+-5.0,
+-3.0,
+1.0,
+],
+Vector4 [
+3.6739403974420594e-16,
+5.0,
+-3.0,
+1.0,
+],
+],
+[
+Vector4 [
+-0.7499999999999996,
+-3.7500000000000004,
+-2.25,
+0.75,
+],
+Vector4 [
+-0.7499999999999996,
+3.7499999999999996,
+-2.25,
+0.75,
+],
+],
+[
+Vector4 [
+-1.4999999999999998,
+-2.5,
+-0.7500000000000002,
+0.5,
+],
+Vector4 [
+-1.4999999999999998,
+2.5,
+-0.7500000000000002,
+0.5,
+],
+],
+[
+Vector4 [
+-1.5,
+-2.4999999999999996,
+0.7499999999999994,
+0.5,
+],
+Vector4 [
+-1.5,
+2.5000000000000004,
+0.7499999999999994,
+0.5,
+],
+],
+[
+Vector4 [
+-0.7500000000000006,
+-3.75,
+2.25,
+0.75,
+],
+Vector4 [
+-0.7500000000000006,
+3.75,
+2.25,
+0.75,
+],
+],
+[
+Vector4 [
+-7.347880794884119e-16,
+-5.0,
+3.0,
+1.0,
+],
+Vector4 [
+-7.347880794884119e-16,
+5.0,
+3.0,
+1.0,
+],
+],
+],
+},
+),
+),
+poisoned: false,
+..
+},
+}
