@@ -128,3 +128,4 @@ dynfmt = { version = "0.1.5", features = ["curly", "python"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bonsaidb = { version = "0.4.1", features = ["local-full"] }
 
+aios_core = { path =  "../aios_core"}

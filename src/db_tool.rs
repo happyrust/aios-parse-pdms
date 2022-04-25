@@ -53,6 +53,24 @@ pub const fn db1_hash(hash_str: &str) -> u32{
     0x81BF1 + val as u32
 }
 
+// 返回 DESI 、 CATA .. 等模块值
+pub fn match_db_stype(map: &AttrMap) -> String {
+    if let Some(val) = map.get(&NounHash(ATT_STYP)) {
+        match val {
+            AttrVal::IntegerType(v) => {
+                match *v {
+                    1 => { return "DESI".to_string(); }
+                    2 => { return "CATA".to_string(); }
+                    // todo 还有model没列举出来
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+    "UNSET".to_string()
+}
+
 #[test]
 fn db1_dehash_test(){
     let name=db1_dehash(0x95B0C);
@@ -67,7 +85,9 @@ use std::io::Read;
 use memchr::memmem::{find, find_iter};
 use nom::char;
 use nom::character::complete::char;
-use crate::pdms_types::PdmsDatabaseInfo;
+use crate::AttrMap;
+use crate::consts::ATT_STYP;
+use crate::pdms_types::{AttrVal, NounHash, PdmsDatabaseInfo};
 
 fn convert_to_le_i32(table: &[u8], dw_offset: usize) -> i32 {
     i32::from_le_bytes(table[dw_offset * 4..dw_offset * 4 + 4].try_into().unwrap())
