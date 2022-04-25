@@ -707,7 +707,8 @@ impl AttrMap {
         };
     }
 
-    pub fn get_attr_strings(&self, keys: &[&str]) -> Vec<SmolStr> {
+    /// 获取string属性数组，忽略为空的值
+    pub fn get_attr_strings_without_default(&self, keys: &[&str]) -> Vec<SmolStr> {
         let mut results = vec![];
         for &attr_name in keys {
             if let Some(result) = self.get_val(attr_name) {
@@ -716,6 +717,21 @@ impl AttrMap {
                         if v != "" {
                             results.push(v.trim_matches('\0').to_owned().clone().into());
                         }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        results
+    }
+
+    pub fn get_attr_strings(&self, keys: &[&str]) -> Vec<SmolStr> {
+        let mut results = vec![];
+        for &attr_name in keys {
+            if let Some(result) = self.get_val(attr_name) {
+                match result {
+                    AttrVal::StringType(v) => {
+                        results.push(v.trim_matches('\0').to_owned().clone().into());
                     }
                     _ => {}
                 }
@@ -871,7 +887,7 @@ impl Inspectable for AttrVal {
         let mut changed = false;
         match self {
             StringType(s) | ElementType(s) | WordType(s) => {
-                s.as_str().ui(ui, Default::default(), context);
+                s.ui(ui, Default::default(), context);
             }
             IntegerType(d) => {
                 d.ui(ui, Default::default(), context);
@@ -880,7 +896,7 @@ impl Inspectable for AttrVal {
                 d.ui(ui, Default::default(), context);
             }
             RefU64Type(r) => {
-                r.to_refno_str().as_str().ui(ui, Default::default(), context);
+                r.to_refno_str().ui(ui, Default::default(), context);
             }
             Vec3Type(r) => {
                 Vec3::new(r[0] as f32, r[1] as f32, r[2] as f32).ui(

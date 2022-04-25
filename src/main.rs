@@ -85,7 +85,7 @@ fn main_1() {
 
 // #[tokio::main]
 //async
-fn main() -> AiosDbError {
+fn main() -> anyhow::Result<()> {
     // CombinedLogger::init(
     //     vec![
     //         WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
@@ -93,28 +93,24 @@ fn main() -> AiosDbError {
     // ).unwrap();
     //
     let mut db_option = DbOption {
-        total_sync: true,
+        total_sync: false,
         incr_sync: false,
         // project_path: "/Volumes/DPC/aba".to_string(),
         project_path: "D:/aba".to_string(),
         included_projects: vec!["ABA".to_owned(), "GDP".to_owned()],
-        // included_db_files: Some(vec!["aba0117_0001".to_string()]),
+        // included_db_files: Some(vec!["gdp5600_0001".to_string()]),
         included_db_files: None,
         mdb_name: "ABA".to_string(),
         project_name: "ABA".to_string(),
         main_db_code: 117
     };
-
-
-
     let mut time = Instant::now();
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
 
-    let refno = RefU64::from_two_nums(16501, 1156);
-    // dbg!(mgr.get_stringfied_attr(refno));
+    let refno = RefU64::from_two_nums(13802, 5585);
+    // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
     // return Ok(());
-
     cache_viewer_data(&mut mgr, &db_option);
     return Ok(());
 }

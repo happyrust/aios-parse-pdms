@@ -16,6 +16,7 @@ use crate::prim_geo::sphere::Sphere;
 use std::default::default;
 use std::f32::consts::PI;
 use std::ops::Range;
+use crate::prim_geo::slope_cylinder::SlopeCylinder;
 
 #[derive(Debug)]
 pub struct CateBrepShape {
@@ -29,21 +30,12 @@ pub struct CateBrepShape {
 
 pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape> {
     match geom {
-        CateGeoParam::Pyramid(d) => {   //now dont resue pyramid
+        CateGeoParam::Pyramid(d) => {
             let pa = d.pa.as_ref().unwrap();
             let pb = d.pb.as_ref().unwrap();
             let pc = d.pc.as_ref().unwrap();
-
             let z_axis = Vec3::new(pa.dir[0] as f32, pa.dir[1] as f32, pa.dir[2] as f32).normalize();
-            //需要转换成CTorus
-            // let pheight = (d.dist_to_top - d.dist_to_btm) as f32;
             let pyramid = LPyramid {
-                //paax_pt: Vec3::new(pa.pt[0] as f32, pa.pt[1] as f32, pa.pt[2] as f32),
-                // paax_dir: Vec3::new(pa.dir[0] as f32, pa.dir[1] as f32, pa.dir[2] as f32).normalize(),
-                //pbax_pt: Vec3::new(pb.pt[0] as f32, pb.pt[1] as f32, pb.pt[2] as f32),
-                // pbax_dir: Vec3::new(pb.dir[0] as f32, pb.dir[1] as f32, pb.dir[2] as f32).normalize(),
-                //pcax_pt: Vec3::new(pc.pt[0] as f32, pc.pt[1] as f32, pc.pt[2] as f32),
-                // pcax_dir: Vec3::new(pc.dir[0] as f32, pc.dir[1] as f32, pc.dir[2] as f32).normalize(),
                 pbtp: d.x_top as f32,
                 pctp: d.y_top as f32,
                 pbbt: d.x_bottom as f32,
@@ -153,7 +145,6 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape> {
             });
         }
         CateGeoParam::Snout(d) => {
-            //todo snout 考虑复用
             let z = d.pa.as_ref().unwrap();
             let x = d.pb.as_ref().unwrap();
             let z_axis = Vec3::new(z.dir[0] as f32, z.dir[1] as f32, z.dir[2] as f32).normalize();
@@ -163,6 +154,7 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape> {
             let origin = Vec3::new(z.pt[0] as f32, z.pt[1] as f32, z.pt[2] as f32);
             let height = (d.dist_to_top - d.dist_to_btm) as f32;
             let translation = origin + z_axis * (d.dist_to_btm as f32 + d.dist_to_top as f32) / 2.0;
+            //如果 height < 0.0, 需要翻转
             let local_rot = if height < 0.0 {
                 Quat::from_rotation_x(PI)
             } else {
@@ -233,7 +225,39 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape> {
             let brep_shape: Box<dyn BrepShapeTrait> = Box::new(SCylinder {
                 phei,
                 pdia,
-                pdis: 0.0,  //-phei / 2.0
+                pdis: 0.0,
+                ..default()
+            });
+            return Some(CateBrepShape {
+                brep_shape,
+                transform,
+                visible: d.tube_flag,
+                is_tubing: false,
+            });
+        }
+        CateGeoParam::SlopeBottomCylinder(d) =>{
+            let axis = d.axis.as_ref().unwrap();
+            let dir = Vec3::new(axis.dir[0] as f32, axis.dir[1] as f32, axis.dir[2] as f32);
+            let phei = d.height;
+            let pdia = d.diameter as f32;
+            let rotation = Quat::from_rotation_arc(Vec3::Z, dir);
+            let translation = dir * d.distance  + Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32);
+            let transform = TransformSRT {
+                rotation,
+                translation,
+                ..default()
+            };
+            // 是以中心为原点，所以需要移动到中心位置
+            let brep_shape: Box<dyn BrepShapeTrait> = Box::new(SlopeCylinder {
+                // phei,
+                // pdia,
+                // pdis: 0.0,
+                shear_x_top: d.x_shear,
+                shear_x_bottom: d.alt_x_shear,
+                shear_y_top: d.y_shear,
+                shear_y_bottom: d.alt_y_shear,
+                phei,
+                pdia,
                 ..default()
             });
             return Some(CateBrepShape {
@@ -253,6 +277,41 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape> {
                 translation: Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32),
                 ..default()
             };
+            return Some(CateBrepShape {
+                brep_shape,
+                transform,
+                visible: d.tube_flag,
+                is_tubing: false,
+            });
+        }
+        CateGeoParam::Extrusion(d) => {
+            let height = d.height as f32;
+            let y = d.pb.as_ref().unwrap();
+            let x = d.pa.as_ref().unwrap();
+            let x_axis = Vec3::new(x.dir[0] as f32, x.dir[1] as f32, x.dir[2] as f32).normalize();
+            let y_axis = Vec3::new(y.dir[0] as f32, y.dir[1] as f32, y.dir[2] as f32).normalize();
+            let z_axis = x_axis.cross(y_axis).normalize();
+            //如果 height < 0.0, 需要翻转
+            let local_rot = if height < 0.0 {
+                Quat::from_rotation_x(PI)
+            } else {
+                Quat::IDENTITY
+            };
+            let rotation =  local_rot * bevy::prelude::Quat::from_mat3(&bevy::prelude::Mat3::from_cols(
+                x_axis, y_axis, z_axis,
+            ));
+            let translation = rotation * Vec3::new(d.x, d.y, d.z);
+            let transform = glam::TransformSRT {
+                rotation,
+                translation,
+                ..default()
+            };
+            let brep_shape: Box<dyn BrepShapeTrait> = Box::new(Extrusion {
+                verts: d.verts.iter().map(|x| Vec3::new(x[0], x[1], 0.0)).collect(),
+                height: height.abs(),
+                fradius_vec: d.prads.clone(),
+                ..Default::default()
+            });
             return Some(CateBrepShape {
                 brep_shape,
                 transform,

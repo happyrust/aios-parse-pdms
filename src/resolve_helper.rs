@@ -9,10 +9,12 @@ use crate::direction_parse::parse_expr_to_dir;
 use crate::helper::{convert_to_context_key, resolve_axis_param};
 use crate::pdms_data::{AxisParam, ScomInfo};
 use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::parsed_data::{CateBoxImpliedParam, CateBoxParam, CateConeParam, CateDiscParam, CateDishParam, CateExtrusionParam, CateLCylinderParam, CateLineParam, CateProfileParam, CatePyramidParam, CateRectTorusParam, CateRevolutionParam, CateSCylinderParam, CateSlineParam, CateSlopeBottomCylinderParam, CateSnoutParam, CateSphereParam, CateSverParam, CateTorusParam, GmseParamData, SannData};
+use crate::parsed_data::*;
+use crate::parsed_data::geo_params_data::CateGeoParam::SlopeBottomCylinder;
 use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
 use crate::tiny_expr::expr_eval::interp;
+use crate::tool::hash_tool::{f32_round_3, f64_round_3};
 
 #[test]
 fn test_expression_regex() {
@@ -52,7 +54,10 @@ fn test_expression_regex() {
         let c3 = caps.get(3).map_or("", |m| m.as_str());
         println!("{} {}", c1, c3);
     }
+}
 
+pub fn eval_str_to_f32(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) -> anyhow::Result<f32> {
+    eval_str_to_f64(input_expr, context).map(|x| x as f32)
 }
 
 pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) -> anyhow::Result<f64> {
@@ -64,9 +69,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     let mut new_exp = new_exp.replace("RPRO", "");
     let mut result_exp = new_exp.clone();
     let loop_cnt = if input_expr.contains("RPRO") { 2 } else { 1 };
-    // if input_expr.contains("RPRO LITH") {
-    //     dbg!(input_expr);
-    // }
     for _ in 0..loop_cnt {
         for caps in re.captures_iter(&new_exp) {
             let s = &caps[0];
@@ -81,10 +83,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             }else if c1 == "DESI" || c1 == "DESP"{
                 result_exp = result_exp.replace(s, "0.0");
             }
-            // else if k_str == "DESI" || k_str == "DESP" {
-            //     //默认用0.0处理
-            //     result_exp = result_exp.replace(s, "0.0");
-            // }
         }
         //如果有RPRO 需要执行两次处理
         result_exp = result_exp.replace("ATTRIB", "");
@@ -191,7 +189,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
 
     // dbg!(&result_string);
     if let Ok(val) = interp(&result_string.to_lowercase()) {
-        Ok(I24F8::from_num(val).into())
+        Ok(f64_round_3(val).into())
     } else {
         if let Ok(mut stack) = Stack::init(&result_string) {
             return stack.eval().ok_or(anyhow!(format!("后缀表达式求解失败 {}", input_expr)));
@@ -203,11 +201,6 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         }
     }
 }
-
-// fn mk_callback<'a, F>(f: F) -> Callback<'a>
-//     where F: Fn<(&'a mut State,),Output=()> + 'static {
-//     Box::new(f) as Callback
-// }
 
 #[test]
 fn test_eval_expression() {
@@ -273,245 +266,6 @@ fn test_eval_expression() {
     }
 }
 
-// pub fn eval_str_to_f64_old(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) -> Option<f64> {
-//     if input_expr.trim() == "unset" {
-//         return Some(0.0);
-//     }
-//     //dbg!(&input_expr);
-//     let _has_desparam = false;
-//     let mut exp = input_expr.trim_end_matches('\0')
-//         .to_owned().replace("[", " ").replace("]", " ").replace("  ", " ");
-//     if exp.len() < 1 {
-//         return Some(0.0);
-//     }
-//
-//     if exp.len() >= 2 && exp.chars().nth(0).unwrap_or_default() == '('
-//         && exp.chars().nth(exp.len() - 1).unwrap_or_default() == ')' {
-//         exp = exp[1..exp.len() - 1].to_string();
-//     }
-//     let seg_strs: Vec<SmolStr> = exp.split_whitespace().map(|x| x.trim().into()).collect::<Vec<_>>();
-//     if seg_strs.len() == 0 {
-//         return None;
-//     }
-//     //dbg!(&seg_strs);
-//     let mut p_vals: Vec<SmolStr> = Vec::new();
-//     let mut i = 0;
-//     while i < seg_strs.len() {
-//         let mut key = SmolStr::default();
-//         let mut s = seg_strs[i].as_str();
-//         if s.len() == 0 { continue; }
-//
-//         let mut slice_index = 0;
-//         if s.len() >= 2 {
-//             let first_char = s.chars().next().unwrap();
-//             if first_char == '-' ||
-//                 first_char == '+' ||
-//                 first_char == '/' ||
-//                 first_char == '*' {
-//                 p_vals.push(first_char.to_string().into());
-//                 let mut test_str = String::new();
-//                 p_vals.iter().for_each(|x|{
-//                     test_str.push_str(x.as_str());
-//                     test_str.push_str(" ");
-//                 });
-//                 //dbg!(&test_str);
-//                 slice_index = 1;
-//             }
-//         }
-//         s = &s[slice_index..];
-//         if (s == "PARAM" || s == "IPARAM") && i < seg_strs.len() {
-//             key = convert_to_context_key(s, &mut i, &seg_strs).unwrap_or_default();
-//         } else if s == "ATTRIB" && i < seg_strs.len() - 1 {
-//             i += 1;
-//             let s_n = seg_strs[i].as_str();
-//             if s_n == "RPRO" {
-//                 let dtse_key: SmolStr = seg_strs[i + 1].as_str().into();
-//                 if context.contains_key(&dtse_key) {
-//                     if let Ok(r) = eval_str_to_f64(&context[&dtse_key], context) {
-//                         p_vals.push(r.to_string().into());
-//                     } else {
-//                         let default_key: SmolStr = format!("{}_default_expr", dtse_key).into();
-//                         if context.contains_key(&default_key) {
-//                             if let Ok(r) = eval_str_to_f64(&context[&default_key], context) {
-//                                 p_vals.push(r.to_string().into());
-//                             }else{
-//                                 // eprintln!()
-//                             }
-//                         }
-//                     }
-//                 }
-//                 i += 2;
-//                 continue;
-//             } else {
-//                 key = convert_to_context_key(s_n, &mut i, &seg_strs).unwrap_or_default();
-//             }
-//         } else if s == "DESIGN" || s == "DESP" {
-//             let dtse_key = format!("{} {}", s, seg_strs[i + 1]);
-//             key = convert_to_context_key(&dtse_key, &mut i, &seg_strs).unwrap_or_default();
-//         }
-//         // //dbg!(&context);
-//         if context.contains_key(&key) {
-//             if key == "ANGL" {
-//                 key = context[&key].as_str().into();
-//                 key = key.trim_end_matches('\0').to_owned().replace("[", " ").replace("]", " ").replace("  ", " ").into();
-//                 if key.len() >= 2 && key.chars().nth(0).unwrap_or_default() == '('
-//                     && key.chars().nth(key.len() - 1).unwrap_or_default() == ')' {
-//                     key = key[1..key.len() - 1].into();
-//                 }
-//                 let seg_strs: Vec<SmolStr> = key.split_whitespace().map(|x| x.trim().into()).collect::<Vec<_>>();
-//                 if seg_strs.len() == 0 {
-//                     return None;
-//                 }
-//                 let mut j = 0;
-//                 while j < seg_strs.len() {
-//                     let s = seg_strs[j].as_str();
-//                     key = convert_to_context_key(s, &mut j, &seg_strs).unwrap_or_default();
-//                     j += 1;
-//                 }
-//                 if context.contains_key(&key) {
-//                     p_vals.push(context[&key].clone());
-//                 }
-//             } else {
-//                 if context.contains_key(&key) {
-//                     p_vals.push(context[&key].clone());
-//                 }
-//             }
-//             i += 1;
-//             continue;
-//         }
-//
-//         let upper_s: SmolStr = s.to_uppercase().into();
-//         match upper_s.as_str() {
-//             "TIMES" | "MULT" => p_vals.push("*".into()),
-//             "DIV" => p_vals.push("/".into()),
-//             "DDHEIGHT" => p_vals.push(context["DDHEIGHT"].as_str().into()),
-//             "DDRADIUS" => p_vals.push(context["DDRADIUS"].as_str().into()),
-//             "DDANGLE" => p_vals.push(context["DDANGLE"].as_str().into()),
-//             _ => p_vals.push(upper_s),
-//         }
-//         i += 1;
-//     }
-//     //对TWICE、tanf、tan做单独处理
-//     let mut need_del_keys = vec![];
-//
-//     for i in 0..p_vals.len() {
-//         if p_vals[i] == "TWICE" {
-//             need_del_keys.push(i);
-//             if i + 1 < p_vals.len() {
-//                 if let Ok(val) = p_vals[i + 1].parse::<f64>() {
-//                     let v = val * 2.0f64;
-//                     p_vals[i + 1] = v.to_string().into();
-//                 }
-//             }
-//         } else if p_vals[i] == "TANF" {
-//             need_del_keys.push(i);
-//             need_del_keys.push(i + 1);
-//             if i + 2 < p_vals.len() {
-//                 if let Ok(val) = p_vals[i + 1].parse::<f64>() {
-//                     if let Ok(angle) = p_vals[i + 2].parse::<f64>() {
-//                         {
-//                             let v = val * ((angle / 2.0).to_radians() as f64).tan();
-//                             p_vals[i + 2] = v.to_string().into();
-//                         }
-//                     }
-//                 }
-//             }
-//         } else if p_vals[i] == "TAN" || p_vals[i] == "SIN" || p_vals[i] == "COS" {
-//             if i + 2 < p_vals.len() {
-//                 if let Ok(val) = p_vals[i + 2].parse::<f64>() {
-//                     let v = val.to_radians();
-//                     p_vals[i + 2] = v.to_string().into();
-//                 }
-//             }
-//         }
-//         // 单位处理，mm为基本单位
-//         if p_vals[i].contains("mm") {
-//             p_vals[i] = p_vals[i].replace("mm", "").into();
-//         }
-//     }
-//     for v in need_del_keys {
-//         p_vals.remove(v);
-//     }
-//     if p_vals.is_empty() {
-//         return None;
-//     }
-//     let mut result_string = String::new();
-//     let mut start_idx = 0;
-//     let mut i = start_idx;
-//     while i < p_vals.len() {
-//         if (p_vals[i] == "SUM" || p_vals[i] == "DIFFERENCE") && i < p_vals.len() - 2 {
-//             if p_vals[i] == "SUM" {
-//                 result_string.push_str(&format!(
-//                     "({} {} {})",
-//                     p_vals[i + 1],
-//                     "+",
-//                     p_vals[i + 2]
-//                 ));
-//             } else {
-//                 result_string.push_str(&format!(
-//                     "({} {} {})",
-//                     p_vals[i + 1],
-//                     "-",
-//                     p_vals[i + 2]
-//                 ));
-//             }
-//             i += 3;
-//             continue;
-//         } else {
-//             result_string.push_str(&p_vals[i]);
-//         }
-//         result_string.push(' ');
-//         i += 1;
-//     }
-//     //dbg!(&result_string);
-//     // let mut ns = fasteval::EmptyNamespace;
-//     let mut interpreter = rsc::Interpreter::default();
-//
-//     interpreter.set_var(String::from("double"), Variant::Function(|name, args| {
-//         if args.len() < 1 {
-//             Err(InterpretError::TooFewArgs(name, 1))
-//         } else if args.len() > 1 {
-//             Err(InterpretError::TooManyArgs(name, 1))
-//         } else {
-//             Ok(args[0] * 2.0) // get the only argument and double it
-//         }
-//     }));
-//
-//     if let Ok(f) = std::panic::catch_unwind(move || unsafe {
-//         // if let Ok(val) = tinyexpr::interp(&result_string.to_lowercase()) {
-//         let mut value = None;
-//         match rsc::tokenize(&result_string.to_lowercase()) {
-//             Ok(tokens) => match rsc::parse(&tokens) {
-//                 Ok(expr) => match interpreter.eval(&expr) { // Step 3: interprets the Expr
-//                     Ok(result) => {
-//                         value = Some(result);
-//                     },
-//                     Err(interpret_error) => eprintln!("{:?}", interpret_error),
-//                 },
-//                 _ => {}
-//             }
-//             _ => {}
-//         }
-//         if value.is_some() {
-//             (value.unwrap() * 100.0).round() / 100.0
-//         } else {
-//             if let Ok(mut stack) = Stack::init(&result_string){
-//                 return stack.eval();
-//             }else{
-//                 if result_string.as_str() != "UNSET" {
-//                     dbg!(&context);
-//                     dbg!(&input_expr);
-//                     dbg!(&result_string);
-//                 }
-//                 return 0.0;
-//             }
-//         }
-//     }) {
-//         return Some(f);
-//     }
-//     return None;
-// }
-
 #[test]
 pub fn test_expression() {
     let mut ns = fasteval::EmptyNamespace;
@@ -534,8 +288,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
                 pwidth: gmse.pwid as f32,
                 drad: gmse.drad as f32,
                 dwid: gmse.dwid as f32,
-            })
-            )
+            }))
         }
         "SPRO" => {   //structural profile
             CateGeoParam::Profile(CateProfileParam::SPRO(gmse.verts))
@@ -599,6 +352,20 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
                 dist_to_top: gmse.distances[1],
                 x_offset: gmse.xyz[4],
                 y_offset: gmse.xyz[5],
+                centre_line_flag: gmse.centre_line_flag,
+                tube_flag: gmse.tube_flag,
+            })
+        }
+        "SSLC" => {
+            CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam{
+                axis: Some(gmse.paxises[0].clone()),
+                height: gmse.height,
+                diameter: gmse.diameters[0],
+                distance: gmse.distances[0],
+                x_shear: gmse.shears[0],
+                y_shear: gmse.shears[1],
+                alt_x_shear: gmse.shears[2],
+                alt_y_shear: gmse.shears[3],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
             })
@@ -675,13 +442,15 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
         }
         "SEXT" => {
             CateGeoParam::Extrusion(CateExtrusionParam {
+                refno: gmse.refno,
                 pa: Some(gmse.paxises[0].clone()),
                 pb: Some(gmse.paxises[1].clone()),
                 height: gmse.phei,
                 x: gmse.xyz[0],
                 y: gmse.xyz[1],
                 z: gmse.xyz[2],
-                verts: vec![],
+                verts: gmse.verts,
+                prads: gmse.prads,
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
             })
@@ -742,13 +511,6 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
                 diameter: gmse.diameters[0],
                 centre_line_flag: gmse.centre_line_flag,
                 tube_flag: gmse.tube_flag,
-            })
-        }
-        "SVER" => {
-            CateGeoParam::SVER(CateSverParam {
-                x: gmse.xyz[0],
-                y: gmse.xyz[1],
-                radius: gmse.radius,
             })
         }
         _ => CateGeoParam::Unknown,

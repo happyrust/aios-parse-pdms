@@ -13,6 +13,7 @@ use fixed::types::I24F8;
 use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
+use crate::tool::hash_tool::hash_f32;
 
 //可不可以用来表达 sphere
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
@@ -87,16 +88,13 @@ impl BrepShapeTrait for Dish {
         let mut theta = (sinval).asin();
         if radius < f32::EPSILON { return 0; }
         let mut beta = (h / radius / 2.0).atan();
-        // let mut beta =
         if r < h {
             theta = PI - theta;
             beta = PI + beta;
         }
         let mut hasher = DefaultHasher::new();
-        let theta = I24F8::from_num(theta);
-        let beta = I24F8::from_num(beta);
-        theta.hash(&mut hasher);
-        beta.hash(&mut hasher);
+        hash_f32(theta, &mut hasher);
+        hash_f32(beta, &mut hasher);
         hasher.finish()
     }
 

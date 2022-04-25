@@ -7,7 +7,7 @@ use smol_str::SmolStr;
 use crate::AttrMap;
 use crate::db_tool::db1_dehash;
 use crate::error_types::AttError::TypeNotCorrect;
-use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params};
+use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params, eval_str_to_f32};
 use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
 use crate::parsed_data::{CateAxisParam, GmseParamData};
 use crate::parsed_data::geo_params_data::CateGeoParam;
@@ -56,7 +56,6 @@ pub fn resolve_paragon_gm_params(
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> anyhow::Result<CateGeoParam> {
     if let Ok(gm_data) = resolve_gmse_params(gm_param, context, axis_params){
-        // dbg!(&gm_data);
         resolve_to_cate_geo_params(gm_data)
     }else{
         Err(anyhow!(format!("几何数据解析失败: {:?}", gm_param)))
@@ -69,57 +68,66 @@ pub fn resolve_gmse_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_param_map: &BTreeMap<i32, CateAxisParam>,
 ) -> anyhow::Result<GmseParamData> {
-    //dbg!(gm.refno.to_refno_str());
-    let angle = context[DDANGLE_STR].parse::<f64>().unwrap_or(0.0f64).to_radians();
-    let radius = context[DDRADIUS_STR].parse::<f64>().unwrap_or(0.0f64);
-    let height = context[DDHEIGHT_STR].parse::<f64>().unwrap_or(0.0f64);
-
+    let angle = context[DDANGLE_STR].parse::<f32>().unwrap_or(0.0).to_radians();
+    let radius = context[DDRADIUS_STR].parse::<f32>().unwrap_or(0.0);
+    let height = context[DDHEIGHT_STR].parse::<f32>().unwrap_or(0.0);
     let diameters = gm.diameters
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context))
-        .collect::<anyhow::Result<Vec<f64>>>()?;
+        .map(|exp| eval_str_to_f32(&exp, context))
+        .collect::<anyhow::Result<_>>()?;
 
     let distances = gm.distances
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context))
-        .collect::<anyhow::Result<Vec<f64>>>()?;
+        .map(|exp| eval_str_to_f32(&exp, context))
+        .collect::<anyhow::Result<_>>()?;
+
+    let shears = gm.shears
+        .iter()
+        .map(|exp| eval_str_to_f32(&exp, context))
+        .collect::<anyhow::Result<_>>()?;
 
     let verts = gm.verts
         .iter()
         .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
-            let f0 = eval_str_to_f64(exp[0].as_str(), context)? as f32;
-            let f1 = eval_str_to_f64(exp[1].as_str(), context)? as f32;
+            let f0 = eval_str_to_f32(exp[0].as_str(), context)? as f32;
+            let f1 = eval_str_to_f32(exp[1].as_str(), context)? as f32;
             acc.push([f0, f1]);
             Ok(acc)
         })?;
 
-    let phei = eval_str_to_f64(&gm.phei, context)?;
-    let offset = eval_str_to_f64(&gm.offset, context)?;
+    let phei = eval_str_to_f32(&gm.phei, context)?;
+    let offset = eval_str_to_f32(&gm.offset, context)?;
 
-    let pang = eval_str_to_f64(&gm.pang, context)?;
-    let prad = eval_str_to_f64(&gm.prad, context)?;
-    let pwid = eval_str_to_f64(&gm.pwid, context)?;
-    let drad = eval_str_to_f64(&gm.drad, context)?;
-    let dwid = eval_str_to_f64(&gm.dwid, context)?;
+    let pang = eval_str_to_f32(&gm.pang, context)?;
+    let pwid = eval_str_to_f32(&gm.pwid, context)?;
+    let drad = eval_str_to_f32(&gm.drad, context)?;
+    let dwid = eval_str_to_f32(&gm.dwid, context)?;
+
+    let mut prads = gm.prads
+        .iter()
+        .map(|exp| eval_str_to_f32(&exp, context))
+        .collect::<anyhow::Result<_>>()?;
+
+    let prad = eval_str_to_f32(&gm.prad, context)?;
 
     let dxy = gm.dxy
         .iter()
         .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
-            let f0 = eval_str_to_f64(exp[0].as_str(), context)? as f32;
-            let f1 = eval_str_to_f64(exp[1].as_str(), context)? as f32;
+            let f0 = eval_str_to_f32(exp[0].as_str(), context)? as f32;
+            let f1 = eval_str_to_f32(exp[1].as_str(), context)? as f32;
             acc.push([f0, f1]);
             Ok(acc)
         })?;
 
     let box_lengths = gm.box_lengths
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context))
-        .collect::<anyhow::Result<Vec<f64>>>()?;
+        .map(|exp| eval_str_to_f32(&exp, context))
+        .collect::<anyhow::Result<_>>()?;
 
     let xyz = gm.xyz
         .iter()
-        .map(|exp| eval_str_to_f64(&exp, context))
-        .collect::<anyhow::Result<Vec<f64>>>()?;
+        .map(|exp| eval_str_to_f32(&exp, context))
+        .collect::<anyhow::Result<_>>()?;
 
     let mut paxises: Vec<CateAxisParam> = Vec::new();
     for name in gm.paxises.iter() {
@@ -172,9 +180,11 @@ pub fn resolve_gmse_params(
         height,
         pwid,
         prad,
+        prads,
         pang,
         diameters,
         distances,
+        shears,
         phei,
         offset,
         verts,

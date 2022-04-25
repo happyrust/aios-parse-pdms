@@ -3,6 +3,7 @@ pub mod helper;
 pub mod sbox;
 pub mod sphere;
 pub mod cylinder;
+pub mod slope_cylinder;
 pub mod snout;
 pub mod cone;
 pub mod dish;

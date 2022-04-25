@@ -81,30 +81,6 @@ pub struct PdmsDbData {
     pub field_no: u32,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct PdmsMongoDbInfo {
-    ///数据文件名
-    pub filename: SmolStr,
-    ///数据文件的版本号
-    pub version: u32,
-    ///数据文件的db type（DESI、CATA、SYS等等）
-    pub db_type: SmolStr,
-    /// 数据文件的db 名称（SYS里用的名称）
-    pub db_name: SmolStr,
-    /// 该文件下所有的参考号
-    pub ref_nos: Vec<SmolStr>,
-    /// 基本数据的Tree
-    pub tree: Vec<u8>,
-    ///数据文件的 db number
-    pub db_no: u32,
-}
-
-#[test]
-fn parse_files_test() {
-    let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
-    parse_pdms_dir(&dir, "", None, &None);
-}
-
 ///解析pdms的目录
 pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_parsed_files: &Option<Vec<String>>) -> anyhow::Result<DashMap<SmolStr, PdmsDbData>> {
     let dir = PathBuf::from(dir);
@@ -401,7 +377,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
             parse_explict_attrs(&merged_data, &attr_info_map, &mut attr_data_map, refno, string_lookup).ok()?;
-            // .map_err(|err| err.map(|e| anyhow!(format!("{:#4X?}", e) )))?;
         }
     }
     attr_info_map.iter().for_each(|pair| {
@@ -429,7 +404,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         version,
     })
 }
-
 
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = Arc::new(DashMap::new());
@@ -557,20 +531,17 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                     all_attr_map.insert(refno, attr_data_map);
                     type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
                     let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
-                    refno_info_map.entry(ref_0).or_insert(RefnoInfo {
+                    refno_info_map.entry(ref_0).or_insert( RefnoInfo {
                         ref_0,
                         project_hash,
                         db_no,
                     });
-                }
+                // }
             }
         }
     });
     println!("解析属性所耗时间: {:?} ms", eles_time.elapsed().as_millis());
 
-    //直接遍历tree
-    //     let cur_node = ele_id_tree.get_mut(&cur_node_id).unwrap();
-    //     let d = cur_node.data();
     for (k, v) in &refno_node_id_map {
         let cur_node = ele_id_tree.get_mut(v).unwrap();
         if let Some(att) = &all_attr_map.get(k) {
@@ -581,36 +552,10 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         }
     }
 
-    // for (k, children) in &children_map {
-    //     if refno_node_id_map.contains_key(k) {
-    //         let parent_id = refno_node_id_map[k].clone();
-    //         for c in &children.0 {
-    //             if let Some(att) = &all_attr_map.get(c) {
-    //                 let ele_node = EleNode {
-    //                     refno: *c,
-    //                     owner: *k,
-    //                     name_hash: att.get_name_hash(),
-    //                     noun: db1_hash(att.get_type()),
-    //                     version: 0,
-    //                 };
-    //                 let cur_id = ele_id_tree.insert(Node::new(ele_node), UnderNode(&parent_id)).unwrap();
-    //                 refno_node_ids.push(RefnoNodeId { refno: c.0, version:*version, node_id: cur_id.clone() });
-    //                 refno_node_id_map.insert(*c, cur_id);
-    //             }
-    //         }
-    //     }
-    // }
-
     println!("Tree nodes height: {}", ele_id_tree.height());
-    // println!("Parsing children attrs cost: {} ms", eles_time.elapsed().as_millis());
     println!("DB {} attrs count: {}", file_name, all_attr_map.len());
     println!("解析db: {} 所耗时间: {:?}ms", file_name, time_start.elapsed().as_millis());
-    // for (i, s) in string_lookup.lookup.iter().enumerate() {
-    //     dbg!(s.value());
-    //     if i > 100 {
-    //         break;
-    //     }
-    // }
+
     Ok(PdmsDbData {
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
         ele_id_tree,
@@ -1556,20 +1501,6 @@ pub fn check_is_expr(input: i32) -> bool {
     }
 }
 
-/// 获取所有的DB对应的参考号、name和numberDb
-pub fn get_sys_db_ref_no(db_eles_data_map: &DashMap<i32, Vec<EleNode>>) -> DashMap<String, (AttrVal, String)> {
-    let mut result = DashMap::new();
-    // if let Some(db_data_map) = db_eles_data_map.get(&0x81C2B) {
-    //     for ele in db_data_map.value() {
-    //         if let Some(number_db) = ele.attr_data_map.get("NUMBDB") {
-    //             let value = number_db.value();
-    //             result.entry(ele.ref_no.clone()).or_insert((value.clone(), ele.name.clone()));
-    //         }
-    //     }
-    // }
-    result
-}
-
 /// 隐式表达式解析，给一个字符串返回DDHEIGHT这种表达式
 #[inline]
 pub fn get_implicit_angle_expression(input: &[u8]) -> String {
@@ -1762,7 +1693,6 @@ pub fn get_offset_map(map: DashMap<i32, AttrInfo>) -> HashMap<u32, (u32, DbAttri
     offset_map
 }
 
-
 ///通过offset获取某个隐式属性的长度
 pub fn get_implicit_len_by_offset(count: &Vec<u32>, offset: u32) -> usize {
     if let Some(index) = count.iter().position(|o| *o == offset) {
@@ -1786,85 +1716,6 @@ pub fn parse_pdms_project_name(input: &str) -> IResult<&str, &str> {
     Ok((input, name))
 }
 
-/// 生成sys的数据库
-// pub async fn gen_sys_to_db(eles_data_map: DashMap<i32, Vec<ElementData>>, file_name: &str, client: &Client) -> mongodb::error::Result<()> {
-//     let mut dbinfos = vec![];
-//     let mut db_info = PDMSDBInfo::default();
-//     let db = client.database(&file_name);
-//     let db_tree_name = format!("{}_tree", &file_name);
-//     let tree_db = client.database(&db_tree_name);
-//     // 存放所有的refno对应的db_name和type_name
-//     let table_db = client.database("PdmsRefnoDB");
-//     for (key, mut ele_data_vec) in eles_data_map {
-//         println!("Curren elements len={:?}", ele_data_vec.len());
-//         let table_name = db1_dehash(key as u32);
-//         let mut ele_table = Vec::new();
-//         let mut ele_nodes = Vec::new();
-//         for e in &ele_data_vec {
-//             ele_nodes.push(EleDataNode {
-//                 ref_no: e.ref_no.clone(),
-//                 children: vec![],
-//                 owner: e.owner.clone(),
-//                 name: e.name.clone(),
-//                 order: e.order,
-//                 db_name: file_name.to_string(),
-//                 type_name: e.noun_name.clone(),
-//             });
-//             ele_table.push(PdmsRefno {
-//                 ref_no: e.ref_no.clone(),
-//                 db: file_name.to_string(),
-//                 type_name: e.noun_name.clone(),
-//             });
-//         }
-//         // 属性值
-//         let collection = db.collection::<ElementData>(&table_name);
-//         collection.create_index(
-//             IndexModel::builder()
-//                 .keys(doc! {"ref_no":1})
-//                 .options(IndexOptions::builder().unique(true).build())
-//                 .build(),
-//             None,
-//         ).await?;
-//         for chunk in ele_data_vec.chunks(10000) {
-//             collection.insert_many(
-//                 chunk.to_owned(), None,
-//             ).await?;
-//         }
-//         // 参考号的tree
-//         let tree_collection = tree_db.collection::<EleDataNode>("PdmsTreeNode");
-//         collection.create_index(
-//             IndexModel::builder()
-//                 .keys(doc! {"ref_no":1})
-//                 .options(IndexOptions::builder().unique(true).build())
-//                 .build(),
-//             None,
-//         ).await?;
-//         for tree_chunk in ele_nodes.chunks(10000) {
-//             tree_collection.insert_many(
-//                 tree_chunk.to_owned(), None,
-//             ).await?;
-//         }
-//         // 所有refno的dbname和typename
-//         let table_collection = table_db.collection::<PdmsRefno>("PdmsRefno");
-//         for table_chunk in ele_table.chunks(10000) {
-//             table_collection.insert_many(
-//                 table_chunk.to_owned(), None,
-//             ).await?;
-//         }
-//     }
-//     db_info.name = file_name.to_string();
-//     // db_info.db_no = db_no;
-//     // db_info.db_type = db1_dehash(u32::from_be_bytes(db_type_bytes.try_into().unwrap_or_default()));
-//     dbinfos.push(db_info);
-//     //commit db infos data
-//     let db = client.database("PDMSDbInfos");
-//     let collection = db.collection::<PDMSDBInfo>("PDMSDbInfos");
-//     collection.insert_many(
-//         dbinfos.to_owned(), None,
-//     ).await?;
-//     println!("Save to db ok");
-//     Ok(())
-// }
 #[derive(Default, Debug)]
 pub struct EleDataEntry {
     pub pos: usize,
@@ -1877,7 +1728,6 @@ pub struct DbInfo {
     pub numb_db: AttrVal,
     pub db_name: String,
 }
-
 
 pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let refno_0_set = get_total_refno_0s(input);
@@ -1900,8 +1750,6 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, R
     (refno_table, world_refno)
 }
 
-
-//todo 需要完善, 加入版本比较，不然多线程会有问题
 /// 获取 ref_no + type 的索引位置表  和 world的参考号
 /// 根据get_last_index_position返回的hashset获取所有的ref_no + type的位置
 /// 返回值是hashmap k:所有的ref_no v:(ref_no的position,type的hash)
@@ -1987,26 +1835,6 @@ pub fn get_project_name_from_filename(filename: &str) -> IResult<&str, &str> {
     let (input, p) = alpha1(filename)?;
     Ok((input, p))
 }
-
-/// 返回 k:DBnumber v:Dbname
-pub fn get_dbname_from_dbnumber(map: DashMap<i32, Vec<EleNode>>) -> DashMap<String, String> {
-    let mut result = DashMap::new();
-    // for (_, v) in map {
-    //     for node in v {
-    //         let node_map = node.attr_data_map;
-    //         if let Some(number_db) = node_map.get("NUMBDB") {
-    //             match number_db.value() {
-    //                 IntegerType(number) => {
-    //                     result.entry(number.to_string()).or_insert(node.name);
-    //                 }
-    //                 _ => {}
-    //             }
-    //         };
-    //     }
-    // }
-    result
-}
-
 
 pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 
@@ -3211,3 +3039,11 @@ pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 0x8D92Bi32 => "DLLB",
 0xB55143Ai32 => "XPITEM",
 };
+
+
+
+#[test]
+fn parse_files_test() {
+    let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
+    parse_pdms_dir(&dir, "", None, &None);
+}

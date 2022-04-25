@@ -116,8 +116,6 @@ pub struct AiosDBManager {
     //project hash -> Project DBS
     //project name hash -> Aios DB
     pub info_db: sled::Db,
-    //管理所有refno info的db
-    pub storage: Storage,
 
     pub projects: Vec<String>,
 
@@ -159,11 +157,10 @@ impl PdmsDataInterface for AiosDBManager {
     fn get_tree(&self, project_name: &str, db_no: u32) -> Option<PdmsTree> {
         if let Some(db) = self.project_map.get(&AiosStr(project_name.into()).get_u32_hash()) {
             db.get_tree(db_no).ok()?
-        }else{
+        } else {
             None
         }
     }
-
 
     fn get_name(&self, refno: RefU64) -> SmolStr {
         "unset".into()
@@ -184,20 +181,7 @@ impl PdmsDataInterface for AiosDBManager {
 impl AiosDBManager {
     ///初始化
     pub fn init(option: &DbOption) -> anyhow::Result<AiosDBManager> {
-        let extra_storage_name = format!("./AIOS_DBS/AIOS_Extra");
         let dir = option.project_path.as_str();
-        let storage = Storage::open(
-            StorageConfiguration::new(extra_storage_name.as_str())
-                .default_compression(Compression::Lz4)
-                .with_schema::<AiosStr>()?
-                .with_schema::<RefnoInfo>()?
-        )?;
-
-        let db_names = storage.list_databases()?.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
-        //dbg!(&db_names);
-        if !db_names.contains(&INFO_DB_NAME.to_string()) {
-            storage.create_database::<RefnoInfo>(INFO_DB_NAME, true)?;
-        }
         let info_db = sled::open("AIOS_DBS/ref_info.sled").expect("Create info_db file");
         let project_map = DashMap::new();
         for project in &option.included_projects {
@@ -208,7 +192,6 @@ impl AiosDBManager {
         let mut mgr = AiosDBManager {
             project_map,
             info_db,
-            storage,
             projects: option.included_projects.clone(),
             needed_parse_files: option.included_db_files.clone(),
             project_path: option.project_path.clone(),
@@ -263,7 +246,7 @@ impl AiosDBManager {
 
     ///获得refno的project 名称
     #[inline]
-    pub fn get_children_attrs(&self, refno: RefU64) -> anyhow::Result<Vec<AttrMap>>{
+    pub fn get_children_attrs(&self, refno: RefU64) -> anyhow::Result<Vec<AttrMap>> {
         let mut atts = vec![];
         let mut children = self.get_children(refno)?.unwrap_or_default();
         for child in children.drain(..) {
@@ -354,11 +337,10 @@ impl AiosDBManager {
         }
         Ok(None)
     }
-    //todo use anyhow
+
     ///返回geo data
     #[inline]
     pub fn get_design_geoms(&self, refno: RefU64, cached_mesh_mgr: &mut CachedMeshesMgr) -> anyhow::Result<HashMap<RefU64, Vec<CateBrepShape>>> {
-        //todo，直接use type_refs里面的数据直接过滤出哪些有参考号，而不用一个个去找
         let mut result_map = HashMap::new();
         if let Some(desi_att) = self.get_attr(refno)? {
             let type_name = desi_att.get_type();
@@ -395,7 +377,6 @@ impl AiosDBManager {
                     bore,
                     finished: false,
                 };
-                // //dbg!(&current_tubing);
                 let children = self.get_children(refno)?.unwrap_or_default();
                 if children.len() == 0 {
                     return Ok(result_map);
@@ -403,12 +384,10 @@ impl AiosDBManager {
                 //第一遍完成后，然后生成tubing
                 let last_child = children.last().unwrap().clone();
                 for child in children {
-                    if child != RefU64::from_two_nums(16501, 1157) {
+                    if child != RefU64::from_two_nums(16501, 1460) {
                         continue;
                     }
-                    // dbg!(self.get_pretty_attr(child));
                     let world_trans = self.get_world_transform(child).unwrap_or_default();
-                    // dbg!(&world_trans);
                     let mut result_shapes = vec![];
                     let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
                     // dbg!(&geoms);
@@ -418,7 +397,6 @@ impl AiosDBManager {
                         if geoms.axis_map.contains_key(&arrive) {
                             let p = &geoms.axis_map[&arrive].pt;
                             let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                            //dbg!(&a_pos);
                             if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > f32::EPSILON {
                                 current_tubing.end_pt = a_pos;
                                 current_tubing.finished = true;
@@ -426,7 +404,6 @@ impl AiosDBManager {
                             }
                         }
                     }
-
                     if let Some(lstube) = attr.get_foreign_refno("LSTU") {
                         if let Some(lstube_att) = self.get_attr(lstube)? {
                             let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap_or_default())?.unwrap_or_default();
@@ -436,7 +413,6 @@ impl AiosDBManager {
                             }
                         }
                     }
-
                     if let Some(leave) = attr.get_i32("LEAV") {
                         //todo 加入获取leave position 的方法
                         // current_tubing
@@ -446,7 +422,6 @@ impl AiosDBManager {
                             current_tubing.start_pt = l_pos;
                             current_tubing.finished = false;
                         }
-                        // //dbg!(leave);
                     }
                     //管件的生成
                     for geom in geoms.geometries {
@@ -455,7 +430,7 @@ impl AiosDBManager {
                         }
                     } // end geoms.geometries
                     if child == last_child {
-                        if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > f32::EPSILON {
+                        if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > 1.0 {
                             current_tubing.end_pt = bran_ttube_pt;
                             current_tubing.finished = true;
                             result_shapes.push(current_tubing.convert_to_shape());
@@ -465,6 +440,7 @@ impl AiosDBManager {
                 }
             }
         }
+        dbg!(&result_map);
         Ok(result_map)
     }
 
@@ -507,8 +483,8 @@ impl AiosDBManager {
                     let noun = d.noun;
                     let attr = self.get_attr(d.refno)?.ok_or(anyhow!("No attr map".to_string()))?;
 
-                    // if d.owner != RefU64::from_two_nums(16501, 235)
-                    if d.refno != RefU64::from_two_nums(16501, 1156)
+                    if d.refno != RefU64::from_two_nums(16501, 1456)
+                    // if d.refno != RefU64::from_two_nums(16501, 1701)
                     /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
                     // && d.refno != RefU64::from_two_nums(16501, 237)
                     {
@@ -560,26 +536,23 @@ impl AiosDBManager {
                                 }
                             } else if parent_noun_name != "NXTR" && parent_noun_name != "NREV" && parent_noun_name != "SCREED" {
                                 let mut height = attr.get_f32("HEIG").unwrap_or(parent_att.get_f32("HEIG").unwrap_or_default());
-                                if height >= f32::EPSILON {
-                                    let extrusion = Box::new(Extrusion {
-                                        verts: loop_verts,
-                                        height,
-                                        fradius_vec,
-                                        ..Default::default()
-                                    });
-
-                                    if extrusion.check_valid() {
-                                        item_trans = extrusion.get_trans();
-                                        if noun == PLOO_NOUN {
-                                            if let Some(sjus) = attr.get_string("SJUS") {
-                                                if sjus.as_str() == "UTOP" || sjus.as_str() == "DTOP" {
-                                                    item_trans.translation = item_trans.translation + Vec3::new(0.0, 0.0, -height);
-                                                }
+                                let extrusion = Box::new(Extrusion {
+                                    verts: loop_verts,
+                                    height,
+                                    fradius_vec,
+                                    ..Default::default()
+                                });
+                                if extrusion.check_valid() {
+                                    item_trans = extrusion.get_trans();
+                                    if noun == PLOO_NOUN {
+                                        if let Some(sjus) = attr.get_string("SJUS") {
+                                            if sjus.as_str() == "UTOP" || sjus.as_str() == "DTOP" {
+                                                item_trans.translation = item_trans.translation + Vec3::new(0.0, 0.0, -height);
                                             }
                                         }
-                                        let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
-                                        geo_hash = Some(r);
                                     }
+                                    let r = cached_mesh_mgr.get_pdms_mesh_hash_key(extrusion);
+                                    geo_hash = Some(r);
                                 }
                             } //end of LOOP_NOUN
                         } else if noun == POHE_NOUN {  //多面体, try to save the leaf nodes in database
@@ -681,7 +654,7 @@ impl AiosDBManager {
                                 node_ids_map.insert(data.refno, node_id.clone());
                             }
                             let brep_shapes = self.get_design_geoms(d.refno, &mut cached_mesh_mgr)?;
-                            for (cur_refno, value_vec) in brep_shapes {
+                            for (cur_refno, shapes) in brep_shapes {
                                 //记录对应的不同颜色类型
                                 if let Some(e) = self.get_color_type_refno(d.refno) {
                                     type_geom_refs_map.entry(e.1).or_insert(Vec::new()).push(cur_refno);
@@ -698,13 +671,13 @@ impl AiosDBManager {
                                     level_shape_mgr.entry(d.refno).or_insert(RefU64Vec::default()).push(cur_refno);
                                 }
                                 let desi_trans_origin = self.get_world_transform(cur_refno).unwrap_or_default();
-                                for iter_val in value_vec {
+                                for shape in shapes {
                                     let CateBrepShape {
                                         brep_shape,
                                         mut transform,
                                         visible,
                                         is_tubing,
-                                    } = iter_val;
+                                    } = shape;
                                     if !visible || !brep_shape.check_valid() { continue; }
                                     item_trans = brep_shape.get_trans();
                                     if !brep_shape.check_valid() {
@@ -1147,7 +1120,6 @@ impl AiosPdmsProjectSled {
                                   version,
                                   ..
                               }) = crate::parse_file(&path, &None, file_name, project, "") {
-
                         let versions_map = versions_map.clone();
                         let target_dbno = if field_no == 0 { db_no } else { field_no };
                         versions_map.insert(target_dbno, version);

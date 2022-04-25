@@ -45,10 +45,6 @@ impl VerifiedShape for Sphere {
 impl BrepShapeTrait for Sphere {
 
     fn gen_mesh(&self, tol: Option<f32>) -> PdmsMesh {
-        // let mesh = Mesh::from(Icosphere{
-        //     radius: self.radius,
-        //     subdivisions: 32,
-        // });
         let generated = IcoSphere::new(32, |point| {
             let inclination = point.y.acos();
             let azimuth = point.z.atan2(point.x);
