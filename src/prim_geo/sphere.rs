@@ -75,10 +75,13 @@ impl BrepShapeTrait for Sphere {
             generated.get_indices(i, &mut indices);
         }
 
+        //球也需要提供wireframe的绘制
         return PdmsMesh{
             indices,
             vertices: points,
             normals,
+            wf_indices: vec![],
+            wf_vertices: vec![],
             aabb: AiosAABB{
                 min: -Vec3::ONE,
                 max: Vec3::ONE,

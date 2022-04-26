@@ -86,12 +86,12 @@ fn main_1() {
 // #[tokio::main]
 //async
 fn main() -> anyhow::Result<()> {
-    // CombinedLogger::init(
-    //     vec![
-    //         WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
-    //     ]
-    // ).unwrap();
-    //
+    CombinedLogger::init(
+        vec![
+            WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
+        ]
+    ).unwrap();
+
     let mut db_option = DbOption {
         total_sync: false,
         incr_sync: false,

@@ -65,7 +65,6 @@ named!(parse_axis_rotation<&str, Rotation>, do_parse!(
 ///解析expression到direction
 pub fn parse_expr_to_dir(expr: &str) -> Vec3 {
     if let Ok((_, res)) = parse_rotation_struct(expr) {
-        // ////////dbg!(&res);
         let mut axis = res.origin_axis;
         if res.rot1.is_some() {
             let rot1 = res.rot1.as_ref().unwrap();

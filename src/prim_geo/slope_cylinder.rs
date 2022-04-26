@@ -74,17 +74,19 @@ impl BrepShapeTrait for SlopeCylinder {
         let angle_top_x = Rad(self.shear_x_top.to_radians() as f64);
         let angle_top_y = Rad(self.shear_y_top.to_radians() as f64);
         let mat0 = Matrix4::from_translation(-origin.to_vec());
-        let mat1 = Matrix4::from_axis_angle(Vector3::unit_x(), angle_top_y) * Matrix4::from_axis_angle(Vector3::unit_y(), angle_top_x);
-        let mat2 = Matrix4::from_translation(-origin.to_vec() + Vector3::unit_z() * self.phei as f64);
+        let mat1 = Matrix4::from_angle_y(angle_top_y) * Matrix4::from_angle_x(angle_top_x);
+        let mat2 = Matrix4::from_translation(origin.to_vec() + dir.vector3() * self.phei as f64);
         let w_t = builder::transformed(&w_origin, mat2 * mat1 * mat0);
 
         //buttom
-        let angle_btm_x = Rad(self.shear_x_bottom.to_radians() as f64);
+        let angle = 30.0f64.to_radians();
+        let angle = self.shear_x_bottom.to_radians() as f64;
+        let angle_btm_x = Rad(angle);
         let angle_btm_y = Rad(self.shear_y_bottom.to_radians() as f64);
-        let mat0 = Matrix4::from_translation(-origin.to_vec());
-        let mat1 = Matrix4::from_axis_angle(Vector3::unit_x(), angle_btm_y) * Matrix4::from_axis_angle(Vector3::unit_y(), angle_btm_x);
-        let mat2 = Matrix4::from_translation(-origin.to_vec());
-        let w_b = builder::transformed(&w_origin, mat2 * mat1 * mat0);
+        let mat1 = Matrix4::from_angle_y(angle_btm_y) * Matrix4::from_angle_x(angle_btm_x);
+        let mat3 = Matrix4::from_nonuniform_scale(1.0, 1.0/angle.cos(), 1.0);
+        let mat2 = Matrix4::from_translation(origin.to_vec());
+        let w_b = builder::transformed(&w_origin, mat2 * mat1 * mat3 * mat0);
 
         let mut wt_clone = w_t.clone();
         let mut wb_clone = w_b.clone();
@@ -116,8 +118,6 @@ impl BrepShapeTrait for SlopeCylinder {
             shear_x_bottom: self.shear_x_bottom,
             shear_y_top: self.shear_y_top,
             shear_y_bottom: self.shear_y_bottom,
-            phei: 1.0,
-            pdia: 1.0,
             ..default()
         }.gen_mesh(Some(0.001))
     }

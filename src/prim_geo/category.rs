@@ -241,7 +241,8 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape> {
             let phei = d.height;
             let pdia = d.diameter as f32;
             let rotation = Quat::from_rotation_arc(Vec3::Z, dir);
-            let translation = dir * d.distance  + Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32);
+            let translation = dir * (d.distance as f32 )  + Vec3::new(axis.pt[0] as f32, axis.pt[1] as f32, axis.pt[2] as f32);
+            // dbg!(translation);
             let transform = TransformSRT {
                 rotation,
                 translation,
@@ -249,14 +250,11 @@ pub fn convert_to_brep_shapes(geom: &CateGeoParam) -> Option<CateBrepShape> {
             };
             // 是以中心为原点，所以需要移动到中心位置
             let brep_shape: Box<dyn BrepShapeTrait> = Box::new(SlopeCylinder {
-                // phei,
-                // pdia,
-                // pdis: 0.0,
                 shear_x_top: d.x_shear,
                 shear_x_bottom: d.alt_x_shear,
                 shear_y_top: d.y_shear,
                 shear_y_bottom: d.alt_y_shear,
-                phei,
+                phei: 50.0,
                 pdia,
                 ..default()
             });

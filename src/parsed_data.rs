@@ -22,7 +22,8 @@ pub struct GmseParamData {
     pub type_name: SmolStr,
     pub radius: f32, //desi 里的radius
     pub angle: f32, //desi 里的angle
-    pub height: f32, //desi 里的height
+    ///desi 里的height
+    pub height: f32,
     pub pwid: f32,
     pub pang: f32,  //元件库里的angle
     /// 顺序 pdiameter pbdiameter ptdiameter, 先bottom, 后top
@@ -30,6 +31,7 @@ pub struct GmseParamData {
     /// 顺序 pdistance pbdistance ptdistance, 先bottom, 后top
     pub distances: Vec<f32>,
     pub shears: Vec<f32>,
+    /// 元件库里的height
     pub phei: f32,
     pub offset: f32,
     /// 顶点集合

@@ -41,6 +41,7 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
     };
     let scom_ref = scom_ref.ok_or(anyhow!(format!("SCOM not exist in element: {}", refno.to_refno_str())))?;
     let scom_info = query_scom_info(scom_ref, interface)?;
+    // dbg!(&scom_info.axis_params);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     let mut desp = attr_map.get_f64_vec("DESI").unwrap_or_default();
     for i in 0..desp.len() {
@@ -184,9 +185,8 @@ pub fn resolve_cata_comp<T: PdmsDataInterface>(
     }
     //求解AXIS的数据
     let axis_map = resolve_axis_params(scom_info, &cur_context);
-    // dbg!(&axis_map);
-
     let geometries = resolve_gms(&scom_info.gm_params, &cur_context, &axis_map, None);
+    // dbg!(&geometries);
     Ok(GeomsInfo {
         geometries,
         axis_map,

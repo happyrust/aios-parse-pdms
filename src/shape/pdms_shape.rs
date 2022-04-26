@@ -11,7 +11,7 @@ use bevy::reflect::{Reflect, ReflectRef};
 use bevy::ecs::reflect::ReflectComponent;
 use bevy::render::mesh::Indices;
 use bevy::render::primitives::Aabb;
-use bevy::render::render_resource::PrimitiveTopology::TriangleList;
+use bevy::render::render_resource::PrimitiveTopology::{LineList, TriangleList};
 use fixed::types::I24F8;
 use glam::{TransformRT, TransformSRT, Vec3};
 use ncollide3d::bounding_volume::AABB;
@@ -59,25 +59,19 @@ pub fn gen_bounding_box(shell: &Shell) -> BoundingBox<Point3> {
             };
         });
     bdd_box
-    // let (size, center) = (bdd_box.size(), bdd_box.center());
 }
 
 #[derive(Serialize, Deserialize, Component, Debug, Clone, Default)]
 pub struct PdmsMesh {
-    // pub mesh: Mesh,
     pub indices: Vec<u32>,
     pub vertices: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
+    pub wf_indices: Vec<u32>,  //wireframe indices
+    pub wf_vertices: Vec<[f32; 3]>, //wireframe vertex
     pub aabb: AiosAABB,
 }
 
-
-
-//bevy's meshs
-
-
 impl PdmsMesh {
-
     pub fn get_tri_mesh(&self, trans: TransformSRT) -> TriMesh<f32> {
         let mut points: Vec<ncollide3d::na::Point3<f32>> = vec![];
         let mut indices: Vec<ncollide3d::na::Point3<usize>> = vec![];
@@ -102,7 +96,8 @@ impl PdmsMesh {
         mesh
     }
 
-    pub fn gen_bevy_mesh_with_aabb(&self) -> (Mesh, Aabb){
+    ///返回三角模型和线框模型
+    pub fn gen_bevy_mesh_with_aabb(&self) -> (Mesh, Mesh, Aabb){
         let mut mesh = Mesh::new(TriangleList);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.vertices.clone());
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone());
@@ -119,13 +114,15 @@ impl PdmsMesh {
             min,
             max,
         } = self.aabb;
-        // let aabb = AABB::new(NPoint3::new(min.x, min.y, min.z), NPoint3::new(max.x, max.y, max.z));
-        (mesh, Aabb::from_min_max(min, max))
+
+        let mut wire_mesh = Mesh::new(LineList);
+        wire_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.wf_vertices.clone());
+        wire_mesh.set_indices(Some(Indices::U32(
+            self.wf_indices.clone()
+        )));
+        (mesh, wire_mesh, Aabb::from_min_max(min, max))
     }
 }
-
-
-
 
 pub trait BrepShapeTrait: VerifiedShape + Debug {
 
@@ -179,6 +176,7 @@ pub trait BrepShapeTrait: VerifiedShape + Debug {
             }
             let tolerance = (tol.unwrap_or((TRIANGLE_TOL) as f32)) as f64 * size;
             if let Some(s) = brep.triangulation(tolerance) {
+
                 let polygon = s.to_polygon();
                 let vertices = polygon.positions().iter().map(|&x| x.array()).collect::<Vec<_>>();
                 let normals = polygon.normals().iter().map(|&x| x.array()).collect::<Vec<_>>();
@@ -191,10 +189,32 @@ pub trait BrepShapeTrait: VerifiedShape + Debug {
                 }
                 let a = aabb.mins;
                 let b = aabb.maxs;
+
+                let curves = s
+                    .edge_iter()
+                    .map(|edge| edge.get_curve())
+                    .collect::<Vec<_>>();
+                let wf_vertices: Vec<[f32; 3]> = curves
+                    .iter()
+                    .flat_map(|poly| poly.iter())
+                    .map(|p| p.cast().unwrap().into())
+                    .collect();
+                let mut counter = 0;
+                let wf_indices: Vec<u32> = curves
+                    .iter()
+                    .flat_map(|poly| {
+                        let len = counter as u32;
+                        counter += poly.len();
+                        (1..poly.len()).flat_map(move |i| vec![len + i as u32 - 1, len + i as u32])
+                    })
+                    .collect();
+
                 return PdmsMesh {
                     indices,
                     vertices,
                     normals,
+                    wf_indices,
+                    wf_vertices,
                     aabb: AiosAABB::new(Vec3::new(a.x, a.y, a.z), Vec3::new(b.x, b.y, b.z)),
                 };
             }

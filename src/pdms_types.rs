@@ -1117,12 +1117,13 @@ pub struct ShapeInstancesMgr {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct CachedMeshesMgr {
-    pub meshes: HashMap<String, PdmsMesh>, //世界坐标系的变换, 为了js兼容64位，暂时使用String
+    /// 世界坐标系的变换, 为了js兼容64位，暂时使用String
+    pub meshes: HashMap<String, PdmsMesh>,
 }
 
 impl CachedMeshesMgr {
-    //获得对应的id的 EleGeoDatas
-    pub fn get_bevy_mesh(&self, mesh_hash: &str) -> Option<(Mesh, Aabb)> {
+    /// 获得对应的bevy 三角模型和线框模型
+    pub fn get_bevy_mesh(&self, mesh_hash: &str) -> Option<(Mesh, Mesh, Aabb)> {
         if let Some(cached_msh) = self.get_mesh(mesh_hash) {
             let bevy_mesh = cached_msh.gen_bevy_mesh_with_aabb();
             return Some(bevy_mesh);

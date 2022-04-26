@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/parse_pdms_db.iml" filepath="$PROJECT_DIR$/.idea/parse_pdms_db.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/aios-parse-pdms.iml" filepath="$PROJECT_DIR$/.idea/aios-parse-pdms.iml" />
     </modules>
   </component>
 </project>

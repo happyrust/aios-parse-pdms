@@ -384,9 +384,9 @@ impl AiosDBManager {
                 //第一遍完成后，然后生成tubing
                 let last_child = children.last().unwrap().clone();
                 for child in children {
-                    if child != RefU64::from_two_nums(16501, 1460) {
-                        continue;
-                    }
+                    // if child != RefU64::from_two_nums(16501, 1460) {
+                    //     continue;
+                    // }
                     let world_trans = self.get_world_transform(child).unwrap_or_default();
                     let mut result_shapes = vec![];
                     let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
@@ -400,7 +400,7 @@ impl AiosDBManager {
                             if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > f32::EPSILON {
                                 current_tubing.end_pt = a_pos;
                                 current_tubing.finished = true;
-                                // result_shapes.push(current_tubing.convert_to_shape());
+                                result_shapes.push(current_tubing.convert_to_shape());
                             }
                         }
                     }
@@ -427,6 +427,7 @@ impl AiosDBManager {
                     for geom in geoms.geometries {
                         if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
                             result_shapes.push(cate_shape);
+                            // break;
                         }
                     } // end geoms.geometries
                     if child == last_child {
@@ -440,7 +441,7 @@ impl AiosDBManager {
                 }
             }
         }
-        dbg!(&result_map);
+        // dbg!(&result_map);
         Ok(result_map)
     }
 
@@ -483,13 +484,13 @@ impl AiosDBManager {
                     let noun = d.noun;
                     let attr = self.get_attr(d.refno)?.ok_or(anyhow!("No attr map".to_string()))?;
 
-                    if d.refno != RefU64::from_two_nums(16501, 1456)
-                    // if d.refno != RefU64::from_two_nums(16501, 1701)
-                    /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
-                    // && d.refno != RefU64::from_two_nums(16501, 237)
-                    {
-                        continue;
-                    }
+                    // if d.refno != RefU64::from_two_nums(16501, 411)
+                    // // if d.refno != RefU64::from_two_nums(16501, 1701)
+                    // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
+                    // // && d.refno != RefU64::from_two_nums(16501, 237)
+                    // {
+                    //     continue;
+                    // }
 
                     let mut geo_hash = None;
                     let mut color_type = None;

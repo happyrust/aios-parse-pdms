@@ -14,7 +14,7 @@ use crate::parsed_data::geo_params_data::CateGeoParam::SlopeBottomCylinder;
 use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
 use crate::tiny_expr::expr_eval::interp;
-use crate::tool::hash_tool::{f32_round_3, f64_round_3};
+use crate::tool::hash_tool::{f32_round_2, f32_round_3, f64_round_2, f64_round_3};
 
 #[test]
 fn test_expression_regex() {
@@ -69,6 +69,9 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     let mut new_exp = new_exp.replace("RPRO", "");
     let mut result_exp = new_exp.clone();
     let loop_cnt = if input_expr.contains("RPRO") { 2 } else { 1 };
+    // if input_expr.contains("TAN") {
+        // dbg!(input_expr);
+    // }
     for _ in 0..loop_cnt {
         for caps in re.captures_iter(&new_exp) {
             let s = &caps[0];
@@ -120,6 +123,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
     if seg_strs.len() == 0 {
         return Ok(0.0);
     }
+    // dbg!(&seg_strs);
 
     let mut result_string = String::new();
     let mut p_vals = vec![];
@@ -140,6 +144,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             }
         }
     }
+    // dbg!(&p_vals);
 
     let mut i = 0;
     while i < p_vals.len() {
@@ -359,7 +364,7 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
         "SSLC" => {
             CateGeoParam::SlopeBottomCylinder(CateSlopeBottomCylinderParam{
                 axis: Some(gmse.paxises[0].clone()),
-                height: gmse.height,
+                height: gmse.phei,
                 diameter: gmse.diameters[0],
                 distance: gmse.distances[0],
                 x_shear: gmse.shears[0],
@@ -561,7 +566,7 @@ pub fn parse_str_axis_to_vec3(paxis: &str, ddangle: f64) -> [f64; 3] {
     let mut paxis_str = &paxis[..];
     //含DDANGLE的处理
     if paxis_str.contains("DDANGLE") {
-        let angle = ddangle * std::f64::consts::PI / 180.0;
+        let angle = ddangle.to_radians();
         let mut axises: Vec<&str> = Vec::new();
         for s in paxis_str.split("DDANGLE") {
             let s = s.trim();
@@ -605,5 +610,5 @@ pub fn parse_str_axis_to_vec3(paxis: &str, ddangle: f64) -> [f64; 3] {
         };
     }
     let v = parse_expr_to_dir(paxis_str);
-    [(v[0] as f64 * 100.0).round() / 100.0, (v[1] as f64 * 100.0).round() / 100.0, (v[2] as f64 * 100.0).round() / 100.0]
+    [f64_round_2(v[0] as f64), f64_round_2(v[1] as f64), f64_round_2(v[2] as f64)]
 }
