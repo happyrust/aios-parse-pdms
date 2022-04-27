@@ -25,7 +25,7 @@ use phf::phf_map;
 use nom::combinator::{map, verify};
 use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
-use crate::{db1_hash, db_tool, match_db_stype};
+use crate::{db1_hash, db_tool, get_db_stype};
 use crate::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use crate::parse_explict_tools::{get_explicit_attr_type, parse_explicit_num_00, parse_explicit_num_40, parse_explicit_num_ff, parse_expression_attr, parse_xyz_data, times_keep_f32_two_decimal_place};
 use crate::pdms_types::*;
@@ -41,6 +41,7 @@ use serde_json::Value::Bool;
 use smol_str::SmolStr;
 use core::result::Result::Ok;
 use std::default::default;
+use aios_core::pdms_types::ProjectDbno;
 use crate::consts::{ATT_BANG, ATT_LEVE, ATT_MDB, ATT_NUMB, ATT_PTS, UNSET_STR};
 use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
 use anyhow::*;
@@ -179,43 +180,59 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
     parse_db(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
 }
 
-// 保存项目所有的dbno，从glb文件中读取
-pub fn sync_project_dbno_with_glb(project: &str, path: &str, modules: Vec<String>) -> Result<Vec<ProjectDbno>, bonsaidb::core::Error> {
+///从mdb里获取projects
+pub fn get_dbnos_of_mdb(path: &str, project: &str, modules: Vec<String>, mdb_name: &str) -> anyhow::Result<Vec<ProjectDbno>> {
     let mut r = vec![];
-    let sys_path = PathBuf::from(format!("{}\\{}sys", path, project.to_uppercase()));
-    let filename = PathBuf::from(path).file_name().unwrap().to_str().unwrap().to_string();
-    if let Ok(data) = parse_file(&sys_path, &None, &filename,project, "") {
-        if let Some(mdbs) = data.type_ele_map.get(&(ATT_MDB as u32)) {
-            // 获取到所有的mdb
-            for mdb in &mdbs.0 {
-                let mut map = HashMap::new();
-                if let Some(mdb_att) = data.all_attr_map.get(mdb) {
-                    if let Some(main_db_ref) = mdb_att.get_main_db_in_mdb() {
-                        let mut main_db = 0;
-                        // 获取到某个mdb下的所有db
-                        if let Some(dbs) = data.children_map.get(mdb) {
-                            for db in &dbs.0 {
-                                if let Some(db_att) = data.all_attr_map.get(db) {
-                                    let module = match_db_stype(&db_att);
-                                    if modules.contains(&module) {
-                                        if let Some(dbno) = db_att.get(&NounHash(ATT_NUMB)) {
-                                            let dbno = dbno.i32_value() as u32;
-                                            if main_db_ref == *db {
-                                                main_db = dbno;
-                                            }
-                                            map.entry(module).or_insert_with(Vec::new).push(dbno);
-                                        }
+    let sys_file_name = format!("{project}sys");
+    let glb_file_name = format!("{project}glb");
+    let sys_path = PathBuf::from(format!("{path}/{project}/{project}000/{project}sys"));
+    let glb_path = PathBuf::from(format!("{path}/{project}/{project}000/{project}glb"));
+    let sys_data = parse_file(&sys_path, &None, &sys_file_name, project, "")?;
+    let glb_data = parse_file(&glb_path, &None, &glb_file_name, project, "")?;
+
+    let mdbs = sys_data.type_ele_map.get(&(ATT_MDB as u32)).ok_or(anyhow!("MDB not exist in attmap".to_string()))?;
+    // 获取到所有的mdb
+    for mdb in mdbs.iter() {
+        let mut map = HashMap::new();
+        if let Some(mdb_att) = sys_data.all_attr_map.get(&mdb) {
+            let name_hash = mdb_att.get_name_hash();
+            if name_hash != AiosStr(mdb_name.into()).get_u32_hash() {
+                continue;
+            }
+            if let Some(main_db_ref) = mdb_att.get_main_db_in_mdb() {
+                let mut main_db = 0;
+                // dbg!(main_db_ref.to_refno_str());
+                // dbg!(sys_data.children_map.get(mdb));
+                // 获取到某个mdb下的所有db
+                if let Some(dbs) = sys_data.children_map.get(&mdb) {
+                    for db in &dbs.0 {
+                        let att_map = if glb_data.all_attr_map.contains_key(db) {
+                            &glb_data.all_attr_map
+                        } else {
+                            &sys_data.all_attr_map
+                        };
+                        let db_att_data = att_map.get(db);
+                        if let Some(db_att) = db_att_data {
+                            let module = get_db_stype(&db_att).unwrap_or_default();
+                            // dbg!(db_att.to_string_hashmap());
+                            // dbg!(db_att.get_val("TYPE"));
+                            if modules.contains(&module.to_string()) {
+                                if let Some(dbno) = db_att.get_u32("NUMBDB") {
+                                    // dbg!(dbno);
+                                    if main_db_ref == *db {
+                                        main_db = dbno;
                                     }
+                                    map.entry(module.to_string()).or_insert_with(Vec::new).push(dbno);
                                 }
                             }
                         }
-                        r.push(ProjectDbno {
-                            mdb: mdb_att.get_name_hash(),
-                            main_db,
-                            dbs: map,
-                        })
                     }
                 }
+                r.push(ProjectDbno {
+                    mdb: mdb_att.get_name_hash(),
+                    main_db,
+                    dbs: map,
+                })
             }
         }
     }
@@ -488,7 +505,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
                     if let Some(parent_id) = refno_node_id_map.get(&refno) {
-                        let id = ele_id_tree.insert(Node::new(EleNode{
+                        let id = ele_id_tree.insert(Node::new(EleNode {
                             refno: *memb,
                             ..default()
                         }), UnderNode(parent_id)).unwrap();
@@ -507,7 +524,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let project_hash = string_lookup.add_str(project);
     let db_no = if field_no == 0 { db_no } else { field_no };
     dbg!("Begin parse attributes");
-    let mut version_map = HashMap::new();
+    // let mut version_map = HashMap::new();
     all_refnos.par_iter().for_each(|refno| {
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();
@@ -526,16 +543,16 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             version,
                             name_hash,
                         }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map, &string_lookup) {
-                version_map.insert(refno.0,version);
-                if !all_attr_map.contains_key(&refno) {
-                    all_attr_map.insert(refno, attr_data_map);
-                    type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
-                    let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
-                    refno_info_map.entry(ref_0).or_insert( RefnoInfo {
-                        ref_0,
-                        project_hash,
-                        db_no,
-                    });
+                // version_map.insert(refno.0,version);
+                // if !all_attr_map.contains_key(&refno) {
+                all_attr_map.insert(refno, attr_data_map);
+                type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
+                let ref_0 = RefI32Tuple::from(&refno).get_0() as u32;
+                refno_info_map.entry(ref_0).or_insert(RefnoInfo {
+                    ref_0,
+                    project_hash,
+                    db_no,
+                });
                 // }
             }
         }
@@ -640,8 +657,8 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                 DbAttributeType::STRING => {
                     let (_, str_len) = be_i32(input)?;
                     let str_len = str_len as usize;
-                    //按double 来处理
-                    if data_len == 8 && str_len != 1 {
+                    //优先按照string来处理
+                    if data_len == 8 && str_len != 1 {    //todo 什么情况 按double 来处理
                         let d = parse_to_f64(&input[..8]);
                         val = AttrVal::DoubleType(d);
                         advance_offset = 2;
@@ -1662,7 +1679,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
             refno_entry = Some((refno, EleDataEntry {
                 pos: offset as usize,
                 noun_hash,
-                version
+                version,
             }));
         } else {}
     }
@@ -1779,7 +1796,7 @@ pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleData
                 if data.len() > 100 {
                     let pos_iter = rfind_iter(data, ref_0);
                     for p in pos_iter {
-                        if p < start {  continue; }
+                        if p < start { continue; }
                         if let Some(refno_entry) = get_refno_entry(data, p - start) {
                             //判断是否是World
                             if refno_entry.1.noun_hash == 0xBEB83 {
@@ -1787,10 +1804,10 @@ pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleData
                             }
                             if refno_table.contains_key(&refno_entry.0) {
                                 let d = &*refno_table.get(&refno_entry.0).unwrap();
-                                if d.version < refno_entry.1.version  {
+                                if d.version < refno_entry.1.version {
                                     refno_table.insert(refno_entry.0, refno_entry.1);
                                 }
-                            }else{
+                            } else {
                                 refno_table.insert(refno_entry.0, refno_entry.1);
                             }
                             // refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
@@ -3039,7 +3056,6 @@ pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 0x8D92Bi32 => "DLLB",
 0xB55143Ai32 => "XPITEM",
 };
-
 
 
 #[test]

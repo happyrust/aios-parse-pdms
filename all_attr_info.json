@@ -19942,9 +19942,9 @@
       "hash": 865153,
       "offset": 12,
       "default_val": {
-        "StringType": ""
+        "IntegerType": 0
       },
-      "att_type": "STRING"
+      "att_type": "INTEGER"
     },
     "AREA": {
       "name": "AREA",

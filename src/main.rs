@@ -40,7 +40,7 @@ use simplelog::{CombinedLogger, WriteLogger};
 // use mysql::prelude::*;
 // use mysql::time::{Instant, parse};
 use parse_pdms_db::db_tool;
-use parse_pdms_db::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
+use parse_pdms_db::db_tool::{convert_to_hash, db1_dehash, db1_hash, decode_chars_data};
 use parse_pdms_db::parse::*;
 use parse_pdms_db::parse_explict_tools::*;
 use parse_pdms_db::pdms_types::*;
@@ -91,9 +91,24 @@ fn main() -> anyhow::Result<()> {
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
         ]
     ).unwrap();
+    //
+    // let mut pdms_data_info: PdmsDatabaseInfo  = bincode::deserialize(include_bytes!(r"D:\aios_workspace\aios-parse-pdms\all_attr_info.bin")).unwrap();
+    // {
+    //     let mut t = &mut pdms_data_info.noun_attr_info_map;
+    //     let mut kv = t.get_mut(&(db1_hash("DB") as i32)).unwrap();
+    //     let mut styp = kv.get_mut(&865153).unwrap();
+    //     styp.default_val = IntegerType(0);
+    //     styp.att_type = DbAttributeType::INTEGER;
+    //     // println!("{:?}", kv.value());
+    // }
+    // // dbg!(kv.value());
+    // let mut file = File::create("../all_attr_info.bin").unwrap();
+    // file.write(bincode::serialize(&pdms_data_info).unwrap().as_slice());
+    //
+    // return Ok(());
 
     let mut db_option = DbOption {
-        total_sync: false,
+        total_sync: true,
         incr_sync: false,
         // project_path: "/Volumes/DPC/aba".to_string(),
         project_path: "D:/aba".to_string(),

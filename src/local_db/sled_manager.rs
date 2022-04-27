@@ -29,7 +29,7 @@ use crate::{AttrMap, db1_dehash, EleNode, GeomsInfo, parse_pdms_dir, read_attr_i
 use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
-use crate::parse::{NOUN_TYPES_MAP, parse_file_basic_info, PdmsDbData};
+use crate::parse::{get_dbnos_of_mdb, NOUN_TYPES_MAP, parse_file_basic_info, PdmsDbData};
 use crate::pdms_types::{AiosStr, CachedMeshesMgr, DbnoVersion, EleGeoInstData, GeoData, PdmsMeshMgr, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom, ShapeInstancesMgr, StringLookupTable};
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::extrusion::{CurveType, Extrusion};
@@ -82,7 +82,7 @@ pub const INFO_DB_NAME: &'static str = "info";
 pub const STR_DB_NAME: &'static str = "strs";
 pub const GEOM_DB_NAME: &'static str = "geoms";
 pub const DBNO_VERSIONS: &'static str = "vers";
-
+pub const TUBI_TOL: f32 = 10.0f32; //多少距离需要成为 tubi
 ///collision world  存储所属元件名称和GeoId
 static GLOBAL_COLLISION_WORLD: Lazy<Mutex<CollisionWorld<f32, (RefU64, RefU64)>>> = Lazy::new(|| {
     let mut world = CollisionWorld::<f32, (RefU64, RefU64)>::new(0.001f32);
@@ -342,6 +342,7 @@ impl AiosDBManager {
     #[inline]
     pub fn get_design_geoms(&self, refno: RefU64, cached_mesh_mgr: &mut CachedMeshesMgr) -> anyhow::Result<HashMap<RefU64, Vec<CateBrepShape>>> {
         let mut result_map = HashMap::new();
+
         if let Some(desi_att) = self.get_attr(refno)? {
             let type_name = desi_att.get_type();
             let is_bran = type_name == "BRAN";
@@ -379,6 +380,11 @@ impl AiosDBManager {
                 };
                 let children = self.get_children(refno)?.unwrap_or_default();
                 if children.len() == 0 {
+                    if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
+                        current_tubing.end_pt = bran_ttube_pt;
+                        current_tubing.finished = true;
+                        result_map.insert(refno, vec![current_tubing.convert_to_shape()]);
+                    }
                     return Ok(result_map);
                 }
                 //第一遍完成后，然后生成tubing
@@ -397,7 +403,7 @@ impl AiosDBManager {
                         if geoms.axis_map.contains_key(&arrive) {
                             let p = &geoms.axis_map[&arrive].pt;
                             let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                            if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > f32::EPSILON {
+                            if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > TUBI_TOL {
                                 current_tubing.end_pt = a_pos;
                                 current_tubing.finished = true;
                                 result_shapes.push(current_tubing.convert_to_shape());
@@ -431,7 +437,7 @@ impl AiosDBManager {
                         }
                     } // end geoms.geometries
                     if child == last_child {
-                        if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > 1.0 {
+                        if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
                             current_tubing.end_pt = bran_ttube_pt;
                             current_tubing.finished = true;
                             result_shapes.push(current_tubing.convert_to_shape());
@@ -441,7 +447,6 @@ impl AiosDBManager {
                 }
             }
         }
-        // dbg!(&result_map);
         Ok(result_map)
     }
 
@@ -484,10 +489,10 @@ impl AiosDBManager {
                     let noun = d.noun;
                     let attr = self.get_attr(d.refno)?.ok_or(anyhow!("No attr map".to_string()))?;
 
-                    // if d.refno != RefU64::from_two_nums(16501, 411)
-                    // // if d.refno != RefU64::from_two_nums(16501, 1701)
-                    // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
-                    // // && d.refno != RefU64::from_two_nums(16501, 237)
+                    // if d.refno != RefU64::from_two_nums(16501, 7924)
+                    // // // if d.refno != RefU64::from_two_nums(16501, 1701)
+                    // // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
+                    // // // && d.refno != RefU64::from_two_nums(16501, 237)
                     // {
                     //     continue;
                     // }
@@ -1086,10 +1091,15 @@ impl AiosPdmsProjectSled {
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
         let project_dir = data_dir.join(&project);
-        let mut target_dir = fs::read_dir(project_dir).unwrap().into_iter().map(|entry| {
+        let mut target_dir = fs::read_dir(&project_dir).unwrap().into_iter().map(|entry| {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
+
+        let mdb_dbnos = get_dbnos_of_mdb(self.dir.as_str(), project.as_str(), vec!["DESI".to_string()], "/NI-MODEL");
+        dbg!(mdb_dbnos);
+
+        return Ok(());
 
         let mut children_files = fs::read_dir(target_dir)?.into_iter().map(|entry| {
             let entry = entry.unwrap();

@@ -22,8 +22,8 @@ pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, i
         //dbg!(parent_pos);
         let children_hash = interface.get_ele_children_refs(att.get_refno().unwrap());
         let mut res = None;
-        for x in children_hash {
-            let refs = interface.get_ele_children_refs(x);
+        for x in children_hash.iter() {
+            let refs = interface.get_ele_children_refs(*x);
             if refs.len() >= 3 {
                 res = Some((
                     interface.get_ele_world_transform(refs[0]).translation - parent_pos,

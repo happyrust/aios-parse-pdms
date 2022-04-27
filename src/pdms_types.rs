@@ -26,6 +26,7 @@ use std::ops::{Deref, DerefMut};
 use std::result::Iter;
 use std::sync::Arc;
 use std::vec::IntoIter;
+use aios_core::consts::ATT_CURD;
 use anyhow::anyhow;
 use bevy::render::primitives::Aabb;
 use bevy_inspector_egui::Inspectable;
@@ -233,6 +234,7 @@ impl IntoIterator for RefU64Vec {
     }
 }
 
+
 //存储children，也可以这么去存储
 impl Collection for RefU64Vec {
     type PrimaryKey = u64;
@@ -401,6 +403,20 @@ impl AttrMap {
         }
     }
 
+    #[inline]
+    pub fn get_main_db_in_mdb(&self) -> Option<RefU64> {
+        if let Some(v) = self.map.get(&NounHash(ATT_CURD)) {
+            match v {
+                AttrVal::IntArrayType(v) => {
+                    let refno = RefU64::from_two_nums(v[0] as u32, v[1] as u32);
+                    return Some(refno);
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
     //获取spref
     #[inline]
     pub fn get_foreign_refno(&self, key: &str) -> Option<RefU64> {
@@ -408,7 +424,6 @@ impl AttrMap {
             return Some(*d);
         }
         None
-        // Err(anyhow!("Foreign refno is not correct".to_string()))
     }
 
     #[inline]
@@ -481,7 +496,6 @@ impl AttrMap {
                 Some(*d as i32)
             }
             _ => {
-                // Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
                 None
             }
         }
@@ -495,7 +509,6 @@ impl AttrMap {
                 Some(s)
             }
             _ => {
-                // Err(TypeNotCorrect(key.to_string(), "bool".to_string()).into())
                 None
             }
         }
@@ -584,9 +597,6 @@ impl AttrMap {
     #[inline]
     pub fn get_val(&self, key: &str) -> Option<&AttrVal> {
         self.map.get(&db1_hash(key).into())
-            // .ok_or_else(||
-            // AttNotExist(format!("{:?}", self),
-            //             key.to_string()).into() )
     }
 
     #[inline]

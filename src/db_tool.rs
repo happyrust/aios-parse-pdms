@@ -54,21 +54,19 @@ pub const fn db1_hash(hash_str: &str) -> u32{
 }
 
 // 返回 DESI 、 CATA .. 等模块值
-pub fn match_db_stype(map: &AttrMap) -> String {
-    if let Some(val) = map.get(&NounHash(ATT_STYP)) {
-        match val {
-            AttrVal::IntegerType(v) => {
-                match *v {
-                    1 => { return "DESI".to_string(); }
-                    2 => { return "CATA".to_string(); }
-                    // todo 还有model没列举出来
-                    _ => {}
-                }
-            }
-            _ => {}
-        }
+pub fn get_db_stype(map: &AttrMap) -> Option<&'static str> {
+    let val = map.get(&NounHash(ATT_STYP as u32))?;
+    match val {
+        AttrVal::IntegerType(v) => {
+            Some(match *v {
+                1 => "DESI",
+                2 => "CATA",
+                8 => "DICT",
+                _ => "UNSET"
+            })
+        },
+        _ => None
     }
-    "UNSET".to_string()
 }
 
 #[test]
