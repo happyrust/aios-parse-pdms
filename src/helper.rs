@@ -55,8 +55,8 @@ pub fn resolve_paragon_gm_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> anyhow::Result<CateGeoParam> {
-    dbg!(gm_param.refno.to_refno_str());
-    dbg!(&gm_param);
+    // dbg!(gm_param.refno.to_refno_str());
+    // dbg!(&gm_param);
     if let Ok(gm_data) = resolve_gmse_params(gm_param, context, axis_params){
         resolve_to_cate_geo_params(gm_data)
     }else{

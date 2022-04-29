@@ -348,6 +348,7 @@ impl AiosDBManager {
             let is_bran = type_name == "BRAN";
             if !is_bran {
                 let geoms = resolve_desi_comp(refno, self).unwrap_or_default();
+                // dbg!(&geoms);
                 if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
                     result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self));
                 } else {
@@ -492,7 +493,7 @@ impl AiosDBManager {
                     let attr = self.get_attr(d.refno)?;
                     if attr.is_none() { continue; }
                     let attr = attr.unwrap();
-                    // if d.refno != RefU64::from_two_nums(23584, 45)
+                    // if d.refno != RefU64::from_two_nums(23584, 6328)
                     // // // if d.refno != RefU64::from_two_nums(16501, 1701)
                     // // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
                     // // // && d.refno != RefU64::from_two_nums(16501, 237)
@@ -656,9 +657,9 @@ impl AiosDBManager {
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
                         let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
                         //todo fix these types
-                        if ele_type == "PFIT" /*|| ele_type == "FITT"*/ {
-                            continue;
-                        }
+                        // if ele_type == "PFIT" /*|| ele_type == "FITT"*/ {
+                        //     continue;
+                        // }
                         //针对管道特殊处理
                         if ele_type == "BRAN" || (owner.is_some() && owner.unwrap().get_type() != "BRAN" && has_catref) {
                             let mut node_ids_map = HashMap::new();
@@ -667,6 +668,7 @@ impl AiosDBManager {
                                 node_ids_map.insert(data.refno, node_id.clone());
                             }
                             let brep_shapes = self.get_design_geoms(d.refno, &mut cached_mesh_mgr)?;
+                            // dbg!(&brep_shapes);
                             for (cur_refno, shapes) in brep_shapes {
                                 //记录对应的不同颜色类型
                                 if let Some(e) = self.get_color_type_refno(d.refno) {
@@ -739,7 +741,7 @@ impl AiosDBManager {
                             geo_hash,
                             bbox,
                             global_transform: (tr.rotation, tr.translation, tr.scale),
-                            visible: target_att.is_visible_by_level(None).unwrap_or(false),
+                            visible: target_att.is_visible_by_level(None).unwrap_or(true),
                             generic_type: color_type.unwrap_or_default(),
                             zone_refno: self.get_parent_att_by_type(target_refno, "ZONE")?.unwrap().get_refno().unwrap(),
                             node_id: target_node_id,

@@ -105,7 +105,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
 
     //因为 attrib 的原因，这里还需要再执行一遍处理，以防止有可能出现
     //处理出现 DESIGN IPARA 1 这种没有 “[]”的情况
-    let re = Regex::new(r"(DESIGN?\s+)?([I|C|O)]?PARAM?)\s*(\d+)").unwrap();
+    let re = Regex::new(r"(DESIGN?\s+)?([I|C|O|A)]?PARAM?)\s*(\d+)").unwrap();
     let mut new_exp = result_exp.clone();
     for caps in re.captures_iter(&result_exp) {
         let s = &caps[0];
@@ -120,7 +120,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 k = format!("IPARA{}", c3).into();
             }else if c2.starts_with("CPAR"){
                 k = format!("IPARA{}", c3).into();
-            }else if c2.starts_with("PARA"){
+            }else if c2.starts_with("PARA") || c2.starts_with("APAR"){
                 k = format!("PARA{}", c3).into();
             }else if c2.starts_with("OPAR"){
                 k = format!("OPAR{}", c3).into();

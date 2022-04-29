@@ -118,9 +118,9 @@ fn main() -> anyhow::Result<()> {
 
     let refno = RefU64::from_two_nums(15192, 77134);
     dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
-    let refno = RefU64::from_two_nums(15192, 77135);
-    dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
-    // cache_viewer_data(&mut mgr, &db_option);
+    // let refno = RefU64::from_two_nums(15192, 77135);
+    // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
+    cache_viewer_data(&mut mgr, &db_option);
     return Ok(());
 }
 

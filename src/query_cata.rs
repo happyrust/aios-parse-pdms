@@ -40,11 +40,12 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
         }
     };
     let scom_ref = scom_ref.ok_or(anyhow!(format!("SCOM not exist in element: {}", refno.to_refno_str())))?;
-    dbg!(refno.to_refno_str());
+    // dbg!(refno.to_refno_str());
     if !scom_ref.is_valid() {
         return Err(anyhow!("Scom ref is invalid".to_string()));
     }
     let scom_info = query_scom_info(scom_ref, interface)?;
+    // dbg!(&scom_info);
     // dbg!(&scom_info.axis_params);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
     let mut desp = attr_map.get_f64_vec("DESP").unwrap_or_default();
@@ -109,7 +110,6 @@ pub fn query_scom_info<T: PdmsDataInterface>(
     }else{
         dbg!(attr_map.to_string_hashmap());
     }
-
     Ok(ScomInfo {
         gtype: attr_map.get_as_string("GTYP").unwrap_or("unset".into()),
         dtse_params: vec![],
@@ -137,7 +137,10 @@ pub fn query_axis_params<T: PdmsDataInterface>(
     for child in children {
         // dbg!(child.to_string_hashmap());
         let number = child.get_i32("NUMB").unwrap_or(-1);
-        map.insert(number, get_axis_param(&child).ok_or(anyhow!("Axis parse error".to_string()))? );
+        if let Some(axis) =  get_axis_param(&child){
+            map.entry(number).or_insert(axis);
+        }
+        //map.entry(number).or_insert(get_axis_param(&child).ok_or(anyhow!("Axis parse error".to_string()))? );
     }
     Ok(map)
 }
@@ -189,6 +192,7 @@ pub fn resolve_cata_comp<T: PdmsDataInterface>(
     let params = scom_info.attr_map.get_f64_vec("PARA").unwrap_or_default();
     for i in 0..params.len() {
         cur_context.insert(format!("OPAR{}", i + 1).into(), params[i].to_string().into());
+        cur_context.insert(format!("APAR{}", i + 1).into(), params[i].to_string().into());
         cur_context.insert(format!("CPAR{}", i + 1).into(), params[i].to_string().into());
         cur_context.insert(format!("PARA{}", i + 1).into(), params[i].to_string().into());
         cur_context.insert(format!("IPARA{}", i + 1).into(), "0".to_string().into());
