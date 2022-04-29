@@ -88,7 +88,7 @@ fn main_1() {
 fn main() -> anyhow::Result<()> {
     CombinedLogger::init(
         vec![
-            WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), File::create("parse_pdms_db.log").unwrap()),
+            WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), std::fs::File::create("parse_pdms_db.log").unwrap()),
         ]
     ).unwrap();
     //
@@ -106,26 +106,18 @@ fn main() -> anyhow::Result<()> {
     // file.write(bincode::serialize(&pdms_data_info).unwrap().as_slice());
     //
     // return Ok(());
-
-    let mut db_option = DbOption {
-        total_sync: true,
-        incr_sync: false,
-        // project_path: "/Volumes/DPC/aba".to_string(),
-        project_path: "D:/aba".to_string(),
-        included_projects: vec!["ABA".to_owned(), "GDP".to_owned()],
-        // included_db_files: Some(vec!["gdp5600_0001".to_string()]),
-        included_db_files: None,
-        mdb_name: "ABA".to_string(),
-        project_name: "ABA".to_string(),
-        main_db_code: 117
-    };
+    use config::{Config, ConfigError, Environment, File};
+    let s = Config::builder()
+        .add_source(File::with_name("DbOption"))
+        .build()?;
+    let db_option: DbOption = s.try_deserialize().unwrap();
+    dbg!(&db_option);
     let mut time = Instant::now();
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
 
-    let refno = RefU64::from_two_nums(13802, 5585);
+    // let refno = RefU64::from_two_nums(15194, 4752);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
-    // return Ok(());
     cache_viewer_data(&mut mgr, &db_option);
     return Ok(());
 }
@@ -159,7 +151,7 @@ pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyho
                 if let Some(s) = proj_db.get_string(d.name_hash).unwrap(){
                     string_lookup.lookup.insert(d.name_hash, s);
                 }
-                cached_attr_map.0.insert(d.refno, mgr.get_stringfied_attr(d.refno).unwrap().unwrap());
+                cached_attr_map.0.insert(d.refno, mgr.get_stringfied_attr(d.refno).unwrap().unwrap_or_default());
             }
         }
         string_lookup.serialize_to_bin_file(db_no);

@@ -59,6 +59,7 @@ winit = "0.26.1"
 instant = "0.1.12"
 pollster = "0.2.5"
 ordered-float = "2.10.0"
+config = "0.13.1"
 
 
 #tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }

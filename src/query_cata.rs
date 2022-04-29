@@ -40,13 +40,21 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
         }
     };
     let scom_ref = scom_ref.ok_or(anyhow!(format!("SCOM not exist in element: {}", refno.to_refno_str())))?;
+    dbg!(refno.to_refno_str());
+    if !scom_ref.is_valid() {
+        return Err(anyhow!("Scom ref is invalid".to_string()));
+    }
     let scom_info = query_scom_info(scom_ref, interface)?;
     // dbg!(&scom_info.axis_params);
     let mut context: HashMap<SmolStr, SmolStr> = HashMap::new();
-    let mut desp = attr_map.get_f64_vec("DESI").unwrap_or_default();
+    let mut desp = attr_map.get_f64_vec("DESP").unwrap_or_default();
     for i in 0..desp.len() {
         context.insert(
             format!("DESI{}", i + 1).into(),
+            desp[i].to_string().into(),
+        );
+        context.insert(
+            format!("DDES{}", i + 1).into(),
             desp[i].to_string().into(),
         );
         context.insert(
@@ -77,8 +85,11 @@ pub fn query_scom_info<T: PdmsDataInterface>(
     refno: RefU64,
     interface: &T,
 ) -> anyhow::Result<ScomInfo> {
+    // if !refno.is_valid() {
+    //     return
+    // }
     let attr_map = interface.get_ele_attr(refno)?;
-    let type_noun = attr_map.get_type_cloned();
+    let type_noun = attr_map.get_type_cloned().ok_or(anyhow!("Scom att not correct".to_string()))?;
     let is_sprf = type_noun == "SPRF";
     let ptref_name = if is_sprf { "PSTR" } else { "PTRE" };
     let mut axis_params = vec![];
@@ -144,7 +155,7 @@ pub fn query_gm_params<T: PdmsDataInterface>(
         if !child.is_visible_by_level(None).unwrap_or(true) {
             continue;
         }
-        let has_chidren = child.get_type_cloned() == "SPRO";//todo add other types
+        let has_chidren = child.get_type_cloned().unwrap_or_default() == "SPRO";//todo add other types
         gms.push(query_gm_param(&child, interface, has_chidren).unwrap_or_default());
     }
     Ok(gms)
@@ -302,7 +313,7 @@ pub fn query_gm_param(att_map: &AttrMap, interface: &dyn PdmsDataInterface, has_
 
     Some(GmParam {
         refno: att_map.get_refno().unwrap_or_default(),
-        gm_type: att_map.get_type_cloned(),
+        gm_type: att_map.get_type_cloned().unwrap_or_default(),
         prad: att_map.get_as_string("PRAD").unwrap_or_default(),
         pang: att_map.get_as_string("PANG").unwrap_or_default(),
         pwid: att_map.get_as_string("PWID").unwrap_or_default(),

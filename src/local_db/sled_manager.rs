@@ -453,7 +453,7 @@ impl AiosDBManager {
     pub fn get_color_type_refno(&self, refno: RefU64) -> Option<(SmolStr, RefU64)> {
         let mut cur_refno = refno;
         while let Some(attr) = self.get_attr(cur_refno).ok()? {
-            let noun_name = attr.get_type_cloned();
+            let noun_name = attr.get_type_cloned()?;
             if GENRIC_NOUN_NAMES.contains(&noun_name) {
                 return Some((noun_name, cur_refno));
             }
@@ -487,8 +487,11 @@ impl AiosDBManager {
                     let cur_node = tree.get(&cur_node_id).unwrap();
                     let d = cur_node.data();
                     let noun = d.noun;
-                    let attr = self.get_attr(d.refno)?.ok_or(anyhow!("No attr map".to_string()))?;
-
+                    // dbg!(d.refno.to_refno_str());
+                    // let attr = self.get_attr(d.refno)?.ok_or(anyhow!("No attr map".to_string()))?;
+                    let attr = self.get_attr(d.refno)?;
+                    if attr.is_none() { continue; }
+                    let attr = attr.unwrap();
                     // if d.refno != RefU64::from_two_nums(16501, 7924)
                     // // // if d.refno != RefU64::from_two_nums(16501, 1701)
                     // // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
@@ -645,6 +648,7 @@ impl AiosDBManager {
                             }
                         }
                     } else {
+                        continue;
                         let ele_type = attr.get_type();
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
                         let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
@@ -747,10 +751,11 @@ impl AiosDBManager {
         // let serialized = serde_json::to_string(&inst_map).unwrap();
         // file.write_all(serialized.as_bytes()).unwrap();
 
-        //
-        // let mut file = File::create(format!("type_geoms.json")).unwrap();
-        // let serialized = serde_json::to_string(&type_geom_refs_map).unwrap();
-        // file.write_all(serialized.as_bytes()).unwrap();
+
+        //todo 存在数据库里
+        let mut file = File::create(format!("type_geoms.json")).unwrap();
+        let serialized = serde_json::to_string(&type_geom_refs_map).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
 
         // let mut file = File::create(format!("./AIOS_DBS/room_geoms.json")).unwrap();
         // let serialized = serde_json::to_string(&room_geom_refs_map).unwrap();
@@ -770,7 +775,6 @@ impl AiosDBManager {
         Ok(mgr)
     }
 
-    //todo 基于元件库的模型也要生成
     //todo 房间号的算法移植
     pub fn build_collision_world(&mut self, db_code: u32) -> anyhow::Result<()> {
         let mut world = GLOBAL_COLLISION_WORLD.lock().unwrap();
@@ -778,16 +782,17 @@ impl AiosDBManager {
         let query = GeometricQueryType::Proximity(0.0);
         let groups = CollisionGroups::new();
 
-        let mut file = File::open(format!("./AIOS_DBS/type_geoms.json")).unwrap();
+        let mut file = File::open(format!("type_geoms.json")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf)?;
         let type_geom_refs_map: HashMap<RefU64, Vec<RefU64>> = serde_json::from_slice(&buf).unwrap();
 
         //暂时用json，方便调试
-        let mut file = File::open(format!("../web-aios/{db_code}_geoms.json")).unwrap();
+        let mut file = File::open(format!("{db_code}_geoms.json")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf)?;
         let geo_map: HashMap<SmolStr, EleGeoInstData> = serde_json::from_slice(&buf).unwrap();
+        let mesh_mgr: PdmsMeshMgr = PdmsMeshMgr::deserialize_from_bin_file(db_code)?;
 
         // 暂时找到所有的设备，在这里进行遍历，获得包围盒信息
         let equip_hash = db1_hash("EQUI");
@@ -1095,11 +1100,6 @@ impl AiosPdmsProjectSled {
             let entry = entry.unwrap();
             entry.path()
         }).find(|x| x.file_name().unwrap().to_str().unwrap().ends_with("000")).unwrap();
-
-        let mdb_dbnos = get_dbnos_of_mdb(self.dir.as_str(), project.as_str(), vec!["DESI".to_string()], "/NI-MODEL");
-        dbg!(mdb_dbnos);
-
-        return Ok(());
 
         let mut children_files = fs::read_dir(target_dir)?.into_iter().map(|entry| {
             let entry = entry.unwrap();

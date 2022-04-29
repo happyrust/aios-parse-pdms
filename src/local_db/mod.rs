@@ -19,7 +19,7 @@ pub mod string_database;
 pub mod refno_info_database;
 use clap::Parser;
 
-#[derive(Debug, Default, Clone, Parser)]
+#[derive(Debug, Default, Clone, Parser, Serialize, Deserialize)]
 pub struct DbOption {
     #[clap(long)]
     pub total_sync: bool,

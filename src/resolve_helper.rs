@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use fixed::types::I24F8;
 use nom::Parser;
-use regex::Regex;
+use regex::{NoExpand, Regex};
 use rsc::{InterpretError, Num, Variant};
 use smol_str::SmolStr;
 use crate::direction_parse::parse_expr_to_dir;
@@ -15,6 +15,17 @@ use crate::pdms_types::EleNode;
 use crate::polish_notation::Stack;
 use crate::tiny_expr::expr_eval::interp;
 use crate::tool::hash_tool::{f32_round_2, f32_round_3, f64_round_2, f64_round_3};
+
+#[test]
+fn test_exp() {
+    let input_exp = "PARAM 1 2 TIMES SUM PARAM 1 IPARAM 1";
+    // dbg!(input_exp.replace("PARAM 1", "test"));
+    let s = "PARAM 1";
+    let re = Regex::new(format!(r"^{s}|\s{s}").as_str()).unwrap();
+    let rs = "test";
+    let new_exp = re.replace_all(input_exp,  format!(" {rs} ").as_str()).to_string();
+    dbg!(new_exp);
+}
 
 #[test]
 fn test_expression_regex() {
@@ -102,8 +113,8 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         let c2 = caps.get(2).map_or("", |m| m.as_str());
         let c3 = caps.get(3).map_or("", |m| m.as_str());
         let mut k = SmolStr::new("");
-        if c1.starts_with("DESIGN") {
-            k = format!("PARA{}", c3).into();
+        if c1.starts_with("DESIGN")  {
+            k = format!("DESI{}", c3).into();  //design's params
         }else {
             if c2.starts_with("IPAR") {
                 k = format!("IPARA{}", c3).into();
@@ -113,10 +124,15 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                 k = format!("PARA{}", c3).into();
             }else if c2.starts_with("OPAR"){
                 k = format!("OPAR{}", c3).into();
+            }else if c2.starts_with("DDES"){
+                k = format!("DESI{}", c3).into();
             }
         }
         if context.contains_key(&k) {
-            new_exp = new_exp.replace(s, &context[&k]);
+            //need to replace whole word
+            let re = Regex::new(format!(r"^{s}|\s{s}").as_str()).unwrap();
+            let rs = &*context[&k];
+            new_exp = re.replace_all(&new_exp,  format!(" {rs} ").as_str()).to_string();
         }
     }
     let seg_strs: Vec<SmolStr> = new_exp.split_whitespace().map(|x| x.trim().into()).collect::<Vec<_>>();
@@ -145,14 +161,15 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         }
     }
     // dbg!(&p_vals);
-
     let mut i = 0;
+    let mut new_vals = vec![];
     while i < p_vals.len() {
         if p_vals[i] == "TWICE" {   //todo add function to eval
             if i + 1 < p_vals.len() {
                 if let Ok(val) = p_vals[i + 1].parse::<f64>() {
                     let v = val * 2.0f64;
-                    result_string.push_str(v.to_string().as_str());
+                    // result_string.push_str(v.to_string().as_str());
+                    new_vals.push(v.to_string());
                 }
             }
             i += 2;
@@ -162,37 +179,45 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
                     if let Ok(angle) = p_vals[i + 2].parse::<f64>() {
                         {
                             let v = val * ((angle / 2.0).to_radians() as f64).tan();
-                            result_string.push_str(v.to_string().as_str());
+                            // result_string.push_str(v.to_string().as_str());
+                            new_vals.push(v.to_string());
                         }
                     }
                 }
             }
             i += 3;
-        }else if (p_vals[i] == "SUM" || p_vals[i] == "DIFFERENCE") && i < p_vals.len() - 2 {
-            if p_vals[i] == "SUM" {
+        }else {
+            new_vals.push(p_vals[i].clone());
+            i += 1;
+        }
+    }
+    let mut i = 0;
+    while i < new_vals.len() {
+        if (new_vals[i] == "SUM" || new_vals[i] == "DIFFERENCE") && i < new_vals.len() - 2 {
+            if new_vals[i] == "SUM" {
                 result_string.push_str(&format!(
                     "({} {} {})",
-                    p_vals[i + 1],
+                    new_vals[i + 1],
                     "+",
-                    p_vals[i + 2]
+                    new_vals[i + 2]
                 ));
             } else {
                 result_string.push_str(&format!(
                     "({} {} {})",
-                    p_vals[i + 1],
+                    new_vals[i + 1],
                     "-",
-                    p_vals[i + 2]
+                    new_vals[i + 2]
                 ));
             }
             i += 3;
         }else {
-            result_string.push_str(&p_vals[i]);
+            result_string.push_str(new_vals[i].as_str());
             i += 1;
         }
         result_string.push_str(" ");
     }
 
-    // dbg!(&result_string);
+    dbg!(&result_string);
     if let Ok(val) = interp(&result_string.to_lowercase()) {
         Ok(f64_round_3(val).into())
     } else {
@@ -389,20 +414,24 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
             })
         }
         "SBOX" => {
-            CateGeoParam::Box(CateBoxParam {
-                size: vec![
-                    gmse.box_lengths[0],
-                    gmse.box_lengths[1],
-                    gmse.box_lengths[2],
-                ],
-                offset: vec![
-                    gmse.xyz[0],
-                    gmse.xyz[1],
-                    gmse.xyz[2],
-                ],
-                centre_line_flag: gmse.centre_line_flag,
-                tube_flag: gmse.tube_flag,
-            })
+            if gmse.box_lengths.len() == 3 && gmse.xyz.len() == 3 {
+                CateGeoParam::Box(CateBoxParam {
+                    size: vec![
+                        gmse.box_lengths[0],
+                        gmse.box_lengths[1],
+                        gmse.box_lengths[2],
+                    ],
+                    offset: vec![
+                        gmse.xyz[0],
+                        gmse.xyz[1],
+                        gmse.xyz[2],
+                    ],
+                    centre_line_flag: gmse.centre_line_flag,
+                    tube_flag: gmse.tube_flag,
+                })
+            }else{
+                CateGeoParam::Unknown
+            }
         }
         "SCON" => {
             // 圆锥
@@ -461,7 +490,6 @@ pub fn resolve_to_cate_geo_params(gmse: GmseParamData) -> anyhow::Result<CateGeo
             })
         }
         "SLINE" => {
-            //todo
             CateGeoParam::Sline(CateSlineParam {
                 start_pt: vec![0.0; 3],
                 end_pt: vec![0.0; 3],

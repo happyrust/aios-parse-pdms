@@ -55,6 +55,8 @@ pub fn resolve_paragon_gm_params(
     context: &HashMap<SmolStr, SmolStr>,
     axis_params: &BTreeMap<i32, CateAxisParam>,
 ) -> anyhow::Result<CateGeoParam> {
+    dbg!(gm_param.refno.to_refno_str());
+    dbg!(&gm_param);
     if let Ok(gm_data) = resolve_gmse_params(gm_param, context, axis_params){
         resolve_to_cate_geo_params(gm_data)
     }else{
@@ -213,7 +215,8 @@ pub fn resolve_axis_param(
         "".to_string()
     };
     let pbore = eval_str_to_f64(&axis_param.pbore, &context).unwrap_or_default();
-    match axis_param.attr_map.get_type_cloned().as_str() {
+    let type_name = axis_param.attr_map.get_type_cloned()?;
+    match type_name.as_str() {
         "PTAX" => {
             let d = eval_str_to_f64(&axis_param.distance, &context).unwrap_or_default();
             let (dir, pos) = resolve_dir_and_pos(axis_param, ddangle, scom, context);

@@ -104,25 +104,18 @@ impl RefI32Tuple {
 #[derive(Hash, Serialize, Deserialize, Clone, Copy, Default, Component, Eq, PartialEq, Hash32)]
 pub struct RefU64(pub u64);
 
-// impl Inspectable for RefU64 {
-//     type Attributes = (u32, u32);
-//
-//     fn ui(
-//         &mut self,
-//         ui: &mut egui::Ui,
-//         options: Self::Attributes,
-//         context: &mut bevy_inspector_egui::Context,
-//     ) -> bool {
-//         true
-//     }
-// }
+impl Inspectable for RefU64 {
+    type Attributes = (u32, u32);
 
-// impl AsRef<[u8]> for RefU64{
-//     fn as_ref(&self) -> &[u8] {
-//         &self.0.to_be_bytes()
-//     }
-// }
-
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        options: Self::Attributes,
+        context: &mut bevy_inspector_egui::Context,
+    ) -> bool {
+        true
+    }
+}
 
 
 impl Deref for RefU64 {
@@ -168,6 +161,9 @@ impl From<&[u8]> for RefU64 {
 }
 
 impl RefU64 {
+
+    #[inline]
+    pub fn is_valid(&self) -> bool { self.get_0() != 0 }
 
     #[inline]
     pub fn get_sled_key(&self) -> [u8; 8]{
@@ -447,7 +443,8 @@ impl AttrMap {
     ///判断构件是否可见
     pub fn is_visible_by_level(&self, level: Option<u32>) -> Option<bool> {
         let levels = self.get_level()?;
-        Some(levels[0] <= level.unwrap_or(LEVEL_VISBLE))
+        let l = level.unwrap_or(LEVEL_VISBLE);
+        Some(levels[0] <= l && l<=levels[1] )
     }
 
     #[inline]
@@ -479,8 +476,8 @@ impl AttrMap {
     }
 
     #[inline]
-    pub fn get_type_cloned(&self) -> SmolStr {
-        self.get_string("TYPE").unwrap().clone()
+    pub fn get_type_cloned(&self) -> Option<SmolStr> {
+        self.get_string("TYPE").map(|x| x.clone())
     }
 
     #[inline]
@@ -703,7 +700,7 @@ impl AttrMap {
 
     ///生成具有几何属性的element的shape
     pub fn create_brep_shape(&self) -> Option<Box<dyn BrepShapeTrait>> {
-        let type_noun = self.get_type_cloned();
+        let type_noun = self.get_type_cloned()?;
         return match type_noun.as_str() {
             "BOX" => Some(Box::new(SBox::from(self))),
             "CYLI" => Some(Box::new(SCylinder::from(self))),

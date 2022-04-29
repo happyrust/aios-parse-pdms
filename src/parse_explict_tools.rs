@@ -131,7 +131,10 @@ pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     }
 }
 
-pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],String>{
+pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String> {
+    if input.len() < 8 {
+        return Ok((input, "".to_string()));
+    }
     // 表达式都是以0x0 0 0 1开头的
     let mut expression_data = &input[..];
     // 这是表达式数字的起始标志
@@ -139,18 +142,18 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
     let mut check_val2 = parse_to_i32(&expression_data[4..8]);
     let mut number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
-    while expression_data.len() >= 8 && ( number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3]) {
+    while expression_data.len() >= 8 && (number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3]) {
         //解析数值
         if number_flag {
             expression_data = &expression_data[8..];
             let num_flag = parse_to_i16(&expression_data[8..10]);
-            let value = if num_flag == 0i16{
+            let value = if num_flag == 0i16 {
                 parse_explicit_num_00(&expression_data[..12])?.1
-            } else if num_flag == 0x4000i16{
+            } else if num_flag == 0x4000i16 {
                 parse_explicit_num_40(&expression_data[..12])?.1
-            }else if num_flag == -1i16{
+            } else if num_flag == -1i16 {
                 parse_explicit_num_ff(&expression_data[..12])?.1
-            }else { 0.0 };
+            } else { 0.0 };
             // 表达式的值
             result_stack.push(value.to_string());
             expression_data = &expression_data[12..];
@@ -166,29 +169,29 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             expression_data = &expression_data[4..];
             let num = u32::from_be_bytes(expression_data[..4].try_into().unwrap());
             let att_name = db1_dehash(u32::from_be_bytes(expression_data[4..8].try_into().unwrap()));
-            let flags = ( parse_to_i32(&expression_data[8..12]), parse_to_i32(&expression_data[12..16]));
+            let flags = (parse_to_i32(&expression_data[8..12]), parse_to_i32(&expression_data[12..16]));
 
             let mut rpro_name = String::new();
             let s_value = u32::from_be_bytes(expression_data[16..20].try_into().unwrap());
-            if att_name.as_str() == "RPRO" && s_value != 0{
-                rpro_name  = db1_dehash(s_value);
+            if att_name.as_str() == "RPRO" && s_value != 0 {
+                rpro_name = db1_dehash(s_value);
                 if !rpro_name.is_empty() {
                     rpro_name.insert(0, ' ');
                 }
             }
             let mut expression;
-            if flags == (-1, -1){
+            if flags == (-1, -1) {
                 let v = result_stack.pop().unwrap_or_default();
                 expression = format!("ATTRIB {att_name}[{v}]{rpro_name}");
-            }else {
+            } else {
                 let num = flags.1;
                 if s_value == 0 {
                     if num == 1 {
                         expression = format!("ATTRIB {att_name}");
-                    }else{
+                    } else {
                         expression = format!("ATTRIB {att_name}[{num}]");
                     }
-                }else{
+                } else {
                     expression = format!("ATTRIB {att_name}{rpro_name}");
                 }
             }
@@ -226,7 +229,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         let refno = format!("{}/{}", refno0, refno1);
                         let func = result_stack.pop().unwrap_or_default();
                         let result = format!("( {} OF = {} )", func, refno);
-                        return Ok((input,  result.into()));
+                        return Ok((input, result.into()));
                     }
                 }
                 expression_data = &expression_data[length..];
@@ -246,8 +249,8 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                 let cnt = op_str.matches("{}").count();
                 let len = result_stack.len();
                 if len >= cnt {
-                    symbol = dynfmt::SimpleCurlyFormat.format(op_str, &result_stack[len-cnt..]).unwrap_or_default().to_string();
-                    result_stack.drain(len-cnt..);
+                    symbol = dynfmt::SimpleCurlyFormat.format(op_str, &result_stack[len - cnt..]).unwrap_or_default().to_string();
+                    result_stack.drain(len - cnt..);
                 }
             }
             match &expression_data[..4] {
@@ -305,19 +308,19 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                 expression_data = &expression_data[4..];
             } else {
                 let result = format!("{}", result_stack.pop().unwrap_or_default());
-                return Ok((input,  result.into()));
+                return Ok((input, result.into()));
             }
         }
-        if expression_data.len() >=8 {
+        if expression_data.len() >= 8 {
             check_val1 = parse_to_i32(&expression_data[..4]);
             check_val2 = parse_to_i32(&expression_data[4..8]);
             number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
-        }else{
+        } else {
             break;
         }
     }
     let result = format!("{}", result_stack.pop().unwrap_or("".to_string()).trim());
-    return Ok((input,result))
+    return Ok((input, result));
 }
 
 /// 返回 X () Y () Z 表达式 的 其中一个 坐标 + data 例如： X ()
