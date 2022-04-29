@@ -141,11 +141,14 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     let mut result_stack = vec![];
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
     let mut check_val2 = parse_to_i32(&expression_data[4..8]);
-    let mut number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
+    let mut number_flag = check_val1 == 0x65 ;
     while expression_data.len() >= 8 && (number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3]) {
         //解析数值
         if number_flag {
             expression_data = &expression_data[8..];
+            if expression_data.len() < 12 {
+                return Ok((input, "".to_string())); //todo 检查这种情况
+            }
             let num_flag = parse_to_i16(&expression_data[8..10]);
             let value = if num_flag == 0i16 {
                 parse_explicit_num_00(&expression_data[..12])?.1
@@ -314,7 +317,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
         if expression_data.len() >= 8 {
             check_val1 = parse_to_i32(&expression_data[..4]);
             check_val2 = parse_to_i32(&expression_data[4..8]);
-            number_flag = (check_val1 == 0x65 && check_val2 == 0x6);
+            number_flag = check_val1 == 0x65;
         } else {
             break;
         }

@@ -389,10 +389,11 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             }
         }
     }
+    let explicit_data = take_off_007(explicit_data);
     if maybe_refno == refno {
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(explicit_data, &mut explicit_bytes_len);
+            let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len);
             parse_explict_attrs(&merged_data, &attr_info_map, &mut attr_data_map, refno, string_lookup).ok()?;
         }
     }
@@ -420,6 +421,17 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         name_hash,
         version,
     })
+}
+
+pub fn take_off_007(mut input:&[u8]) -> &[u8] {
+    while input.len() >=4 {
+        let v = parse_to_i32(&input[..4]);
+        if v != 0 && v != 7 {
+            return input;
+        }
+        input = &input[4..];
+    }
+    input
 }
 
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {

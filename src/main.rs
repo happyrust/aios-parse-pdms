@@ -116,9 +116,11 @@ fn main() -> anyhow::Result<()> {
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
 
-    // let refno = RefU64::from_two_nums(15194, 4752);
-    // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
-    cache_viewer_data(&mut mgr, &db_option);
+    let refno = RefU64::from_two_nums(15192, 77134);
+    dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
+    let refno = RefU64::from_two_nums(15192, 77135);
+    dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
+    // cache_viewer_data(&mut mgr, &db_option);
     return Ok(());
 }
 

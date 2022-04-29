@@ -492,7 +492,7 @@ impl AiosDBManager {
                     let attr = self.get_attr(d.refno)?;
                     if attr.is_none() { continue; }
                     let attr = attr.unwrap();
-                    // if d.refno != RefU64::from_two_nums(16501, 7924)
+                    // if d.refno != RefU64::from_two_nums(23584, 45)
                     // // // if d.refno != RefU64::from_two_nums(16501, 1701)
                     // // /* && d.refno != RefU64::from_two_nums(8193, 46417)*/
                     // // // && d.refno != RefU64::from_two_nums(16501, 237)
@@ -504,6 +504,7 @@ impl AiosDBManager {
                     let mut color_type = None;
                     let mut item_trans = glam::TransformSRT::IDENTITY;
                     let mut target_refno = d.refno;
+                    let mut target_att = attr.clone();
                     let mut target_node_id = cur_node_id.clone();
                     if PRIM_HASH_NOUNS.contains(&noun) {
                         //获得类型和参考号
@@ -564,6 +565,7 @@ impl AiosDBManager {
                                     geo_hash = Some(r);
                                 }
                             } //end of LOOP_NOUN
+                            target_att = parent_att;
                         } else if noun == POHE_NOUN {  //多面体, try to save the leaf nodes in database
                             let children_hash = self.get_children(d.refno)?.unwrap_or_default();
                             let mut facet = Facet::default();
@@ -638,6 +640,7 @@ impl AiosDBManager {
                                     }
                                 } // end height
                             }  //end params.len() >= 2
+                            target_att = parent_att;
                         } else {
                             if let Some(brep_obj) = attr.create_brep_shape() {
                                 if brep_obj.check_valid() {
@@ -648,7 +651,7 @@ impl AiosDBManager {
                             }
                         }
                     } else {
-                        continue;
+                        // continue;
                         let ele_type = attr.get_type();
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
                         let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
@@ -736,7 +739,7 @@ impl AiosDBManager {
                             geo_hash,
                             bbox,
                             global_transform: (tr.rotation, tr.translation, tr.scale),
-                            visible: attr.is_visible_by_level(None).unwrap_or(false),
+                            visible: target_att.is_visible_by_level(None).unwrap_or(false),
                             generic_type: color_type.unwrap_or_default(),
                             zone_refno: self.get_parent_att_by_type(target_refno, "ZONE")?.unwrap().get_refno().unwrap(),
                             node_id: target_node_id,
@@ -1113,7 +1116,7 @@ impl AiosPdmsProjectSled {
         let children_db = self.children_db.clone();
         let version_db = self.version_db.clone();
         let versions_map = Arc::new(DashMap::new());
-        children_files.par_iter().for_each(|path| {
+        children_files.iter().for_each(|path| {
             let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
             if !file_name.ends_with("com") && !file_name.ends_with("mis") {
                 if need_parsing_files.is_none() || need_parsing_files.as_ref().unwrap().contains(&file_name) {

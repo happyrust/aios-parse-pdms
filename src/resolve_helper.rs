@@ -217,7 +217,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
         result_string.push_str(" ");
     }
 
-    dbg!(&result_string);
+    // dbg!(&result_string);
     if let Ok(val) = interp(&result_string.to_lowercase()) {
         Ok(f64_round_3(val).into())
     } else {
