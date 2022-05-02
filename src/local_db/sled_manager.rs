@@ -165,7 +165,7 @@ impl PdmsDataInterface for AiosDBManager {
         }
     }
 
-    fn get_node_id(&self, refno: RefU64) -> Option<NodeId>{
+    fn get_node_id(&self, refno: RefU64) -> Option<NodeId> {
         if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
             if let Some(db) = self.project_map.get(&ref_info.project_hash) {
                 return db.get_node_id(refno).ok()?;
@@ -877,6 +877,9 @@ impl AiosDBManager {
         world.update();
         dbg!("world update ok");
         let mut aabb_contained = HashMap::new();
+        //不能用参考号作为参考了，需要用node id, 有可能同一个层级在不同的地方出现过了
+        //node id -> geom refnos
+        let mut ssc_nodeid_geom_refs = HashMap::new();
         let mut ssc_nodeid_map: HashMap<RefU64, NodeId> = HashMap::new();
         let mut ssc_tree = PdmsTree::default();
         let ele_id_tree = self.get_pdms_tree(project_str, db_code).ok_or(anyhow!("Tree not found".to_string()))?;
@@ -885,18 +888,17 @@ impl AiosDBManager {
         let root_id: NodeId = ssc_tree.insert(Node::new(ele_root_data), AsRoot).unwrap();
         let mut room_final_contained = HashMap::new();
         // let mut room_geo_refs_map = HashMap::new();
-        for (room_refno,  room_geo) in room_aabb_map {
+        for (room_refno, room_geo) in room_aabb_map {
             // if k != RefU64::from_two_nums(23584, 65) {
             //     continue;
             // }
             // room_geo_refs_map.insert(k.to_refno_str(), room_geo_refnos.into_iter().map(|x| x.to_refno_str()).collect::<Vec<_>>());
             // dbg!(k.to_refno_str());
             let e = room_geo.bbox.get_half_extents();
-            let c =  room_geo.bbox.get_center();
+            let c = room_geo.bbox.get_center();
             let (r, t, s) = room_geo.global_transform;
             let t = t + r * c;
-            let aabb = AABB::from_half_extents(na::Point3::new(t.x, t.y, t.z),
-                                               na::Vector3::new(e.x, e.y, e.z));
+            let aabb = AABB::from_half_extents(na::Point3::new(t.x, t.y, t.z), na::Vector3::new(e.x, e.y, e.z));
             let mesh_indx = room_geo.geo_hash.clone();
             // dbg!(&room_geo);
             let translation = na::Vector3::new(t.x, t.y, t.z);
@@ -911,7 +913,7 @@ impl AiosDBManager {
             // dbg!(&aabb);
             let room_node_id = if ssc_nodeid_map.contains_key(&room_refno) {
                 ssc_nodeid_map[&room_refno].clone()
-            }else{
+            } else {
                 let node_id = self.get_node_id(room_refno).unwrap();
                 let node_data = ele_id_tree.get(&node_id).unwrap().data().clone();
                 let room_node_id = ssc_tree.insert(Node::new(node_data), UnderNode(&root_id)).unwrap();
@@ -927,7 +929,7 @@ impl AiosDBManager {
                 //暂时做了两层的结构，需要按照原来的结构还原，剔除不属于room的构件
                 let type_node_id = if ssc_nodeid_map.contains_key(&generic_refno) {
                     ssc_nodeid_map[&generic_refno].clone()
-                }else{
+                } else {
                     let node_id = self.get_node_id(generic_refno).unwrap();
                     let node_data = ele_id_tree.get(&node_id).unwrap().data().clone();
                     let type_node_id = ssc_tree.insert(Node::new(node_data), UnderNode(&room_node_id)).unwrap();
@@ -940,9 +942,14 @@ impl AiosDBManager {
                 let new_id = ssc_tree.insert(Node::new(node_data), UnderNode(&type_node_id)).unwrap();
                 //todo 需要把层级移动过来
                 ssc_nodeid_map.insert(geom_refno, new_id.clone());
+                //存储这个索引关系
+
+                ssc_nodeid_geom_refs.entry(type_node_id).or_insert(Vec::new()).push(geom_refno);
+                ssc_nodeid_geom_refs.entry(new_id).or_insert(Vec::new()).push(geom_refno);
+                ssc_nodeid_geom_refs.entry(room_node_id.clone()).or_insert(Vec::new()).push(room_refno);
+                ssc_nodeid_geom_refs.entry(room_node_id.clone()).or_insert(Vec::new()).push(geom_refno);
 
                 aabb_contained.entry(room_refno).or_insert(Vec::new()).push(geom_refno);
-
                 let geo_data_map = mesh_mrg.get_instants_data(geom_refno);
                 for (_, geo_data_vec) in geo_data_map {
                     for geo_data in geo_data_vec {
@@ -963,8 +970,6 @@ impl AiosDBManager {
                         }
                     }
                 }
-
-
             }
         }
         dbg!(aabb_contained.len());
@@ -978,6 +983,12 @@ impl AiosDBManager {
         let serialized = serde_json::to_string(&aabb_contained).unwrap();
         file.write_all(serialized.as_bytes()).unwrap();
 
+        //ssc 需要用node id 去获取需要显示的 geoms
+        let mut file = File::create(format!("ssc_nodeid_geom_refs.bin")).unwrap();
+        let serialized = bincode::serialize(&ssc_nodeid_geom_refs).unwrap();
+        file.write_all(serialized.as_bytes()).unwrap();
+
+        // ssc_nodeid_geom_refs
         ssc_tree.serialize_to_bin_file_with_name("ssc_sample", db_code);
         //
         //
