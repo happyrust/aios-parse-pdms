@@ -150,7 +150,7 @@ pub fn eval_str_to_f64(input_expr: &str, context: &HashMap<SmolStr, SmolStr>) ->
             "DIV" => p_vals.push("/".to_string()),
             "DDHEIGHT" => p_vals.push(context["DDHEIGHT"].to_string()),
             "DDRADIUS" => p_vals.push(context["DDRADIUS"].to_string()),
-            "DDANGLE" => p_vals.push(context["DDANGLE"].to_string()),
+            "DDANGLE"  => p_vals.push(context["DDANGLE"].to_string()),
             _ => {
                 if upper_s.ends_with("mm") {
                     p_vals.push(upper_s[..upper_s.len() - 2].to_string());

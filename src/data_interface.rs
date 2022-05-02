@@ -1,6 +1,7 @@
 use crate::pdms_types::{PdmsTree, RefU64, RefU64Vec};
 use async_trait::async_trait;
 use glam::{TransformRT, TransformSRT};
+use id_tree::NodeId;
 use smol_str::SmolStr;
 use crate::{AttrMap, EleNode};
 use crate::pdms_data::ScomInfo;
@@ -23,7 +24,9 @@ pub trait PdmsDataInterface {
 
     fn get_ele_world_transform(&self, refno: RefU64) -> TransformRT;
 
-    fn get_tree(&self, project: &str, db_no: u32) -> Option<PdmsTree>;
+    fn get_pdms_tree(&self, project: &str, db_no: u32) -> Option<PdmsTree>;
+
+    fn get_node_id(&self, refno: RefU64) -> Option<NodeId>;
 
     fn get_name(&self, refno: RefU64) -> SmolStr;
 

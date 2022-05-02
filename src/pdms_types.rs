@@ -797,8 +797,22 @@ impl PdmsTree {
         true
     }
 
+    pub fn serialize_to_bin_file_with_name(&self, name: &str, db_code: u32) -> bool {
+        let mut file = File::create(format!("{name}_{db_code}.bin")).unwrap();
+        let serialized = bincode::serialize(&self).unwrap();
+        file.write_all(serialized.as_slice()).unwrap();
+        true
+    }
+
     pub fn deserialize_from_bin_file(db_code: u32) -> anyhow::Result<Self> {
         let mut file = File::open(format!("PdmsTree_{}.bin", db_code))?;
+        let mut buf: Vec<u8> = Vec::new();
+        file.read_to_end(&mut buf).ok();
+        let r = bincode::deserialize(buf.as_slice())?;
+        Ok(r)
+    }
+    pub fn deserialize_from_bin_file_with_name(name: &str, db_code: u32) -> anyhow::Result<Self> {
+        let mut file = File::open(format!("{name}_{db_code}.bin"))?;
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf).ok();
         let r = bincode::deserialize(buf.as_slice())?;
@@ -810,6 +824,18 @@ impl PdmsTree {
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Component)]
 pub struct PdmsTree(pub Tree<EleNode>);
 
+impl Deref for PdmsTree {
+    type Target = Tree<EleNode>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for PdmsTree {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl Collection for PdmsTree {
     type PrimaryKey = u64;

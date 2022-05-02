@@ -121,6 +121,7 @@ fn main() -> anyhow::Result<()> {
     // let refno = RefU64::from_two_nums(15192, 77135);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
     cache_viewer_data(&mut mgr, &db_option);
+    mgr.build_collision_world(db_option.project_name.as_str(), db_option.main_db_code);
     return Ok(());
 }
 
@@ -140,7 +141,7 @@ pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyho
     let mut string_lookup = StringLookupTable::default();
     let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
     let db_no = db_option.main_db_code;
-    let tree = mgr.get_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
+    let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
     tree.serialize_to_bin_file(db_no);
     let tree = &tree.0;
 
