@@ -1,745 +1,96 @@
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 8925
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 8925 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 8926 and 524287
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 8926
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 8926, recovered lsn 8926
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 8926 next_lid: 8926
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..16
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {381681664: 4718592}, max_header_stable_lsn: 381681664
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {381681664: 4718592} above lowest lsn 381681664
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 381709665
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 381709665 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 381681664 between lids 4746594 and 5242879
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 381709666
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 2621440
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 3145728
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 5767168
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 6291456
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 6815744
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 8912896
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 9437184
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 13631488
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14155776
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14680064
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 15204352
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 27787264
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 28311552
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 28835840
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 29360128
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 29884416
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 30408704
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 30932992
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 31457280
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 31981568
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 32505856
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 33030144
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 33554432
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 34078720
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 34603008
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 35127296
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 35651584
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 36175872
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 36700160
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 37224448
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 37748736
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 38273024
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 38797312
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 39321600
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 39845888
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 40370176
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 40894464
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 41418752
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 41943040
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 42467328
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 42991616
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 43515904
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 44040192
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 44564480
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 45088768
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 45613056
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 46137344
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 46661632
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 47185920
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 47710208
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 48234496
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 48758784
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 49283072
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 49807360
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 50331648
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 50855936
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 51380224
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 51904512
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 52428800
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 52953088
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 53477376
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 54001664
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 54525952
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 55050240
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 55574528
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 56098816
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 56623104
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 57147392
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 57671680
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 58195968
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 58720256
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 59244544
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 59768832
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 60293120
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 60817408
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 61341696
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 61865984
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 62390272
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 62914560
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 63438848
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 63963136
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 64487424
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 65011712
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 65536000
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 66060288
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 66584576
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 67108864
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 67633152
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 68157440
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 68681728
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 69206016
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 69730304
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 70254592
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 70778880
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 71303168
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 71827456
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 72351744
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 72876032
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 73400320
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 73924608
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 74448896
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 74973184
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 75497472
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 76021760
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 76546048
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 77070336
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 77594624
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 78118912
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 78643200
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 79167488
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 79691776
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 80216064
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 80740352
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 81264640
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 82313216
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 82837504
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 83361792
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 85458944
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 293601280 stable -1 free {2621440, 3145728, 5767168, 6291456, 6815744, 8912896, 9437184, 13631488, 14155776, 14680064, 15204352, 27787264, 28311552, 28835840, 29360128, 29884416, 30408704, 30932992, 31457280, 31981568, 32505856, 33030144, 33554432, 34078720, 34603008, 35127296, 35651584, 36175872, 36700160, 37224448, 37748736, 38273024, 38797312, 39321600, 39845888, 40370176, 40894464, 41418752, 41943040, 42467328, 42991616, 43515904, 44040192, 44564480, 45088768, 45613056, 46137344, 46661632, 47185920, 47710208, 48234496, 48758784, 49283072, 49807360, 50331648, 50855936, 51380224, 51904512, 52428800, 52953088, 53477376, 54001664, 54525952, 55050240, 55574528, 56098816, 56623104, 57147392, 57671680, 58195968, 58720256, 59244544, 59768832, 60293120, 60817408, 61341696, 61865984, 62390272, 62914560, 63438848, 63963136, 64487424, 65011712, 65536000, 66060288, 66584576, 67108864, 67633152, 68157440, 68681728, 69206016, 69730304, 70254592, 70778880, 71303168, 71827456, 72351744, 72876032, 73400320, 73924608, 74448896, 74973184, 75497472, 76021760, 76546048, 77070336, 77594624, 78118912, 78643200, 79167488, 79691776, 80216064, 80740352, 81264640, 82313216, 82837504, 83361792, 85458944}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 4746594, recovered lsn 381709666
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 381709666 next_lid: 4746594
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..40474
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {108527616: 3670016}, max_header_stable_lsn: 108527616
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {108527616: 3670016} above lowest lsn 108527616
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 108676011
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 108676011 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 108527616 between lids 3818412 and 4194303
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 108676012
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 4194304
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 4718592
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 6291456
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 6815744
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 7340032
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 7864320
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 8388608
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 8912896
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 9437184
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 9961472
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 10485760
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 11010048
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 11534336
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 12058624
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 12582912
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 13107200
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 13631488
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14155776
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14680064
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 15204352
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 15728640
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 16252928
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 16777216
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 17301504
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 17825792
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 18350080
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 18874368
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 19398656
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 19922944
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 20447232
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 20971520
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 21495808
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 22020096
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 22544384
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 23068672
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 23592960
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 24117248
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 24641536
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 25165824
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 25690112
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 26214400
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 26738688
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 27262976
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 27787264
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 28311552
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 28835840
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 29360128
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 29884416
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 30408704
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 30932992
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 31457280
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 31981568
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 32505856
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 33030144
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 33554432
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 34078720
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 34603008
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 35127296
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 35651584
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 36175872
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 36700160
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 37224448
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 37748736
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 38273024
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 59768832 stable -1 free {4194304, 4718592, 6291456, 6815744, 7340032, 7864320, 8388608, 8912896, 9437184, 9961472, 10485760, 11010048, 11534336, 12058624, 12582912, 13107200, 13631488, 14155776, 14680064, 15204352, 15728640, 16252928, 16777216, 17301504, 17825792, 18350080, 18874368, 19398656, 19922944, 20447232, 20971520, 21495808, 22020096, 22544384, 23068672, 23592960, 24117248, 24641536, 25165824, 25690112, 26214400, 26738688, 27262976, 27787264, 28311552, 28835840, 29360128, 29884416, 30408704, 30932992, 31457280, 31981568, 32505856, 33030144, 33554432, 34078720, 34603008, 35127296, 35651584, 36175872, 36700160, 37224448, 37748736, 38273024}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 3818412, recovered lsn 108676012
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 108676012 next_lid: 3818412
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..42622
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {2097152: 2097152}, max_header_stable_lsn: 2097152
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {2097152: 2097152} above lowest lsn 2097152
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 2253850
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 2253850 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 2097152 between lids 2253851 and 2621439
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 2253851
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 0
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 2621440 stable -1 free {0}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 2253851, recovered lsn 2253851
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 2253851 next_lid: 2253851
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..23
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {50855936: 524288}, max_header_stable_lsn: 50855936
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {50855936: 524288} above lowest lsn 50855936
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 51145526
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 51145526 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 50855936 between lids 813879 and 1048575
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 51145527
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 1048576
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 1572864
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 2097152
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 2621440
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 3145728
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 3670016
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 4194304
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 4718592
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 5242880
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 5767168
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 6291456
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 6815744
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 7340032
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 7864320
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 8388608
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 8912896
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 9437184
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 9961472
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 10485760
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 11010048
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 11534336
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 12058624
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 12582912
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 13107200
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 13631488
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14155776
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14680064
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 15204352
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 15728640
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 16252928
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 16777216
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 17301504
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 50331648 stable -1 free {1048576, 1572864, 2097152, 2621440, 3145728, 3670016, 4194304, 4718592, 5242880, 5767168, 6291456, 6815744, 7340032, 7864320, 8388608, 8912896, 9437184, 9961472, 10485760, 11010048, 11534336, 12058624, 12582912, 13107200, 13631488, 14155776, 14680064, 15204352, 15728640, 16252928, 16777216, 17301504}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 813879, recovered lsn 51145527
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 51145527 next_lid: 813879
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..23140
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (10) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (3) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {118489088: 4194304}, max_header_stable_lsn: 118489088
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {118489088: 4194304} above lowest lsn 118489088
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 118684357
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 118684357 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 118489088 between lids 4389574 and 4718591
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 118684358
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 3670016
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 4718592
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 5242880
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 5767168
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 6291456
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 7340032
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 7864320
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 8388608
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 8912896
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 9437184
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 9961472
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 10485760
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 11010048
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 11534336
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 12058624
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 12582912
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 13107200
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 13631488
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14155776
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 14680064
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 15204352
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 15728640
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 16252928
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 16777216
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 17301504
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 17825792
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 18350080
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 18874368
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 19398656
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 19922944
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 20447232
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 20971520
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 21495808
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 22020096
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 22544384
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 23068672
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 23592960
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 24117248
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 24641536
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 25165824
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 25690112
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 26214400
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 26738688
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 27262976
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 27787264
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 28311552
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 28835840
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 29360128
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 29884416
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 30408704
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 30932992
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 31457280
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 31981568
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 32505856
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 33030144
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 33554432
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 34078720
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 34603008
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 35127296
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 35651584
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 36175872
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 36700160
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 37224448
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 37748736
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 38273024
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 38797312
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 39321600
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 39845888
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 40370176
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 40894464
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 89653248 stable -1 free {3670016, 4718592, 5242880, 5767168, 6291456, 7340032, 7864320, 8388608, 8912896, 9437184, 9961472, 10485760, 11010048, 11534336, 12058624, 12582912, 13107200, 13631488, 14155776, 14680064, 15204352, 15728640, 16252928, 16777216, 17301504, 17825792, 18350080, 18874368, 19398656, 19922944, 20447232, 20971520, 21495808, 22020096, 22544384, 23068672, 23592960, 24117248, 24641536, 25165824, 25690112, 26214400, 26738688, 27262976, 27787264, 28311552, 28835840, 29360128, 29884416, 30408704, 30932992, 31457280, 31981568, 32505856, 33030144, 33554432, 34078720, 34603008, 35127296, 35651584, 36175872, 36700160, 37224448, 37748736, 38273024, 38797312, 39321600, 39845888, 40370176, 40894464}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 4389574, recovered lsn 118684358
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 118684358 next_lid: 4389574
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..42765
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 1707
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 1707 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 1708 and 524287
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 1708
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 1708, recovered lsn 1708
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 1708 next_lid: 1708
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..7
-06:08:22 [DEBUG] (17) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (7) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (17) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {912261120: 80216064}, max_header_stable_lsn: 912261120
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {912261120: 80216064} above lowest lsn 912261120
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 912571264
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 912571264 in iterator, stopping
-06:08:22 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 912261120 between lids 80526209 and 80740351
-06:08:22 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 912571265
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 77594624
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 78118912
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 83361792
-06:08:22 [DEBUG] (1) sled::pagecache::segment: freeing segment 83886080
-06:08:22 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 477626368 stable -1 free {77594624, 78118912, 83361792, 83886080}
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 80526209, recovered lsn 912571265
-06:08:22 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 912571265 next_lid: 80526209
-06:08:22 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..82127
-06:08:22 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {451936256: 271056896}, max_header_stable_lsn: 451936256
-06:08:22 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {451936256: 271056896} above lowest lsn 451936256
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 452223122
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 452223122 in iterator, stopping
-06:08:23 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 451936256 between lids 271343763 and 271581183
-06:08:23 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 452223123
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 4718592
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 6291456
-06:08:23 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 271581184 stable -1 free {4718592, 6291456}
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 271343763, recovered lsn 452223123
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 452223123 next_lid: 271343763
-06:08:23 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..170378
-06:08:23 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {5767168: 2097152}, max_header_stable_lsn: 5767168
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {5767168: 2097152} above lowest lsn 5767168
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 5989724
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 5989724 in iterator, stopping
-06:08:23 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 5767168 between lids 2319709 and 2621439
-06:08:23 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 5989725
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 0
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 524288
-06:08:23 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 2621440 stable -1 free {0, 524288}
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 2319709, recovered lsn 5989725
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 5989725 next_lid: 2319709
-06:08:23 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..22
-06:08:23 [DEBUG] (4) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (8) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (2) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {154140672: 87556096}, max_header_stable_lsn: 154140672
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {154140672: 87556096} above lowest lsn 154140672
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 154203700
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 154203700 in iterator, stopping
-06:08:23 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 154140672 between lids 87619125 and 88080383
-06:08:23 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 154203701
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 0
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 1572864
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 2097152
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 2621440
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 3145728
-06:08:23 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 88080384 stable -1 free {0, 1572864, 2097152, 2621440, 3145728}
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 87619125, recovered lsn 154203701
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 154203701 next_lid: 87619125
-06:08:23 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..50699
-06:08:23 [DEBUG] (17) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (6) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (5) sled::pagecache::logger: segment with lsn 9223372036854775807 had computed crc 3971697493, but stored crc 4294967295
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {522715136: 312999936}, max_header_stable_lsn: 522715136
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {522715136: 312999936} above lowest lsn 522715136
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 522932285
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 522932285 in iterator, stopping
-06:08:23 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 522715136 between lids 313217086 and 313524223
-06:08:23 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 522932286
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 6291456
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 9437184
-06:08:23 [DEBUG] (1) sled::pagecache::segment: freeing segment 10485760
-06:08:23 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 313524224 stable -1 free {6291456, 9437184, 10485760}
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 313217086, recovered lsn 522932286
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 522932286 next_lid: 313217086
-06:08:23 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..170479
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 1807
-06:08:23 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 1807 in iterator, stopping
-06:08:23 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 1808 and 524287
-06:08:23 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 1808
-06:08:23 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 1808, recovered lsn 1808
-06:08:23 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 1808 next_lid: 1808
-06:08:23 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..7
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
-06:08:25 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 94754
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 94754 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 94755 and 524287
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 94755
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 94755, recovered lsn 94755
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 94755 next_lid: 94755
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..104
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: no previous snapshot found
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 95
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 95 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 96 and 524287
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 96
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 96, recovered lsn 96
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 96 next_lid: 96
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..4
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: no previous snapshot found
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 95
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 95 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 96 and 524287
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 96
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 96, recovered lsn 96
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 96 next_lid: 96
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..4
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: no previous snapshot found
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 95
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 95 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 96 and 524287
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 96
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 96, recovered lsn 96
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 96 next_lid: 96
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..4
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: no previous snapshot found
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 95
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 95 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 96 and 524287
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 96
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 96, recovered lsn 96
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 96 next_lid: 96
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..4
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: no previous snapshot found
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0, 524288: 524288, 1048576: 1048576, 1572864: 1572864, 2097152: 2097152}, max_header_stable_lsn: 1572863
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {1048576: 1048576, 1572864: 1572864, 2097152: 2097152} above lowest lsn 1048576
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 2390643
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 2390643 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 2097152 between lids 2390644 and 2621439
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 2390644
+14:41:28 [DEBUG] (1) sled::pagecache::segment: freeing segment 0
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 2621440 stable -1 free {0}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 2390644, recovered lsn 2390644
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 2390644 next_lid: 2390644
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..944
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: no previous snapshot found
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 133
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 133 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 134 and 524287
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 134
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 134, recovered lsn 134
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 134 next_lid: 134
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..4
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: no previous snapshot found
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: ordering before clearing tears: {0: 0}, max_header_stable_lsn: 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: in clean_tail_tears, found missing item in tail: None and we'll scan segments {0: 0} above lowest lsn 0
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: filtering out segments after detected tear at (lsn, lid) 95
+14:41:28 [DEBUG] (1) sled::pagecache::iterator: hit max_lsn 95 in iterator, stopping
+14:41:28 [DEBUG] (1) sled::pagecache::snapshot: zeroing the end of the recovered segment at lsn 0 between lids 96 and 524287
+14:41:28 [DEBUG] (1) sled::pagecache::blob_io: gc_blobs removing any blob with an lsn above 96
+14:41:28 [DEBUG] (1) sled::pagecache::segment: SA starting with tip 524288 stable -1 free {}
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting log at recovered active offset 96, recovered lsn 96
+14:41:28 [DEBUG] (1) sled::pagecache::iobuf: starting IoBufs with next_lsn: 96 next_lid: 96
+14:41:28 [DEBUG] (1) sled::pagecache: load_snapshot loading pages from 0..4
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped
+14:41:32 [DEBUG] (1) sled::pagecache::logger: IoBufs dropped

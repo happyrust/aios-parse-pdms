@@ -32,4 +32,7 @@ pub trait PdmsDataInterface {
 
     fn get_name_by_hash(&self, refno: RefU64, name_hash: u32) -> Option<SmolStr>;
 
+    fn get_refnos_by_type(&self,project_name:SmolStr,att_type:&str) -> Option<RefU64Vec>;
+
+    fn get_pdms_project_tree(&self, project:&str,main_db:u32) -> anyhow::Result<PdmsTree> ;
 }

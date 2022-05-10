@@ -294,7 +294,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                     }
                 }
                 &[0x0, 0x0, 0x0, 0x3] => {
-                    if &expression_data[4..8] == &[0x0, 0x0, 0x6, 0xA5] {
+                    if expression_data.len() >= 8 && &expression_data[4..8] == &[0x0, 0x0, 0x6, 0xA5] {
                         if result_stack.len() > 1 {
                             let value1 = result_stack.pop().unwrap_or_default();
                             let value2 = result_stack.pop().unwrap_or_default();

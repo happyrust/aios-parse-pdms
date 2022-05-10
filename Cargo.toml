@@ -103,6 +103,8 @@ bevy_egui = { path="../bevy_egui", default-features = false, features = ["open_u
 #bevy_utils = { path = "../bevy/crates/bevy_utils" }
 #egui = { path = "../egui/egui" }
 egui = "0.16.0"
+calamine = "0.18.0"
+skytable = "0.7.0"
 
 id_tree = { version = "1.8.0", features = ["serde_support"] }
 smol_str = { version = "0.1.22", features = ["serde"] }

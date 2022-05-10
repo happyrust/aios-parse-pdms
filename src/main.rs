@@ -46,6 +46,7 @@ use parse_pdms_db::parse_explict_tools::*;
 use parse_pdms_db::pdms_types::*;
 use parse_pdms_db::pdms_types::AttrVal::*;
 use std::ffi::OsString;
+use aios_core::tool::db_tool::read_attr_info_config;
 use anyhow::anyhow;
 use fixed::types::{I20F12, I24F8};
 use futures::TryStreamExt;
@@ -116,18 +117,18 @@ fn main() -> anyhow::Result<()> {
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
 
-    let refno = RefU64::from_two_nums(15192, 77134);
-    dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
+    // let refno = RefU64::from_two_nums(15192, 77134);
+    // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
     // let refno = RefU64::from_two_nums(15192, 77135);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
-    cache_viewer_data(&mut mgr, &db_option);
-    mgr.build_collision_world(db_option.project_name.as_str(), db_option.main_db_code);
+    // cache_viewer_data(&mut mgr, &db_option);
+    // mgr.build_collision_world(db_option.project_name.as_str(), db_option.main_db_code);
+    // mgr.set_ssc_room_tree(db_option.project_name.as_str(), db_option.main_db_code);
     return Ok(());
 }
 
 
-pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool>{
-
+pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool> {
     //todo 可以用多线程去并发tree，获取节点下面，然后并发
     let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
     match r {
@@ -141,17 +142,19 @@ pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyho
     let mut string_lookup = StringLookupTable::default();
     let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
     let db_no = db_option.main_db_code;
-    let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
+    // let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
+
+    let tree = mgr.get_pdms_project_tree(db_option.project_name.as_str(), db_no)?;
     tree.serialize_to_bin_file(db_no);
     let tree = &tree.0;
 
-    if let Some(proj_db) = mgr.project_map.get(&AiosStr(db_option.project_name.clone().into()).get_u32_hash()){
+    if let Some(proj_db) = mgr.project_map.get(&AiosStr(db_option.project_name.clone().into()).get_u32_hash()) {
         let node_id = tree.root_node_id().ok_or(anyhow!("root node not exist.".to_string()))?;
         if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
             while let Some(mut cur_node_id) = nodes.next() {
                 let cur_node = tree.get(&cur_node_id).unwrap();
                 let d = cur_node.data();
-                if let Some(s) = proj_db.get_string(d.name_hash).unwrap(){
+                if let Some(s) = proj_db.get_string(d.name_hash).unwrap() {
                     string_lookup.lookup.insert(d.name_hash, s);
                 }
                 cached_attr_map.0.insert(d.refno, mgr.get_stringfied_attr(d.refno).unwrap().unwrap_or_default());
@@ -163,4 +166,28 @@ pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyho
 
 
     Ok(true)
+}
+
+// 修改 all_attr_info_bin 文件的属性的默认值
+#[test]
+fn change_info_bin_data() {
+    // let mut config = read_attr_info_config("all_attr_info.bin");
+    // let att = config.noun_attr_info_map.clone();
+    // if let Some(value) = att.get(&(db1_hash("DB") as i32)){
+    //     if let Some(mut v) = value.value().get_mut(&865153){
+    //         v.att_type = aios_core::pdms_types::DbAttributeType::INTEGER;
+    //         v.default_val = aios_core::pdms_types::AttrVal::IntegerType(1);
+    //     }
+    // };
+    // config.noun_attr_info_map = att;
+    // let mut file = File::create("all_attr_info_new.bin").unwrap();
+    // file.write(&bincode::serialize(&config).unwrap());
+
+    // 查看是否修改成功
+    let att = read_attr_info_config("all_attr_info_new.bin").noun_attr_info_map;
+    if let Some(value) = att.get(&(db1_hash("DB") as i32)) {
+        if let Some(mut v) = value.value().get(&865153) {
+            println!("v={:?}", v.value());
+        }
+    };
 }

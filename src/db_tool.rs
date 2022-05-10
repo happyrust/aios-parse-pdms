@@ -71,10 +71,10 @@ pub fn get_db_stype(map: &AttrMap) -> Option<&'static str> {
 
 #[test]
 fn db1_dehash_test(){
-    let name=db1_dehash(0x95B0C);
+    let name=db1_dehash(0x2902D6DA);
     println!("name={:?}",name);
 
-    let val = db1_hash(name.as_str());
+    let val = db1_hash("DB");
     println!("{:#4X}",val);
 }
 

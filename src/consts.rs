@@ -11,3 +11,4 @@ pub const ATT_STYP: i32 = 865153;
 pub const ATT_NUMB: i32 = 0x8DD01;
 pub const ATT_PTRE: i32 = 0x9D1CE;
 pub const ATT_PRTR: i32 = 0x557F908;
+pub const ATT_ROOM: i32 = 0x2902D6DA;
