@@ -1,5 +1,6 @@
+use aios_core::pdms_types::StringLookupTable;
 use crate::parse::parse_ele_data;
-use crate::pdms_types::StringLookupTable;
+// use crate::pdms_types::StringLookupTable;
 use crate::read_attr_info_config;
 use crate::test_cases::convert_str_to_bytes;
 

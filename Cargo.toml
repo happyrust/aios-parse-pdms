@@ -116,7 +116,6 @@ env_logger = "*"
 thiserror = "*"
 transmog-bincode = "0.1"
 
-
 truck-base = { version = "0.2.0", path = "../truck/truck-base" }
 truck-geotrait = { version = "0.1.0", path = "../truck/truck-geotrait" }
 truck-geometry = { version = "0.2.0", path = "../truck/truck-geometry" }

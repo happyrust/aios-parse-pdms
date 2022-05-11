@@ -6,7 +6,7 @@ use truck_modeling::{builder, Shell};
 use truck_meshalgo::prelude::*;
 use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
-use crate::AttrMap;
+// use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::{hash_f32, hash_vec3};

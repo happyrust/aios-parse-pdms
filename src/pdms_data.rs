@@ -1,6 +1,7 @@
+use aios_core::pdms_types::{AttrMap, RefU64};
 use smol_str::SmolStr;
-use crate::AttrMap;
-use crate::pdms_types::RefU64;
+// use crate::AttrMap;
+// use crate::pdms_types::RefU64;
 
 
 //设计模块的信息

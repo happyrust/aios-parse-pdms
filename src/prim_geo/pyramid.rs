@@ -2,6 +2,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::f32::EPSILON;
 use std::hash::{Hash, Hasher};
+use aios_core::pdms_types::AttrMap;
+use aios_core::shape::pdms_shape::{BrepShapeTrait, PdmsMesh, VerifiedShape};
 use bevy::prelude::*;
 use truck_modeling::{builder, Shell, Surface, Wire};
 // use bevy_inspector_egui::Inspectable;
@@ -12,9 +14,9 @@ use fixed::types::I24F8;
 use glam::Vec3;
 
 use truck_modeling::builder::try_attach_plane;
-use crate::AttrMap;
+// use crate::AttrMap;
 use crate::prim_geo::helper::cal_ref_axis;
-use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BrepMathTrait };
 use crate::tool::hash_tool::{hash_f32, hash_vec3};
 
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]

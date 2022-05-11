@@ -1,10 +1,11 @@
-use crate::pdms_types::{PdmsTree, RefU64, RefU64Vec};
+use aios_core::pdms_types::{AttrMap, PdmsTree, RefU64, RefU64Vec};
+// use crate::pdms_types::{PdmsTree, RefU64, RefU64Vec};
 use async_trait::async_trait;
 use glam::{TransformRT, TransformSRT};
 use id_tree::NodeId;
 use smol_str::SmolStr;
-use crate::{AttrMap, EleNode};
-use crate::pdms_data::ScomInfo;
+// use crate::{AttrMap, EleNode};
+// use crate::pdms_data::ScomInfo;
 
 // #[async_trait]
 pub trait PdmsDataInterface {

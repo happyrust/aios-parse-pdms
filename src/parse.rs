@@ -28,8 +28,8 @@ use serde::__private::from_utf8_lossy;
 use crate::{db1_hash, db_tool, get_db_stype};
 use crate::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use crate::parse_explict_tools::{get_explicit_attr_type, parse_explicit_num_00, parse_explicit_num_40, parse_explicit_num_ff, parse_expression_attr, parse_xyz_data, times_keep_f32_two_decimal_place};
-use crate::pdms_types::*;
-use crate::pdms_types::AttrVal::*;
+// use crate::pdms_types::*;
+// use crate::pdms_types::AttrVal::*;
 use crate::EXPR_ATT_SET;
 // use crate::interface::pdms_interface::PdmsInterface;
 use crossbeam_deque::Steal::{Empty, Success};
@@ -41,7 +41,8 @@ use serde_json::Value::Bool;
 use smol_str::SmolStr;
 use core::result::Result::Ok;
 use std::default::default;
-use aios_core::pdms_types::{ProjectDbno};
+use aios_core::pdms_types::{AiosStr, AiosStrHash, AttrInfo, AttrMap, AttrVal, DbAttributeType, EleNode, Integer, NounHash, PdmsDatabaseInfo, PdmsTree, ProjectDbno, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, StringLookupTable};
+use aios_core::pdms_types::AttrVal::{BoolType, DoubleArrayType, DoubleType, IntArrayType, IntegerType, RefU64Type, StringHashType, StringType, Vec3Type, WordType};
 use crate::consts::{ATT_BANG, ATT_LEVE, ATT_MDB, ATT_NUMB, ATT_PTS, ATT_ROOM, UNSET_STR};
 use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
 use anyhow::*;
@@ -517,6 +518,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         owner,
         name_hash,
         noun,
+        version,
+        children_count: 0
     };
     // 将房间信息保存到单独的数据结构中
     if let Some(val) = attr_data_map.get(&NounHash(ATT_ROOM as u32)) {

@@ -1,12 +1,11 @@
 use bevy::math::TransformSRT;
 use id_tree::NodeId;
-use crate::parsed_data::geo_params_data::CateGeoParam;
 use bevy::math::*;
 use crate::prim_geo::ctorus::{CTorus, SCTorus};
 use crate::prim_geo::cylinder::SCylinder;
 use crate::prim_geo::dish::Dish;
 use crate::prim_geo::extrusion::Extrusion;
-use crate::shape::pdms_shape::{BrepShapeTrait, PdmsPrimShape, VerifiedShape};
+use crate::shape::pdms_shape::{ PdmsPrimShape };
 use crate::prim_geo::pyramid::LPyramid;
 use crate::prim_geo::revolution::Revolution;
 use crate::prim_geo::rtorus::{RTorus, SRTorus};
@@ -16,6 +15,8 @@ use crate::prim_geo::sphere::Sphere;
 use std::default::default;
 use std::f32::consts::PI;
 use std::ops::Range;
+use aios_core::parsed_data::geo_params_data::CateGeoParam;
+use aios_core::shape::pdms_shape::BrepShapeTrait;
 use crate::prim_geo::slope_cylinder::SlopeCylinder;
 
 #[derive(Debug)]

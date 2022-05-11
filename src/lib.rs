@@ -24,12 +24,12 @@ extern crate hash32;
 use std::collections::HashSet;
 use std::error::Error;
 use crate::parsed_data::GeomsInfo;
-use crate::pdms_types::{AttrMap, EleNode, PdmsRefno, RefU64};
+// use crate::pdms_types::{AttrMap, EleNode, PdmsRefno, RefU64};
 use futures::stream::TryStreamExt;
 // use crate::interface::pdms_interface::PdmsInterface;
 
 
-pub mod pdms_types;
+// pub mod pdms_types;
 pub mod db_tool;
 pub mod error_types;
 pub mod test_cases;
@@ -43,7 +43,7 @@ pub mod parse_explict_tools;
 pub mod query_cata;
 pub mod helper;
 pub mod parsed_data;
-pub mod pdms_data;
+// pub mod pdms_data;
 pub mod resolve_helper;
 pub mod polish_notation;
 pub mod direction_parse;
@@ -56,7 +56,7 @@ pub use parse::parse_pdms_dir;
 
 pub mod consts;
 pub mod shape;
-pub mod prim_geo;
+// pub mod prim_geo;
 pub mod sctn;
 pub mod pipes;
 pub mod grpc;

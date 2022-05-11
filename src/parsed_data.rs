@@ -1,12 +1,14 @@
 use std::collections::BTreeMap;
+use aios_core::parsed_data::geo_params_data::CateGeoParam;
+use aios_core::pdms_types::RefU64;
 use dashmap::DashMap;
 use glam::{Vec2, Vec3};
-use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::pdms_data::GmParam;
-use crate::pdms_types::{AttrVal, EleNode};
+// use crate::parsed_data::geo_params_data::CateGeoParam;
+// use crate::pdms_data::GmParam;
+// use crate::pdms_types::{AttrVal, EleNode};
 use serde_derive::{Deserialize, Serialize};
 use smol_str::SmolStr;
-use crate::{AttrMap, RefU64};
+// use crate::{AttrMap, RefU64};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GeomsInfo {

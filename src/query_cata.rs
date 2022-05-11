@@ -1,13 +1,14 @@
 use crate::db_tool::db1_dehash;
 use crate::helper::*;
-use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
-use crate::parsed_data::geo_params_data::CateGeoParam::TubeImplied;
-use crate::parsed_data::{CateTubeImpliedParam, GmseParamData, GeomsInfo};
-use crate::pdms_types::AttrVal::IntArrayType;
-use crate::pdms_types::{AttrVal, PdmsRefno, RefU64};
-use crate::AttrMap;
+// use crate::pdms_types::AttrVal::IntArrayType;
+// use crate::pdms_types::{AttrVal, PdmsRefno, RefU64};
+// use crate::AttrMap;
 use dashmap::DashMap;
 use std::collections::{BTreeMap, HashMap};
+use aios_core::parsed_data::GeomsInfo;
+use aios_core::pdms_data::{AxisParam, GmParam, ScomInfo};
+use aios_core::pdms_types::{AttrMap, RefU64};
+use aios_core::pdms_types::AttrVal::IntArrayType;
 use anyhow::anyhow;
 use log::{error, info};
 use smol_str::SmolStr;
@@ -86,9 +87,6 @@ pub fn query_scom_info<T: PdmsDataInterface>(
     refno: RefU64,
     interface: &T,
 ) -> anyhow::Result<ScomInfo> {
-    // if !refno.is_valid() {
-    //     return
-    // }
     let attr_map = interface.get_ele_attr(refno)?;
     let type_noun = attr_map.get_type_cloned().ok_or(anyhow!("Scom att not correct".to_string()))?;
     let is_sprf = type_noun == "SPRF";

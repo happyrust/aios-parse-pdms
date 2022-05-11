@@ -1,11 +1,9 @@
-#[DbOption]
-total_sync = false
+total_sync = true
 incr_sync = false
-#project_path = "D:/aba"
-project_path = "D:/AVEVA/Plant/Projects12.1.SP4"
-included_projects = ["Sample", "Master"]  #
-#included_projects = ["ABA", "GDP"]
-#included_db_files = ["mas7325_0001"]
-mdb_name = "Sample"
-project_name = "Sample"
+project_path = "D:/AVEVA/Projects/E3D2.1"
+#project_path = "E:/pdms_data_files"
+#included_projects = ["sam"]
+included_projects = ["APS","AMS","SCB"]
+mdb_name = "ALL"
+project_name = "aps"
 main_db_code = 7200

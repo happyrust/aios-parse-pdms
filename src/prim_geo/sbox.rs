@@ -1,4 +1,5 @@
 use std::f32::EPSILON;
+use aios_core::pdms_types::AttrMap;
 use bevy::prelude::*;
 use truck_base::cgmath64::Vector3;
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
@@ -9,7 +10,7 @@ use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
 use lyon::math::size;
 use crate::prim_geo::helper::quad_indices;
-use crate::AttrMap;
+// use crate::AttrMap;
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 
 #[derive(Component, Debug, /*Inspectable, Reflect,*/ Clone, Serialize, Deserialize)]

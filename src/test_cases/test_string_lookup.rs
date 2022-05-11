@@ -1,4 +1,6 @@
-use crate::pdms_types::StringLookupTable;
+// use crate::pdms_types::StringLookupTable;
+
+use aios_core::pdms_types::StringLookupTable;
 
 #[test]
 pub fn test_lookup() {

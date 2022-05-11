@@ -2,6 +2,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::f32::EPSILON;
 use std::hash::{Hash, Hasher};
+use aios_core::pdms_types::AttrMap;
+use aios_core::shape::pdms_shape::{BrepShapeTrait, PdmsMesh, VerifiedShape};
 use anyhow::anyhow;
 use bevy::prelude::*;
 use truck_modeling::{builder, Shell, Surface, Wire};
@@ -12,9 +14,9 @@ use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
 use nalgebra_glm::sin;
 
-use crate::AttrMap;
+// use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, RotateInfo};
-use crate::shape::pdms_shape::{BevyMathTrait, BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
+use crate::shape::pdms_shape::{BevyMathTrait, BrepMathTrait };
 use crate::tool::hash_tool::{hash_f32, hash_vec3};
 
 #[derive(Component, Debug, Clone)]

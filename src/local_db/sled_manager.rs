@@ -19,28 +19,27 @@ use bonsaidb::core::transaction::Transaction;
 use bonsaidb::local::config::{Builder, Compression, StorageConfiguration};
 use bonsaidb::local::{Database, Storage};
 use glam::{Mat4, Quat, TransformRT, TransformSRT, Vec3};
-use id_tree::{Node, NodeId, Tree};
 use itertools::Itertools;
 use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
 use once_cell::sync::Lazy;
 use smol_str::SmolStr;
-use crate::{AttrMap, db1_dehash, EleNode, GeomsInfo, parse_pdms_dir, read_attr_info_config, sctn};
+use crate::{ db1_dehash,parse_pdms_dir, read_attr_info_config, sctn};
 use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
 use crate::parse::{get_dbnos_of_mdb, NOUN_TYPES_MAP, parse_file_basic_info, PdmsDbData, RoomCode};
-use crate::pdms_types::{AiosStr, AiosStrHash, CachedMeshesMgr, DbnoVersion, EleGeoInstData, GeoData, Integer, PdmsMeshMgr, PdmsNodeId, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom, ShapeInstancesMgr, StringLookupTable};
-use crate::prim_geo::ctorus::{CTorus, SCTorus};
-use crate::prim_geo::extrusion::{CurveType, Extrusion};
-use crate::shape::pdms_shape::{BrepShapeTrait, PdmsPrimShape, VerifiedShape};
-use crate::prim_geo::revolution::Revolution;
+// use crate::pdms_types::{AiosStr, AiosStrHash, CachedMeshesMgr, DbnoVersion, EleGeoInstData, GeoData, Integer, PdmsMeshMgr, PdmsNodeId, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom, ShapeInstancesMgr, StringLookupTable};
+// use crate::prim_geo::ctorus::{CTorus, SCTorus};
+// use crate::prim_geo::extrusion::{CurveType, Extrusion};
+// use crate::shape::pdms_shape::{ PdmsPrimShape};
+// use crate::prim_geo::revolution::Revolution;
 use crate::local_db::consts::*;
 use crate::local_db::refno_info_database::RefInoDatabase;
 use crate::local_db::string_database::StringDatabase;
-use crate::pdms_data::ScomInfo;
-use crate::pdms_types::AttrVal::{RefU64Type, StringHashType, StringType, WordType};
-use crate::prim_geo::facet::{Contour, Facet, Polygon};
+// use crate::pdms_data::ScomInfo;
+// use crate::pdms_types::AttrVal::{RefU64Type, StringHashType, StringType, WordType};
+// use crate::prim_geo::facet::{Contour, Facet, Polygon};
 use async_trait::async_trait;
 use bevy::prelude::Transform;
 use dashmap::DashMap;
@@ -60,14 +59,22 @@ use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
 use crate::query_cata::resolve_desi_comp;
 use clap::{Parser, ValueHint};
-use crate::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
+// use crate::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
 use std::panic::catch_unwind;
 use std::time::Instant;
+use aios_core::pdms_types::{AiosStr, AiosStrHash, AttrMap, CachedMeshesMgr, EleGeoInstData, EleNode, Integer, PdmsMeshMgr, PdmsNodeId, PdmsTree, RefnoInfo, RefU64, RefU64Vec, ShapeInstancesMgr, StringLookupTable};
+use aios_core::pdms_types::AttrVal::{RefU64Type, StringHashType, StringType, WordType};
+use aios_core::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
+use aios_core::prim_geo::extrusion::{CurveType, Extrusion};
+use aios_core::prim_geo::facet::{Contour, Facet, Polygon};
+use aios_core::prim_geo::revolution::Revolution;
+use aios_core::prim_geo::tubing::PdmsTubing;
+use aios_core::shape::pdms_shape::{BrepShapeTrait, VerifiedShape};
 use bevy::ecs::schedule::ShouldRun::No;
 use bevy::render::primitives::Aabb;
 use bincode::deserialize;
-use crate::prim_geo::sphere::Sphere;
-use crate::prim_geo::tubing::PdmsTubing;
+// use crate::prim_geo::sphere::Sphere;
+// use crate::prim_geo::tubing::PdmsTubing;
 use bonsaidb::core::connection::StorageConnection;
 use bonsaidb::core::connection::LowLevelConnection;
 use calamine::{open_workbook, RangeDeserializerBuilder, Reader, Xlsx};
@@ -76,6 +83,7 @@ use id_tree::InsertBehavior::{AsRoot, UnderNode};
 use log::Level::Debug;
 use sled::{Db, IVec};
 use bevy::ecs::component::Component;
+use id_tree::{Node, NodeId};
 use skytable::actions::Actions;
 use skytable::Connection;
 use crate::consts::ATT_ROOM;
@@ -238,17 +246,17 @@ impl PdmsDataInterface for AiosDBManager {
         if let Some(main_tree) = tree_map.remove(&main_db) {
             if let Some(root) = main_tree.0.root_node_id() {
                 let root_data = main_tree.0.get(root)?.data().clone();
-                let child = pdms_tree.insert(Node::new(root_data),AsRoot)?;
+                let child = pdms_tree.0.insert(Node::new(root_data),AsRoot)?;
                 let main_tree_order = main_tree.0.traverse_post_order(root)?;
                 for main_node in main_tree_order {
-                    pdms_tree.insert(Node::new(main_node.data().clone()),UnderNode(&child))?;
+                    pdms_tree.0.insert(Node::new(main_node.data().clone()),UnderNode(&child))?;
                 }
                 for (dbno,tree) in tree_map {
                     dbg!(dbno);
-                    let root_id = tree.root_node_id().ok_or(anyhow!("it's a empty tree"))?;
+                    let root_id = tree.0.root_node_id().ok_or(anyhow!("it's a empty tree"))?;
                     let tree_order = tree.0.traverse_post_order(root_id)?;
                     for node in tree_order {
-                        pdms_tree.insert(Node::new(node.data().clone()),UnderNode(&child))?;
+                        pdms_tree.0.insert(Node::new(node.data().clone()),UnderNode(&child))?;
                     }
                 }
             }
@@ -881,8 +889,6 @@ impl AiosDBManager {
         file.read_to_end(&mut buf)?;
         let type_geom_refs_map: HashMap<RefU64, Vec<RefU64>> = serde_json::from_slice(&buf).unwrap();
 
-        // self.get_
-
         let mut file = File::open(format!("type_refs.json")).unwrap();
         let mut buf: Vec<u8> = Vec::new();
         file.read_to_end(&mut buf)?;
@@ -958,10 +964,10 @@ impl AiosDBManager {
         let mut ssc_nodeid_geom_refs = HashMap::new();
         let mut ssc_nodeid_map: HashMap<RefU64, NodeId> = HashMap::new();
         let mut ssc_tree = PdmsTree::default();
-        let ele_id_tree = self.get_pdms_tree(project_str, db_code).ok_or(anyhow!("Tree not found".to_string()))?;
-        let ele_root_id = ele_id_tree.root_node_id().unwrap();
-        let ele_root_data = ele_id_tree.get(ele_root_id).unwrap().data().clone();
-        let root_id: NodeId = ssc_tree.insert(Node::new(ele_root_data), AsRoot).unwrap();
+        let mut ele_id_tree = self.get_pdms_tree(project_str, db_code).ok_or(anyhow!("Tree not found".to_string()))?;
+        let ele_root_id = ele_id_tree.0.root_node_id().unwrap();
+        let ele_root_data = ele_id_tree.0.get(ele_root_id).unwrap().data().clone();
+        let root_id: NodeId = ssc_tree.0.insert(Node::new(ele_root_data), AsRoot).unwrap();
         let mut room_final_contained = HashMap::new();
         // let mut room_geo_refs_map = HashMap::new();
         for (room_refno, room_geo) in room_aabb_map {
@@ -991,8 +997,8 @@ impl AiosDBManager {
                 ssc_nodeid_map[&room_refno].clone()
             } else {
                 let node_id = self.get_node_id(room_refno).unwrap();
-                let node_data = ele_id_tree.get(&node_id).unwrap().data().clone();
-                let room_node_id = ssc_tree.insert(Node::new(node_data), UnderNode(&root_id)).unwrap();
+                let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
+                let room_node_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&root_id)).unwrap();
                 ssc_nodeid_map.insert(room_refno, room_node_id.clone());
                 room_node_id
             };
@@ -1007,15 +1013,15 @@ impl AiosDBManager {
                     ssc_nodeid_map[&generic_refno].clone()
                 } else {
                     let node_id = self.get_node_id(generic_refno).unwrap();
-                    let node_data = ele_id_tree.get(&node_id).unwrap().data().clone();
-                    let type_node_id = ssc_tree.insert(Node::new(node_data), UnderNode(&room_node_id)).unwrap();
+                    let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
+                    let type_node_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&room_node_id)).unwrap();
                     ssc_nodeid_map.insert(generic_refno, type_node_id.clone());
                     type_node_id
                 };
 
                 let node_id = self.get_node_id(geom_refno).unwrap();
-                let node_data = ele_id_tree.get(&node_id).unwrap().data().clone();
-                let new_id = ssc_tree.insert(Node::new(node_data), UnderNode(&type_node_id)).unwrap();
+                let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
+                let new_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&type_node_id)).unwrap();
                 //todo 需要把层级移动过来
                 ssc_nodeid_map.insert(geom_refno, new_id.clone());
                 //存储这个索引关系
@@ -1165,11 +1171,11 @@ impl AiosDBManager {
             if let Some(node) = room_node_map.get(&room_name) {
                 for refno in v {
                     if let Ok(Some(project_info)) = self.get_refno_info(refno) {
-                        let tree = self.get_pdms_tree(project_str, project_info.db_no).ok_or(anyhow!("can not find tree"))?;
+                        let mut tree = self.get_pdms_tree(project_str, project_info.db_no).ok_or(anyhow!("can not find tree"))?;
                         // 找到改参考号在pdms树中的 elenode
                         let refno_node_id = self.get_node_id(refno).ok_or(anyhow!("can not find node id in tree"))?;
-                        let node_data = tree.get(&refno_node_id).unwrap().data().clone();
-                        ssc_tree.insert(Node::new(node_data), UnderNode(&node)).unwrap();
+                        let node_data = tree.0.get(&refno_node_id).unwrap().data().clone();
+                        ssc_tree.0.insert(Node::new(node_data), UnderNode(&node)).unwrap();
                     }
                 }
             }
@@ -1528,7 +1534,6 @@ impl AiosPdmsProjectSled {
 
     //todo  infos 存储什么的问题，要不要存储dbno
     pub fn sync_total(&self, need_parsing_files: &Option<Vec<String>>) -> anyhow::Result<()> {
-        let mut con = Connection::new("127.0.0.1", 2003)?; // todo 先写在这里 到时候好改
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
         let project_dir = data_dir.join(&project);
@@ -1541,16 +1546,9 @@ impl AiosPdmsProjectSled {
             let entry = entry.unwrap();
             entry.path()
         }).collect::<Vec<PathBuf>>();
-        // let all_att_db = self.all_att_db.clone();
-        // let types_db = self.types_db.clone();
-        // let tree_db = self.tree_db.clone();
-        // let string_db = self.string_db.clone();
-        // let info_db = self.info_db.clone();
-        // let children_db = self.children_db.clone();
-        // let version_db = self.version_db.clone();
-        // let room_db = self.room_db.clone();
         let versions_map = Arc::new(DashMap::new());
-        children_files.iter().for_each(|path| {
+        children_files.par_iter().for_each(|path| {
+            let mut con = Connection::new("127.0.0.1", 2003).unwrap();
             let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
             if !file_name.ends_with("com") && !file_name.ends_with("mis") {
                 if need_parsing_files.is_none() || need_parsing_files.as_ref().unwrap().contains(&file_name) {
@@ -1611,11 +1609,12 @@ impl AiosPdmsProjectSled {
                 }
             }
         });
-
         // string_db.insert();
+        let mut con = Connection::new("127.0.0.1", 2003)?;
 
         for kv in versions_map.as_ref() {
-            version_db.insert(&kv.key().0.to_be_bytes(), bincode::serialize(kv.value()).unwrap());
+            // version_db.insert(&kv.key().0.to_be_bytes(), bincode::serialize(kv.value()).unwrap());
+            con.set(kv.key(),kv.value());
         }
         Ok(())
     }

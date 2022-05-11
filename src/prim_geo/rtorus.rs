@@ -2,6 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::f32::EPSILON;
 use std::hash::Hasher;
 use std::hash::Hash;
+use aios_core::pdms_types::AttrMap;
 use bevy::prelude::*;
 use truck_modeling::{builder, Shell};
 // use bevy_inspector_egui::Inspectable;
@@ -10,7 +11,7 @@ use bevy::reflect::Reflect;
 use bevy::ecs::reflect::ReflectComponent;
 use fixed::types::I24F8;
 
-use crate::AttrMap;
+// use crate::AttrMap;
 use crate::prim_geo::helper::{cal_ref_axis, rotate_from_vec3_to_vec3, RotateInfo};
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::hash_f32;

@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 use std::f32::EPSILON;
+use aios_core::pdms_types::AiosAABB;
 use bevy::prelude::*;
 use truck_base::cgmath64::Vector3;
 use truck_meshalgo::prelude::{MeshableShape, MeshedShape};
@@ -12,8 +13,8 @@ use bevy::prelude::shape::Icosphere;
 
 use lyon::math::size;
 use crate::prim_geo::helper::quad_indices;
-use crate::AttrMap;
-use crate::pdms_types::AiosAABB;
+// use crate::AttrMap;
+// use crate::pdms_types::AiosAABB;
 use hexasphere::shapes::IcoSphere;
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 

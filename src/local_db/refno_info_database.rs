@@ -1,8 +1,9 @@
 use std::ops::{Deref, DerefMut};
+use aios_core::pdms_types::{RefnoInfo, RefU64};
 use bonsaidb::core::schema::SerializedCollection;
 use bonsaidb::local::config::{Builder, StorageConfiguration};
 use bonsaidb::local::Database;
-use crate::pdms_types::{RefnoInfo, RefU64};
+// use crate::pdms_types::{RefnoInfo, RefU64};
 
 #[derive(Debug, Clone)]
 pub struct RefInoDatabase{

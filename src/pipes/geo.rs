@@ -1,8 +1,7 @@
 use std::f32::EPSILON;
-use crate::{AttrMap, GeomsInfo};
-use crate::parsed_data::CateProfileParam;
-use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::pdms_types::GeoData;
+use aios_core::parsed_data::geo_params_data::CateGeoParam;
+use aios_core::parsed_data::{CateProfileParam, GeomsInfo};
+use aios_core::pdms_types::{AttrMap, GeoData};
 
 //sctn 的hash 函数，需要涵盖截面的旋转
 

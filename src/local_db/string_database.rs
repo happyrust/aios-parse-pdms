@@ -1,8 +1,9 @@
 use std::ops::{Deref, DerefMut};
+use aios_core::pdms_types::{AiosStr, AiosStrHash};
 use bonsaidb::core::schema::SerializedCollection;
 use bonsaidb::local::config::{Builder, Compression, StorageConfiguration};
 use bonsaidb::local::Database;
-use crate::pdms_types::{AiosStr, AiosStrHash, RefnoInfo, RefU64};
+// use crate::pdms_types::{AiosStr, AiosStrHash, RefnoInfo, RefU64};
 
 #[derive(Debug, Clone)]
 pub struct StringDatabase {

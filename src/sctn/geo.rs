@@ -1,15 +1,19 @@
 use std::f32::EPSILON;
-use crate::{AttrMap, GeomsInfo};
+// use crate::{AttrMap, GeomsInfo};
 use crate::parsed_data::CateProfileParam;
-use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::pdms_types::GeoData;
-use crate::prim_geo::loft::SctnSolid;
-use crate::shape::pdms_shape::BrepShapeTrait;
+// use crate::pdms_types::GeoData;
+// use crate::prim_geo::loft::SctnSolid;
+// use crate::shape::pdms_shape::BrepShapeTrait;
 use std::vec::Vec;
+use aios_core::parsed_data::geo_params_data::CateGeoParam;
+use aios_core::parsed_data::GeomsInfo;
+use aios_core::pdms_types::AttrMap;
+use aios_core::prim_geo::category::CateBrepShape;
+use aios_core::prim_geo::loft::SctnSolid;
 use bevy::prelude::Transform;
 use glam::{TransformSRT, Vec3};
 use crate::data_interface::PdmsDataInterface;
-use crate::prim_geo::category::CateBrepShape;
+// use crate::prim_geo::category::CateBrepShape;
 
 pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &T) -> Vec<CateBrepShape>  {
     let mut brep_shapes = vec![];

@@ -1,17 +1,17 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Neg;
+use aios_core::parsed_data::{CateAxisParam, GmseParamData};
+use aios_core::parsed_data::geo_params_data::CateGeoParam;
+use aios_core::pdms_data::{AxisParam, GmParam, ScomInfo};
 use anyhow::anyhow;
 use dashmap::DashMap;
 use itertools::Itertools;
 use smol_str::SmolStr;
-use crate::AttrMap;
+// use crate::AttrMap;
 use crate::db_tool::db1_dehash;
 use crate::error_types::AttError::TypeNotCorrect;
 use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params, eval_str_to_f32};
-use crate::pdms_data::{AxisParam, GmParam, ScomInfo};
-use crate::parsed_data::{CateAxisParam, GmseParamData};
-use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::pdms_types::{AttrVal, EleNode};
+// use crate::pdms_types::{AttrVal, EleNode};
 use crate::query_cata::{DDANGLE_STR, DDHEIGHT_STR, DDRADIUS_STR};
 
 

@@ -1,6 +1,15 @@
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-
+use aios_core::pdms_types::{AiosAABB, GeoData};
+use aios_core::prim_geo::ctorus::SCTorus;
+use aios_core::prim_geo::cylinder::{LCylinder, SCylinder};
+use aios_core::prim_geo::dish::Dish;
+use aios_core::prim_geo::extrusion::Extrusion;
+use aios_core::prim_geo::facet::Facet;
+use aios_core::prim_geo::pyramid::LPyramid;
+use aios_core::prim_geo::rtorus::SRTorus;
+use aios_core::prim_geo::sbox::SBox;
+use aios_core::prim_geo::snout::LSnout;
 use bevy::prelude::{FromWorld, Mesh};
 use truck_modeling::{Curve, Shell};
 // use bevy_inspector_egui::Inspectable;
@@ -19,18 +28,11 @@ use ncollide3d::math::{Point, Vector};
 use ncollide3d::na;
 use ncollide3d::na::Point3 as NPoint3;
 use ncollide3d::shape::TriMesh;
+use regex::internal::Input;
 use truck_base::bounding_box::BoundingBox;
-use crate::AttrMap;
-use crate::pdms_types::{AiosAABB, GeoData};
-use crate::prim_geo::ctorus::{CTorus, SCTorus};
-use crate::prim_geo::cylinder::{LCylinder, SCylinder};
-use crate::prim_geo::dish::Dish;
-use crate::prim_geo::extrusion::Extrusion;
-use crate::prim_geo::facet::Facet;
-use crate::prim_geo::pyramid::LPyramid;
-use crate::prim_geo::rtorus::SRTorus;
-use crate::prim_geo::sbox::SBox;
-use crate::prim_geo::snout::LSnout;
+// use crate::AttrMap;
+// use crate::pdms_types::{AiosAABB, GeoData};
+
 
 pub const TRIANGLE_TOL: f64 = 0.01;
 

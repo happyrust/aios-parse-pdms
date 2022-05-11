@@ -1,8 +1,8 @@
 use glam::{TransformSRT, Vec3};
-use crate::prim_geo::category::CateBrepShape;
-use crate::prim_geo::cylinder::SCylinder;
 use bevy::math::Quat;
 use std::default::default;
+use aios_core::prim_geo::category::CateBrepShape;
+use aios_core::prim_geo::cylinder::SCylinder;
 
 #[derive(Default, Debug, Clone)]
 pub struct PdmsTubing{

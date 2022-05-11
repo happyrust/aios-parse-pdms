@@ -1,6 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::f32::EPSILON;
 use std::hash::{Hash, Hasher};
+use aios_core::pdms_types::AiosAABB;
 use bevy::prelude::*;
 use glam::Vec3;
 use lyon::path::builder::PathBuilder;
@@ -10,7 +11,7 @@ use ncollide3d::bounding_volume::AABB;
 use ncollide3d::na;
 use truck_meshalgo::prelude::*;
 use truck_modeling::Shell;
-use crate::pdms_types::AiosAABB;
+// use crate::pdms_types::AiosAABB;
 use crate::shape::pdms_shape::{BrepMathTrait, BrepShapeTrait, PdmsMesh, VerifiedShape};
 use crate::tool::hash_tool::hash_vec3;
 
