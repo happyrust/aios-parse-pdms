@@ -1,12 +1,13 @@
 use std::fs::File;
 use std::io::Read;
-use aios_core::pdms_types::{AiosStr, AttrMap, Integer, PdmsTree, RefI32Tuple, RefU64, RefU64Vec, StringLookupTable};
+use aios_core::pdms_types::{AiosStr, AttrMap, Integer, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, StringLookupTable};
 use aios_core::tool::db_tool::db1_hash;
+use bevy::prelude::In;
 use id_tree::Tree;
 use skytable::actions::Actions;
 use smol_str::SmolStr;
 use crate::consts::ATT_ROOM;
-use crate::local_db::sled_manager::get_room_refnos;
+use crate::local_db::skytable_manager::get_room_refnos;
 use crate::parse::RoomCode;
 // use crate::pdms_types::{AiosStr, AiosStrHash, Integer, PdmsTree, RefI32Tuple, RefU64Vec, StringLookupTable};
 // use crate::{AttrMap, db1_hash, RefU64};
@@ -81,14 +82,16 @@ fn test_aios_hash() {
     println!("r={}",aios_str.get_u32_hash());
 }
 
-use skytable::Connection;
+use skytable::{Connection, SkyResult};
+use skytable::ddl::Ddl;
 
 #[test]
 fn test_sky_table_att() {
 
 
     let mut con = Connection::new("127.0.0.1", 2003).unwrap();
-    let key :RefU64 = RefI32Tuple((23584,69)).into();
+    con.switch("ABA:attrs").unwrap();
+    let key :RefU64 = RefI32Tuple((16476,57)).into();
     let v:AttrMap = con.get(&key).unwrap();
     println!("v={:?}",v);
 }
@@ -98,5 +101,14 @@ fn test_sky_table_type_refnos() {
     let mut con = Connection::new("127.0.0.1", 2003).unwrap();
     let noun:Integer = Integer(db1_hash("MDB"));
     let v:RefU64Vec = con.get(&noun).unwrap();
+    println!("v={:?}",v);
+}
+
+#[test]
+fn test_sky_table_refno_info(){
+    let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+    con.switch("ref_infos:infos").unwrap();
+    let refno:RefU64 = RefI32Tuple((23584,69)).into();
+    let v :SkyResult<RefnoInfo>= con.get(&Integer(refno.get_0()));
     println!("v={:?}",v);
 }

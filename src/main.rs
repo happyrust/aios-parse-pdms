@@ -44,7 +44,7 @@ use parse_pdms_db::db_tool::{convert_to_hash, db1_dehash, db1_hash, decode_chars
 use parse_pdms_db::parse::*;
 use parse_pdms_db::parse_explict_tools::*;
 use std::ffi::OsString;
-use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, StringLookupTable};
+use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, RefI32Tuple, StringLookupTable};
 use aios_core::tool::db_tool::read_attr_info_config;
 use anyhow::anyhow;
 use fixed::types::{I20F12, I24F8};
@@ -57,7 +57,7 @@ use skytable::ddl::{Ddl, Keymap, KeymapType};
 use skytable::types::RawString;
 use smol_str::SmolStr;
 use parse_pdms_db::data_interface::PdmsDataInterface;
-use parse_pdms_db::local_db::sled_manager::AiosDBManager;
+use parse_pdms_db::local_db::skytable_manager::AiosDBManager;
 use parse_pdms_db::local_db::DbOption;
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
@@ -115,8 +115,8 @@ fn main() -> anyhow::Result<()> {
     dbg!(&db_option);
     let mut time = Instant::now();
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
+    let v = mgr.get_attr(RefI32Tuple((16476,57)).into())?;
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
-
     // let refno = RefU64::from_two_nums(15192, 77134);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
     // let refno = RefU64::from_two_nums(15192, 77135);
@@ -130,39 +130,40 @@ fn main() -> anyhow::Result<()> {
 
 pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool> {
     //todo 可以用多线程去并发tree，获取节点下面，然后并发
-    let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
-    match r {
-        Ok(_) => {}
-        Err(err) => {
-            println!("{:?}", err);
-            return Err(err);
-        }
-    }
-    // return Ok(true);
-    let mut string_lookup = StringLookupTable::default();
-    let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
-    let db_no = db_option.main_db_code;
-    // let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
 
-    let tree = mgr.get_pdms_project_tree(db_option.project_name.as_str(), db_no)?;
-    tree.serialize_to_bin_file(db_no);
-    let tree = &tree.0;
-
-    if let Some(proj_db) = mgr.project_map.get(&AiosStr(db_option.project_name.clone().into()).get_u32_hash()) {
-        let node_id = tree.root_node_id().ok_or(anyhow!("root node not exist.".to_string()))?;
-        if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
-            while let Some(mut cur_node_id) = nodes.next() {
-                let cur_node = tree.get(&cur_node_id).unwrap();
-                let d = cur_node.data();
-                if let Some(s) = proj_db.get_string(d.name_hash).unwrap() {
-                    string_lookup.lookup.insert(d.name_hash, s);
-                }
-                cached_attr_map.0.insert(d.refno, mgr.get_stringfied_attr(d.refno).unwrap().unwrap_or_default());
-            }
-        }
-        string_lookup.serialize_to_bin_file(db_no);
-        cached_attr_map.serialize_to_bin_file(db_option.main_db_code);
-    }
+    // let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
+    // match r {
+    //     Ok(_) => {}
+    //     Err(err) => {
+    //         println!("{:?}", err);
+    //         return Err(err);
+    //     }
+    // }
+    // // return Ok(true);
+    // let mut string_lookup = StringLookupTable::default();
+    // let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
+    // let db_no = db_option.main_db_code;
+    // // let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
+    //
+    // let tree = mgr.get_pdms_project_tree(db_option.project_name.as_str(), db_no)?;
+    // tree.serialize_to_bin_file(db_no);
+    // let tree = &tree.0;
+    //
+    // if let Some(proj_db) = mgr.project_map.get(&AiosStr(db_option.project_name.clone().into()).get_u32_hash()) {
+    //     let node_id = tree.root_node_id().ok_or(anyhow!("root node not exist.".to_string()))?;
+    //     if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
+    //         while let Some(mut cur_node_id) = nodes.next() {
+    //             let cur_node = tree.get(&cur_node_id).unwrap();
+    //             let d = cur_node.data();
+    //             if let Some(s) = proj_db.get_string(d.name_hash).unwrap() {
+    //                 string_lookup.lookup.insert(d.name_hash, s);
+    //             }
+    //             cached_attr_map.0.insert(d.refno, mgr.get_stringfied_attr(d.refno).unwrap().unwrap_or_default());
+    //         }
+    //     }
+    //     string_lookup.serialize_to_bin_file(db_no);
+    //     cached_attr_map.serialize_to_bin_file(db_option.main_db_code);
+    // }
 
 
     Ok(true)

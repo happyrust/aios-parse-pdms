@@ -24,7 +24,7 @@ use ncollide3d::world::CollisionWorld;
 use nom::AsBytes;
 use once_cell::sync::Lazy;
 use smol_str::SmolStr;
-use crate::{ db1_dehash,parse_pdms_dir, read_attr_info_config, sctn};
+use crate::{db1_dehash, parse_pdms_dir, read_attr_info_config, sctn};
 use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
@@ -63,7 +63,7 @@ use clap::{Parser, ValueHint};
 use std::panic::catch_unwind;
 use std::time::Instant;
 use aios_core::pdms_types::{AiosStr, AiosStrHash, AttrMap, CachedMeshesMgr, EleGeoInstData, EleNode, Integer, PdmsMeshMgr, PdmsNodeId, PdmsTree, RefnoInfo, RefU64, RefU64Vec, ShapeInstancesMgr, StringLookupTable};
-use aios_core::pdms_types::AttrVal::{RefU64Type, StringHashType, StringType, WordType};
+use aios_core::pdms_types::AttrVal::{IntegerType, RefU64Type, StringHashType, StringType, WordType};
 use aios_core::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
 use aios_core::prim_geo::extrusion::{CurveType, Extrusion};
 use aios_core::prim_geo::facet::{Contour, Facet, Polygon};
@@ -84,13 +84,15 @@ use log::Level::Debug;
 use sled::{Db, IVec};
 use bevy::ecs::component::Component;
 use id_tree::{Node, NodeId};
+use nom::combinator::value;
 use skytable::actions::Actions;
-use skytable::Connection;
+use skytable::{Connection, SkyResult};
 use skytable::ddl::{Ddl, Keymap, KeymapType};
 use skytable::types::IntoSkyhashBytes;
 use crate::consts::ATT_ROOM;
 use crate::error_types::AttError::AttNotExist;
 use crate::local_db::DbOption;
+use crate::parsed_data::geo_params_data::CateGeoParam::Sline;
 
 pub const ATT_DB_NAME: &'static str = "attr";
 pub const TYPES_DB_NAME: &'static str = "refs";
@@ -129,12 +131,12 @@ pub struct PdmsConfig {
 
 
 ///MDB数据库管理
-#[derive(Debug, Clone,Component)]
+#[derive(Debug, Component)]
 pub struct AiosDBManager {
-    pub project_map: DashMap<u32, AiosPdmsProjectSled>,
+    pub project_map: DashMap<u32, AiosPdmsProjectSkyTable>,
     //project hash -> Project DBS
     //project name hash -> Aios DB
-    pub info_db: sled::Db,
+    pub info_db: Connection,
 
     pub projects: Vec<String>,
 
@@ -154,49 +156,52 @@ impl PdmsDataInterface for AiosDBManager {
     }
 
     #[inline]
-    fn get_ele_attr(&self, refno: RefU64) -> anyhow::Result<AttrMap> {
+    fn get_ele_attr(&mut self, refno: RefU64) -> anyhow::Result<AttrMap> {
         let att = self.get_stringfied_attr(refno)?;
         Ok(att.unwrap_or_default())
     }
 
     #[inline]
-    fn get_ele_children_attrs(&self, refno: RefU64) -> Vec<AttrMap> {
+    fn get_ele_children_attrs(&mut self, refno: RefU64) -> Vec<AttrMap> {
         self.get_children_attrs(refno).unwrap_or_default()
     }
 
     #[inline]
-    fn get_ele_children_refs(&self, refno: RefU64) -> RefU64Vec {
+    fn get_ele_children_refs(&mut self, refno: RefU64) -> RefU64Vec {
         self.get_children(refno).unwrap().unwrap_or_default()
     }
 
-    fn get_ele_world_transform(&self, refno: RefU64) -> TransformRT {
+    fn get_ele_world_transform(&mut self, refno: RefU64) -> TransformRT {
         self.get_world_transform(refno).unwrap_or_default()
     }
 
-    fn get_pdms_tree(&self, project_name: &str, db_no: u32) -> Option<PdmsTree> {
-        if let Some(db) = self.project_map.get(&AiosStr(project_name.into()).get_u32_hash()) {
-            db.get_tree(db_no).ok()?
-        } else {
-            None
+    fn get_pdms_tree(&mut self, project_name: &str, db_no: u32) -> Option<PdmsTree> {
+        if let Some(mut db) = self.project_map.get_mut(&AiosStr(project_name.into()).get_u32_hash()) {
+            db.tree_db.switch(format!("{project_name}:trees")).unwrap();
+            let v:SkyResult<PdmsTree> = db.tree_db.get(&Integer(db_no));
+            if let Ok(v) = v {
+                return Some(v);
+            }
         }
+        None
     }
 
-    fn get_node_id(&self, refno: RefU64) -> Option<NodeId> {
+    fn get_node_id(&mut self, refno: RefU64) -> Option<NodeId> {
         if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
-            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
+            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
                 return db.get_node_id(refno).ok()?;
             }
         }
         None
     }
 
-    fn get_name(&self, refno: RefU64) -> SmolStr {
+    fn get_name(&mut self, refno: RefU64) -> SmolStr {
         "unset".into()
     }
 
-    fn get_name_by_hash(&self, refno: RefU64, name_hash: u32) -> Option<SmolStr> {
+    fn get_name_by_hash(&mut self, refno: RefU64, name_hash: u32) -> Option<SmolStr> {
         if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
-            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
+            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
                 if let Ok(Some(name)) = db.get_string(name_hash) {
                     return Some(name.0);
                 }
@@ -205,79 +210,83 @@ impl PdmsDataInterface for AiosDBManager {
         None
     }
 
-    fn get_refnos_by_type(&self, project_name: SmolStr, att_type: &str) -> Option<RefU64Vec> {
-        if let Some(project_dbs) = self.project_map.get(&AiosStr(project_name).get_u32_hash()) {
-            let type_db = project_dbs.types_db.clone();
-            if let Ok(Some(v)) = type_db.get(&db1_hash(att_type).to_be_bytes()) {
-                return Some(bincode::deserialize::<RefU64Vec>(&v.to_vec()).unwrap());
+    fn get_refnos_by_type(&mut self, project_name: SmolStr, att_type: &str) -> Option<RefU64Vec> {
+        if let Some(mut project_dbs) = self.project_map.get_mut(&AiosStr(project_name).get_u32_hash()) {
+            let type_db:SkyResult<RefU64Vec> = project_dbs.types_db.get(&Integer(db1_hash(att_type)));
+            if let Ok(v) = type_db {
+                return Some(v);
             }
         }
+
         None
     }
 
-    // 将所有 dbno 的 tree 合并成一个 tree
-    fn get_pdms_project_tree(&self, project: &str,main_db:u32) -> anyhow::Result<PdmsTree> {
-        let mut tree_map = HashMap::new();
-        let mut pdms_tree = PdmsTree::default();
-        // 获取到所有的 tree
-        if let Some(dbno_refnos) = self.get_refnos_by_type(SmolStr::new(project), "DB") {
-            for dbno_refno in dbno_refnos {
-                if let Ok(Some(dbno_info)) = self.get_refno_info(dbno_refno) {
-                    if let Ok(Some(dbno_att)) = self.get_attr(dbno_refno) {
-                        if let Some(dbno) = dbno_att.get_val("NUMBDB") {
-                            let dbno = dbno.i32_value() as u32;
-                            if let Some(tree) = self.get_pdms_tree_by_name_hash(dbno_info.project_hash,dbno) {
-                                tree_map.entry(dbno).or_insert(tree);
-                            } else {
-                                for project in &self.projects {
-                                    let project_hash = AiosStr(SmolStr::new(project)).get_u32_hash();
-                                    if project_hash != dbno_info.project_hash {
-                                        if let Some(tree) = self.get_pdms_tree_by_name_hash(project_hash,dbno) {
-                                            tree_map.entry(dbno).or_insert(tree);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        // 将所有的 tree 重新排序 ,重构成 pdms 的 tree
-        if let Some(main_tree) = tree_map.remove(&main_db) {
-            if let Some(root) = main_tree.0.root_node_id() {
-                let root_data = main_tree.0.get(root)?.data().clone();
-                let child = pdms_tree.0.insert(Node::new(root_data),AsRoot)?;
-                let main_tree_order = main_tree.0.traverse_post_order(root)?;
-                for main_node in main_tree_order {
-                    pdms_tree.0.insert(Node::new(main_node.data().clone()),UnderNode(&child))?;
-                }
-                for (dbno,tree) in tree_map {
-                    dbg!(dbno);
-                    let root_id = tree.0.root_node_id().ok_or(anyhow!("it's a empty tree"))?;
-                    let tree_order = tree.0.traverse_post_order(root_id)?;
-                    for node in tree_order {
-                        pdms_tree.0.insert(Node::new(node.data().clone()),UnderNode(&child))?;
-                    }
-                }
-            }
-        }
-        Ok(pdms_tree)
-    }
+    // // 将所有 dbno 的 tree 合并成一个 tree
+    // fn get_pdms_project_tree(&self, project: &str, main_db: u32) -> anyhow::Result<PdmsTree> {
+    //     let mut tree_map = HashMap::new();
+    //     let mut pdms_tree = PdmsTree::default();
+    //     // 获取到所有的 tree
+    //     if let Some(dbno_refnos) = self.get_refnos_by_type(SmolStr::new(project), "DB") {
+    //         for dbno_refno in dbno_refnos {
+    //             if let Ok(Some(dbno_info)) = self.get_refno_info(dbno_refno) {
+    //                 if let Ok(Some(dbno_att)) = self.get_attr(dbno_refno) {
+    //                     if let Some(dbno) = dbno_att.get_val("NUMBDB") {
+    //                         let dbno = dbno.i32_value() as u32;
+    //                         if let Some(tree) = self.get_pdms_tree_by_name_hash(dbno_info.project_hash, dbno) {
+    //                             tree_map.entry(dbno).or_insert(tree);
+    //                         } else {
+    //                             for project in &self.projects {
+    //                                 let project_hash = AiosStr(SmolStr::new(project)).get_u32_hash();
+    //                                 if project_hash != dbno_info.project_hash {
+    //                                     if let Some(tree) = self.get_pdms_tree_by_name_hash(project_hash, dbno) {
+    //                                         tree_map.entry(dbno).or_insert(tree);
+    //                                         break;
+    //                                     }
+    //                                 }
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     // 将所有的 tree 重新排序 ,重构成 pdms 的 tree
+    //     if let Some(main_tree) = tree_map.remove(&main_db) {
+    //         if let Some(root) = main_tree.0.root_node_id() {
+    //             let root_data = main_tree.0.get(root)?.data().clone();
+    //             let child = pdms_tree.0.insert(Node::new(root_data), AsRoot)?;
+    //             let main_tree_order = main_tree.0.traverse_post_order(root)?;
+    //             for main_node in main_tree_order {
+    //                 pdms_tree.0.insert(Node::new(main_node.data().clone()), UnderNode(&child))?;
+    //             }
+    //             for (dbno, tree) in tree_map {
+    //                 dbg!(dbno);
+    //                 let root_id = tree.0.root_node_id().ok_or(anyhow!("it's a empty tree"))?;
+    //                 let tree_order = tree.0.traverse_post_order(root_id)?;
+    //                 for node in tree_order {
+    //                     pdms_tree.0.insert(Node::new(node.data().clone()), UnderNode(&child))?;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     Ok(pdms_tree)
+    // }
 }
 
 impl AiosDBManager {
     ///初始化
     pub fn init(option: &DbOption) -> anyhow::Result<AiosDBManager> {
         let dir = option.project_path.as_str();
-        let info_db = sled::open("AIOS_DBS/ref_info.sled").expect("Create info_db file");
+
         let project_map = DashMap::new();
         for project in &option.included_projects {
-            let mut proj = AiosPdmsProjectSled::init(project.as_str(), option.project_path.as_str(), info_db.clone())?;
+            AiosPdmsProjectSkyTable::create_tables(project);
+            let mut proj = AiosPdmsProjectSkyTable::init(project.as_str(), option.project_path.as_str())?;
             let project_str: SmolStr = project.into();
             project_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
+        let mut info_db = Connection::new("127.0.0.1", 2003).unwrap();
+        info_db.switch("ref_infos:infos").unwrap();
         let mut mgr = AiosDBManager {
             project_map,
             info_db,
@@ -311,22 +320,23 @@ impl AiosDBManager {
 
     ///获得refno的project 名称
     #[inline]
-    pub fn get_refno_info(&self, refno: RefU64) -> anyhow::Result<Option<RefnoInfo>> {
-        let bytes = self.info_db.get(&refno.get_0().to_be_bytes())
-            .map_err(|_| anyhow!("get refno error".to_string()))?;
-        match bytes {
-            None => Ok(None),
-            Some(d) => {
-                Ok(Some(bincode::deserialize::<RefnoInfo>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-            }
-        }
+    pub fn get_refno_info(&mut self, refno: RefU64) -> anyhow::Result<Option<RefnoInfo>> {
+        // let bytes = self.info_db.get(&refno.get_0().to_be_bytes())
+        //     .map_err(|_| anyhow!("get refno error".to_string()))?;
+        // match bytes {
+        //     None => Ok(None),
+        //     Some(d) => {
+        //         Ok(Some(bincode::deserialize::<RefnoInfo>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+        //     }
+        // }
+        Ok(Some(self.info_db.get(&Integer(refno.get_0()))?))
     }
 
     /// 获得 children refno
     #[inline]
-    pub fn get_children(&self, refno: RefU64) -> anyhow::Result<Option<RefU64Vec>> {
+    pub fn get_children(&mut self, refno: RefU64) -> anyhow::Result<Option<RefU64Vec>> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
-            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
+            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
                 return db.get_children(refno);
             }
         }
@@ -335,7 +345,7 @@ impl AiosDBManager {
 
     ///获得refno的project 名称
     #[inline]
-    pub fn get_children_attrs(&self, refno: RefU64) -> anyhow::Result<Vec<AttrMap>> {
+    pub fn get_children_attrs(&mut self, refno: RefU64) -> anyhow::Result<Vec<AttrMap>> {
         let mut atts = vec![];
         let mut children = self.get_children(refno)?.unwrap_or_default();
         for child in children.drain(..) {
@@ -346,9 +356,9 @@ impl AiosDBManager {
 
     ///获取attr 属性
     #[inline]
-    pub fn get_attr(&self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
+    pub fn get_attr(&mut self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
-            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
+            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
                 return db.get_attr(refno, ref_info.db_no);
             }
         }
@@ -357,32 +367,30 @@ impl AiosDBManager {
 
     #[inline]
     pub fn get_attr_with_project(&self, refno: RefU64, project: &str, db_no: u32) -> anyhow::Result<Option<AttrMap>> {
-        if let Some(db) = self.project_map.get(&AiosStr(project.into()).get_u32_hash()) {
+        if let Some(mut db) = self.project_map.get_mut(&AiosStr(project.into()).get_u32_hash()) {
             return db.get_attr(refno, db_no);
         }
         Ok(None)
     }
 
     ///string 被还原了的 属性
-    pub fn get_stringfied_attr(&self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
-        if let Some(ref_info) = self.get_refno_info(refno)? {
-            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
-                if let Some(mut attr) = db.get_attr(refno, ref_info.db_no)? {
-                    for (_, val) in attr.iter_mut() {
-                        if let StringHashType(h) = val {
-                            *val = StringType(db.get_string(*h)?.unwrap_or_default().take());
-                        }
-                    }
-                    return Ok(Some(attr));
+    pub fn get_stringfied_attr(&mut self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
+        let info:RefnoInfo = self.info_db.get(&refno)?;
+        if let Some(mut project_db) =  self.project_map.get_mut(&info.project_hash){
+            let mut attr:AttrMap = project_db.all_att_db.get(&refno)?;
+            for (_, val) in attr.iter_mut() {
+                if let StringHashType(h) = val {
+                    *val = StringType(project_db.get_string(*h)?.unwrap_or_default().take());
                 }
             }
+            return Ok(Some(attr));
         }
         Ok(None)
     }
 
     #[inline]
     pub fn get_pdms_tree_by_name_hash(&self, project_hash: AiosStrHash, db_no: u32) -> Option<PdmsTree> {
-        if let Some(db) = self.project_map.get(&project_hash) {
+        if let Some(mut db) = self.project_map.get_mut(&project_hash) {
             db.get_tree(db_no).ok()?
         } else {
             None
@@ -391,7 +399,7 @@ impl AiosDBManager {
 
     ///打印用
     #[inline]
-    pub fn get_pretty_attr(&self, refno: RefU64) -> anyhow::Result<HashMap<String, String>> {
+    pub fn get_pretty_attr(&mut self, refno: RefU64) -> anyhow::Result<HashMap<String, String>> {
         if let Some(attr) = self.get_stringfied_attr(refno)? {
             return Ok(attr.to_string_hashmap());
         }
@@ -400,9 +408,9 @@ impl AiosDBManager {
 
     ///获取世界坐标变换矩阵
     #[inline]
-    pub fn get_world_transform(&self, refno: RefU64) -> Option<glam::TransformRT> {
+    pub fn get_world_transform(&mut self, refno: RefU64) -> Option<glam::TransformRT> {
         if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
-            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
+            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
                 return db.get_world_transform(refno, ref_info.db_no);
             }
         }
@@ -410,9 +418,9 @@ impl AiosDBManager {
     }
 
     #[inline]
-    pub fn get_parent_att_by_type(&self, refno: RefU64, type_name: &str) -> anyhow::Result<Option<AttrMap>> {
+    pub fn get_parent_att_by_type(&mut self, refno: RefU64, type_name: &str) -> anyhow::Result<Option<AttrMap>> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
-            if let Some(db) = self.project_map.get(&ref_info.project_hash) {
+            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
                 return db.get_parent_att_by_type(refno, ref_info.db_no, type_name);
             }
         }
@@ -420,7 +428,7 @@ impl AiosDBManager {
     }
 
     #[inline]
-    pub fn get_cat_ref_in_desi(&self, refno: RefU64) -> Option<RefU64> {
+    pub fn get_cat_ref_in_desi(&mut self, refno: RefU64) -> Option<RefU64> {
         let att = self.get_attr(refno).ok()??;
         let spre = att.get_foreign_refno("SPRE")?;
         let att = self.get_attr(spre).ok()??;
@@ -428,7 +436,7 @@ impl AiosDBManager {
     }
 
     #[inline]
-    pub fn get_cat_att_in_desi(&self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
+    pub fn get_cat_att_in_desi(&mut self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
         if let Some(cat_ref) = self.get_cat_ref_in_desi(refno) {
             let att = self.get_attr(cat_ref)?;
             return Ok(att);
@@ -438,7 +446,7 @@ impl AiosDBManager {
 
     ///返回geo data
     #[inline]
-    pub fn get_design_geoms(&self, refno: RefU64, cached_mesh_mgr: &mut CachedMeshesMgr) -> anyhow::Result<HashMap<RefU64, Vec<CateBrepShape>>> {
+    pub fn get_design_geoms(&mut self, refno: RefU64, cached_mesh_mgr: &mut CachedMeshesMgr) -> anyhow::Result<HashMap<RefU64, Vec<CateBrepShape>>> {
         let mut result_map = HashMap::new();
 
         if let Some(desi_att) = self.get_attr(refno)? {
@@ -495,7 +503,6 @@ impl AiosDBManager {
                     let world_trans = self.get_world_transform(child).unwrap_or_default();
                     let mut result_shapes = vec![];
                     let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
-                    // dbg!(&geoms);
                     let attr = self.get_attr(child)?.unwrap_or_default();
                     if let Some(arrive) = attr.get_i32("ARRI") {
                         //todo 加入获取arrive position 的方法
@@ -549,7 +556,7 @@ impl AiosDBManager {
         Ok(result_map)
     }
 
-    pub fn get_general_type_refno(&self, refno: RefU64) -> Option<(SmolStr, RefU64)> {
+    pub fn get_general_type_refno(&mut self, refno: RefU64) -> Option<(SmolStr, RefU64)> {
         let mut cur_refno = refno;
         while let Some(attr) = self.get_attr(cur_refno).ok()? {
             let noun_name = attr.get_type_cloned()?;
@@ -570,7 +577,7 @@ impl AiosDBManager {
         let mut time = Instant::now();
 
         let project_hash = AiosStr(project.into()).get_u32_hash();
-        let mut main_db = self.project_map.get(&project_hash).ok_or(anyhow!(format!("{project} not exist")))?;
+        let mut main_db = self.project_map.get_mut(&project_hash).ok_or(anyhow!(format!("{project} not exist")))?;
 
         let mut cached_mesh_mgr = CachedMeshesMgr::default();
         let mut inst_map = HashMap::new();
@@ -590,10 +597,6 @@ impl AiosDBManager {
                     let attr = self.get_attr(d.refno)?;
                     if attr.is_none() { continue; }
                     let attr = attr.unwrap();
-                    // if d.refno != RefU64::from_two_nums(23584, 6328)
-                    // {
-                    //     continue;
-                    // }
                     let mut geo_hash = None;
                     let mut color_type = None;
                     let mut item_trans = glam::TransformSRT::IDENTITY;
@@ -1083,109 +1086,109 @@ impl AiosDBManager {
     }
 
     pub fn set_ssc_room_tree(&mut self, project_str: &str, db_code: u32) -> anyhow::Result<()> {
-        let mut file = File::open(format!("StringLookupTable_{}.bin", db_code))?;
-        let mut buf = vec![];
-        file.read_to_end(&mut buf);
-        let mut string_look_up = bincode::deserialize::<StringLookupTable>(&buf)?;
-
-        let (mut ssc_tree, root_id) = set_ssc_tree(&mut string_look_up)?;
-        let room_map = get_room_refnos(project_str, self.clone());
-
-        let one = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("1层(-6.70m)"))?;
-        let two = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("2层(-3.30m)"))?;
-        let three = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("3层(0.00m)"))?;
-        let four = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("4层(+3.60m)"))?;
-        let five = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("5层(+7.5m)"))?;
-        let six = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("6层(+13.50m)"))?;
-        let seven = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("7层(+16.50m)"))?;
-        let eight = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("8层(+22.00m及以上)"))?;
-        let nine = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("9层(内穹顶)"))?;
-
-        let mut room_node_map = HashMap::new(); // 存放所有房间名的 nodeid
-        let room_info = get_room_info_from_excel()?;
-
-        for (k, v) in room_info {
-            match k.as_str() {
-                "1" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&one), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "2" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&two), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "3" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&three), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "4" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&four), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "5" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&five), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "6" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&six), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "7" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&seven), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "8" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&eight), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                "9" => {
-                    for name in v {
-                        let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&nine), name.clone())?;
-                        room_node_map.entry(name).or_insert(node);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        let project_dbs = self.project_map.get(&AiosStr(SmolStr::new(project_str)).get_u32_hash()).ok_or(anyhow!("can not find this project"))?;
-        let string_db = project_dbs.string_db.clone();
-
-        for (k, v) in room_map {
-            let mut room_name = bincode::deserialize::<AiosStr>(&string_db.get(k.to_be_bytes())?.ok_or(anyhow!("can not find string hash"))?)?.0;
-            room_name = get_split_room_name(room_name);
-            if let Some(node) = room_node_map.get(&room_name) {
-                for refno in v {
-                    if let Ok(Some(project_info)) = self.get_refno_info(refno) {
-                        let mut tree = self.get_pdms_tree(project_str, project_info.db_no).ok_or(anyhow!("can not find tree"))?;
-                        // 找到改参考号在pdms树中的 elenode
-                        let refno_node_id = self.get_node_id(refno).ok_or(anyhow!("can not find node id in tree"))?;
-                        let node_data = tree.0.get(&refno_node_id).unwrap().data().clone();
-                        ssc_tree.0.insert(Node::new(node_data), UnderNode(&node)).unwrap();
-                    }
-                }
-            }
-        }
-
-        ssc_tree.serialize_to_bin_file_with_name("ssc_sample", db_code);
-        string_look_up.serialize_to_bin_file(db_code);
-        dbg!("ssc_tree write ok");
+    //     let mut file = File::open(format!("StringLookupTable_{}.bin", db_code))?;
+    //     let mut buf = vec![];
+    //     file.read_to_end(&mut buf);
+    //     let mut string_look_up = bincode::deserialize::<StringLookupTable>(&buf)?;
+    //
+    //     let (mut ssc_tree, root_id) = set_ssc_tree(&mut string_look_up)?;
+    //     let room_map = get_room_refnos(project_str, self.clone());
+    //
+    //     let one = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("1层(-6.70m)"))?;
+    //     let two = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("2层(-3.30m)"))?;
+    //     let three = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("3层(0.00m)"))?;
+    //     let four = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("4层(+3.60m)"))?;
+    //     let five = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("5层(+7.5m)"))?;
+    //     let six = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("6层(+13.50m)"))?;
+    //     let seven = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("7层(+16.50m)"))?;
+    //     let eight = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("8层(+22.00m及以上)"))?;
+    //     let nine = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&root_id), SmolStr::new("9层(内穹顶)"))?;
+    //
+    //     let mut room_node_map = HashMap::new(); // 存放所有房间名的 nodeid
+    //     let room_info = get_room_info_from_excel()?;
+    //
+    //     for (k, v) in room_info {
+    //         match k.as_str() {
+    //             "1" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&one), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "2" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&two), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "3" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&three), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "4" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&four), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "5" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&five), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "6" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&six), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "7" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&seven), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "8" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&eight), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             "9" => {
+    //                 for name in v {
+    //                     let node = insert_tree_node(&mut string_look_up, &mut ssc_tree, Some(&nine), name.clone())?;
+    //                     room_node_map.entry(name).or_insert(node);
+    //                 }
+    //             }
+    //             _ => {}
+    //         }
+    //     }
+    //
+    //     let project_dbs = self.project_map.get(&AiosStr(SmolStr::new(project_str)).get_u32_hash()).ok_or(anyhow!("can not find this project"))?;
+    //     let string_db = project_dbs.string_db;
+    //
+    //     for (k, v) in room_map {
+    //         let mut room_name = bincode::deserialize::<AiosStr>(&string_db.get(k.to_be_bytes())?.ok_or(anyhow!("can not find string hash"))?)?.0;
+    //         room_name = get_split_room_name(room_name);
+    //         if let Some(node) = room_node_map.get(&room_name) {
+    //             for refno in v {
+    //                 if let Ok(Some(project_info)) = self.get_refno_info(refno) {
+    //                     let mut tree = self.get_pdms_tree(project_str, project_info.db_no).ok_or(anyhow!("can not find tree"))?;
+    //                     // 找到改参考号在pdms树中的 elenode
+    //                     let refno_node_id = self.get_node_id(refno).ok_or(anyhow!("can not find node id in tree"))?;
+    //                     let node_data = tree.0.get(&refno_node_id).unwrap().data().clone();
+    //                     ssc_tree.0.insert(Node::new(node_data), UnderNode(&node)).unwrap();
+    //                 }
+    //             }
+    //         }
+    //     }
+    //
+    //     ssc_tree.serialize_to_bin_file_with_name("ssc_sample", db_code);
+    //     string_look_up.serialize_to_bin_file(db_code);
+    //     dbg!("ssc_tree write ok");
         Ok(())
     }
 }
@@ -1262,15 +1265,15 @@ fn insert_tree_node(look_up: &mut StringLookupTable, tree: &mut PdmsTree, node_i
 // 获得 房间下的所有refno
 pub fn get_room_refnos(project_str: &str, db: AiosDBManager) -> DashMap<AiosStrHash, Vec<RefU64>> {
     let mut r = DashMap::new();
-    if let Some(dbs) = db.project_map.get(&AiosStr(SmolStr::new(project_str)).get_u32_hash()) {
-        let db = dbs.room_db.clone();
-        for val_opt in db.iter() {
-            if let Ok((_, v)) = val_opt {
-                let room_code = bincode::deserialize::<RoomCode>(&v.to_vec()).unwrap();
-                r.entry(room_code.name_hash).or_insert_with(Vec::new).push(room_code.refno);
-            }
-        }
-    }
+    // if let Some(dbs) = db.project_map.get(&AiosStr(SmolStr::new(project_str)).get_u32_hash()) {
+    //     let db = dbs.room_db.clone();
+    //     for val_opt in db.iter() {
+    //         if let Ok((_, v)) = val_opt {
+    //             let room_code = bincode::deserialize::<RoomCode>(&v.to_vec()).unwrap();
+    //             r.entry(room_code.name_hash).or_insert_with(Vec::new).push(room_code.refno);
+    //         }
+    //     }
+    // }
     r
 }
 
@@ -1309,8 +1312,8 @@ pub struct RoomExcelData {
 }
 
 /// DB 单个数据库管理
-#[derive(Debug, Clone)]
-pub struct AiosPdmsProjectSled {
+#[derive(Debug)]
+pub struct AiosPdmsProjectSkyTable {
     pub project: String,
     pub dir: String,
     // pub storage: Storage,
@@ -1318,146 +1321,126 @@ pub struct AiosPdmsProjectSled {
     // pub att_db_map: HashMap<u32, Database>,
     //att map 需要做分库, db_number -> database
     pub db_no_list: Vec<u32>,
-
-    pub all_att_db: sled::Db,
-    pub types_db: sled::Db,
-    pub children_db: sled::Db,
-    pub tree_db: sled::Db,
-    pub info_db: sled::Db,
-    pub string_db: sled::Db,
+    pub all_att_db: Connection,
+    pub types_db: Connection,
+    pub node_id_db: Connection,
+    pub children_db: Connection,
+    pub tree_db: Connection,
+    pub info_db: Connection,
+    pub string_db: Connection,
     pub mdb_name: Option<String>,
-    pub version_db: sled::Db,
-    pub room_db: sled::Db,
+    pub version_db: Connection,
 }
 
 
-impl AiosPdmsProjectSled {
-    ///获得children的数据库
-    #[inline]
-    pub fn get_children_database(&self) -> sled::Db {
-        self.children_db.clone()
-    }
+impl AiosPdmsProjectSkyTable {
+    pub fn init(project: &str, dir: &str,) -> anyhow::Result<Self> {
 
-    ///获得tree的数据库
-    #[inline]
-    pub fn get_info_database(&self) -> sled::Db {
-        self.info_db.clone()
-    }
-
-    ///获得type refs的数据库
-    #[inline]
-    pub fn get_type_refs_database(&self) -> sled::Db {
-        self.types_db.clone()
-    }
-
-    ///获得tree的数据库
-    #[inline]
-    pub fn get_tree_database(&self) -> sled::Db {
-        self.tree_db.clone()
-    }
-
-    ///获得strings的数据库
-    #[inline]
-    pub fn get_string_database(&self) -> sled::Db {
-        self.string_db.clone()
-    }
-
-    #[inline]
-    pub fn get_room_database(&self) -> sled::Db { self.room_db.clone() }
-
-    pub fn init(project: &str, dir: &str, info_db: Db) -> anyhow::Result<Self> {
-        let cur_project = format!("./AIOS_DBS/{project}");
-
-        let all_att_db = sled::open(format!("AIOS_DBS/{}/attr.sled", project)).expect("Create db file");
-        let children_db = sled::open(format!("AIOS_DBS/{}/children.sled", project)).expect("Create db file");
-        let types_db = sled::open(format!("AIOS_DBS/{}/type_eles.sled", project)).expect("Create db file");
-        let string_db = sled::open(format!("AIOS_DBS/{}/names.sled", project)).expect("Create db file");
-        let tree_db = sled::open(format!("AIOS_DBS/{}/tree.sled", project)).expect("Create db file");
-        let version_db = sled::open(format!("AIOS_DBS/{}/version.sled", project)).expect("Create db file");
-        let room_db = sled::open(format!("AIOS_DBS/{}/room.sled", project)).expect("Create db file");
+        let mut attrs_con = Connection::new("127.0.0.1", 2003).unwrap();
+        attrs_con.switch(format!("{project}:attrs")).unwrap();
+        let mut types_db = Connection::new("127.0.0.1", 2003).unwrap();
+        types_db.switch(format!("{project}:type_refnos")).unwrap();
+        let mut children_db = Connection::new("127.0.0.1", 2003).unwrap();
+        children_db.switch(format!("{project}:children")).unwrap();
+        let mut tree_db = Connection::new("127.0.0.1", 2003).unwrap();
+        tree_db.switch(format!("{project}:trees")).unwrap();
+        let mut info_db = Connection::new("127.0.0.1", 2003).unwrap();
+        info_db.switch("ref_infos").unwrap();
+        let mut string_db = Connection::new("127.0.0.1", 2003).unwrap();
+        string_db.switch(format!("{project}:names")).unwrap();
+        let mut version_db = Connection::new("127.0.0.1", 2003).unwrap();
+        version_db.switch(format!("{project}:version")).unwrap();
+        let mut node_id_db = Connection::new("127.0.0.1", 2003).unwrap();
+        node_id_db.switch(format!("{project}:node_ids")).unwrap();
 
         Ok(Self {
             project: project.to_string(),
             dir: dir.to_string(),
             // storage,
             db_no_list: vec![],
-            all_att_db,
+            all_att_db: attrs_con,
             types_db,
+            node_id_db,
             children_db,
-            tree_db,
+            tree_db ,
             info_db,
             string_db,
             mdb_name: None,
             version_db,
-            room_db,
         })
     }
 
     //按需要打开database
     #[inline]
-    pub fn get_attr(&self, refno: RefU64, db_no: u32) -> anyhow::Result<Option<AttrMap>> {
-        let bytes = self.all_att_db.get(&refno.get_sled_key())
-            .map_err(|_| anyhow!("get attr error".to_string()))?;
-        match bytes {
-            None => Ok(None),
-            Some(d) => {
-                Ok(Some(bincode::deserialize::<AttrMap>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-            }
-        }
+    pub fn get_attr(&mut self, refno: RefU64, db_no: u32) -> anyhow::Result<Option<AttrMap>> {
+        // let bytes = self.all_att_db.get(&refno.get_sled_key())
+        //     .map_err(|_| anyhow!("get attr error".to_string()))?;
+        // match bytes {
+        //     None => Ok(None),
+        //     Some(d) => {
+        //         Ok(Some(bincode::deserialize::<AttrMap>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+        //     }
+        // }
+        Ok(Some(self.all_att_db.get(&refno)?))
     }
 
     #[inline]
-    pub fn get_string(&self, h: u32) -> anyhow::Result<Option<AiosStr>> {
-        let bytes = self.get_string_database().get(&h.to_be_bytes())
-            .map_err(|_| anyhow!("get string error".to_string()))?;
-        match bytes {
-            None => Ok(None),
-            Some(d) => {
-                Ok(Some(bincode::deserialize::<AiosStr>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-            }
-        }
+    pub fn get_string(&mut self, h: u32) -> anyhow::Result<Option<AiosStr>> {
+        // let bytes = self.get_string_database().get(&h.to_be_bytes())
+        //     .map_err(|_| anyhow!("get string error".to_string()))?;
+        // match bytes {
+        //     None => Ok(None),
+        //     Some(d) => {
+        //         Ok(Some(bincode::deserialize::<AiosStr>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+        //     }
+        // }
+        Ok(Some(self.string_db.get(&Integer(h))?))
     }
 
     #[inline]
-    pub fn get_tree(&self, dbno: u32) -> anyhow::Result<Option<PdmsTree>> {
-        let bytes = self.get_tree_database().get(&dbno.to_be_bytes())
-            .map_err(|_| anyhow!("get string error".to_string()))?;
-        match bytes {
-            None => Ok(None),
-            Some(d) => {
-                Ok(Some(bincode::deserialize::<PdmsTree>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-            }
-        }
+    pub fn get_tree(&mut self, dbno: u32) -> anyhow::Result<Option<PdmsTree>> {
+        // let bytes = self.get_tree_database().get(&dbno.to_be_bytes())
+        //     .map_err(|_| anyhow!("get string error".to_string()))?;
+        // match bytes {
+        //     None => Ok(None),
+        //     Some(d) => {
+        //         Ok(Some(bincode::deserialize::<PdmsTree>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+        //     }
+        // }
+        Ok(Some(self.tree_db.get(&Integer(dbno))?))
     }
 
     #[inline]
-    pub fn get_node_id(&self, refno: RefU64) -> anyhow::Result<Option<NodeId>> {
-        let bytes = self.get_tree_database().get(&refno.get_sled_key())
-            .map_err(|_| anyhow!("get string error".to_string()))?;
-
-        match bytes {
-            None => Ok(None),
-            Some(d) => {
-                Ok(Some(bincode::deserialize::<NodeId>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-            }
-        }
+    pub fn get_node_id(&mut self, refno: RefU64) -> anyhow::Result<Option<NodeId>> {
+        // let bytes = self.get_tree_database().get(&refno.get_sled_key())
+        //     .map_err(|_| anyhow!("get string error".to_string()))?;
+        //
+        // match bytes {
+        //     None => Ok(None),
+        //     Some(d) => {
+        //         Ok(Some(bincode::deserialize::<NodeId>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+        //     }
+        // }
+        let v:PdmsNodeId = self.node_id_db.get(&refno)?;
+        Ok(Some(v.0))
     }
-
+    //
     #[inline]
-    pub fn get_children(&self, refno: RefU64) -> anyhow::Result<Option<RefU64Vec>> {
-        let bytes = self.get_children_database().get(&refno.get_sled_key())
-            .map_err(|_| anyhow!("get string error".to_string()))?;
-
-        match bytes {
-            None => Ok(None),
-            Some(d) => {
-                Ok(Some(bincode::deserialize::<RefU64Vec>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-            }
-        }
+    pub fn get_children(&mut self, refno: RefU64) -> anyhow::Result<Option<RefU64Vec>> {
+        // let bytes = self.get_children_database().get(&refno.get_sled_key())
+        //     .map_err(|_| anyhow!("get string error".to_string()))?;
+        //
+        // match bytes {
+        //     None => Ok(None),
+        //     Some(d) => {
+        //         Ok(Some(bincode::deserialize::<RefU64Vec>(&*d).map_err(|e| anyhow!(e.to_string()))?))
+        //     }
+        // }
+        Ok(Some(self.children_db.get(&refno)?))
     }
 
     //包含自己
-    pub fn get_ancestors_attrs(&self, refno: RefU64, db_no: u32) -> Vec<AttrMap> {
+    pub fn get_ancestors_attrs(&mut self, refno: RefU64, db_no: u32) -> Vec<AttrMap> {
         let mut cur_refno = refno;
         let mut r = vec![];
         while let Ok(Some(attr)) = self.get_attr(cur_refno, db_no) {
@@ -1471,7 +1454,7 @@ impl AiosPdmsProjectSled {
         r
     }
 
-    pub fn get_parent_att_by_type(&self, refno: RefU64, db_no: u32, type_name: &str) -> anyhow::Result<Option<AttrMap>> {
+    pub fn get_parent_att_by_type(&mut self, refno: RefU64, db_no: u32, type_name: &str) -> anyhow::Result<Option<AttrMap>> {
         let mut cur_refno = refno;
         let mut r = None;
         while let Some(attr) = self.get_attr(cur_refno, db_no)? {
@@ -1490,7 +1473,7 @@ impl AiosPdmsProjectSled {
 
 
     ///获得世界坐标系
-    pub fn get_world_transform(&self, refno: RefU64, db_no: u32) -> Option<glam::TransformRT> {
+    pub fn get_world_transform(&mut self, refno: RefU64, db_no: u32) -> Option<glam::TransformRT> {
         let mut ancestors = self.get_ancestors_attrs(refno, db_no);
         ancestors.reverse();
         let mut rotation = Quat::IDENTITY;
@@ -1541,46 +1524,142 @@ impl AiosPdmsProjectSled {
     // let tree_db = sled::open(format!("AIOS_DBS/{}/tree.sled", project)).expect("Create db file");
     // let version_db = sled::open(format!("AIOS_DBS/{}/version.sled", project)).expect("Create db file");
     // let room_db = sled::open(format!("AIOS_DBS/{}/room.sled", project)).expect("Create db file");
-    fn create_tables(project: &str){
-
+    pub fn create_tables(project: &str) {
         Self::get_attr_conn(project, true);
-
-        let table_name = format!("{project}:trees");
-        let mytable = Keymap::new(&table_name)
-            .set_ktype(KeymapType::Binstr)
-            .set_vtype(KeymapType::Binstr);
-        con.create_table(mytable);
-        let table_name = format!("{project}:children");
-        let mytable = Keymap::new(&table_name)
-            .set_ktype(KeymapType::Binstr)
-            .set_vtype(KeymapType::Binstr);
-        con.create_table(mytable);
-        let table_name = format!("{project}:names");
-        let mytable = Keymap::new(&table_name)
-            .set_ktype(KeymapType::Binstr)
-            .set_vtype(KeymapType::Binstr);
-        con.create_table(mytable);
-        let table_name = format!("{project}:version");
-        let mytable = Keymap::new(&table_name)
-            .set_ktype(KeymapType::Binstr)
-            .set_vtype(KeymapType::Binstr);
-        con.create_table(mytable);
-        let table_name = format!("{project}:rooms");
-        let mytable = Keymap::new(&table_name)
-            .set_ktype(KeymapType::Binstr)
-            .set_vtype(KeymapType::Binstr);
-        con.create_table(mytable);
-        let table_name = format!("{project}:ref_infos");
-        let mytable = Keymap::new(&table_name)
-            .set_ktype(KeymapType::Binstr)
-            .set_vtype(KeymapType::Binstr);
-        con.create_table(mytable);
+        Self::get_trees_con(project,true);
+        Self::get_children_con(project,true);
+        Self::get_names_con(project,true);
+        Self::get_version_con(project,true);
+        Self::get_room_con(project,true);
+        Self::get_ref_infos_con( true);
+        Self::get_node_ids_con(project,true);
+        Self::get_type_refnos_con(project,true);
     }
 
     #[inline]
-    fn get_attr_conn(project: &str, creat: bool) -> Connection{
+    fn get_attr_conn(project: &str, creat: bool) -> Connection {
         let mut con = Connection::new("127.0.0.1", 2003).unwrap();
         let table_name = format!("{project}:attrs");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_trees_con(project: &str, creat: bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:trees");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_children_con(project: &str, creat: bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:children");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_names_con(project: &str, creat: bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:names");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_version_con(project: &str, creat: bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:version");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_room_con(project: &str, creat: bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:room");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_ref_infos_con(creat:bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let database_name = format!("ref_infos:infos");
+        if creat {
+            con.create_keyspace("infos");
+            let mytable = Keymap::new(&database_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&database_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_node_ids_con(project:&str,creat:bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:node_ids");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
+    #[inline]
+    fn get_type_refnos_con(project:&str,creat:bool) -> Connection {
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:type_refnos");
         if creat {
             con.create_keyspace(project);
             let mytable = Keymap::new(&table_name)
@@ -1607,8 +1686,6 @@ impl AiosPdmsProjectSled {
         }).collect::<Vec<PathBuf>>();
 
         // Self::create_tables(project.as_str());
-
-        Self::get_attr_conn(project.as_str(), true);
 
         let versions_map = Arc::new(DashMap::new());
         children_files.par_iter().for_each(|path| {
@@ -1637,46 +1714,52 @@ impl AiosPdmsProjectSled {
 
                         let mut con = Self::get_attr_conn(project.as_str(), false);
                         for (k, v) in all_attr_map {
-                            // all_att_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                            con.set(&k, &v).unwrap();
+                        }
+
+                        let mut con = Self::get_trees_con(project,false);
+                        con.set(&target_dbno,&ele_id_tree).unwrap();
+
+
+                        let mut con = Self::get_node_ids_con(project,false);
+                        for (k, v) in refno_node_id_map {
+                            con.set(&k,&PdmsNodeId(v)).unwrap();
+                        }
+
+                        let mut con = Self::get_type_refnos_con(project,false);
+                        for (k, v) in type_ele_map {
+                            con.set(&Integer(k),&v).unwrap();
+                        }
+
+                        let mut con = Self::get_names_con(project,false);
+                        let lookup = Arc::try_unwrap(string_lookup.lookup).unwrap();
+                        for (k, v) in lookup {
+                            con.set(&Integer(k),&v);
+                        }
+
+                        let mut con = Self::get_ref_infos_con(false);
+                        for (k, v) in refno_info_map {
+                            dbg!(&v.ref_0);
+                            con.set(&k,&v);
+                        }
+
+                        let mut con = Self::get_children_con(project,false);
+                        for (k, v) in children_map {
                             con.set(&k,&v).unwrap();
                         }
-                        // let table_name = format!("{project}:attrs");
-                        // con.switch(&table_name).unwrap();
-                        // con.set(&target_dbno,&ele_id_tree).unwrap();
 
-                        // for (k, v) in refno_node_id_map {
-                        //     // tree_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                        //     con.set(&k,&PdmsNodeId(v)).unwrap();
-                        // }
-                        // for (k, v) in type_ele_map {
-                        //     // types_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                        //     con.set(&Integer(k),&v).unwrap();
-                        // }
-                        // let lookup = Arc::try_unwrap(string_lookup.lookup).unwrap();
-                        // for (k, v) in lookup {
-                        //     // string_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                        //     con.set(&Integer(k),&v);
-                        // }
-                        // for (k, v) in refno_info_map {
-                        //     // info_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                        //     con.set(&k,&v);
-                        // }
-                        // for (k, v) in children_map {
-                        //     // children_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                        //     con.set(&k,&v).unwrap();
-                        // }
-                        // for (k, v) in room_code_map {
-                        //     // room_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                        //     con.set(&k,&v).unwrap();
-                        // }
+                        let mut con = Self::get_room_con(project,false);
+                        for (k, v) in room_code_map {
+                            con.set(&k,&v).unwrap();
+                        }
                     }
                 }
             }
         });
-        let mut con = Connection::new("127.0.0.1", 2003)?;
+        let mut con = Self::get_version_con(project,false);
         for kv in versions_map.as_ref() {
             // version_db.insert(&kv.key().0.to_be_bytes(), bincode::serialize(kv.value()).unwrap());
-            con.set(kv.key(),kv.value());
+            con.set(kv.key(), kv.value());
         }
         Ok(())
     }

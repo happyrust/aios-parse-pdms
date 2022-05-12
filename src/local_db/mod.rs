@@ -4,7 +4,7 @@ use glam::TransformSRT;
 // mod test_file;
 // pub mod sled_local;
 #[cfg(not(target_arch = "wasm32"))]
-pub mod sled_manager;
+pub mod skytable_manager;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tikv_manager;

@@ -327,11 +327,9 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let noun = type_hash as u32;
     let noun_name: SmolStr = db1_dehash(noun).into();  //类型hash  12-16
     if !attr_info_map.contains_key(&type_hash) {
-        // dbg!(noun_name.as_str());
         //todo info those can't parse types
     }
     let attr_info_map = &*attr_info_map.get(&type_hash)?;
-    // .ok_or(anyhow!(format!("{} not exist", db1_dehash(type_hash.try_into().unwrap()))))?;
     let owner = RefU64::from(&input[16..24]);
     let version = parse_to_u32(&input[32..36]);
     //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
@@ -369,7 +367,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
-        // //dbg!(last_att_info.value());
         let step = match last_att_info.att_type {
             // DbAttributeType::BOOL | DbAttributeType::DOUBLE | DbAttributeType::WORD => 1,
             DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => 3 * 2,
@@ -670,8 +667,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32, string_lookup: &StringLookupTable) -> IResult<&'a [u8], (usize, AttrVal)> {
-    // println!("{:#4X?}", input);
-    //dbg!(attr_info.name.as_str());
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
     let n = db1_dehash(attr_info.hash as u32);
@@ -713,7 +708,6 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                             is_f32 = true;
                         }
                     }
-                    // println!("{:#4X?}", input[..4].to_vec());
                     if is_f32 {
                         let d = parse_to_f32(&input[..4]) as f64;
                         val = AttrVal::DoubleType(d);

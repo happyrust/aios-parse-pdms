@@ -22,7 +22,7 @@ pub const DDANGLE_STR: &'static str = "DDANGLE";
 ///求解design component
 pub fn resolve_desi_comp<T: PdmsDataInterface>(
     refno: RefU64,
-    interface: &T,
+    interface: &mut T,
 ) -> anyhow::Result<GeomsInfo> {
     let attr_map = interface.get_ele_attr(refno)?;
     let mut scom_ref = None;
@@ -85,7 +85,7 @@ pub fn resolve_desi_comp<T: PdmsDataInterface>(
 ///整合SCOM对应的临时数据
 pub fn query_scom_info<T: PdmsDataInterface>(
     refno: RefU64,
-    interface: &T,
+    interface: &mut T,
 ) -> anyhow::Result<ScomInfo> {
     let attr_map = interface.get_ele_attr(refno)?;
     let type_noun = attr_map.get_type_cloned().ok_or(anyhow!("Scom att not correct".to_string()))?;
@@ -126,7 +126,7 @@ pub fn query_scom_info<T: PdmsDataInterface>(
 ///查询 Axis 参数
 pub fn query_axis_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
-    interface: &T,
+    interface: &mut T,
 ) -> anyhow::Result<BTreeMap<i32, AxisParam>> {
     // 查找ptse
     let mut map = BTreeMap::new();
@@ -146,7 +146,7 @@ pub fn query_axis_params<T: PdmsDataInterface>(
 ///查询gmse的参数
 pub fn query_gm_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
-    interface: &T,
+    interface: &mut T,
 ) -> anyhow::Result<Vec<GmParam>> {
     let mut gms = vec![];
     let refno = attr_map.get_refno().unwrap_or_default();
@@ -166,7 +166,7 @@ pub fn query_gm_params<T: PdmsDataInterface>(
 ///对元件库的SCOM Element进行求值计算
 pub fn resolve_cata_comp<T: PdmsDataInterface>(
     scom_info: &ScomInfo,
-    interface: &T,
+    interface: &mut T,
     context: Option<HashMap<SmolStr, SmolStr>>,
 ) -> anyhow::Result<GeomsInfo> {
     let mut cur_context = context.unwrap_or_default();
@@ -270,7 +270,7 @@ pub fn get_axis_param(attr_map: &AttrMap) -> Option<AxisParam> {
 }
 
 ///获得gmse的params
-pub fn query_gm_param(att_map: &AttrMap, interface: &dyn PdmsDataInterface, has_chidren: bool) -> Option<GmParam> {
+pub fn query_gm_param(att_map: &AttrMap, interface: &mut dyn PdmsDataInterface, has_chidren: bool) -> Option<GmParam> {
     let mut paxises = att_map.get_attr_strings_without_default(&["PAXI", "PAAX", "PBAX", "PCAX"]);
     if let Some(val) = att_map.get_val("PTS") {
         match val {
@@ -340,7 +340,7 @@ pub fn query_gm_param(att_map: &AttrMap, interface: &dyn PdmsDataInterface, has_
 ///获得dtse的参数信息
 pub fn process_dtse_params<T: PdmsDataInterface>(
     attr_map: &AttrMap,
-    interface: &T,
+    interface: &mut T,
     context: &mut HashMap<SmolStr, SmolStr>,
 ) -> Option<bool> {
     let dtre_refno = attr_map.get_foreign_refno("DTRE")?;

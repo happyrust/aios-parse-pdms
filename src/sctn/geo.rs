@@ -15,7 +15,7 @@ use glam::{TransformSRT, Vec3};
 use crate::data_interface::PdmsDataInterface;
 // use crate::prim_geo::category::CateBrepShape;
 
-pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &T) -> Vec<CateBrepShape>  {
+pub fn create_geos<T: PdmsDataInterface>(att: &AttrMap, geom_info: &GeomsInfo, interface: &mut T) -> Vec<CateBrepShape>  {
     let mut brep_shapes = vec![];
     let geoms = &geom_info.geometries;
     if geoms.len() == 0 { return brep_shapes; }

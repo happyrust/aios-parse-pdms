@@ -10,7 +10,7 @@ use crate::consts::ATT_STYP;
 
 //todo use LRU cache the mosted used variables
 
-pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
+pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo {
     let mut file = File::open(config_path).unwrap();
     let mut attr_buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut attr_buf);
@@ -18,18 +18,18 @@ pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo{
 }
 
 #[inline]
-pub fn convert_to_hash(bytes: &[u8]) -> u32{
+pub fn convert_to_hash(bytes: &[u8]) -> u32 {
     i32::from_be_bytes(bytes.try_into().unwrap()).abs() as u32
 }
 
 #[inline]
-pub fn db1_dehash(hash: u32) -> String{
+pub fn db1_dehash(hash: u32) -> String {
     let mut result = String::new();
     if hash > 0x171FAD39 { // UDA的情况
         let mut v8 = ((hash - 0x171FAD39) % 0x1000000) as i32;
         result.push(':');
         for i in 0..6 {
-            if v8 <= 0{
+            if v8 <= 0 {
                 break;
             }
             result.push(((v8 & 0x3F) + 32) as u8 as char);
@@ -41,7 +41,7 @@ pub fn db1_dehash(hash: u32) -> String{
         }
         let mut v6 = (hash - 0x81BF1) as i32;
         while v6 > 0 {
-            result.push((v6 % 27 + 64) as u8  as char);
+            result.push((v6 % 27 + 64) as u8 as char);
             v6 /= 27;
         }
     }
@@ -49,15 +49,15 @@ pub fn db1_dehash(hash: u32) -> String{
 }
 
 #[inline]
-pub const fn db1_hash(hash_str: &str) -> u32{
+pub const fn db1_hash(hash_str: &str) -> u32 {
     let mut chars = hash_str.as_bytes();
     if chars.len() < 1 {
         return 0;  //出错的暂时用0 表达
     }
     let mut val = 0i64;
     let mut i = (chars.len() - 1) as i32;
-    while i>=0 {
-        val = val*27 + (chars[i as usize] as i64 - 64);
+    while i >= 0 {
+        val = val * 27 + (chars[i as usize] as i64 - 64);
         i -= 1;
     }
     0x81BF1 + val as u32
@@ -74,20 +74,19 @@ pub fn get_db_stype(map: &AttrMap) -> Option<&'static str> {
                 8 => "DICT",
                 _ => "UNSET"
             })
-        },
+        }
         _ => None
     }
 }
 
 #[test]
-fn db1_dehash_test(){
-    let name=db1_dehash(0x2902D6DA);
-    println!("name={:?}",name);
+fn db1_dehash_test() {
+    let name = db1_dehash(0x2902D6DA);
+    println!("name={:?}", name);
 
     let val = db1_hash("DB");
-    println!("{:#4X}",val);
+    println!("{:#4X}", val);
 }
-
 
 
 fn convert_to_le_i32(table: &[u8], dw_offset: usize) -> i32 {
@@ -154,7 +153,7 @@ pub fn decode_chi_chars(table: &[u8], data: &[u8]) -> String {
     let mut d = &data[2..data.len() - 2];
     //println!("{:#4X?}", d);
     let mut i = 0;
-    while i < d.len() {
+    while i < d.len() - 1 {
         let d0 = d[i] as u64;
         //println!("{:#4X?}", d0);
         let d1 = d[i + 1] as i32;
@@ -172,7 +171,7 @@ pub fn decode_chi_chars(table: &[u8], data: &[u8]) -> String {
 }
 
 ///返回（解密后的utf8字符串， 是否包含中文）
-pub fn decode_chars_data(input: &[u8]) -> (String, bool){
+pub fn decode_chars_data(input: &[u8]) -> (String, bool) {
     let table_data = include_bytes!("../encode_char_table.bin");
     let start_iter = find_iter(&input, &[0x26, 0x7E]);
     let mut contains_chi = false;
@@ -180,13 +179,13 @@ pub fn decode_chars_data(input: &[u8]) -> (String, bool){
     let mut prev_pos = 0;
     for p in start_iter {
         res.extend_from_slice(&input[prev_pos..p]);
-        if let Some(len) = find(&input[p..], &[0x20, 0x26]){
+        if let Some(len) = find(&input[p..], &[0x20, 0x26]) {
             // //dbg!(&input[p..p + len]);
             let decode_str = decode_chi_chars(table_data, &input[p..p + len + 2]);
             res.extend(decode_str.bytes());
             prev_pos = p + len + 2;
             contains_chi = true;
-        }else{
+        } else {
             res.extend_from_slice(&input[p..]);
             break;
         }
