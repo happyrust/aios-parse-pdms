@@ -86,6 +86,8 @@ use bevy::ecs::component::Component;
 use id_tree::{Node, NodeId};
 use skytable::actions::Actions;
 use skytable::Connection;
+use skytable::ddl::{Ddl, Keymap, KeymapType};
+use skytable::types::IntoSkyhashBytes;
 use crate::consts::ATT_ROOM;
 use crate::error_types::AttError::AttNotExist;
 use crate::local_db::DbOption;
@@ -1532,7 +1534,64 @@ impl AiosPdmsProjectSled {
         })
     }
 
-    //todo  infos 存储什么的问题，要不要存储dbno
+    // let all_att_db = sled::open(format!("AIOS_DBS/{}/attr.sled", project)).expect("Create db file");
+    // let children_db = sled::open(format!("AIOS_DBS/{}/children.sled", project)).expect("Create db file");
+    // let types_db = sled::open(format!("AIOS_DBS/{}/type_eles.sled", project)).expect("Create db file");
+    // let string_db = sled::open(format!("AIOS_DBS/{}/names.sled", project)).expect("Create db file");
+    // let tree_db = sled::open(format!("AIOS_DBS/{}/tree.sled", project)).expect("Create db file");
+    // let version_db = sled::open(format!("AIOS_DBS/{}/version.sled", project)).expect("Create db file");
+    // let room_db = sled::open(format!("AIOS_DBS/{}/room.sled", project)).expect("Create db file");
+    fn create_tables(project: &str){
+
+        Self::get_attr_conn(project, true);
+
+        let table_name = format!("{project}:trees");
+        let mytable = Keymap::new(&table_name)
+            .set_ktype(KeymapType::Binstr)
+            .set_vtype(KeymapType::Binstr);
+        con.create_table(mytable);
+        let table_name = format!("{project}:children");
+        let mytable = Keymap::new(&table_name)
+            .set_ktype(KeymapType::Binstr)
+            .set_vtype(KeymapType::Binstr);
+        con.create_table(mytable);
+        let table_name = format!("{project}:names");
+        let mytable = Keymap::new(&table_name)
+            .set_ktype(KeymapType::Binstr)
+            .set_vtype(KeymapType::Binstr);
+        con.create_table(mytable);
+        let table_name = format!("{project}:version");
+        let mytable = Keymap::new(&table_name)
+            .set_ktype(KeymapType::Binstr)
+            .set_vtype(KeymapType::Binstr);
+        con.create_table(mytable);
+        let table_name = format!("{project}:rooms");
+        let mytable = Keymap::new(&table_name)
+            .set_ktype(KeymapType::Binstr)
+            .set_vtype(KeymapType::Binstr);
+        con.create_table(mytable);
+        let table_name = format!("{project}:ref_infos");
+        let mytable = Keymap::new(&table_name)
+            .set_ktype(KeymapType::Binstr)
+            .set_vtype(KeymapType::Binstr);
+        con.create_table(mytable);
+    }
+
+    #[inline]
+    fn get_attr_conn(project: &str, creat: bool) -> Connection{
+        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let table_name = format!("{project}:attrs");
+        if creat {
+            con.create_keyspace(project);
+            let mytable = Keymap::new(&table_name)
+                .set_ktype(KeymapType::Binstr)
+                .set_vtype(KeymapType::Binstr);
+            con.create_table(mytable);
+        }
+        con.switch(&table_name).unwrap();
+        con
+    }
+
     pub fn sync_total(&self, need_parsing_files: &Option<Vec<String>>) -> anyhow::Result<()> {
         let mut data_dir = Path::new(&self.dir);
         let project = &self.project;
@@ -1546,9 +1605,13 @@ impl AiosPdmsProjectSled {
             let entry = entry.unwrap();
             entry.path()
         }).collect::<Vec<PathBuf>>();
+
+        // Self::create_tables(project.as_str());
+
+        Self::get_attr_conn(project.as_str(), true);
+
         let versions_map = Arc::new(DashMap::new());
         children_files.par_iter().for_each(|path| {
-            let mut con = Connection::new("127.0.0.1", 2003).unwrap();
             let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
             if !file_name.ends_with("com") && !file_name.ends_with("mis") {
                 if need_parsing_files.is_none() || need_parsing_files.as_ref().unwrap().contains(&file_name) {
@@ -1572,46 +1635,45 @@ impl AiosPdmsProjectSled {
                         let target_dbno = if field_no.0 == 0 { db_no } else { field_no };
                         versions_map.insert(target_dbno, version);
 
+                        let mut con = Self::get_attr_conn(project.as_str(), false);
                         for (k, v) in all_attr_map {
                             // all_att_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
                             con.set(&k,&v).unwrap();
                         }
+                        // let table_name = format!("{project}:attrs");
+                        // con.switch(&table_name).unwrap();
+                        // con.set(&target_dbno,&ele_id_tree).unwrap();
 
-                        // tree_db.insert(&target_dbno.to_be_bytes(), bincode::serialize(&ele_id_tree).unwrap());
-                        con.set(&target_dbno,&ele_id_tree).unwrap();
-
-                        for (k, v) in refno_node_id_map {
-                            // tree_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                            con.set(&k,&PdmsNodeId(v)).unwrap();
-                        }
-                        for (k, v) in type_ele_map {
-                            // types_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                            con.set(&Integer(k),&v).unwrap();
-                        }
-                        let lookup = Arc::try_unwrap(string_lookup.lookup).unwrap();
-                        for (k, v) in lookup {
-                            // string_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                            con.set(&Integer(k),&v);
-                        }
-                        for (k, v) in refno_info_map {
-                            // info_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                            con.set(&k,&v);
-                        }
-                        for (k, v) in children_map {
-                            // children_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                            con.set(&k,&v).unwrap();
-                        }
-                        for (k, v) in room_code_map {
-                            // room_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
-                            con.set(&k,&v).unwrap();
-                        }
+                        // for (k, v) in refno_node_id_map {
+                        //     // tree_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        //     con.set(&k,&PdmsNodeId(v)).unwrap();
+                        // }
+                        // for (k, v) in type_ele_map {
+                        //     // types_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        //     con.set(&Integer(k),&v).unwrap();
+                        // }
+                        // let lookup = Arc::try_unwrap(string_lookup.lookup).unwrap();
+                        // for (k, v) in lookup {
+                        //     // string_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        //     con.set(&Integer(k),&v);
+                        // }
+                        // for (k, v) in refno_info_map {
+                        //     // info_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        //     con.set(&k,&v);
+                        // }
+                        // for (k, v) in children_map {
+                        //     // children_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        //     con.set(&k,&v).unwrap();
+                        // }
+                        // for (k, v) in room_code_map {
+                        //     // room_db.insert(&k.to_be_bytes(), bincode::serialize(&v).unwrap());
+                        //     con.set(&k,&v).unwrap();
+                        // }
                     }
                 }
             }
         });
-        // string_db.insert();
         let mut con = Connection::new("127.0.0.1", 2003)?;
-
         for kv in versions_map.as_ref() {
             // version_db.insert(&kv.key().0.to_be_bytes(), bincode::serialize(kv.value()).unwrap());
             con.set(kv.key(),kv.value());
