@@ -84,14 +84,38 @@ fn main_1() {
     notify_file();
 }
 
+
+#[test]
+pub fn test_tikv() {
+    //dbg!(db1_dehash(0xE5461));
+    //dbg!(db1_dehash(0x95A34));
+    //dbg!(db1_dehash(0xC89B3));
+    //dbg!(db1_dehash(0x9298B));
+    //dbg!(db1_dehash(0x9CAF3));
+    //dbg!(db1_dehash(0x9BBDAC));
+
+    //dbg!(db1_dehash(convert_to_hash([0xFF, 0xF6, 0x94, 0x65].as_slice())));
+}
+
+
 // #[tokio::main]
-//async
+// async
 fn main() -> anyhow::Result<()> {
     CombinedLogger::init(
         vec![
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), std::fs::File::create("parse_pdms_db.log").unwrap()),
         ]
     ).unwrap();
+
+    // use tikv_client::RawClient;
+    //
+    // let client = RawClient::new(vec!["127.0.0.1:2379"], None).await?;
+    // client.put("key".to_owned(), "value".to_owned()).await?;
+    // let value = client.get("key".to_owned()).await?;
+    //
+    // return Ok(());
+
+
     //
     // let mut pdms_data_info: PdmsDatabaseInfo  = bincode::deserialize(include_bytes!(r"D:\aios_workspace\aios-parse-pdms\all_attr_info.bin")).unwrap();
     // {
@@ -115,7 +139,8 @@ fn main() -> anyhow::Result<()> {
     dbg!(&db_option);
     let mut time = Instant::now();
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
-    let v = mgr.get_attr(RefI32Tuple((16476,57)).into())?;
+    let v = mgr.get_attr(RefI32Tuple((23584, 205)).into())?;
+    dbg!(v);
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
     // let refno = RefU64::from_two_nums(15192, 77134);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
