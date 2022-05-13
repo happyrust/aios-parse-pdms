@@ -140,7 +140,6 @@ fn main() -> anyhow::Result<()> {
     let mut time = Instant::now();
     let mut mgr = AiosDBManager::init(&db_option).unwrap();
     let v = mgr.get_attr(RefI32Tuple((23584, 205)).into())?;
-    dbg!(v);
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
     // let refno = RefU64::from_two_nums(15192, 77134);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
@@ -156,40 +155,42 @@ fn main() -> anyhow::Result<()> {
 pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool> {
     //todo 可以用多线程去并发tree，获取节点下面，然后并发
 
-    // let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
-    // match r {
-    //     Ok(_) => {}
-    //     Err(err) => {
-    //         println!("{:?}", err);
-    //         return Err(err);
-    //     }
-    // }
-    // // return Ok(true);
-    // let mut string_lookup = StringLookupTable::default();
-    // let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
-    // let db_no = db_option.main_db_code;
-    // // let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
-    //
-    // let tree = mgr.get_pdms_project_tree(db_option.project_name.as_str(), db_no)?;
-    // tree.serialize_to_bin_file(db_no);
-    // let tree = &tree.0;
-    //
-    // if let Some(proj_db) = mgr.project_map.get(&AiosStr(db_option.project_name.clone().into()).get_u32_hash()) {
-    //     let node_id = tree.root_node_id().ok_or(anyhow!("root node not exist.".to_string()))?;
-    //     if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
-    //         while let Some(mut cur_node_id) = nodes.next() {
-    //             let cur_node = tree.get(&cur_node_id).unwrap();
-    //             let d = cur_node.data();
-    //             if let Some(s) = proj_db.get_string(d.name_hash).unwrap() {
-    //                 string_lookup.lookup.insert(d.name_hash, s);
-    //             }
-    //             cached_attr_map.0.insert(d.refno, mgr.get_stringfied_attr(d.refno).unwrap().unwrap_or_default());
-    //         }
-    //     }
-    //     string_lookup.serialize_to_bin_file(db_no);
-    //     cached_attr_map.serialize_to_bin_file(db_option.main_db_code);
-    // }
+    let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
+    match r {
+        Ok(_) => {}
+        Err(err) => {
+            println!("{:?}", err);
+            return Err(err);
+        }
+    }
+    // return Ok(true);
+    let mut string_lookup = StringLookupTable::default();
+    let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
+    let db_no = db_option.main_db_code;
+    // let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).unwrap_or_default();
 
+    let tree = mgr.get_pdms_tree(db_option.project_name.as_str(), db_no).ok_or(anyhow!("pdms tree not found"))?;
+    tree.serialize_to_bin_file(db_no);
+    let tree = tree.0;
+
+    let mut proj_db = mgr.project_map.get_mut(&AiosStr(db_option.project_name.clone().into()).get_u32_hash())
+        .ok_or(anyhow!("pdms project not found"))?;
+
+    let node_id = tree.root_node_id().ok_or(anyhow!("root node not exist.".to_string()))?;
+    if let Ok(mut nodes) = tree.traverse_level_order_ids(node_id) {
+        while let Some(mut cur_node_id) = nodes.next() {
+            let cur_node = tree.get(&cur_node_id).unwrap();
+            let d = cur_node.data();
+            {
+                if let Some(s) = proj_db.value_mut().get_string(d.name_hash).unwrap() {
+                    string_lookup.lookup.insert(d.name_hash, s);
+                }
+            }
+            cached_attr_map.0.insert(d.refno, proj_db.get_attr(d.refno, db_no)?);
+        }
+    }
+    string_lookup.serialize_to_bin_file(db_no);
+    cached_attr_map.serialize_to_bin_file(db_option.main_db_code);
 
     Ok(true)
 }

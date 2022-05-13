@@ -157,7 +157,6 @@ impl PdmsDataInterface for AiosDBManager {
     }
 
 
-
     #[inline]
     fn get_ele_attr(&mut self, refno: RefU64) -> anyhow::Result<AttrMap> {
         let att = self.get_stringfied_attr(refno)?;
@@ -365,21 +364,21 @@ impl AiosDBManager {
 
     ///获取attr 属性
     #[inline]
-    pub fn get_attr(&mut self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
+    pub fn get_attr(&mut self, refno: RefU64) -> anyhow::Result<AttrMap> {
         if let Some(ref_info) = self.get_refno_info(refno)? {
             if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
                 return db.get_attr(refno, ref_info.db_no);
             }
         }
-        Ok(None)
+        Err(anyhow!(format!("{} : attr not exist", refno.to_refno_str())))
     }
 
     #[inline]
-    pub fn get_attr_with_project(&self, refno: RefU64, project: &str, db_no: u32) -> anyhow::Result<Option<AttrMap>> {
+    pub fn get_attr_with_project(&self, refno: RefU64, project: &str, db_no: u32) -> anyhow::Result<AttrMap> {
         if let Some(mut db) = self.project_map.get_mut(&AiosStr(project.into()).get_u32_hash()) {
             return db.get_attr(refno, db_no);
         }
-        Ok(None)
+        Err(anyhow!(format!("{} : attr not exist", refno.to_refno_str())))
     }
 
     ///string 被还原了的 属性
@@ -438,19 +437,19 @@ impl AiosDBManager {
 
     #[inline]
     pub fn get_cat_ref_in_desi(&mut self, refno: RefU64) -> Option<RefU64> {
-        let att = self.get_attr(refno).ok()??;
+        let att = self.get_attr(refno).ok()?;
         let spre = att.get_foreign_refno("SPRE")?;
-        let att = self.get_attr(spre).ok()??;
+        let att = self.get_attr(spre).ok()?;
         att.get_foreign_refno("CATR")
     }
 
     #[inline]
-    pub fn get_cat_att_in_desi(&mut self, refno: RefU64) -> anyhow::Result<Option<AttrMap>> {
+    pub fn get_cat_att_in_desi(&mut self, refno: RefU64) -> anyhow::Result<AttrMap> {
         if let Some(cat_ref) = self.get_cat_ref_in_desi(refno) {
             let att = self.get_attr(cat_ref)?;
             return Ok(att);
         }
-        Ok(None)
+        Err(anyhow!(format!("{} : attr not exist", refno.to_refno_str())))
     }
 
     ///返回geo data
@@ -458,108 +457,107 @@ impl AiosDBManager {
     pub fn get_design_geoms(&mut self, refno: RefU64, cached_mesh_mgr: &mut CachedMeshesMgr) -> anyhow::Result<HashMap<RefU64, Vec<CateBrepShape>>> {
         let mut result_map = HashMap::new();
 
-        if let Some(desi_att) = self.get_attr(refno)? {
-            let type_name = desi_att.get_type();
-            let is_bran = type_name == "BRAN";
-            if !is_bran {
-                let geoms = resolve_desi_comp(refno, self).unwrap_or_default();
-                // dbg!(&geoms);
-                if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
-                    result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self));
-                } else {
-                    let mut result_shapes = vec![];
-                    for geom in geoms.geometries {
-                        if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
-                            result_shapes.push(cate_shape);
-                        }
-                    }
-                    result_map.insert(refno, result_shapes);
-                }
-            } else {   //先暂时只让旋转用bran
-                let bran_transform = self.get_world_transform(refno).unwrap_or_default();
-                let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").ok_or(anyhow!("HPOS not exist".to_string()))?);
-                let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS").ok_or(anyhow!("TPOS not exist".to_string()))?);
-                let htube_ref = desi_att.get_foreign_refno("HSTU").unwrap_or_default();
-                let mut bore = 0.0f32;
-                if let Some(hstube_att) = self.get_attr(htube_ref)? {
-                    let hstube_cat_att = self.get_attr(hstube_att.get_foreign_refno("CATR").unwrap_or_default())?.unwrap_or_default();
-                    let params = hstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
-                    if params.len() >= 2 {
-                        bore = params[1] as f32;
+        let desi_att = self.get_attr(refno)?;
+        let type_name = desi_att.get_type();
+        let is_bran = type_name == "BRAN";
+        if !is_bran {
+            let geoms = resolve_desi_comp(refno, self).unwrap_or_default();
+            // dbg!(&geoms);
+            if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
+                result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self));
+            } else {
+                let mut result_shapes = vec![];
+                for geom in geoms.geometries {
+                    if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
+                        result_shapes.push(cate_shape);
                     }
                 }
-                let mut current_tubing = PdmsTubing {
-                    start_pt: bran_htube_pt,
-                    end_pt: Vec3::ZERO,
-                    bore,
-                    finished: false,
-                };
-                let children = self.get_children(refno)?.unwrap_or_default();
-                if children.len() == 0 {
-                    if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
-                        current_tubing.end_pt = bran_ttube_pt;
-                        current_tubing.finished = true;
-                        result_map.insert(refno, vec![current_tubing.convert_to_shape()]);
-                    }
-                    return Ok(result_map);
+                result_map.insert(refno, result_shapes);
+            }
+        } else {   //先暂时只让旋转用bran
+            let bran_transform = self.get_world_transform(refno).unwrap_or_default();
+            let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").ok_or(anyhow!("HPOS not exist".to_string()))?);
+            let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS").ok_or(anyhow!("TPOS not exist".to_string()))?);
+            let htube_ref = desi_att.get_foreign_refno("HSTU").unwrap_or_default();
+            let mut bore = 0.0f32;
+            if let Ok(hstube_att) = self.get_attr(htube_ref) {
+                let hstube_cat_att = self.get_attr(hstube_att.get_foreign_refno("CATR").unwrap_or_default())?;
+                let params = hstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
+                if params.len() >= 2 {
+                    bore = params[1] as f32;
                 }
-                //第一遍完成后，然后生成tubing
-                let last_child = children.last().unwrap().clone();
-                for child in children {
-                    // if child != RefU64::from_two_nums(16501, 1460) {
-                    //     continue;
-                    // }
-                    let world_trans = self.get_world_transform(child).unwrap_or_default();
-                    let mut result_shapes = vec![];
-                    let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
-                    let attr = self.get_attr(child)?.unwrap_or_default();
-                    if let Some(arrive) = attr.get_i32("ARRI") {
-                        //todo 加入获取arrive position 的方法
-                        if geoms.axis_map.contains_key(&arrive) {
-                            let p = &geoms.axis_map[&arrive].pt;
-                            let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                            if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > TUBI_TOL {
-                                current_tubing.end_pt = a_pos;
-                                current_tubing.finished = true;
-                                result_shapes.push(current_tubing.convert_to_shape());
-                            }
-                        }
-                    }
-                    if let Some(lstube) = attr.get_foreign_refno("LSTU") {
-                        if let Some(lstube_att) = self.get_attr(lstube)? {
-                            let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap_or_default())?.unwrap_or_default();
-                            let params = lstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
-                            if params.len() >= 2 {
-                                current_tubing.bore = params[1] as f32;
-                            }
-                        }
-                    }
-                    if let Some(leave) = attr.get_i32("LEAV") {
-                        //todo 加入获取leave position 的方法
-                        // current_tubing
-                        if geoms.axis_map.contains_key(&leave) {
-                            let p = &geoms.axis_map[&leave].pt;
-                            let l_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                            current_tubing.start_pt = l_pos;
-                            current_tubing.finished = false;
-                        }
-                    }
-                    //管件的生成
-                    for geom in geoms.geometries {
-                        if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
-                            result_shapes.push(cate_shape);
-                            // break;
-                        }
-                    } // end geoms.geometries
-                    if child == last_child {
-                        if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
-                            current_tubing.end_pt = bran_ttube_pt;
+            }
+            let mut current_tubing = PdmsTubing {
+                start_pt: bran_htube_pt,
+                end_pt: Vec3::ZERO,
+                bore,
+                finished: false,
+            };
+            let children = self.get_children(refno)?.unwrap_or_default();
+            if children.len() == 0 {
+                if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
+                    current_tubing.end_pt = bran_ttube_pt;
+                    current_tubing.finished = true;
+                    result_map.insert(refno, vec![current_tubing.convert_to_shape()]);
+                }
+                return Ok(result_map);
+            }
+            //第一遍完成后，然后生成tubing
+            let last_child = children.last().unwrap().clone();
+            for child in children {
+                // if child != RefU64::from_two_nums(16501, 1460) {
+                //     continue;
+                // }
+                let world_trans = self.get_world_transform(child).unwrap_or_default();
+                let mut result_shapes = vec![];
+                let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
+                let attr = self.get_attr(child)?;
+                if let Some(arrive) = attr.get_i32("ARRI") {
+                    //todo 加入获取arrive position 的方法
+                    if geoms.axis_map.contains_key(&arrive) {
+                        let p = &geoms.axis_map[&arrive].pt;
+                        let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
+                        if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > TUBI_TOL {
+                            current_tubing.end_pt = a_pos;
                             current_tubing.finished = true;
                             result_shapes.push(current_tubing.convert_to_shape());
                         }
                     }
-                    result_map.insert(child, result_shapes);
                 }
+                if let Some(lstube) = attr.get_foreign_refno("LSTU") {
+                    if let Ok(lstube_att) = self.get_attr(lstube) {
+                        let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap_or_default())?;
+                        let params = lstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
+                        if params.len() >= 2 {
+                            current_tubing.bore = params[1] as f32;
+                        }
+                    }
+                }
+                if let Some(leave) = attr.get_i32("LEAV") {
+                    //todo 加入获取leave position 的方法
+                    // current_tubing
+                    if geoms.axis_map.contains_key(&leave) {
+                        let p = &geoms.axis_map[&leave].pt;
+                        let l_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
+                        current_tubing.start_pt = l_pos;
+                        current_tubing.finished = false;
+                    }
+                }
+                //管件的生成
+                for geom in geoms.geometries {
+                    if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
+                        result_shapes.push(cate_shape);
+                        // break;
+                    }
+                } // end geoms.geometries
+                if child == last_child {
+                    if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
+                        current_tubing.end_pt = bran_ttube_pt;
+                        current_tubing.finished = true;
+                        result_shapes.push(current_tubing.convert_to_shape());
+                    }
+                }
+                result_map.insert(child, result_shapes);
             }
         }
         Ok(result_map)
@@ -567,7 +565,7 @@ impl AiosDBManager {
 
     pub fn get_general_type_refno(&mut self, refno: RefU64) -> Option<(SmolStr, RefU64)> {
         let mut cur_refno = refno;
-        while let Some(attr) = self.get_attr(cur_refno).ok()? {
+        while let Ok(attr) = self.get_attr(cur_refno) {
             let noun_name = attr.get_type_cloned()?;
             if GENRIC_NOUN_NAMES.contains(&noun_name) {
                 return Some((noun_name, cur_refno));
@@ -607,7 +605,7 @@ impl AiosDBManager {
                     let cur_node = tree.get(&cur_node_id).unwrap();
                     let d = cur_node.data();
                     let noun = d.noun;
-                    let attr = self.get_attr(d.refno)?;
+                    let attr = self.get_attr(d.refno).ok();
                     if attr.is_none() { continue; }
                     let attr = attr.unwrap();
                     let mut geo_hash = None;
@@ -628,13 +626,13 @@ impl AiosDBManager {
                             let parent = attr.get_owner().unwrap();
                             target_refno = parent;
                             target_node_id = cur_node.parent().unwrap().clone();
-                            let mut parent_att = self.get_attr(parent)?.unwrap();
+                            let mut parent_att = self.get_attr(parent)?;
                             let parent_noun_name = parent_att.get_type();
                             let mut loop_verts: Vec<Vec3> = vec![];
                             let mut fradius_vec: Vec<f32> = vec![];
                             if let Some(children_refs) = self.get_children(d.refno)? {
                                 for x in children_refs {
-                                    if let Some(a) = self.get_attr(x)? {
+                                    if let Ok(a) = self.get_attr(x) {
                                         loop_verts.push(a.get_position().unwrap_or_default());
                                         fradius_vec.push(a.get_f32("FRAD").unwrap_or_default());
                                     } else {
@@ -689,7 +687,7 @@ impl AiosDBManager {
                                 if v_cnt >= 3 {
                                     for x in refs {
                                         let mut contour = Contour::default();
-                                        let v = self.get_attr(x)?.unwrap_or_default().get_position().unwrap_or_default();
+                                        let v = self.get_attr(x)?.get_position().unwrap_or_default();
                                         vertices.push([v[0], v[1], v[2]]);
                                         if tv.len() < 3 {
                                             tv.push(v);
@@ -714,7 +712,7 @@ impl AiosDBManager {
                             let parent = attr.get_owner().unwrap();
                             target_refno = parent;
                             target_node_id = cur_node.parent().unwrap().clone();
-                            let mut parent_att = self.get_attr(parent)?.unwrap();
+                            let mut parent_att = self.get_attr(parent)?;
                             let parent_noun_name = parent_att.get_type();
                             //todo 假定圆心是 O
                             let center = Vec3::ZERO;
@@ -727,7 +725,7 @@ impl AiosDBManager {
                                     let mut fradius_vec: Vec<f32> = vec![];
                                     if let Some(children_refs) = self.get_children(d.refno)? {
                                         for x in children_refs {
-                                            if let Some(a) = self.get_attr(x)? {
+                                            if let Ok(a) = self.get_attr(x) {
                                                 let p = a.get_position().unwrap_or_default();
                                                 verts.push(p);
                                                 let c_rad = a.get_f32("RADI").unwrap_or_default();
@@ -768,7 +766,7 @@ impl AiosDBManager {
                         let owner = self.get_attr(attr.get_owner().unwrap())?;
                         let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
                         //针对管道特殊处理
-                        if ele_type == "BRAN" || (owner.is_some() && owner.unwrap().get_type() != "BRAN" && has_catref) {
+                        if ele_type == "BRAN" || (owner.get_type() != "BRAN" && has_catref) {
                             let mut node_ids_map = HashMap::new();
                             for node_id in cur_node.children() {
                                 let data = tree.get(node_id).unwrap().data();
@@ -1352,7 +1350,7 @@ impl AiosPdmsProjectSkyTable {
         let mut types_db = Self::get_type_refnos_con(project, true);
         let mut children_db = Self::get_children_con(project, true);
         let mut tree_db = Self::get_trees_con(project, true);
-        let mut info_db = AiosDBManager::get_ref_infos_con( false);
+        let mut info_db = AiosDBManager::get_ref_infos_con(false);
         let mut string_db = Self::get_names_con(project, true);
         let mut version_db = Self::get_version_con(project, true);
         let mut node_id_db = Self::get_node_ids_con(project, true);
@@ -1376,78 +1374,35 @@ impl AiosPdmsProjectSkyTable {
 
     //按需要打开database
     #[inline]
-    pub fn get_attr(&mut self, refno: RefU64, db_no: u32) -> anyhow::Result<Option<AttrMap>> {
-        // let bytes = self.all_att_db.get(&refno.get_sled_key())
-        //     .map_err(|_| anyhow!("get attr error".to_string()))?;
-        // match bytes {
-        //     None => Ok(None),
-        //     Some(d) => {
-        //         Ok(Some(bincode::deserialize::<AttrMap>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-        //     }
-        // }
-        Ok(Some(self.all_att_db.get(&refno)?))
+    pub fn get_attr(&mut self, refno: RefU64, db_no: u32) -> anyhow::Result<AttrMap> {
+        self.all_att_db.get(&refno).map_err(|e| anyhow!( format!("{}: {e}", refno.to_refno_str()) ))
     }
 
     #[inline]
     pub fn get_string(&mut self, h: u32) -> anyhow::Result<Option<AiosStr>> {
-        // let bytes = self.get_string_database().get(&h.to_be_bytes())
-        //     .map_err(|_| anyhow!("get string error".to_string()))?;
-        // match bytes {
-        //     None => Ok(None),
-        //     Some(d) => {
-        //         Ok(Some(bincode::deserialize::<AiosStr>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-        //     }
-        // }
-        Ok(Some(self.string_db.get(&Integer(h))?))
+        self.string_db.get(&Integer(h)).map(|x| Some(x)).map_err(|e| anyhow!(e.to_string()))
     }
 
     #[inline]
     pub fn get_tree(&mut self, dbno: u32) -> anyhow::Result<Option<PdmsTree>> {
-        // let bytes = self.get_tree_database().get(&dbno.to_be_bytes())
-        //     .map_err(|_| anyhow!("get string error".to_string()))?;
-        // match bytes {
-        //     None => Ok(None),
-        //     Some(d) => {
-        //         Ok(Some(bincode::deserialize::<PdmsTree>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-        //     }
-        // }
-        Ok(Some(self.tree_db.get(&Integer(dbno))?))
+        self.tree_db.get(&Integer(dbno)).map(|x| Some(x)).map_err(|e| anyhow!(e.to_string()))
     }
 
     #[inline]
     pub fn get_node_id(&mut self, refno: RefU64) -> anyhow::Result<Option<NodeId>> {
-        // let bytes = self.get_tree_database().get(&refno.get_sled_key())
-        //     .map_err(|_| anyhow!("get string error".to_string()))?;
-        //
-        // match bytes {
-        //     None => Ok(None),
-        //     Some(d) => {
-        //         Ok(Some(bincode::deserialize::<NodeId>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-        //     }
-        // }
-        let v: PdmsNodeId = self.node_id_db.get(&refno)?;
-        Ok(Some(v.0))
+        self.node_id_db.get(&refno).map(|x: PdmsNodeId| Some(x.0)).map_err(|e| anyhow!(e.to_string()))
     }
     //
     #[inline]
     pub fn get_children(&mut self, refno: RefU64) -> anyhow::Result<Option<RefU64Vec>> {
-        // let bytes = self.get_children_database().get(&refno.get_sled_key())
-        //     .map_err(|_| anyhow!("get string error".to_string()))?;
-        //
-        // match bytes {
-        //     None => Ok(None),
-        //     Some(d) => {
-        //         Ok(Some(bincode::deserialize::<RefU64Vec>(&*d).map_err(|e| anyhow!(e.to_string()))?))
-        //     }
-        // }
-        Ok(Some(self.children_db.get(&refno)?))
+        self.children_db.get(&refno).map(|x| Some(x)).map_err(|e| anyhow!(e.to_string()))
     }
 
     //包含自己
     pub fn get_ancestors_attrs(&mut self, refno: RefU64, db_no: u32) -> Vec<AttrMap> {
         let mut cur_refno = refno;
         let mut r = vec![];
-        while let Ok(Some(attr)) = self.get_attr(cur_refno, db_no) {
+        while let Ok(attr) = self.get_attr(cur_refno, db_no) {
             if let Some(owner) = attr.get_owner() {
                 r.push(attr);
                 cur_refno = owner;
@@ -1461,7 +1416,7 @@ impl AiosPdmsProjectSkyTable {
     pub fn get_parent_att_by_type(&mut self, refno: RefU64, db_no: u32, type_name: &str) -> anyhow::Result<Option<AttrMap>> {
         let mut cur_refno = refno;
         let mut r = None;
-        while let Some(attr) = self.get_attr(cur_refno, db_no)? {
+        while let Ok(attr) = self.get_attr(cur_refno, db_no){
             if let Some(owner) = attr.get_owner() {
                 if attr.get_type() == type_name {
                     r = Some(attr);
@@ -1482,7 +1437,6 @@ impl AiosPdmsProjectSkyTable {
         ancestors.reverse();
         let mut rotation = Quat::IDENTITY;
         let mut translation = Vec3::ZERO;
-        let mut parent: Option<Quat> = None;
         for attr in ancestors {
             let t = if attr.get_type() == "SCTN" || attr.get_type() == "STWALL" {
                 let tr = TransformRT {
@@ -1492,8 +1446,6 @@ impl AiosPdmsProjectSkyTable {
                 let mut final_rot = Quat::IDENTITY;
                 let poss = attr.get_poss()?;
                 let pose = attr.get_pose()?;
-                let w_poss = tr.transform_point3(poss);
-                let w_pose = tr.transform_point3(pose);
                 let extru_dir: Vec3 = (pose - poss).normalize();
                 let bangle = attr.get_f32("BANG").unwrap_or_default();
                 //如果和Z轴平行，需要使用Y轴作为参考轴
@@ -1625,7 +1577,6 @@ impl AiosPdmsProjectSkyTable {
         con.switch(&table_name).unwrap();
         con
     }
-
 
 
     #[inline]
