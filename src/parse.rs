@@ -54,6 +54,13 @@ use skytable::types::{FromSkyhashBytes, IntoSkyhashBytes};
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WholeAttMap{
+    pub implicit_attmap: AttrMap,
+    pub explicit_attmap: AttrMap,
+    pub uda_attmap: AttrMap,
+}
+
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PdmsDbData {
@@ -66,6 +73,8 @@ pub struct PdmsDbData {
     //todo 改成EleNode
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<RefU64, AttrMap>,
+
+    pub total_attr_map: DashMap<RefU64, WholeAttMap>,
     /// 所有的refno在tree里面对应的node_id
     // pub refno_info_map: DashMap<u32, RefnoInfo>,
     pub refno_info_map: DashMap<Integer, RefnoInfo>,
@@ -279,6 +288,7 @@ pub struct EleData {
     pub owner: RefU64,
     pub noun: u32,
     pub attr_data_map: AttrMap,
+    pub whole_attmap: WholeAttMap,
     pub children: RefU64Vec,
     pub name_hash: AiosStrHash,
     pub version: u32,
@@ -318,6 +328,8 @@ fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
 pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>, string_lookup: &StringLookupTable) -> Option<EleData> {
     // dbg!(attr_info_map.len());
     let mut attr_data_map = AttrMap::default();
+    let mut implicit_attmap = AttrMap::default();
+    let mut explicit_attmap = AttrMap::default();
     let mut children = RefU64Vec::default();
     let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4;  //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize;  //隐含数据长度  0-4
@@ -416,7 +428,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
                 } else {
                     cur_offset += advance as i32;
                 }
-                attr_data_map.insert_by_att_name(attr_info.name.as_str(), att_val);
+                // attr_data_map.insert_by_att_name(attr_info.name.as_str(), att_val);
+                implicit_attmap.insert_by_att_name(attr_info.name.as_str(), att_val);
             }
         }
     }
@@ -425,7 +438,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len);
-            parse_explict_attrs(&merged_data, &attr_info_map, &mut attr_data_map, refno, string_lookup).ok()?;
+            parse_explict_attrs(&merged_data, &attr_info_map, &mut explicit_attmap, refno, string_lookup).ok()?;
         }
     }
     attr_info_map.iter().for_each(|pair| {
@@ -440,15 +453,20 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     });
 
     //添加遗漏的属性
-    attr_data_map.insert_by_att_name("OWNER", RefU64Type(owner));
-    attr_data_map.insert_by_att_name("TYPE", WordType(noun_name.clone()));
-    attr_data_map.insert_by_att_name("REFNO", RefU64Type(refno.into()));
-    let mut name_hash = attr_data_map.get_name_hash();
+    implicit_attmap.insert_by_att_name("OWNER", RefU64Type(owner));
+    implicit_attmap.insert_by_att_name("TYPE", WordType(noun_name.clone()));
+    implicit_attmap.insert_by_att_name("REFNO", RefU64Type(refno.into()));
+    let mut name_hash = implicit_attmap.get_name_hash();
     Some(EleData {
         refno: refno.into(),
         owner,
         noun,
         attr_data_map,
+        whole_attmap: WholeAttMap{
+            implicit_attmap,
+            explicit_attmap,
+            uda_attmap: Default::default()
+        },
         children,
         name_hash,
         version,
@@ -472,6 +490,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut ele_id_tree: Tree<EleNode> = Tree::new();
     /// 完整属性数据的存储
     let mut all_attr_map: Arc<DashMap<RefU64, AttrMap>> = Arc::new(DashMap::new());
+    let mut total_attr_map: Arc<DashMap<RefU64, WholeAttMap>> = Arc::new(DashMap::new());
     /// 所有的房间号信息的refno和对应的房间号
     let mut room_code_map : Arc<DashMap<RefU64,RoomCode>> = Arc::new(DashMap::new());
     let time_start = std::time::Instant::now();
@@ -506,6 +525,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         owner,
         noun,
         attr_data_map,
+        whole_attmap,
         children,
         version,
         name_hash,
@@ -531,7 +551,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         }
     }
 
-    all_attr_map.insert(refno, attr_data_map);
+    // all_attr_map.insert(refno, attr_data_map);
+    total_attr_map.insert(refno, whole_attmap);
     type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
     let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
     let mut refno_node_id_map = HashMap::new();
@@ -585,13 +606,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let db_no = if field_no == 0 { db_no } else { field_no };
     dbg!("Begin parse attributes");
     // let mut version_map = HashMap::new();
-    all_refnos.par_iter().for_each(|refno| {
+    all_refnos.iter().for_each(|refno| {
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();
             let pos = entry.pos;
             let string_lookup = string_lookup.clone();
             // let noun_attr_info_map = noun_attr_info_map.clone();
-            let all_attr_map = all_attr_map.clone();
+            let whole_attr_dashmap = total_attr_map.clone();
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
             if let Some(EleData {
@@ -599,6 +620,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             owner,
                             noun,
                             attr_data_map,
+                            whole_attmap,
                             children,
                             version,
                             name_hash,
@@ -618,7 +640,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                     }
                 }
 
-                all_attr_map.insert(refno, attr_data_map);
+                whole_attr_dashmap.insert(refno, whole_attmap);
                 type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
                 let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
                 refno_info_map.entry(ref_0).or_insert(RefnoInfo {
@@ -632,15 +654,15 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     });
     println!("解析属性所耗时间: {:?} ms", eles_time.elapsed().as_millis());
 
-    for (k, v) in &refno_node_id_map {
-        let cur_node = ele_id_tree.get_mut(v).unwrap();
-        if let Some(att) = &all_attr_map.get(k) {
-            let d = cur_node.data_mut();
-            d.noun = db1_hash(att.get_type());
-            d.owner = att.get_owner().unwrap_or_default();
-            d.name_hash = att.get_name_hash();
-        }
-    }
+    // for (k, v) in &refno_node_id_map {
+    //     let cur_node = ele_id_tree.get_mut(v).unwrap();
+    //     if let Some(att) = &all_attr_map.get(k) {
+    //         let d = cur_node.data_mut();
+    //         d.noun = db1_hash(att.get_type());
+    //         d.owner = att.get_owner().unwrap_or_default();
+    //         d.name_hash = att.get_name_hash();
+    //     }
+    // }
 
     println!("Tree nodes height: {}", ele_id_tree.height());
     println!("DB {} attrs count: {}", file_name, all_attr_map.len());
@@ -650,6 +672,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
         ele_id_tree:PdmsTree(ele_id_tree),
         all_attr_map: Arc::try_unwrap(all_attr_map).unwrap(),
+        total_attr_map: Arc::try_unwrap(total_attr_map).unwrap(),
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
         children_map,
         refno_node_id_map,
@@ -734,17 +757,25 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                         val = AttrVal::DoubleType(d);
                         advance_offset = 2;
                     } else if data_len == 4 && str_len != 0 {
-                        let d = parse_to_f32(&input[..4]) as f64;
-                        val = AttrVal::DoubleType(d);
-                        advance_offset = 1;   //按f32处理
+                        if &input[..2] == &[0, 0] || &input[..2] == &[0xFF, 0xFF] {
+                            let d = parse_to_i32(&input[..4]);
+                            val = AttrVal::IntegerType(d);
+                            advance_offset = 1;
+                        } else {
+                            let d = parse_to_f32(&input[..4]) as f64;
+                            val = AttrVal::DoubleType(d);
+                            advance_offset = 1;   //按f32处理
+                        }
                     } else if str_len < input.len() && input.len() > 4 && str_len > 4 {
                         let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
-                        let name_hash = string_lookup.add_str(decode_string.as_str());
-                        val = AttrVal::StringHashType(name_hash);
+                        // let name_hash = string_lookup.add_str(decode_string.as_str());
+                        // val = AttrVal::StringHashType(name_hash);
+                        val = AttrVal::StringType(decode_string.into());
                         advance_offset = str_len / 4 + 1;
                     } else {
-                        let name_hash = string_lookup.add_str("unset");
-                        val = AttrVal::StringHashType(name_hash);
+                        val = AttrVal::StringType("unset".into());
+                        // let name_hash = string_lookup.add_str("unset");
+                        // val = AttrVal::StringHashType(name_hash);
                         //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
                     }
                 }
@@ -859,8 +890,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                             let len_a = a as usize;
                             if tmp_input.len() > 4 && 4 + len_a <= tmp_input.len(){
                                 let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
-                                let name_hash = string_lookup.add_str(decode_string.as_str());
-                                att_value = Some(StringHashType(name_hash));
+                                // let name_hash = string_lookup.add_str(decode_string.as_str());
+                                // att_value = Some(StringHashType(name_hash));
+                                att_value = Some(AttrVal::StringType(decode_string.into()));
                             } else {
                                 println!("len_a={:#04X?}", len_a);
                                 println!("error refno={:?}", refno);
@@ -969,8 +1001,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                                 let len_a = a as usize;
                                 if tmp_input.len() > 4 {
                                     let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
-                                    let name_hash = string_lookup.add_str(decode_string.as_str());
-                                    att_value = Some(StringHashType(name_hash));
+                                    // let name_hash = string_lookup.add_str(decode_string.as_str());
+                                    // att_value = Some(StringHashType(name_hash));
+                                    att_value = Some(AttrVal::StringType(decode_string.into()));
                                 } else {
                                     println!("len_a={:#04X?}", len_a);
                                     println!("error refno={:?}", refno);

@@ -163,7 +163,7 @@ pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyho
             return Err(err);
         }
     }
-    // return Ok(true);
+    return Ok(true);
     let mut string_lookup = StringLookupTable::default();
     let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
     let db_no = db_option.main_db_code;

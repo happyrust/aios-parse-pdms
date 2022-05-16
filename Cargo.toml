@@ -36,7 +36,6 @@ compression = []
 web = []   #compile for just web usage, now it is too heavy now
 
 [dependencies]
-#nom = "7.0.0"
 memchr = {git = "https://github.com/BurntSushi/memchr.git"}
 slab_tree = "0.3.2"
 itertools = "0.10.1"
@@ -60,6 +59,8 @@ pollster = "0.2.5"
 ordered-float = "2.10.0"
 config = "0.13.1"
 #tikv-client = { path = "../client-rust"}
+
+
 
 
 #tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }
