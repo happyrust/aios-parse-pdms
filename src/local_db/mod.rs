@@ -12,6 +12,7 @@ pub mod tikv_manager;
 // pub mod bonsaidb_server;
 pub mod helper;
 pub mod consts;
+pub mod tidb_manager;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod string_database;
@@ -37,4 +38,12 @@ pub struct DbOption {
     pub project_name: String,
     #[clap(short)]
     pub main_db_code: u32,
+    #[clap(long)]
+    pub ip: String,
+    #[clap(long)]
+    pub user: String,
+    #[clap(long)]
+    pub password: String,
+    #[clap(long)]
+    pub port: String,
 }

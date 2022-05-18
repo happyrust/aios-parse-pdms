@@ -4,15 +4,12 @@ use aios_core::parsed_data::{CateAxisParam, GmseParamData};
 use aios_core::parsed_data::geo_params_data::CateGeoParam;
 use aios_core::pdms_data::{AxisParam, GmParam, ScomInfo};
 use anyhow::anyhow;
-use dashmap::DashMap;
-use itertools::Itertools;
 use smol_str::SmolStr;
 // use crate::AttrMap;
 use crate::db_tool::db1_dehash;
-use crate::error_types::AttError::TypeNotCorrect;
 use crate::resolve_helper::{eval_str_to_f64, resolve_dir_and_pos, parse_str_axis_to_vec3, resolve_to_cate_geo_params, eval_str_to_f32};
 // use crate::pdms_types::{AttrVal, EleNode};
-use crate::query_cata::{DDANGLE_STR, DDHEIGHT_STR, DDRADIUS_STR};
+// use crate::query_cata::{DDANGLE_STR, DDHEIGHT_STR, DDRADIUS_STR};
 
 
 
@@ -31,175 +28,175 @@ pub fn resolve_axis_params(
 }
 
 ///求解几何体，允许出错的情况，出错的需要跳过
-pub fn resolve_gms(
-    gmse_strs: &[GmParam],
-    context: &HashMap<SmolStr, SmolStr>,
-    axis_params: &BTreeMap<i32, CateAxisParam>,
-    ddangle: Option<f64>,
-) -> Vec<CateGeoParam> {
-    gmse_strs
-        .iter()
-        .filter_map(|g| {
-            if g.visible_flag{
-                resolve_paragon_gm_params(&g, context, axis_params).ok()
-            }else{
-                None
-            }
-        })
-        .collect::<_>()
-}
+// pub fn resolve_gms(
+//     gmse_strs: &[GmParam],
+//     context: &HashMap<SmolStr, SmolStr>,
+//     axis_params: &BTreeMap<i32, CateAxisParam>,
+//     ddangle: Option<f64>,
+// ) -> Vec<CateGeoParam> {
+//     gmse_strs
+//         .iter()
+//         .filter_map(|g| {
+//             if g.visible_flag{
+//                 resolve_paragon_gm_params(&g, context, axis_params).ok()
+//             }else{
+//                 None
+//             }
+//         })
+//         .collect::<_>()
+// }
 
-/// 解析gmes的参数
-pub fn resolve_paragon_gm_params(
-    gm_param: &GmParam,
-    context: &HashMap<SmolStr, SmolStr>,
-    axis_params: &BTreeMap<i32, CateAxisParam>,
-) -> anyhow::Result<CateGeoParam> {
-    // dbg!(gm_param.refno.to_refno_str());
-    // dbg!(&gm_param);
-    if let Ok(gm_data) = resolve_gmse_params(gm_param, context, axis_params){
-        resolve_to_cate_geo_params(gm_data)
-    }else{
-        Err(anyhow!(format!("几何数据解析失败: {:?}", gm_param)))
-    }
+// /// 解析gmes的参数
+// pub fn resolve_paragon_gm_params(
+//     gm_param: &GmParam,
+//     context: &HashMap<SmolStr, SmolStr>,
+//     axis_params: &BTreeMap<i32, CateAxisParam>,
+// ) -> anyhow::Result<CateGeoParam> {
+//     // dbg!(gm_param.refno.to_refno_str());
+//     // dbg!(&gm_param);
+//     if let Ok(gm_data) = resolve_gmse_params(gm_param, context, axis_params){
+//         resolve_to_cate_geo_params(gm_data)
+//     }else{
+//         Err(anyhow!(format!("几何数据解析失败: {:?}", gm_param)))
+//     }
+//
+// }
 
-}
-
-pub fn resolve_gmse_params(
-    gm: &GmParam,
-    context: &HashMap<SmolStr, SmolStr>,
-    axis_param_map: &BTreeMap<i32, CateAxisParam>,
-) -> anyhow::Result<GmseParamData> {
-    let angle = context[DDANGLE_STR].parse::<f32>().unwrap_or(0.0).to_radians();
-    let radius = context[DDRADIUS_STR].parse::<f32>().unwrap_or(0.0);
-    let height = context[DDHEIGHT_STR].parse::<f32>().unwrap_or(0.0);
-    let diameters = gm.diameters
-        .iter()
-        .map(|exp| eval_str_to_f32(&exp, context))
-        .collect::<anyhow::Result<_>>()?;
-
-    let distances = gm.distances
-        .iter()
-        .map(|exp| eval_str_to_f32(&exp, context))
-        .collect::<anyhow::Result<_>>()?;
-
-    let shears = gm.shears
-        .iter()
-        .map(|exp| eval_str_to_f32(&exp, context))
-        .collect::<anyhow::Result<_>>()?;
-
-    let verts = gm.verts
-        .iter()
-        .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
-            let f0 = eval_str_to_f32(exp[0].as_str(), context)? as f32;
-            let f1 = eval_str_to_f32(exp[1].as_str(), context)? as f32;
-            acc.push([f0, f1]);
-            Ok(acc)
-        })?;
-
-    let phei = eval_str_to_f32(&gm.phei, context)?;
-    let offset = eval_str_to_f32(&gm.offset, context)?;
-
-    let pang = eval_str_to_f32(&gm.pang, context)?;
-    let pwid = eval_str_to_f32(&gm.pwid, context)?;
-    let drad = eval_str_to_f32(&gm.drad, context)?;
-    let dwid = eval_str_to_f32(&gm.dwid, context)?;
-
-    let mut prads = gm.prads
-        .iter()
-        .map(|exp| eval_str_to_f32(&exp, context))
-        .collect::<anyhow::Result<_>>()?;
-
-    let prad = eval_str_to_f32(&gm.prad, context)?;
-
-    let dxy = gm.dxy
-        .iter()
-        .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
-            let f0 = eval_str_to_f32(exp[0].as_str(), context)? as f32;
-            let f1 = eval_str_to_f32(exp[1].as_str(), context)? as f32;
-            acc.push([f0, f1]);
-            Ok(acc)
-        })?;
-
-    let box_lengths = gm.box_lengths
-        .iter()
-        .map(|exp| eval_str_to_f32(&exp, context))
-        .collect::<anyhow::Result<_>>()?;
-
-    let xyz = gm.xyz
-        .iter()
-        .map(|exp| eval_str_to_f32(&exp, context))
-        .collect::<anyhow::Result<_>>()?;
-
-    let mut paxises: Vec<CateAxisParam> = Vec::new();
-    for name in gm.paxises.iter() {
-        if name != "" {
-            let (is_negative, name) = if name.starts_with('-') {
-                (true, &name[1..])
-            } else {
-                (false, &name[..])
-            };
-            match &name[0..1] {
-                "P" => {
-                    if let Ok(index) = name.trim()[1..].parse::<i32>() {
-                        if index == 0 {
-                            //todo
-                            paxises.push(CateAxisParam::zero());
-                        } else {
-                            if axis_param_map.contains_key(&index) {
-                                paxises.push(if is_negative {
-                                    axis_param_map[&index].clone().neg()
-                                } else {
-                                    axis_param_map[&index].clone()
-                                });
-                            } else {
-                                return Err(anyhow!("Axis index not exist".to_string()));
-                            }
-                        }
-                    }
-                }
-                "T" => {}
-                _ => {
-                    let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
-                    let dir = parse_str_axis_to_vec3(name, ddangle);
-                    let axis = CateAxisParam {
-                        pt: vec![0.0f64, 0.0, 0.0],
-                        dir: dir.to_vec(),
-                        pconnect: "".to_string(),
-                        pbore: 0.0,
-                    };
-                    paxises.push(if is_negative { axis.neg() } else { axis });
-                }
-            }
-        }
-    }
-    let type_name = gm.gm_type.clone();
-    Ok(GmseParamData {
-        refno: gm.refno,
-        type_name,
-        radius,
-        angle,
-        height,
-        pwid,
-        prad,
-        prads,
-        pang,
-        diameters,
-        distances,
-        shears,
-        phei,
-        offset,
-        verts,
-        dxy,
-        drad,
-        dwid,
-        box_lengths,
-        xyz,
-        paxises,
-        centre_line_flag: gm.centre_line_flag,
-        tube_flag: gm.visible_flag,
-    })
-}
+// pub fn resolve_gmse_params(
+//     gm: &GmParam,
+//     context: &HashMap<SmolStr, SmolStr>,
+//     axis_param_map: &BTreeMap<i32, CateAxisParam>,
+// ) -> anyhow::Result<GmseParamData> {
+//     let angle = context[DDANGLE_STR].parse::<f32>().unwrap_or(0.0).to_radians();
+//     let radius = context[DDRADIUS_STR].parse::<f32>().unwrap_or(0.0);
+//     let height = context[DDHEIGHT_STR].parse::<f32>().unwrap_or(0.0);
+//     let diameters = gm.diameters
+//         .iter()
+//         .map(|exp| eval_str_to_f32(&exp, context))
+//         .collect::<anyhow::Result<_>>()?;
+//
+//     let distances = gm.distances
+//         .iter()
+//         .map(|exp| eval_str_to_f32(&exp, context))
+//         .collect::<anyhow::Result<_>>()?;
+//
+//     let shears = gm.shears
+//         .iter()
+//         .map(|exp| eval_str_to_f32(&exp, context))
+//         .collect::<anyhow::Result<_>>()?;
+//
+//     let verts = gm.verts
+//         .iter()
+//         .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
+//             let f0 = eval_str_to_f32(exp[0].as_str(), context)? as f32;
+//             let f1 = eval_str_to_f32(exp[1].as_str(), context)? as f32;
+//             acc.push([f0, f1]);
+//             Ok(acc)
+//         })?;
+//
+//     let phei = eval_str_to_f32(&gm.phei, context)?;
+//     let offset = eval_str_to_f32(&gm.offset, context)?;
+//
+//     let pang = eval_str_to_f32(&gm.pang, context)?;
+//     let pwid = eval_str_to_f32(&gm.pwid, context)?;
+//     let drad = eval_str_to_f32(&gm.drad, context)?;
+//     let dwid = eval_str_to_f32(&gm.dwid, context)?;
+//
+//     let mut prads = gm.prads
+//         .iter()
+//         .map(|exp| eval_str_to_f32(&exp, context))
+//         .collect::<anyhow::Result<_>>()?;
+//
+//     let prad = eval_str_to_f32(&gm.prad, context)?;
+//
+//     let dxy = gm.dxy
+//         .iter()
+//         .try_fold::<_, _, anyhow::Result<_>>(vec![], |mut acc, exp| {
+//             let f0 = eval_str_to_f32(exp[0].as_str(), context)? as f32;
+//             let f1 = eval_str_to_f32(exp[1].as_str(), context)? as f32;
+//             acc.push([f0, f1]);
+//             Ok(acc)
+//         })?;
+//
+//     let box_lengths = gm.box_lengths
+//         .iter()
+//         .map(|exp| eval_str_to_f32(&exp, context))
+//         .collect::<anyhow::Result<_>>()?;
+//
+//     let xyz = gm.xyz
+//         .iter()
+//         .map(|exp| eval_str_to_f32(&exp, context))
+//         .collect::<anyhow::Result<_>>()?;
+//
+//     let mut paxises: Vec<CateAxisParam> = Vec::new();
+//     for name in gm.paxises.iter() {
+//         if name != "" {
+//             let (is_negative, name) = if name.starts_with('-') {
+//                 (true, &name[1..])
+//             } else {
+//                 (false, &name[..])
+//             };
+//             match &name[0..1] {
+//                 "P" => {
+//                     if let Ok(index) = name.trim()[1..].parse::<i32>() {
+//                         if index == 0 {
+//                             //todo
+//                             paxises.push(CateAxisParam::zero());
+//                         } else {
+//                             if axis_param_map.contains_key(&index) {
+//                                 paxises.push(if is_negative {
+//                                     axis_param_map[&index].clone().neg()
+//                                 } else {
+//                                     axis_param_map[&index].clone()
+//                                 });
+//                             } else {
+//                                 return Err(anyhow!("Axis index not exist".to_string()));
+//                             }
+//                         }
+//                     }
+//                 }
+//                 "T" => {}
+//                 _ => {
+//                     let ddangle = context["DDANGLE"].parse::<f64>().unwrap_or(0.0f64);
+//                     let dir = parse_str_axis_to_vec3(name, ddangle);
+//                     let axis = CateAxisParam {
+//                         pt: vec![0.0f64, 0.0, 0.0],
+//                         dir: dir.to_vec(),
+//                         pconnect: "".to_string(),
+//                         pbore: 0.0,
+//                     };
+//                     paxises.push(if is_negative { axis.neg() } else { axis });
+//                 }
+//             }
+//         }
+//     }
+//     let type_name = gm.gm_type.clone();
+//     Ok(GmseParamData {
+//         refno: gm.refno,
+//         type_name,
+//         radius,
+//         angle,
+//         height,
+//         pwid,
+//         prad,
+//         prads,
+//         pang,
+//         diameters,
+//         distances,
+//         shears,
+//         phei,
+//         offset,
+//         verts,
+//         dxy,
+//         drad,
+//         dwid,
+//         box_lengths,
+//         xyz,
+//         paxises,
+//         centre_line_flag: gm.centre_line_flag,
+//         tube_flag: gm.visible_flag,
+//     })
+// }
 
 pub fn resolve_axis_param(
     axis_param: &AxisParam,

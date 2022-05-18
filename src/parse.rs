@@ -100,13 +100,13 @@ pub struct PdmsDbData {
     // pub field_no: u32,
     pub field_no: Integer,
     /// 所有的带房间号的 refno
-    pub room_code_map: DashMap<RefU64,RoomCode>,
+    pub room_code_map: DashMap<RefU64, RoomCode>,
 }
 
-#[derive(Debug,Clone,Default,Serialize,Deserialize)]
-pub struct RoomCode{
-    pub refno:RefU64,
-    pub name_hash:AiosStrHash,
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RoomCode {
+    pub refno: RefU64,
+    pub name_hash: AiosStrHash,
 }
 
 impl IntoSkyhashBytes for &RoomCode {
@@ -473,8 +473,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     })
 }
 
-pub fn take_off_007(mut input:&[u8]) -> &[u8] {
-    while input.len() >=4 {
+pub fn take_off_007(mut input: &[u8]) -> &[u8] {
+    while input.len() >= 4 {
         let v = parse_to_i32(&input[..4]);
         if v != 0 && v != 7 {
             return input;
@@ -492,7 +492,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut all_attr_map: Arc<DashMap<RefU64, AttrMap>> = Arc::new(DashMap::new());
     let mut total_attr_map: Arc<DashMap<RefU64, WholeAttMap>> = Arc::new(DashMap::new());
     /// 所有的房间号信息的refno和对应的房间号
-    let mut room_code_map : Arc<DashMap<RefU64,RoomCode>> = Arc::new(DashMap::new());
+    let mut room_code_map: Arc<DashMap<RefU64, RoomCode>> = Arc::new(DashMap::new());
     let time_start = std::time::Instant::now();
     let mut field_no = 0;
 
@@ -536,7 +536,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         name_hash,
         noun,
         version,
-        children_count: 0
+        children_count: 0,
     };
     // 将房间信息保存到单独的数据结构中
     if let Some(val) = attr_data_map.get(&NounHash(ATT_ROOM as u32)) {
@@ -544,7 +544,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             if v != AiosStr(SmolStr::new("unset")).get_u32_hash() {
                 let room_code = RoomCode {
                     refno,
-                    name_hash: v
+                    name_hash: v,
                 };
                 room_code_map.entry(refno).or_insert(room_code);
             }
@@ -560,7 +560,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
-            ref_0:ref_0.0,
+            ref_0: ref_0.0,
             project_hash: string_lookup.add_str(project),
             db_no: if field_no == 0 { db_no } else { field_no },  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
         });
@@ -633,7 +633,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         if v != AiosStr(SmolStr::new("unset")).get_u32_hash() {
                             let room_code = RoomCode {
                                 refno,
-                                name_hash: v
+                                name_hash: v,
                             };
                             room_code_map.entry(refno).or_insert(room_code);
                         }
@@ -644,7 +644,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                 type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
                 let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
                 refno_info_map.entry(ref_0).or_insert(RefnoInfo {
-                    ref_0:ref_0.0,
+                    ref_0: ref_0.0,
                     project_hash,
                     db_no,
                 });
@@ -670,7 +670,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
     Ok(PdmsDbData {
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
-        ele_id_tree:PdmsTree(ele_id_tree),
+        ele_id_tree: PdmsTree(ele_id_tree),
         all_attr_map: Arc::try_unwrap(all_attr_map).unwrap(),
         total_attr_map: Arc::try_unwrap(total_attr_map).unwrap(),
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
@@ -681,8 +681,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         version: Integer(file_version),
         db_type,
         db_name: Default::default(),
-        db_no:Integer(db_no),
-        field_no:Integer(field_no),
+        db_no: Integer(db_no),
+        field_no: Integer(field_no),
         room_code_map: Arc::try_unwrap(room_code_map).unwrap(),
     })
 }
@@ -888,7 +888,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                         DbAttributeType::STRING => {
                             let (_, a) = be_u32(tmp_input)?;
                             let len_a = a as usize;
-                            if tmp_input.len() > 4 && 4 + len_a <= tmp_input.len(){
+                            if tmp_input.len() > 4 && 4 + len_a <= tmp_input.len() {
                                 let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
                                 // let name_hash = string_lookup.add_str(decode_string.as_str());
                                 // att_value = Some(StringHashType(name_hash));

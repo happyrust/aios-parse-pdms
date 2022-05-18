@@ -40,7 +40,7 @@ pub use db_tool::*;
 
 pub mod parse_explict_tools;
 // pub mod query;
-pub mod query_cata;
+// pub mod query_cata;
 pub mod helper;
 pub mod parsed_data;
 // pub mod pdms_data;

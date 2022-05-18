@@ -40,3 +40,25 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
     }
     dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
+
+#[test]
+fn test_24575_228_sample() {
+    let data_str ="
+00 00 00 0D 00 00 5F FF 00 00 00 E4 00 0C C3 A5
+00 00 5F FF 00 00 00 DB 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 01
+FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
+35 00 00 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
+        dbg!(map.value());
+    }
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    println!("ele_data={:?}",ele_data.attr_data_map.to_string_hashmap());
+    // if let Some(value) = lookup.lookup.get(&1433536923){
+    //     println!("string={:?}",value.value());
+    // }
+    // dbg!(&ele_data.attr_data_map.to_string_hashmap());
+}
