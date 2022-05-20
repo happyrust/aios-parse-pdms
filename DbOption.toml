@@ -1,7 +1,7 @@
-total_sync = false
+total_sync = true
 incr_sync = false
-project_path = "/Volumes/DPC/12.1SP4Projects"
-included_projects = ["Sample"]
+project_path = "E:/pdms_data_files"
+included_projects = ["sam"]
 #included_projects = ["SCB","ZNP"]
 mdb_name = "Sample"
 project_name = "Sample"

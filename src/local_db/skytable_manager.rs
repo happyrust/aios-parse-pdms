@@ -57,7 +57,7 @@ use crate::helper::{parse_to_i32, parse_to_u32};
 // use crate::parse_increment_data::NewDataState;
 use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
-use crate::query_cata::resolve_desi_comp;
+// use crate::query_cata::resolve_desi_comp;
 use clap::{Parser, ValueHint};
 // use crate::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
 use std::panic::catch_unwind;
@@ -90,7 +90,7 @@ use skytable::actions::Actions;
 use skytable::{Connection, SkyResult};
 use skytable::ddl::{Ddl, Keymap, KeymapType};
 use skytable::types::IntoSkyhashBytes;
-use crate::consts::ATT_ROOM;
+use crate::consts::{ATT_ROOM, URL};
 use crate::error_types::AttError::AttNotExist;
 use crate::local_db::DbOption;
 use crate::parsed_data::geo_params_data::CateGeoParam::Sline;
@@ -147,81 +147,85 @@ pub struct AiosDBManager {
 }
 
 // #[async_trait]
-impl PdmsDataInterface for AiosDBManager {
-    fn sync_total_project(&self) -> anyhow::Result<bool> {
-        self.sync_total_internal()
-    }
-
-    fn sync_incremental_project(&mut self) -> anyhow::Result<bool> {
-        self.sync_incremental_internal()
-    }
-
-
-    #[inline]
-    fn get_ele_attr(&mut self, refno: RefU64) -> anyhow::Result<AttrMap> {
-        let att = self.get_stringfied_attr(refno)?;
-        Ok(att.unwrap_or_default())
-    }
-
-    #[inline]
-    fn get_ele_children_attrs(&mut self, refno: RefU64) -> Vec<AttrMap> {
-        self.get_children_attrs(refno).unwrap_or_default()
-    }
-
-    #[inline]
-    fn get_ele_children_refs(&mut self, refno: RefU64) -> RefU64Vec {
-        self.get_children(refno).unwrap().unwrap_or_default()
-    }
-
-    fn get_ele_world_transform(&mut self, refno: RefU64) -> TransformRT {
-        self.get_world_transform(refno).unwrap_or_default()
-    }
-
-    fn get_pdms_tree(&mut self, project_name: &str, db_no: u32) -> Option<PdmsTree> {
-        if let Some(mut db) = self.project_map.get_mut(&AiosStr(project_name.into()).get_u32_hash()) {
-            db.tree_db.switch(format!("{project_name}:trees")).unwrap();
-            let v: SkyResult<PdmsTree> = db.tree_db.get(&Integer(db_no));
-            if let Ok(v) = v {
-                return Some(v);
-            }
-        }
-        None
-    }
-
-    fn get_node_id(&mut self, refno: RefU64) -> Option<NodeId> {
-        if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
-            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
-                return db.get_node_id(refno).ok()?;
-            }
-        }
-        None
-    }
-
-    fn get_name(&mut self, refno: RefU64) -> SmolStr {
-        "unset".into()
-    }
-
-    fn get_name_by_hash(&mut self, refno: RefU64, name_hash: u32) -> Option<SmolStr> {
-        if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
-            if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
-                if let Ok(Some(name)) = db.get_string(name_hash) {
-                    return Some(name.0);
-                }
-            }
-        }
-        None
-    }
-
-    fn get_refnos_by_type(&mut self, project_name: SmolStr, att_type: &str) -> Option<RefU64Vec> {
-        if let Some(mut project_dbs) = self.project_map.get_mut(&AiosStr(project_name).get_u32_hash()) {
-            let type_db: SkyResult<RefU64Vec> = project_dbs.types_db.get(&Integer(db1_hash(att_type)));
-            if let Ok(v) = type_db {
-                return Some(v);
-            }
-        }
-
-        None
-    }
+// impl PdmsDataInterface for AiosDBManager {
+//     fn sync_total_project(&self) -> anyhow::Result<bool> {
+//         self.sync_total_internal()
+//     }
+//
+//     fn sync_incremental_project(&mut self) -> anyhow::Result<bool> {
+//         self.sync_incremental_internal()
+//     }
+//
+//
+//     #[inline]
+//     fn get_ele_attr(&mut self, refno: RefU64) -> anyhow::Result<AttrMap> {
+//         let att = self.get_stringfied_attr(refno)?;
+//         Ok(att.unwrap_or_default())
+//     }
+//
+//     #[inline]
+//     fn get_ele_children_attrs(&mut self, refno: RefU64) -> Vec<AttrMap> {
+//         self.get_children_attrs(refno).unwrap_or_default()
+//     }
+//
+//     #[inline]
+//     fn get_ele_children_refs(&mut self, refno: RefU64) -> RefU64Vec {
+//         self.get_children(refno).unwrap().unwrap_or_default()
+//     }
+//
+//     fn get_ele_world_transform(&mut self, refno: RefU64) -> TransformRT {
+//         self.get_world_transform(refno).unwrap_or_default()
+//     }
+//
+//     fn get_pdms_tree(&mut self, project_name: &str, db_no: u32) -> Option<PdmsTree> {
+//         if let Some(mut db) = self.project_map.get_mut(&AiosStr(project_name.into()).get_u32_hash()) {
+//             db.tree_db.switch(format!("{project_name}:trees")).unwrap();
+//             let v: SkyResult<PdmsTree> = db.tree_db.get(&Integer(db_no));
+//             if let Ok(v) = v {
+//                 return Some(v);
+//             }
+//         }
+//         None
+//     }
+//
+//     fn get_node_id(&mut self, refno: RefU64) -> Option<NodeId> {
+//         if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
+//             if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
+//                 return db.get_node_id(refno).ok()?;
+//             }
+//         }
+//         None
+//     }
+//
+//     fn get_name(&mut self, refno: RefU64) -> SmolStr {
+//         "unset".into()
+//     }
+//
+//     fn get_name_by_hash(&mut self, refno: RefU64, name_hash: u32) -> Option<SmolStr> {
+//         if let Ok(Some(ref_info)) = self.get_refno_info(refno) {
+//             if let Some(mut db) = self.project_map.get_mut(&ref_info.project_hash) {
+//                 if let Ok(Some(name)) = db.get_string(name_hash) {
+//                     return Some(name.0);
+//                 }
+//             }
+//         }
+//         None
+//     }
+//
+//     fn get_refnos_by_type(&mut self, project_name: SmolStr, att_type: &str) -> Option<RefU64Vec> {
+//         if let Some(mut project_dbs) = self.project_map.get_mut(&AiosStr(project_name).get_u32_hash()) {
+//             let type_db: SkyResult<RefU64Vec> = project_dbs.types_db.get(&Integer(db1_hash(att_type)));
+//             if let Ok(v) = type_db {
+//                 return Some(v);
+//             }
+//         }
+//
+//         None
+//     }
+//
+//     fn get_tree_root(&self, project: &str, db_no: u32) -> Option<EleNode> {
+//         todo!()
+//     }
 
     // // 将所有 dbno 的 tree 合并成一个 tree
     // fn get_pdms_project_tree(&self, project: &str, main_db: u32) -> anyhow::Result<PdmsTree> {
@@ -273,12 +277,14 @@ impl PdmsDataInterface for AiosDBManager {
     //     }
     //     Ok(pdms_tree)
     // }
-}
+// }
 
 impl AiosDBManager {
     ///初始化
     pub fn init(option: &DbOption) -> anyhow::Result<AiosDBManager> {
         let dir = option.project_path.as_str();
+
+        let mut info_db = Self::get_ref_infos_con(true);
 
         let project_map = DashMap::new();
         for project in &option.included_projects {
@@ -287,7 +293,6 @@ impl AiosDBManager {
             project_map.insert(AiosStr(project_str).get_u32_hash(), proj);
         }
 
-        let mut info_db = Self::get_ref_infos_con(true);
         let mut mgr = AiosDBManager {
             project_map,
             info_db,
@@ -308,7 +313,7 @@ impl AiosDBManager {
 
     #[inline]
     pub fn get_ref_infos_con(creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let database_name = format!("ref_infos:infos");
         if creat {
             con.create_keyspace("ref_infos");
@@ -453,115 +458,115 @@ impl AiosDBManager {
     }
 
     ///返回geo data
-    #[inline]
-    pub fn get_design_geoms(&mut self, refno: RefU64, cached_mesh_mgr: &mut CachedMeshesMgr) -> anyhow::Result<HashMap<RefU64, Vec<CateBrepShape>>> {
-        let mut result_map = HashMap::new();
-
-        let desi_att = self.get_attr(refno)?;
-        let type_name = desi_att.get_type();
-        let is_bran = type_name == "BRAN";
-        if !is_bran {
-            let geoms = resolve_desi_comp(refno, self).unwrap_or_default();
-            // dbg!(&geoms);
-            if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
-                result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self));
-            } else {
-                let mut result_shapes = vec![];
-                for geom in geoms.geometries {
-                    if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
-                        result_shapes.push(cate_shape);
-                    }
-                }
-                result_map.insert(refno, result_shapes);
-            }
-        } else {   //先暂时只让旋转用bran
-            let bran_transform = self.get_world_transform(refno).unwrap_or_default();
-            let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").ok_or(anyhow!("HPOS not exist".to_string()))?);
-            let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS").ok_or(anyhow!("TPOS not exist".to_string()))?);
-            let htube_ref = desi_att.get_foreign_refno("HSTU").unwrap_or_default();
-            let mut bore = 0.0f32;
-            if let Ok(hstube_att) = self.get_attr(htube_ref) {
-                let hstube_cat_att = self.get_attr(hstube_att.get_foreign_refno("CATR").unwrap_or_default())?;
-                let params = hstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
-                if params.len() >= 2 {
-                    bore = params[1] as f32;
-                }
-            }
-            let mut current_tubing = PdmsTubing {
-                start_pt: bran_htube_pt,
-                end_pt: Vec3::ZERO,
-                bore,
-                finished: false,
-            };
-            let children = self.get_children(refno)?.unwrap_or_default();
-            if children.len() == 0 {
-                if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
-                    current_tubing.end_pt = bran_ttube_pt;
-                    current_tubing.finished = true;
-                    result_map.insert(refno, vec![current_tubing.convert_to_shape()]);
-                }
-                return Ok(result_map);
-            }
-            //第一遍完成后，然后生成tubing
-            let last_child = children.last().unwrap().clone();
-            for child in children {
-                // if child != RefU64::from_two_nums(16501, 1460) {
-                //     continue;
-                // }
-                let world_trans = self.get_world_transform(child).unwrap_or_default();
-                let mut result_shapes = vec![];
-                let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
-                let attr = self.get_attr(child)?;
-                if let Some(arrive) = attr.get_i32("ARRI") {
-                    //todo 加入获取arrive position 的方法
-                    if geoms.axis_map.contains_key(&arrive) {
-                        let p = &geoms.axis_map[&arrive].pt;
-                        let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                        if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > TUBI_TOL {
-                            current_tubing.end_pt = a_pos;
-                            current_tubing.finished = true;
-                            result_shapes.push(current_tubing.convert_to_shape());
-                        }
-                    }
-                }
-                if let Some(lstube) = attr.get_foreign_refno("LSTU") {
-                    if let Ok(lstube_att) = self.get_attr(lstube) {
-                        let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap_or_default())?;
-                        let params = lstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
-                        if params.len() >= 2 {
-                            current_tubing.bore = params[1] as f32;
-                        }
-                    }
-                }
-                if let Some(leave) = attr.get_i32("LEAV") {
-                    //todo 加入获取leave position 的方法
-                    // current_tubing
-                    if geoms.axis_map.contains_key(&leave) {
-                        let p = &geoms.axis_map[&leave].pt;
-                        let l_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
-                        current_tubing.start_pt = l_pos;
-                        current_tubing.finished = false;
-                    }
-                }
-                //管件的生成
-                for geom in geoms.geometries {
-                    if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
-                        result_shapes.push(cate_shape);
-                        // break;
-                    }
-                } // end geoms.geometries
-                if child == last_child {
-                    if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
-                        current_tubing.end_pt = bran_ttube_pt;
-                        current_tubing.finished = true;
-                        result_shapes.push(current_tubing.convert_to_shape());
-                    }
-                }
-                result_map.insert(child, result_shapes);
-            }
-        }
-        Ok(result_map)
-    }
+    // #[inline]
+    // pub fn get_design_geoms(&mut self, refno: RefU64, cached_mesh_mgr: &mut CachedMeshesMgr) -> anyhow::Result<HashMap<RefU64, Vec<CateBrepShape>>> {
+    //     let mut result_map = HashMap::new();
+    //
+    //     let desi_att = self.get_attr(refno)?;
+    //     let type_name = desi_att.get_type();
+    //     let is_bran = type_name == "BRAN";
+    //     if !is_bran {
+    //         let geoms = resolve_desi_comp(refno, self).unwrap_or_default();
+    //         // dbg!(&geoms);
+    //         if type_name == "SCTN" || type_name == "STWALL" || type_name == "GENSEC" {
+    //             result_map.insert(refno, sctn::create_geos(&desi_att, &geoms, self));
+    //         } else {
+    //             let mut result_shapes = vec![];
+    //             for geom in geoms.geometries {
+    //                 if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
+    //                     result_shapes.push(cate_shape);
+    //                 }
+    //             }
+    //             result_map.insert(refno, result_shapes);
+    //         }
+    //     } else {   //先暂时只让旋转用bran
+    //         let bran_transform = self.get_world_transform(refno).unwrap_or_default();
+    //         let bran_htube_pt = bran_transform.transform_point3(desi_att.get_vec3("HPOS").ok_or(anyhow!("HPOS not exist".to_string()))?);
+    //         let bran_ttube_pt = bran_transform.transform_point3(desi_att.get_vec3("TPOS").ok_or(anyhow!("TPOS not exist".to_string()))?);
+    //         let htube_ref = desi_att.get_foreign_refno("HSTU").unwrap_or_default();
+    //         let mut bore = 0.0f32;
+    //         if let Ok(hstube_att) = self.get_attr(htube_ref) {
+    //             let hstube_cat_att = self.get_attr(hstube_att.get_foreign_refno("CATR").unwrap_or_default())?;
+    //             let params = hstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
+    //             if params.len() >= 2 {
+    //                 bore = params[1] as f32;
+    //             }
+    //         }
+    //         let mut current_tubing = PdmsTubing {
+    //             start_pt: bran_htube_pt,
+    //             end_pt: Vec3::ZERO,
+    //             bore,
+    //             finished: false,
+    //         };
+    //         let children = self.get_children(refno)?.unwrap_or_default();
+    //         if children.len() == 0 {
+    //             if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
+    //                 current_tubing.end_pt = bran_ttube_pt;
+    //                 current_tubing.finished = true;
+    //                 result_map.insert(refno, vec![current_tubing.convert_to_shape()]);
+    //             }
+    //             return Ok(result_map);
+    //         }
+    //         //第一遍完成后，然后生成tubing
+    //         let last_child = children.last().unwrap().clone();
+    //         for child in children {
+    //             // if child != RefU64::from_two_nums(16501, 1460) {
+    //             //     continue;
+    //             // }
+    //             let world_trans = self.get_world_transform(child).unwrap_or_default();
+    //             let mut result_shapes = vec![];
+    //             let geoms = crate::query_cata::resolve_desi_comp(child, self).unwrap_or_default();
+    //             let attr = self.get_attr(child)?;
+    //             if let Some(arrive) = attr.get_i32("ARRI") {
+    //                 //todo 加入获取arrive position 的方法
+    //                 if geoms.axis_map.contains_key(&arrive) {
+    //                     let p = &geoms.axis_map[&arrive].pt;
+    //                     let a_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
+    //                     if !current_tubing.finished && a_pos.distance(current_tubing.start_pt) > TUBI_TOL {
+    //                         current_tubing.end_pt = a_pos;
+    //                         current_tubing.finished = true;
+    //                         result_shapes.push(current_tubing.convert_to_shape());
+    //                     }
+    //                 }
+    //             }
+    //             if let Some(lstube) = attr.get_foreign_refno("LSTU") {
+    //                 if let Ok(lstube_att) = self.get_attr(lstube) {
+    //                     let lstube_cat_att = self.get_attr(lstube_att.get_foreign_refno("CATR").unwrap_or_default())?;
+    //                     let params = lstube_cat_att.get_f64_vec("PARA").unwrap_or_default();
+    //                     if params.len() >= 2 {
+    //                         current_tubing.bore = params[1] as f32;
+    //                     }
+    //                 }
+    //             }
+    //             if let Some(leave) = attr.get_i32("LEAV") {
+    //                 //todo 加入获取leave position 的方法
+    //                 // current_tubing
+    //                 if geoms.axis_map.contains_key(&leave) {
+    //                     let p = &geoms.axis_map[&leave].pt;
+    //                     let l_pos = world_trans.transform_point3(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32));
+    //                     current_tubing.start_pt = l_pos;
+    //                     current_tubing.finished = false;
+    //                 }
+    //             }
+    //             //管件的生成
+    //             for geom in geoms.geometries {
+    //                 if let Some(cate_shape) = convert_to_brep_shapes(&geom) {
+    //                     result_shapes.push(cate_shape);
+    //                     // break;
+    //                 }
+    //             } // end geoms.geometries
+    //             if child == last_child {
+    //                 if !current_tubing.finished && bran_ttube_pt.distance(current_tubing.start_pt) > TUBI_TOL {
+    //                     current_tubing.end_pt = bran_ttube_pt;
+    //                     current_tubing.finished = true;
+    //                     result_shapes.push(current_tubing.convert_to_shape());
+    //                 }
+    //             }
+    //             result_map.insert(child, result_shapes);
+    //         }
+    //     }
+    //     Ok(result_map)
+    // }
 
     pub fn get_general_type_refno(&mut self, refno: RefU64) -> Option<(SmolStr, RefU64)> {
         let mut cur_refno = refno;
@@ -762,72 +767,72 @@ impl AiosDBManager {
                         }
                     } else {
                         continue;
-                        let ele_type = attr.get_type();
-                        let owner = self.get_attr(attr.get_owner().unwrap())?;
-                        let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
-                        //针对管道特殊处理
-                        if ele_type == "BRAN" || (owner.get_type() != "BRAN" && has_catref) {
-                            let mut node_ids_map = HashMap::new();
-                            for node_id in cur_node.children() {
-                                let data = tree.get(node_id).unwrap().data();
-                                node_ids_map.insert(data.refno, node_id.clone());
-                            }
-                            let brep_shapes = self.get_design_geoms(d.refno, &mut cached_mesh_mgr)?;
-                            // dbg!(&brep_shapes);
-                            for (cur_refno, shapes) in brep_shapes {
-                                //记录对应的不同颜色类型
-                                if let Some((noun_name, r)) = self.get_general_type_refno(d.refno) {
-                                    type_geom_refs_map.entry(r).or_insert(Vec::new()).push(d.refno);
-                                    type_refs_map.entry(noun_name.clone()).or_insert(HashSet::new()).insert(r);
-                                    color_type = Some(noun_name);
-                                }
-                                //维护每个节点有那些几何实例
-                                let ancestors = tree.ancestors(&cur_node_id).unwrap();
-                                for ancestor in ancestors {
-                                    let p_refno = ancestor.data().refno;
-                                    level_shape_mgr.entry(p_refno).or_insert(RefU64Vec::default()).push(cur_refno);
-                                }
-                                //当前自身也要加进去
-                                if d.refno != cur_refno {
-                                    level_shape_mgr.entry(d.refno).or_insert(RefU64Vec::default()).push(cur_refno);
-                                }
-                                let desi_trans_origin = self.get_world_transform(cur_refno).unwrap_or_default();
-                                for shape in shapes {
-                                    let CateBrepShape {
-                                        brep_shape,
-                                        mut transform,
-                                        visible,
-                                        is_tubing,
-                                    } = shape;
-                                    if !visible || !brep_shape.check_valid() { continue; }
-                                    item_trans = brep_shape.get_trans();
-                                    if !brep_shape.check_valid() {
-                                        continue;
-                                    }
-                                    let geo_hash = cached_mesh_mgr.get_pdms_mesh_hash_key(brep_shape);
-                                    let mut desi_trans = desi_trans_origin.clone();
-                                    if !is_tubing {
-                                        desi_trans.translation = desi_trans.translation + desi_trans.rotation * transform.translation;
-                                        desi_trans.rotation = desi_trans.rotation * transform.rotation;
-                                    } else {
-                                        desi_trans.translation = transform.translation;
-                                        desi_trans.rotation = transform.rotation;
-                                    }
-                                    let mut bbox = cached_mesh_mgr.get_bbox(&geo_hash).unwrap();
-                                    bbox.scaled(&item_trans.scale);
-                                    let geom_data = EleGeoInstData {
-                                        geo_hash,
-                                        bbox,
-                                        global_transform: (desi_trans.rotation, desi_trans.translation, item_trans.scale),
-                                        visible: true,
-                                        generic_type: color_type.clone().unwrap_or_default(),
-                                        zone_refno: self.get_parent_att_by_type(cur_refno, "ZONE")?.map(|x| x.get_refno().unwrap_or_default()).unwrap_or_default(),
-                                        node_id: node_ids_map.get(&cur_refno).map(|x| x.clone()).unwrap_or(cur_node_id.clone()),
-                                    };
-                                    inst_map.entry(cur_refno).or_insert(Vec::new()).push(geom_data);
-                                }
-                            }
-                        }
+                        // let ele_type = attr.get_type();
+                        // let owner = self.get_attr(attr.get_owner().unwrap())?;
+                        // let has_catref = attr.get_foreign_refno("CATR").is_some() || attr.get_foreign_refno("SPRE").is_some();
+                        // //针对管道特殊处理
+                        // if ele_type == "BRAN" || (owner.get_type() != "BRAN" && has_catref) {
+                        //     let mut node_ids_map = HashMap::new();
+                        //     for node_id in cur_node.children() {
+                        //         let data = tree.get(node_id).unwrap().data();
+                        //         node_ids_map.insert(data.refno, node_id.clone());
+                        //     }
+                        //     let brep_shapes = self.get_design_geoms(d.refno, &mut cached_mesh_mgr)?;
+                        //     // dbg!(&brep_shapes);
+                        //     for (cur_refno, shapes) in brep_shapes {
+                        //         //记录对应的不同颜色类型
+                        //         if let Some((noun_name, r)) = self.get_general_type_refno(d.refno) {
+                        //             type_geom_refs_map.entry(r).or_insert(Vec::new()).push(d.refno);
+                        //             type_refs_map.entry(noun_name.clone()).or_insert(HashSet::new()).insert(r);
+                        //             color_type = Some(noun_name);
+                        //         }
+                        //         //维护每个节点有那些几何实例
+                        //         let ancestors = tree.ancestors(&cur_node_id).unwrap();
+                        //         for ancestor in ancestors {
+                        //             let p_refno = ancestor.data().refno;
+                        //             level_shape_mgr.entry(p_refno).or_insert(RefU64Vec::default()).push(cur_refno);
+                        //         }
+                        //         //当前自身也要加进去
+                        //         if d.refno != cur_refno {
+                        //             level_shape_mgr.entry(d.refno).or_insert(RefU64Vec::default()).push(cur_refno);
+                        //         }
+                        //         let desi_trans_origin = self.get_world_transform(cur_refno).unwrap_or_default();
+                        //         for shape in shapes {
+                        //             let CateBrepShape {
+                        //                 brep_shape,
+                        //                 mut transform,
+                        //                 visible,
+                        //                 is_tubing,
+                        //             } = shape;
+                        //             if !visible || !brep_shape.check_valid() { continue; }
+                        //             item_trans = brep_shape.get_trans();
+                        //             if !brep_shape.check_valid() {
+                        //                 continue;
+                        //             }
+                        //             let geo_hash = cached_mesh_mgr.get_pdms_mesh_hash_key(brep_shape);
+                        //             let mut desi_trans = desi_trans_origin.clone();
+                        //             if !is_tubing {
+                        //                 desi_trans.translation = desi_trans.translation + desi_trans.rotation * transform.translation;
+                        //                 desi_trans.rotation = desi_trans.rotation * transform.rotation;
+                        //             } else {
+                        //                 desi_trans.translation = transform.translation;
+                        //                 desi_trans.rotation = transform.rotation;
+                        //             }
+                        //             let mut bbox = cached_mesh_mgr.get_bbox(&geo_hash).unwrap();
+                        //             bbox.scaled(&item_trans.scale);
+                        //             let geom_data = EleGeoInstData {
+                        //                 geo_hash,
+                        //                 bbox,
+                        //                 global_transform: (desi_trans.rotation, desi_trans.translation, item_trans.scale),
+                        //                 visible: true,
+                        //                 generic_type: color_type.clone().unwrap_or_default(),
+                        //                 zone_refno: self.get_parent_att_by_type(cur_refno, "ZONE")?.map(|x| x.get_refno().unwrap_or_default()).unwrap_or_default(),
+                        //                 node_id: node_ids_map.get(&cur_refno).map(|x| x.clone()).unwrap_or(cur_node_id.clone()),
+                        //             };
+                        //             inst_map.entry(cur_refno).or_insert(Vec::new()).push(geom_data);
+                        //         }
+                        //     }
+                        // }
                     }
                     //处理有几何体返回的情况，需要加入到几何列表里
                     if let Some(geo_hash) = geo_hash {
@@ -938,9 +943,6 @@ impl AiosDBManager {
         // //查询出所有的设备的几何体
         for (generic_ref, v) in type_geom_refs_map {
             for refno in v {
-                // if refno != RefU64::from_two_nums(23584, 128) {
-                //     continue;
-                // }
                 let geo_data_map = mesh_mrg.get_instants_data(refno);
                 for (k, geo_data_vec) in geo_data_map {
                     // dbg!(k.to_refno_str());
@@ -974,117 +976,117 @@ impl AiosDBManager {
 
         world.update();
         dbg!("world update ok");
-        let mut aabb_contained = HashMap::new();
+        // let mut aabb_contained = HashMap::new();
         //不能用参考号作为参考了，需要用node id, 有可能同一个层级在不同的地方出现过了
         //node id -> geom refnos
-        let mut ssc_nodeid_geom_refs = HashMap::new();
-        let mut ssc_nodeid_map: HashMap<RefU64, NodeId> = HashMap::new();
-        let mut ssc_tree = PdmsTree::default();
-        let mut ele_id_tree = self.get_pdms_tree(project_str, db_code).ok_or(anyhow!("Tree not found".to_string()))?;
-        let ele_root_id = ele_id_tree.0.root_node_id().unwrap();
-        let ele_root_data = ele_id_tree.0.get(ele_root_id).unwrap().data().clone();
-        let root_id: NodeId = ssc_tree.0.insert(Node::new(ele_root_data), AsRoot).unwrap();
-        let mut room_final_contained = HashMap::new();
-        // let mut room_geo_refs_map = HashMap::new();
-        for (room_refno, room_geo) in room_aabb_map {
-            // if k != RefU64::from_two_nums(23584, 65) {
-            //     continue;
-            // }
-            // room_geo_refs_map.insert(k.to_refno_str(), room_geo_refnos.into_iter().map(|x| x.to_refno_str()).collect::<Vec<_>>());
-            // dbg!(k.to_refno_str());
-            let e = room_geo.bbox.get_half_extents();
-            let c = room_geo.bbox.get_center();
-            let (r, t, s) = room_geo.global_transform;
-            let t = t + r * c;
-            let aabb = AABB::from_half_extents(na::Point3::new(t.x, t.y, t.z), na::Vector3::new(e.x, e.y, e.z));
-            let mesh_indx = room_geo.geo_hash.clone();
-            // dbg!(&room_geo);
-            let translation = na::Vector3::new(t.x, t.y, t.z);
-            let (axis, angle) = r.to_axis_angle();
-            let axis_angle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
-            let room_iso = Isometry3::new(translation, axis_angle);
-            let room_tri_mesh = mesh_mrg.cached_mesh_mgr.get_mesh(&mesh_indx).unwrap().get_tri_mesh(TransformSRT {
-                rotation: r,
-                translation: t,
-                scale: s,
-            });
-            // dbg!(&aabb);
-            let room_node_id = if ssc_nodeid_map.contains_key(&room_refno) {
-                ssc_nodeid_map[&room_refno].clone()
-            } else {
-                let node_id = self.get_node_id(room_refno).unwrap();
-                let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
-                let room_node_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&root_id)).unwrap();
-                ssc_nodeid_map.insert(room_refno, room_node_id.clone());
-                room_node_id
-            };
-
-            let interferences = world.interferences_with_aabb(&aabb, &groups);
-            for x in interferences {
-                let generic_refno = x.1.data().0.clone();   //类型的参考号
-                let geom_refno = x.1.data().1.clone();
-                // dbg!(generic_refno.to_refno_str());
-                //暂时做了两层的结构，需要按照原来的结构还原，剔除不属于room的构件
-                let type_node_id = if ssc_nodeid_map.contains_key(&generic_refno) {
-                    ssc_nodeid_map[&generic_refno].clone()
-                } else {
-                    let node_id = self.get_node_id(generic_refno).unwrap();
-                    let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
-                    let type_node_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&room_node_id)).unwrap();
-                    ssc_nodeid_map.insert(generic_refno, type_node_id.clone());
-                    type_node_id
-                };
-
-                let node_id = self.get_node_id(geom_refno).unwrap();
-                let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
-                let new_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&type_node_id)).unwrap();
-                //todo 需要把层级移动过来
-                ssc_nodeid_map.insert(geom_refno, new_id.clone());
-                //存储这个索引关系
-
-                ssc_nodeid_geom_refs.entry(type_node_id).or_insert(Vec::new()).push(geom_refno);
-                ssc_nodeid_geom_refs.entry(new_id).or_insert(Vec::new()).push(geom_refno);
-                ssc_nodeid_geom_refs.entry(room_node_id.clone()).or_insert(Vec::new()).push(room_refno);
-                ssc_nodeid_geom_refs.entry(room_node_id.clone()).or_insert(Vec::new()).push(geom_refno);
-
-                aabb_contained.entry(room_refno).or_insert(Vec::new()).push(geom_refno);
-                let geo_data_map = mesh_mrg.get_instants_data(geom_refno);
-                for (_, geo_data_vec) in geo_data_map {
-                    for geo_data in geo_data_vec {
-                        let mesh_indx = &geo_data.geo_hash;
-                        let pt = geo_data.global_transform.1;
-                        let first_pt = ncollide3d::na::Point3::new(pt.x, pt.y, pt.z);
-                        let ray_x = Ray::new(first_pt, ncollide3d::na::Vector3::z());
-                        let ray_neg_x = Ray::new(first_pt, -ncollide3d::na::Vector3::z());
-
-                        let ray_x = room_tri_mesh.toi_with_ray(&Isometry3::identity(), &ray_x, std::f32::MAX, false);
-                        let ray_neg_x = room_tri_mesh.toi_with_ray(&Isometry3::identity(), &ray_neg_x, std::f32::MAX, false);
-                        if ray_x.is_some() && ray_neg_x.is_some() {
-                            // aabb_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(generic_refno.to_refno_str());
-                            //满足要求，插入到树中
-                            room_final_contained.entry(room_refno.to_refno_str()).or_insert(HashSet::new()).insert(geom_refno.to_refno_str());
-                        } else {
-                            println!("{} exclude from trimesh check", geom_refno.to_refno_str());
-                        }
-                    }
-                }
-            }
-        }
-        dbg!(aabb_contained.len());
-        dbg!(room_final_contained.len());
+        // let mut ssc_nodeid_geom_refs = HashMap::new();
+        // let mut ssc_nodeid_map: HashMap<RefU64, NodeId> = HashMap::new();
+        // let mut ssc_tree = PdmsTree::default();
+        // let mut ele_id_tree = self.get_pdms_tree(project_str, db_code).ok_or(anyhow!("Tree not found".to_string())).await;
+        // let ele_root_id = ele_id_tree.0.root_node_id().unwrap();
+        // let ele_root_data = ele_id_tree.0.get(ele_root_id).unwrap().data().clone();
+        // let root_id: NodeId = ssc_tree.0.insert(Node::new(ele_root_data), AsRoot).unwrap();
+        // let mut room_final_contained = HashMap::new();
+        // // let mut room_geo_refs_map = HashMap::new();
+        // for (room_refno, room_geo) in room_aabb_map {
+        //     // if k != RefU64::from_two_nums(23584, 65) {
+        //     //     continue;
+        //     // }
+        //     // room_geo_refs_map.insert(k.to_refno_str(), room_geo_refnos.into_iter().map(|x| x.to_refno_str()).collect::<Vec<_>>());
+        //     // dbg!(k.to_refno_str());
+        //     let e = room_geo.bbox.get_half_extents();
+        //     let c = room_geo.bbox.get_center();
+        //     let (r, t, s) = room_geo.global_transform;
+        //     let t = t + r * c;
+        //     let aabb = AABB::from_half_extents(na::Point3::new(t.x, t.y, t.z), na::Vector3::new(e.x, e.y, e.z));
+        //     let mesh_indx = room_geo.geo_hash.clone();
+        //     // dbg!(&room_geo);
+        //     let translation = na::Vector3::new(t.x, t.y, t.z);
+        //     let (axis, angle) = r.to_axis_angle();
+        //     let axis_angle = na::Vector3::new(axis.x, axis.y, axis.z) * angle;
+        //     let room_iso = Isometry3::new(translation, axis_angle);
+        //     let room_tri_mesh = mesh_mrg.cached_mesh_mgr.get_mesh(&mesh_indx).unwrap().get_tri_mesh(TransformSRT {
+        //         rotation: r,
+        //         translation: t,
+        //         scale: s,
+        //     });
+        //     // dbg!(&aabb);
+        //     let room_node_id = if ssc_nodeid_map.contains_key(&room_refno) {
+        //         ssc_nodeid_map[&room_refno].clone()
+        //     } else {
+        //         let node_id = self.get_node_id(room_refno).unwrap();
+        //         let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
+        //         let room_node_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&root_id)).unwrap();
+        //         ssc_nodeid_map.insert(room_refno, room_node_id.clone());
+        //         room_node_id
+        //     };
         //
-        // let mut file = File::create(format!("../web-aios/room_contained_equips.json")).unwrap();
+        //     let interferences = world.interferences_with_aabb(&aabb, &groups);
+        //     for x in interferences {
+        //         let generic_refno = x.1.data().0.clone();   //类型的参考号
+        //         let geom_refno = x.1.data().1.clone();
+        //         // dbg!(generic_refno.to_refno_str());
+        //         //暂时做了两层的结构，需要按照原来的结构还原，剔除不属于room的构件
+        //         let type_node_id = if ssc_nodeid_map.contains_key(&generic_refno) {
+        //             ssc_nodeid_map[&generic_refno].clone()
+        //         } else {
+        //             let node_id = self.get_node_id(generic_refno).unwrap();
+        //             let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
+        //             let type_node_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&room_node_id)).unwrap();
+        //             ssc_nodeid_map.insert(generic_refno, type_node_id.clone());
+        //             type_node_id
+        //         };
+        //
+        //         let node_id = self.get_node_id(geom_refno).unwrap();
+        //         let node_data = ele_id_tree.0.get(&node_id).unwrap().data().clone();
+        //         let new_id = ssc_tree.0.insert(Node::new(node_data), UnderNode(&type_node_id)).unwrap();
+        //         //todo 需要把层级移动过来
+        //         ssc_nodeid_map.insert(geom_refno, new_id.clone());
+        //         //存储这个索引关系
+        //
+        //         ssc_nodeid_geom_refs.entry(type_node_id).or_insert(Vec::new()).push(geom_refno);
+        //         ssc_nodeid_geom_refs.entry(new_id).or_insert(Vec::new()).push(geom_refno);
+        //         ssc_nodeid_geom_refs.entry(room_node_id.clone()).or_insert(Vec::new()).push(room_refno);
+        //         ssc_nodeid_geom_refs.entry(room_node_id.clone()).or_insert(Vec::new()).push(geom_refno);
+        //
+        //         aabb_contained.entry(room_refno).or_insert(Vec::new()).push(geom_refno);
+        //         let geo_data_map = mesh_mrg.get_instants_data(geom_refno);
+        //         for (_, geo_data_vec) in geo_data_map {
+        //             for geo_data in geo_data_vec {
+        //                 let mesh_indx = &geo_data.geo_hash;
+        //                 let pt = geo_data.global_transform.1;
+        //                 let first_pt = ncollide3d::na::Point3::new(pt.x, pt.y, pt.z);
+        //                 let ray_x = Ray::new(first_pt, ncollide3d::na::Vector3::z());
+        //                 let ray_neg_x = Ray::new(first_pt, -ncollide3d::na::Vector3::z());
+        //
+        //                 let ray_x = room_tri_mesh.toi_with_ray(&Isometry3::identity(), &ray_x, std::f32::MAX, false);
+        //                 let ray_neg_x = room_tri_mesh.toi_with_ray(&Isometry3::identity(), &ray_neg_x, std::f32::MAX, false);
+        //                 if ray_x.is_some() && ray_neg_x.is_some() {
+        //                     // aabb_contained.entry(k.to_refno_str()).or_insert(HashSet::new()).insert(generic_refno.to_refno_str());
+        //                     //满足要求，插入到树中
+        //                     room_final_contained.entry(room_refno.to_refno_str()).or_insert(HashSet::new()).insert(geom_refno.to_refno_str());
+        //                 } else {
+        //                     println!("{} exclude from trimesh check", geom_refno.to_refno_str());
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        // dbg!(aabb_contained.len());
+        // dbg!(room_final_contained.len());
+        // //
+        // // let mut file = File::create(format!("../web-aios/room_contained_equips.json")).unwrap();
+        // // let serialized = serde_json::to_string(&aabb_contained).unwrap();
+        // // file.write_all(serialized.as_bytes()).unwrap();
+        // //
+        // let mut file = File::create(format!("room_contained.json")).unwrap();
         // let serialized = serde_json::to_string(&aabb_contained).unwrap();
         // file.write_all(serialized.as_bytes()).unwrap();
         //
-        let mut file = File::create(format!("room_contained.json")).unwrap();
-        let serialized = serde_json::to_string(&aabb_contained).unwrap();
-        file.write_all(serialized.as_bytes()).unwrap();
-
-        //ssc 需要用node id 去获取需要显示的 geoms
-        let mut file = File::create(format!("ssc_nodeid_geom_refs.bin")).unwrap();
-        let serialized = bincode::serialize(&ssc_nodeid_geom_refs).unwrap();
-        file.write_all(serialized.as_bytes()).unwrap();
+        // //ssc 需要用node id 去获取需要显示的 geoms
+        // let mut file = File::create(format!("ssc_nodeid_geom_refs.bin")).unwrap();
+        // let serialized = bincode::serialize(&ssc_nodeid_geom_refs).unwrap();
+        // file.write_all(serialized.as_bytes()).unwrap();
 
         // ssc_nodeid_geom_refs
         // ssc_tree.serialize_to_bin_file_with_name("ssc_sample", db_code);
@@ -1444,6 +1446,7 @@ impl AiosPdmsProjectSkyTable {
                     translation,
                 };
                 let mut final_rot = Quat::IDENTITY;
+
                 let poss = attr.get_poss()?;
                 let pose = attr.get_pose()?;
                 let extru_dir: Vec3 = (pose - poss).normalize();
@@ -1475,7 +1478,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_attr_conn(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:attrs");
         if creat {
             con.create_keyspace(project);
@@ -1490,7 +1493,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_trees_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:trees");
         if creat {
             con.create_keyspace(project);
@@ -1505,7 +1508,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_children_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:children");
         if creat {
             con.create_keyspace(project);
@@ -1520,7 +1523,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_names_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:names");
         if creat {
             con.create_keyspace(project);
@@ -1535,7 +1538,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_version_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:version");
         if creat {
             con.create_keyspace(project);
@@ -1550,7 +1553,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_strings_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:strings");
         if creat {
             con.create_keyspace(project);
@@ -1565,7 +1568,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_room_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:rooms");
         if creat {
             con.create_keyspace(project);
@@ -1581,7 +1584,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_node_ids_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:node_ids");
         if creat {
             con.create_keyspace(project);
@@ -1596,7 +1599,7 @@ impl AiosPdmsProjectSkyTable {
 
     #[inline]
     fn get_type_refnos_con(project: &str, creat: bool) -> Connection {
-        let mut con = Connection::new("127.0.0.1", 2003).unwrap();
+        let mut con = Connection::new(URL, 2003).unwrap();
         let table_name = format!("{project}:type_refnos");
         if creat {
             con.create_keyspace(project);
@@ -1623,10 +1626,8 @@ impl AiosPdmsProjectSkyTable {
             entry.path()
         }).collect::<Vec<PathBuf>>();
 
-        // Self::create_tables(project.as_str());
-
         let versions_map = Arc::new(DashMap::new());
-        children_files.par_iter().for_each(|path| {
+        children_files.iter().for_each(|path| {
             let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
             if !file_name.ends_with("com") && !file_name.ends_with("mis") {
                 if need_parsing_files.is_none() || need_parsing_files.as_ref().unwrap().contains(&file_name) {
@@ -1675,10 +1676,10 @@ impl AiosPdmsProjectSkyTable {
                             con.set(&Integer(k), &v);
                         }
 
-                        let mut con = AiosDBManager::get_ref_infos_con(false);
-                        for (k, v) in refno_info_map {
-                            con.set(&k, &v);
-                        }
+                        // let mut con = AiosDBManager::get_ref_infos_con(false);
+                        // for (k, v) in refno_info_map {
+                        //     con.set(&k, &v);
+                        // }
 
                         let mut con = Self::get_children_con(project, false);
                         for (k, v) in children_map {

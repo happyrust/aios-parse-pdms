@@ -1,7 +1,9 @@
-use aios_core::pdms_types::StringLookupTable;
+use std::fs::File;
+use std::io::Write;
+use aios_core::pdms_types::{PdmsDatabaseInfo, StringLookupTable};
 use crate::parse::parse_ele_data;
 // use crate::pdms_types::StringLookupTable;
-use crate::read_attr_info_config;
+use crate::{db1_hash, read_attr_info_config, read_attr_info_config_json};
 use crate::test_cases::convert_str_to_bytes;
 
 #[test]
@@ -30,13 +32,126 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x85897i32) {
-    //     //dbg!(map.value());
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("SECT") as i32)) {
+        dbg!(map.value());
+    };
+    // let mut lookup = StringLookupTable::default();
+    // let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    // if let Some(value) = lookup.lookup.get(&1433536923){
+    //     println!("string={:?}",value.value());
+    // }
+    // dbg!(&ele_data.attr_data_map.to_string_hashmap());
+}
+
+#[test]
+fn test_24575_228_sample() {
+    let data_str ="
+00 00 00 0D 00 00 5F FF 00 00 00 E4 00 0C C3 A5
+00 00 5F FF 00 00 00 DB 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 01
+FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
+35 00 00 00";
+    let data = convert_str_to_bytes(data_str);
+    // let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_json("all_attr_info.json");
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
+    //     dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
-    if let Some(value) = lookup.lookup.get(&1433536923){
-        println!("string={:?}",value.value());
-    }
-    dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    println!("ele_data={:?}",ele_data.whole_attmap);
+    // if let Some(value) = lookup.lookup.get(&1433536923){
+    //     println!("string={:?}",value.value());
+    // }
+    // dbg!(&ele_data.attr_data_map.to_string_hashmap());
+}
+
+#[test]
+fn test_sample_mdb() {
+    let data_str = "00 00 00 0B 00 00 5F FF 00 00 02 15 00 08 22 1C
+00 00 5F FF 00 00 00 07 00 00 02 1F 00 1C 60 01
+00 00 02 1F 00 11 80 01 20 2B C0 52 00 02 00 57
+00 00 5F FF 00 00 02 15 00 00 00 00 00 00 00 00
+00 00 5F FF 00 00 01 E7 00 00 5F FF 00 00 02 09
+00 00 5F FF 00 00 01 F9 00 00 5F FF 00 00 01 F8
+00 00 5F FF 00 00 02 01 00 00 5F FF 00 00 01 F4
+00 00 5F FF 00 00 02 08 00 00 5F FF 00 00 01 E8
+00 00 5F FF 00 00 02 0B 00 00 5F FF 00 00 02 0A
+00 00 5F FF 00 00 02 0E 00 00 5F FF 00 00 02 0F
+00 00 5F FF 00 00 02 10 00 00 5F FF 00 00 02 11
+00 00 5F FF 00 00 02 12 00 00 5F FF 00 00 02 13
+00 00 5F FF 00 00 02 14 00 00 5F FF 00 00 02 0C
+00 00 5F FF 00 00 02 05 00 00 5F FF 00 00 01 E9
+00 00 5F FF 00 00 01 D4 00 00 5F FF 00 00 01 E5
+00 00 5F FF 00 00 01 D6 00 00 5F FF 00 00 01 D7
+00 00 5F FF 00 00 01 D8 00 00 5F FF 00 00 01 DD
+00 00 5F FF 00 00 01 DC 00 00 5F FF 00 00 01 D9
+00 00 5F FF 00 00 01 DA 00 00 5F FF 00 00 01 E6
+00 00 5F FF 00 00 01 DB 00 00 5F FF 00 00 01 DE
+00 00 5F FF 00 00 01 E3 00 00 5F FF 00 00 02 0D
+00 00 5F FF 00 00 02 07 00 00 5F FF 00 00 01 DF
+00 00 5F FF 00 00 02 06 00 00 5F FF 00 00 01 E0
+00 00 5F FF 00 00 01 E1 00 00 5F FF 00 00 01 E4
+00 00 5F FF 00 00 01 E2 00 01 00 B4 00 00 5F FF
+00 00 02 15 00 00 00 00 00 00 00 00 00 09 C1 8E
+3C 00 00 03 00 00 00 07 2F 53 41 4D 50 4C 45 00
+00 0D F3 30 20 00 00 53 00 00 00 29 00 00 5F FF
+00 00 01 E2 00 00 5F FF 00 00 01 E4 00 00 5F FF
+00 00 01 E1 00 00 5F FF 00 00 01 E0 00 00 5F FF
+00 00 02 06 00 00 5F FF 00 00 01 DF 00 00 5F FF
+00 00 02 07 00 00 5F FF 00 00 02 0D 00 00 5F FF
+00 00 01 E3 00 00 5F FF 00 00 01 DE 00 00 5F FF
+00 00 01 DB 00 00 5F FF 00 00 01 E6 00 00 5F FF
+00 00 01 DA 00 00 5F FF 00 00 01 D9 00 00 5F FF
+00 00 01 DC 00 00 5F FF 00 00 01 DD 00 00 5F FF
+00 00 01 D8 00 00 5F FF 00 00 01 D7 00 00 5F FF
+00 00 01 D6 00 00 5F FF 00 00 01 E5 00 00 5F FF
+00 00 01 D4 00 00 5F FF 00 00 01 E9 00 00 5F FF
+00 00 02 05 00 00 5F FF 00 00 02 0C 00 00 5F FF
+00 00 02 14 00 00 5F FF 00 00 02 13 00 00 5F FF
+00 00 02 12 00 00 5F FF 00 00 02 11 00 00 5F FF
+00 00 02 10 00 00 5F FF 00 00 02 0F 00 00 5F FF
+00 00 02 0E 00 00 5F FF 00 00 02 0A 00 00 5F FF
+00 00 02 0B 00 00 5F FF 00 00 01 E8 00 00 5F FF
+00 00 02 08 00 00 5F FF 00 00 01 F4 00 00 5F FF
+00 00 02 01 00 00 5F FF 00 00 01 F8 00 00 5F FF
+00 00 01 F9 00 00 5F FF 00 00 02 09 00 00 5F FF
+00 00 01 E7 00 09 84 F9 20 00 00 53 00 00 00 29
+00 00 5F FF 00 00 01 E7 00 00 5F FF 00 00 02 09
+00 00 5F FF 00 00 01 F9 00 00 5F FF 00 00 01 F8
+00 00 5F FF 00 00 02 01 00 00 5F FF 00 00 01 F4
+00 00 5F FF 00 00 02 08 00 00 5F FF 00 00 01 E8
+00 00 5F FF 00 00 02 0B 00 00 5F FF 00 00 02 0A
+00 00 5F FF 00 00 02 0E 00 00 5F FF 00 00 02 0F
+00 00 5F FF 00 00 02 10 00 00 5F FF 00 00 02 11
+00 00 5F FF 00 00 02 12 00 00 5F FF 00 00 02 13
+00 00 5F FF 00 00 02 14 00 00 5F FF 00 00 02 0C
+00 00 5F FF 00 00 02 05 00 00 5F FF 00 00 01 E9
+00 00 5F FF 00 00 01 D4 00 00 5F FF 00 00 01 E5
+00 00 5F FF 00 00 01 D6 00 00 5F FF 00 00 01 D7
+00 00 5F FF 00 00 01 D8 00 00 5F FF 00 00 01 DD
+00 00 5F FF 00 00 01 DC 00 00 5F FF 00 00 01 D9
+00 00 5F FF 00 00 01 DA 00 00 5F FF 00 00 01 E6
+00 00 5F FF 00 00 01 DB 00 00 5F FF 00 00 01 DE
+00 00 5F FF 00 00 01 E3 00 00 5F FF 00 00 02 0D
+00 00 5F FF 00 00 02 07 00 00 5F FF 00 00 01 DF
+00 00 5F FF 00 00 02 06 00 00 5F FF 00 00 01 E0
+00 00 5F FF 00 00 01 E1 00 00 5F FF 00 00 01 E4
+00 00 5F FF 00 00 01 E2 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_json("all_attr_info.json");
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
+    //     dbg!(map.value());
+    // }
+    let mut lookup = StringLookupTable::default();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    println!("ele_data={:?}",ele_data.whole_attmap);
+}
+
+#[test]
+fn change_info_bin_file() {
+    let info = bincode::deserialize::<PdmsDatabaseInfo>(include_bytes!("../../all_attr_info.bin")).unwrap();
+    let mut file = File::create("all_attr_info_new.json").unwrap();
+    let v = serde_json::to_string(&info).unwrap();
+    file.write(v.as_bytes()).unwrap();
 }
