@@ -36,7 +36,7 @@ compression = []
 web = []   #compile for just web usage, now it is too heavy now
 
 [dependencies]
-memchr = {git = "https://github.com/BurntSushi/memchr.git"}
+memchr = { git = "https://github.com/BurntSushi/memchr.git" }
 slab_tree = "0.3.2"
 itertools = "0.10.1"
 bincode = "1.3.3"
@@ -52,21 +52,15 @@ approx = "0.5.1"
 bitflags = "1.3.2"
 derivative = "2.2.0"
 concurrent-queue = "1.2.2"
-sled = { version = "0.34.7",  features = ["compression"] }
+sled = { version = "0.34.7", features = ["compression"] }
 winit = "0.26.1"
 instant = "0.1.12"
 pollster = "0.2.5"
 ordered-float = "2.10.0"
 config = "0.13.1"
 #tikv-client = { path = "../client-rust"}
-
-
-
-
 #tinyexpr = { git = "https://github.com/AscendingCreations/tinyexpr-rs.git" }
 rsc = { git = "https://github.com/fivemoreminix/rsc.git" }
-
-
 nom = "6.1.2"
 nom-derive = "0.9.0"
 highway = "0.7.0"
@@ -82,27 +76,18 @@ log = "0.4.14"
 simplelog = "0.10.0"
 rayon = "1.5.2"
 tokio = { version = "1.18.2", features = ["full"] }
-#mysql = "21.0.2"
 serde_json = { version = "1.0" }
 lazy_static = "1.4.0"
-#static_init = "1.0.2"
 cached = { version = "0.26.2", default-features = false, features = ["proc_macro"] }
 dashmap = { version = "5.2.0", features = ["serde"] }
-#autowired = { path = "D:/autowired-rs" }
 hex = "0.4.3"
 notify = "4.0.17"
 crossbeam-deque = "0.8.1"
 crossbeam-queue = "0.3.3"
 hexasphere = "7.0.0"
-#rug = "1.14.0"
 bevy-inspector-egui = { path = "../bevy-inspector-egui" }
 bevy = { path = "../bevy", default-features = true }
-bevy_egui = { path="../bevy_egui", default-features = false, features = ["open_url"] }
-#bevy = "0.7.0"
-#bevy_egui = "0.13.0"
-#bevy-inspector-egui = "0.10.0"
-#bevy_utils = { path = "../bevy/crates/bevy_utils" }
-#egui = { path = "../egui/egui" }
+bevy_egui = { path = "../bevy_egui", default-features = false, features = ["open_url"] }
 egui = "0.16.0"
 calamine = "0.18.0"
 skytable = "0.7.0"
@@ -136,4 +121,4 @@ dynfmt = { version = "0.1.5", features = ["curly", "python"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bonsaidb = { version = "0.4.1", features = ["local-full"] }
 
-aios_core = { path =  "../aios_core"}
+aios_core = { path = "../aios_core" }

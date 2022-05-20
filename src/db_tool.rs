@@ -17,6 +17,13 @@ pub fn read_attr_info_config(config_path: &str) -> PdmsDatabaseInfo {
     bincode::deserialize(&attr_buf).unwrap()
 }
 
+pub fn read_attr_info_config_json(config_path:&str) -> PdmsDatabaseInfo {
+    let mut file = File::open(config_path).unwrap();
+    let mut json = String::new();
+    file.read_to_string(&mut json);
+    serde_json::from_str(&json).unwrap()
+}
+
 #[inline]
 pub fn convert_to_hash(bytes: &[u8]) -> u32 {
     i32::from_be_bytes(bytes.try_into().unwrap()).abs() as u32
@@ -81,10 +88,10 @@ pub fn get_db_stype(map: &AttrMap) -> Option<&'static str> {
 
 #[test]
 fn db1_dehash_test() {
-    let name = db1_dehash(0x2902D6DA);
+    let name = db1_dehash(914224);
     println!("name={:?}", name);
 
-    let val = db1_hash("DB");
+    let val = db1_hash("MDB");
     println!("{:#4X}", val);
 }
 

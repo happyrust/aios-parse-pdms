@@ -26,7 +26,7 @@ use app::*;
 
 const PUNCHED_CUBE_BYTES: &[u8] = include_bytes!(
     // env!("CARGO_MANIFEST_DIR"),
-    r"G:\RustProject\aios_workspace\truck\truck-shapeops\punched-cube-shapeops.json",
+    r"H:\RustProject\aios_workspace\truck\truck-shapeops\punched-cube-shapeops.json",
 );
 
 enum RenderMode {

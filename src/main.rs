@@ -138,7 +138,7 @@ fn main() -> anyhow::Result<()> {
     let db_option: DbOption = s.try_deserialize().unwrap();
     dbg!(&db_option);
     let mut time = Instant::now();
-    // let mut mgr = AiosDBManager::init(&db_option).unwrap();
+    let mut mgr = AiosDBManager::init(&db_option).unwrap();
     // let v = mgr.get_attr(RefI32Tuple((23584, 205)).into())?;
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
     // let refno = RefU64::from_two_nums(15192, 77134);

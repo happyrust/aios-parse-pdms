@@ -1446,6 +1446,7 @@ impl AiosPdmsProjectSkyTable {
                     translation,
                 };
                 let mut final_rot = Quat::IDENTITY;
+
                 let poss = attr.get_poss()?;
                 let pose = attr.get_pose()?;
                 let extru_dir: Vec3 = (pose - poss).normalize();
