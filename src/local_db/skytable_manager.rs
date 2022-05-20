@@ -1666,7 +1666,7 @@ impl AiosPdmsProjectSkyTable {
 
                         let mut con = Self::get_type_refnos_con(project, false);
                         for (k, v) in type_ele_map {
-                            con.set(&Integer(k), &v).unwrap();
+                            // con.set(&Integer(k), &v).unwrap();
                         }
 
                         let mut con = Self::get_names_con(project, false);

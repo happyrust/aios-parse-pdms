@@ -65,8 +65,7 @@ pub struct WholeAttMap{
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PdmsDbData {
     /// 按noun类型分类的参考号
-    // pub type_ele_map: DashMap<u32, RefU64Vec>,
-    pub type_ele_map: DashMap<u32, RefU64Vec>,
+    pub type_ele_map: DashMap<u32, HashSet<RefU64>>,
     /// 基本数据的Tree
     // pub ele_id_tree: Tree<EleNode>,
     pub ele_id_tree: PdmsTree,
@@ -553,7 +552,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
     // all_attr_map.insert(refno, attr_data_map);
     total_attr_map.insert(refno, whole_attmap);
-    type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
+    type_ele_map.entry(noun).or_insert(HashSet::default()).insert(refno);
     let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
     let mut refno_node_id_map = HashMap::new();
     refno_node_id_map.insert(refno, root_id.clone());
@@ -641,7 +640,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                 }
 
                 whole_attr_dashmap.insert(refno, whole_attmap);
-                type_ele_map.entry(noun).or_insert(RefU64Vec::default()).push(refno);
+                type_ele_map.entry(noun).or_insert(HashSet::default()).insert(refno);
                 let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
                 refno_info_map.entry(ref_0).or_insert(RefnoInfo {
                     ref_0:ref_0.0,
@@ -665,7 +664,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     // }
 
     println!("Tree nodes height: {}", ele_id_tree.height());
-    println!("DB {} attrs count: {}", file_name, all_attr_map.len());
+    println!("DB {} attrs count: {}", file_name, total_attr_map.len());
     println!("解析db: {} 所耗时间: {:?}ms", file_name, time_start.elapsed().as_millis());
 
     Ok(PdmsDbData {
