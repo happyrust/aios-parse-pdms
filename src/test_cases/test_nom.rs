@@ -4,7 +4,6 @@ use nom::combinator::{map, not, recognize, value, verify};
 use nom::IResult;
 use nom::number::complete::be_i32;
 use nom::sequence::preceded;
-use crate::{convert_to_hash, db1_dehash};
 use crate::test_cases::convert_str_to_bytes;
 
 

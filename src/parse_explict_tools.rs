@@ -1,8 +1,10 @@
 use std::fs::File;
 use std::io::{BufReader, Read};
+use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
 use aios_core::pdms_types::AttrVal::StringType;
 use aios_core::pdms_types::DbAttributeType::{BOOL, DOUBLE, DOUBLEVEC, ELEMENT, INTEGER, INTVEC, STRING, TYPEX};
+use aios_core::tool::db_tool::{convert_to_hash, db1_dehash};
 use dashmap::DashMap;
 use dynfmt::{Format, SimpleCurlyFormat};
 use fixed::types::I24F8;
@@ -13,14 +15,8 @@ use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
 use smol_str::SmolStr;
 use crate::BHashMap;
-use crate::db_tool::{convert_to_hash, db1_dehash};
-use crate::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string, parse_to_expression};
 use crate::tool::hash_tool::f32_round_2;
-// use crate::pdms_types::AttrVal::*;
-// use crate::pdms_types::{AttrVal, DbAttributeType, RefI32Tuple};
-// use crate::pdms_types::DbAttributeType::*;
-
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
@@ -103,7 +99,6 @@ fn get_expression_attr_test() {
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val));
-    // let expression_type = db1_dehash();
     if expression_type == "PTCD" {
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
