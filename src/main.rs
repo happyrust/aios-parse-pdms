@@ -6,7 +6,7 @@
 extern crate nom;
 #[macro_use]
 extern crate serde;
-
+extern crate clap;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -26,28 +26,19 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use serde::Serializer;
 
-extern crate clap;
+
 
 use clap::clap_app;
 use log::LevelFilter;
 use log::info;
-
-// use mysql::Pool;
-// use mysql::prelude::Queryable;
 use rayon::prelude::IntoParallelRefIterator;
 use simplelog::{CombinedLogger, WriteLogger};
-// use mysql::*;
-// use mysql::prelude::*;
-// use mysql::time::{Instant, parse};
-use parse_pdms_db::db_tool;
-use parse_pdms_db::db_tool::{convert_to_hash, db1_dehash, db1_hash, decode_chars_data};
 use parse_pdms_db::parse::*;
 use parse_pdms_db::parse_explict_tools::*;
 use std::ffi::OsString;
-use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, RefI32Tuple};
-use aios_core::tool::db_tool::read_attr_info_config;
+use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, RefI32Tuple, };
+use aios_core::tool::db_tool::{db1_hash, read_attr_info_config};
 use anyhow::anyhow;
-use fixed::types::{I20F12, I24F8};
 use futures::TryStreamExt;
 use id_tree::Tree;
 use nalgebra_glm::Mat3;
@@ -56,11 +47,7 @@ use skytable::{Connection, Element};
 use skytable::ddl::{Ddl, Keymap, KeymapType};
 use skytable::types::RawString;
 use smol_str::SmolStr;
-use parse_pdms_db::data_interface::PdmsDataInterface;
-use parse_pdms_db::local_db::DbOption;
-// use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
-// use parse_pdms_db::test_cases::test_database::test_column;
 
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
@@ -78,24 +65,6 @@ pub fn test_hash_noun() {
 
     //dbg!(db1_dehash(convert_to_hash([0xFF, 0xF6, 0x94, 0x65].as_slice())));
 }
-
-fn main_1() {
-    notify_file();
-}
-
-
-#[test]
-pub fn test_tikv() {
-    //dbg!(db1_dehash(0xE5461));
-    //dbg!(db1_dehash(0x95A34));
-    //dbg!(db1_dehash(0xC89B3));
-    //dbg!(db1_dehash(0x9298B));
-    //dbg!(db1_dehash(0x9CAF3));
-    //dbg!(db1_dehash(0x9BBDAC));
-
-    //dbg!(db1_dehash(convert_to_hash([0xFF, 0xF6, 0x94, 0x65].as_slice())));
-}
-
 
 // #[tokio::main]
 // async
@@ -128,17 +97,17 @@ fn main() -> anyhow::Result<()> {
 
 
 // pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool> {
-//     //todo 可以用多线程去并发tree，获取节点下面，然后并发
-//
-//     let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
-//     match r {
-//         Ok(_) => {}
-//         Err(err) => {
-//             println!("{:?}", err);
-//             return Err(err);
-//         }
-//     }
-//     return Ok(true);
+    //todo 可以用多线程去并发tree，获取节点下面，然后并发
+
+    // let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
+    // match r {
+    //     Ok(_) => {}
+    //     Err(err) => {
+    //         println!("{:?}", err);
+    //         return Err(err);
+    //     }
+    // }
+    // return Ok(true);
     // let mut string_lookup = StringLookupTable::default();
     // let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
     // let db_no = db_option.main_db_code;
@@ -167,7 +136,7 @@ fn main() -> anyhow::Result<()> {
     // string_lookup.serialize_to_bin_file(db_no);
     // cached_attr_map.serialize_to_bin_file(db_option.main_db_code);
     //
-    // Ok(true)
+//     Ok(true)
 // }
 
 // 修改 all_attr_info_bin 文件的属性的默认值

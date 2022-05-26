@@ -7,19 +7,9 @@ pub fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
         .collect()
 }
 
-// #[cfg(test)]
-// mod test_branchs;
-// #[cfg(test)]
-// mod test_double_or_float;
-// #[cfg(test)]
-// mod test_data;
+
 #[cfg(test)]
 mod test_expression;
-
 mod test_data_new;
-
 mod test_nom;
-
-
-// mod test_string_lookup;
 pub mod test_database;

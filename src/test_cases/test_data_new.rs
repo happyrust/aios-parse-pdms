@@ -1,9 +1,7 @@
 use std::fs::File;
 use std::io::Write;
-use aios_core::pdms_types::{PdmsDatabaseInfo };
+use aios_core::pdms_types::{PdmsDatabaseInfo, };
 use crate::parse::parse_ele_data;
-// use crate::pdms_types::StringLookupTable;
-use crate::{db1_hash, read_attr_info_config, read_attr_info_config_json};
 use crate::test_cases::convert_str_to_bytes;
 
 #[test]

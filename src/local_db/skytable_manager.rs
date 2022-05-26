@@ -44,14 +44,9 @@ use ncollide3d::query::{Ray, RayCast};
 use ncollide3d::shape::{Cuboid, ShapeHandle};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use truck_polymesh::stl::IntoSTLIterator;
-use crate::helper::{parse_to_i32, parse_to_u32};
-// use crate::parse_increment_data::increment_modify::{check_increase_operate, increment_data_to_db, modify_data_to_db};
-// use crate::parse_increment_data::NewDataState;
 use crate::parsed_data::CateProfileParam;
 use crate::parsed_data::geo_params_data::CateGeoParam;
-// use crate::query_cata::resolve_desi_comp;
 use clap::{Parser, ValueHint};
-// use crate::prim_geo::category::{CateBrepShape, convert_to_brep_shapes};
 use std::panic::catch_unwind;
 use std::time::Instant;
 use aios_core::pdms_types::{AiosStr, AiosStrHash, AttrMap, CachedMeshesMgr, EleGeoInstData, EleNode, Integer, PdmsMeshMgr, PdmsNodeId, PdmsTree, RefnoInfo, RefU64, RefU64Vec, ShapeInstancesMgr, StringLookupTable};
@@ -1659,7 +1654,7 @@ impl AiosPdmsProjectSkyTable {
 
                         let mut con = Self::get_type_refnos_con(project, false);
                         for (k, v) in type_ele_map {
-                            con.set(&Integer(k), &v).unwrap();
+                            // con.set(&Integer(k), &v).unwrap();
                         }
 
                         let mut con = Self::get_names_con(project, false);
