@@ -41,10 +41,10 @@ use serde_json::Value::Bool;
 use smol_str::SmolStr;
 use core::result::Result::Ok;
 use std::default::default;
-use aios_core::pdms_types::{AiosStr, AiosStrHash, AttrInfo, AttrMap, AttrVal, DbAttributeType, EleNode, Integer, NounHash, PdmsDatabaseInfo, PdmsTree, ProjectDbno, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, StringLookupTable};
-use aios_core::pdms_types::AttrVal::{BoolType, DoubleArrayType, DoubleType, IntArrayType, IntegerType, RefU64Array, RefU64Type, StringHashType, StringType, Vec3Type, WordType};
+use aios_core::pdms_types::{AiosStr, AiosStrHash, AttrInfo, AttrMap, AttrVal, DbAttributeType, EleNode, EleTreeNode, Integer, NounHash, PdmsDatabaseInfo, PdmsTree, ProjectDbno, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec};
+use aios_core::pdms_types::AttrVal::*;
 use crate::consts::{ATT_BANG, ATT_LEVE, ATT_MDB, ATT_NUMB, ATT_PTS, ATT_ROOM, UNSET_STR};
-use crate::helper::{convert_u32_to_noun, parse_to_f32, parse_to_f32_arr, parse_to_f64, parse_to_f64_arr, parse_to_i32, parse_to_u16, parse_to_u32};
+use crate::helper::*;
 use anyhow::*;
 use bevy::prelude::In;
 use concurrent_queue::ConcurrentQueue;
@@ -83,7 +83,7 @@ pub struct PdmsDbData {
     /// refno 到 NodeId的映射表
     pub refno_node_id_map: HashMap<RefU64, NodeId>,
     ///字符串查找hash表
-    pub string_lookup: StringLookupTable,
+    // pub string_lookup: StringLookupTable,
     ///数据文件名
     pub filename: SmolStr,
     ///数据文件的版本号
@@ -99,8 +99,8 @@ pub struct PdmsDbData {
     ///数据文件的field no
     // pub field_no: u32,
     pub field_no: Integer,
-    /// 所有的带房间号的 refno
-    pub room_code_map: DashMap<RefU64, RoomCode>,
+    /// 对应的房间号下的所有  refno
+    pub room_code_map: DashMap<String,RefU64Vec>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -290,7 +290,7 @@ pub struct EleData {
     pub attr_data_map: AttrMap,
     pub whole_attmap: WholeAttMap,
     pub children: RefU64Vec,
-    pub name_hash: AiosStrHash,
+    pub name_hash: AiosStr,
     pub version: u32,
 }
 
@@ -325,7 +325,7 @@ fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
 
 ///解析单个Element Data数据
 #[inline]
-pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>, string_lookup: &StringLookupTable) -> Option<EleData> {
+pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> Option<EleData> {
     // dbg!(attr_info_map.len());
     let mut attr_data_map = AttrMap::default();
     let mut implicit_attmap = AttrMap::default();
@@ -420,7 +420,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         if cur_len > 0 && (cur_offset + cur_len) <= (implicit_data.len() / 4) as i32 {
             if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(
                 &implicit_data[cur_offset as usize * 4..(cur_offset + cur_len) as usize * 4], &attr_info, refno,
-                is_double, 0, string_lookup) {
+                is_double, 0 ) {
                 if advance == 0 {    //nullref的处理
                     if att_will_change {
                         cur_offset += 1;   //如果不是Element了，就可以继续向前
@@ -438,7 +438,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len);
-            parse_explict_attrs(&merged_data, &attr_info_map, &mut explicit_attmap, refno, string_lookup).ok()?;
+            parse_explict_attrs(&merged_data, &attr_info_map, &mut explicit_attmap, refno).ok()?;
         }
     }
     attr_info_map.iter().for_each(|pair| {
@@ -456,7 +456,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     implicit_attmap.insert_by_att_name("OWNER", RefU64Type(owner));
     implicit_attmap.insert_by_att_name("TYPE", WordType(noun_name.clone()));
     implicit_attmap.insert_by_att_name("REFNO", RefU64Type(refno.into()));
-    let mut name_hash = implicit_attmap.get_name_hash();
+    let mut name_hash = implicit_attmap.get_name();
     Some(EleData {
         refno: refno.into(),
         owner,
@@ -487,12 +487,13 @@ pub fn take_off_007(mut input: &[u8]) -> &[u8] {
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = Arc::new(DashMap::new());
     /// 基本数据的Tree
-    let mut ele_id_tree: Tree<EleNode> = Tree::new();
+    let mut ele_id_tree: Tree<EleTreeNode> = Tree::new();
     /// 完整属性数据的存储
     let mut all_attr_map: Arc<DashMap<RefU64, AttrMap>> = Arc::new(DashMap::new());
     let mut total_attr_map: Arc<DashMap<RefU64, WholeAttMap>> = Arc::new(DashMap::new());
     /// 所有的房间号信息的refno和对应的房间号
-    let mut room_code_map: Arc<DashMap<RefU64, RoomCode>> = Arc::new(DashMap::new());
+    // let mut room_code_map: Arc<DashMap<RefU64, RoomCode>> = Arc::new(DashMap::new());
+    let mut room_code_map: Arc<DashMap<String, RefU64Vec>> = Arc::new(DashMap::new());
     let time_start = std::time::Instant::now();
     let mut field_no = 0;
 
@@ -519,7 +520,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
     let entry = &*refno_table_map.get(&root_refno).ok_or(anyhow!("Not found refno in entry"))?;
 
-    let mut string_lookup = StringLookupTable::new();
     let EleData {
         refno,
         owner,
@@ -528,26 +528,18 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         whole_attmap,
         children,
         version,
-        name_hash,
-    } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map, &mut string_lookup).unwrap_or_default();
-    let ele_node = EleNode {
+        name_hash: name,
+    } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map).unwrap_or_default();
+    let ele_node = EleTreeNode {
         refno,
-        owner,
-        name_hash,
-        noun,
-        version,
-        children_count: 0,
+        name:name.0.to_string(),
+        noun:db1_dehash(noun),
+        owner
     };
     // 将房间信息保存到单独的数据结构中
-    if let Some(val) = attr_data_map.get(&NounHash(ATT_ROOM as u32)) {
-        if let Some(v) = val.string_hash_value() {
-            if v != AiosStr(SmolStr::new("unset")).get_u32_hash() {
-                let room_code = RoomCode {
-                    refno,
-                    name_hash: v,
-                };
-                room_code_map.entry(refno).or_insert(room_code);
-            }
+    if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
+        if let Some(v) = val.string_value() {
+           room_code_map.entry(v.to_string()).or_insert_with(RefU64Vec::default).push(refno);
         }
     }
 
@@ -560,7 +552,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
             ref_0: ref_0.0,
-            project_hash: string_lookup.add_str(project),
             db_no: if field_no == 0 { db_no } else { field_no },  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
         });
     if children.len() > 0 {
@@ -585,7 +576,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
                     if let Some(parent_id) = refno_node_id_map.get(&refno) {
-                        let id = ele_id_tree.insert(Node::new(EleNode {
+                        let id = ele_id_tree.insert(Node::new(EleTreeNode {
                             refno: *memb,
                             ..default()
                         }), UnderNode(parent_id)).unwrap();
@@ -601,7 +592,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     println!("All refnos count: {}", all_refnos.len());
     let noun_attr_info_map = Arc::new(database_info.noun_attr_info_map.clone());
     let mut eles_time = Instant::now();
-    let project_hash = string_lookup.add_str(project);
     let db_no = if field_no == 0 { db_no } else { field_no };
     dbg!("Begin parse attributes");
     // let mut version_map = HashMap::new();
@@ -609,7 +599,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();
             let pos = entry.pos;
-            let string_lookup = string_lookup.clone();
             // let noun_attr_info_map = noun_attr_info_map.clone();
             let whole_attr_dashmap = total_attr_map.clone();
             let type_ele_map = type_ele_map.clone();
@@ -623,19 +612,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             children,
                             version,
                             name_hash,
-                        }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map, &string_lookup) {
-                // version_map.insert(refno.0,version);
-                // if !all_attr_map.contains_key(&refno) {
+                        }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map) {
                 // 将房间信息保存到单独的数据结构中
-                if let Some(val) = attr_data_map.get(&NounHash(ATT_ROOM as u32)) {
-                    if let Some(v) = val.string_hash_value() {
-                        if v != AiosStr(SmolStr::new("unset")).get_u32_hash() {
-                            let room_code = RoomCode {
-                                refno,
-                                name_hash: v,
-                            };
-                            room_code_map.entry(refno).or_insert(room_code);
-                        }
+                if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
+                    if let Some(v) = val.string_value() {
+                        room_code_map.entry(v.to_string()).or_insert_with(RefU64Vec::default).push(refno);
                     }
                 }
 
@@ -644,7 +625,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                 let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
                 refno_info_map.entry(ref_0).or_insert(RefnoInfo {
                     ref_0: ref_0.0,
-                    project_hash,
                     db_no,
                 });
                 // }
@@ -664,7 +644,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
         children_map,
         refno_node_id_map,
-        string_lookup,
         filename: file_name.into(),
         version: Integer(file_version),
         db_type,
@@ -677,7 +656,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
-pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32, string_lookup: &StringLookupTable) -> IResult<&'a [u8], (usize, AttrVal)> {
+pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32) -> IResult<&'a [u8], (usize, AttrVal)> {
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
     let n = db1_dehash(attr_info.hash as u32);
@@ -821,7 +800,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
 
 /// 获取已知显式属性
 pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, AttrInfo>, attr_data_map: &mut AttrMap,
-                               refno: RefI32Tuple, string_lookup: &StringLookupTable) -> IResult<&'a [u8], bool> {
+                               refno: RefI32Tuple) -> IResult<&'a [u8], bool> {
     let mut residual = input;
     let total_len = input.len();
 

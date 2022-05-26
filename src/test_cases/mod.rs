@@ -21,5 +21,5 @@ mod test_data_new;
 mod test_nom;
 
 
-mod test_string_lookup;
+// mod test_string_lookup;
 pub mod test_database;

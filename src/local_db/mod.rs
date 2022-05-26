@@ -3,8 +3,8 @@ use glam::TransformSRT;
 
 // mod test_file;
 // pub mod sled_local;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod skytable_manager;
+// #[cfg(not(target_arch = "wasm32"))]
+// pub mod skytable_manager;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tikv_manager;
@@ -16,8 +16,8 @@ pub mod tidb_manager;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod string_database;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod refno_info_database;
+// #[cfg(not(target_arch = "wasm32"))]
+// pub mod refno_info_database;
 use clap::Parser;
 
 #[derive(Debug, Default, Clone, Parser, Serialize, Deserialize)]
@@ -46,4 +46,12 @@ pub struct DbOption {
     pub password: String,
     #[clap(long)]
     pub port: String,
+    #[clap(short)]
+    pub sql_batch_insert_chunk: u32,
+    #[clap(short)]
+    pub files_multi_thread: bool,
+    #[clap(short)]
+    pub types_multi_thread: bool,
+    #[clap(short)]
+    pub batch_insert_handles_chunk: u32,
 }

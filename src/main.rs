@@ -44,7 +44,7 @@ use parse_pdms_db::db_tool::{convert_to_hash, db1_dehash, db1_hash, decode_chars
 use parse_pdms_db::parse::*;
 use parse_pdms_db::parse_explict_tools::*;
 use std::ffi::OsString;
-use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, RefI32Tuple, StringLookupTable};
+use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, RefI32Tuple};
 use aios_core::tool::db_tool::read_attr_info_config;
 use anyhow::anyhow;
 use fixed::types::{I20F12, I24F8};
@@ -57,7 +57,6 @@ use skytable::ddl::{Ddl, Keymap, KeymapType};
 use skytable::types::RawString;
 use smol_str::SmolStr;
 use parse_pdms_db::data_interface::PdmsDataInterface;
-use parse_pdms_db::local_db::skytable_manager::AiosDBManager;
 use parse_pdms_db::local_db::DbOption;
 // use parse_pdms_db::local_db::sled_local::{cache_geos_data, save_local};
 use parse_pdms_db::notify_file_change::notify_file;
@@ -107,30 +106,6 @@ fn main() -> anyhow::Result<()> {
         ]
     ).unwrap();
 
-    // use tikv_client::RawClient;
-    //
-    // let client = RawClient::new(vec!["127.0.0.1:2379"], None).await?;
-    // client.put("key".to_owned(), "value".to_owned()).await?;
-    // let value = client.get("key".to_owned()).await?;
-    //
-    // return Ok(());
-
-
-    //
-    // let mut pdms_data_info: PdmsDatabaseInfo  = bincode::deserialize(include_bytes!(r"D:\aios_workspace\aios-parse-pdms\all_attr_info.bin")).unwrap();
-    // {
-    //     let mut t = &mut pdms_data_info.noun_attr_info_map;
-    //     let mut kv = t.get_mut(&(db1_hash("DB") as i32)).unwrap();
-    //     let mut styp = kv.get_mut(&865153).unwrap();
-    //     styp.default_val = IntegerType(0);
-    //     styp.att_type = DbAttributeType::INTEGER;
-    //     // println!("{:?}", kv.value());
-    // }
-    // // dbg!(kv.value());
-    // let mut file = File::create("../all_attr_info.bin").unwrap();
-    // file.write(bincode::serialize(&pdms_data_info).unwrap().as_slice());
-    //
-    // return Ok(());
     use config::{Config, ConfigError, Environment, File};
     let s = Config::builder()
         .add_source(File::with_name("DbOption"))
@@ -138,32 +113,32 @@ fn main() -> anyhow::Result<()> {
     let db_option: DbOption = s.try_deserialize().unwrap();
     dbg!(&db_option);
     let mut time = Instant::now();
-    let mut mgr = AiosDBManager::init(&db_option).unwrap();
+    // let mut mgr = AiosDBManager::init(&db_option).unwrap();
     // let v = mgr.get_attr(RefI32Tuple((23584, 205)).into())?;
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
     // let refno = RefU64::from_two_nums(15192, 77134);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
     // let refno = RefU64::from_two_nums(15192, 77135);
     // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
-    cache_viewer_data(&mut mgr, &db_option);
-    mgr.build_collision_world(db_option.project_name.as_str(), db_option.main_db_code);
-    mgr.set_ssc_room_tree(db_option.project_name.as_str(), db_option.main_db_code);
+    // cache_viewer_data(&mut mgr, &db_option);
+    // mgr.build_collision_world(db_option.project_name.as_str(), db_option.main_db_code);
+    // mgr.set_ssc_room_tree(db_option.project_name.as_str(), db_option.main_db_code);
     return Ok(());
 }
 
 
-pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool> {
-    //todo 可以用多线程去并发tree，获取节点下面，然后并发
-
-    let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
-    match r {
-        Ok(_) => {}
-        Err(err) => {
-            println!("{:?}", err);
-            return Err(err);
-        }
-    }
-    return Ok(true);
+// pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool> {
+//     //todo 可以用多线程去并发tree，获取节点下面，然后并发
+//
+//     let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
+//     match r {
+//         Ok(_) => {}
+//         Err(err) => {
+//             println!("{:?}", err);
+//             return Err(err);
+//         }
+//     }
+//     return Ok(true);
     // let mut string_lookup = StringLookupTable::default();
     // let mut cached_attr_map: PdmsCachedAttrMap = PdmsCachedAttrMap::default();
     // let db_no = db_option.main_db_code;
@@ -193,7 +168,7 @@ pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyho
     // cached_attr_map.serialize_to_bin_file(db_option.main_db_code);
     //
     // Ok(true)
-}
+// }
 
 // 修改 all_attr_info_bin 文件的属性的默认值
 #[test]
