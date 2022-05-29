@@ -41,6 +41,7 @@ use aios_core::tool::db_tool::{db1_hash, read_attr_info_config};
 use anyhow::anyhow;
 use futures::TryStreamExt;
 use id_tree::Tree;
+use lazy_static::lazy_static;
 use nalgebra_glm::Mat3;
 use skytable::actions::Actions;
 use skytable::{Connection, Element};
@@ -55,6 +56,7 @@ const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
 
 type AiosDbError = core::result::Result<(), Box<dyn std::error::Error>>;
+
 
 #[test]
 pub fn test_hash_noun() {

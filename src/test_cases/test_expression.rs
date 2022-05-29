@@ -1,7 +1,7 @@
 use crate::parse::parse_ele_data;
 // use crate::pdms_types::{AttrVal, StringLookupTable};
-use aios_core::pdms_types::{AttrVal,StringLookupTable};
-use crate::read_attr_info_config;
+use aios_core::pdms_types::{AttrVal};
+use aios_core::tool::db_tool::read_attr_info_config;
 use crate::test_cases::{convert_str_to_bytes};
 
 #[test]
@@ -29,8 +29,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
 00 00 00 44 00 00 00 56 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     if let Some(r) = ele_data.attr_data_map.get_val("PPRO") {
         match r {
@@ -66,8 +65,7 @@ fn test_dbp_5194_136() {
 00 00 00 01 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     if let Some(r) = ele_data.attr_data_map.get_val("PPRO") {
         match r {
@@ -109,8 +107,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
     let pbor = ele_data.attr_data_map.get_as_string("PBOR").unwrap_or_default();
@@ -143,8 +140,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // //dbg!(ele_data);
     let mut result = "".to_string();
     if let Some(r) = ele_data.attr_data_map.get_val("PZLE") {
@@ -187,8 +183,7 @@ fn test_gdp_15194_8039() {
 00 00 00 00 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39i32) {
     //     //dbg!(map.value());
     // }
@@ -275,8 +270,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 41 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
 
     assert_eq!("( ATTRIB DESP[6] - ATTRIB DESP[25]/2 )", ele_data.attr_data_map.get_as_string("PZ").unwrap());
@@ -333,8 +327,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xBEEBFi32) {
     //     //dbg!(map.value());
     // }
@@ -375,8 +368,7 @@ FF F1 F3 AA 1C 00 00 1B 00 00 00 1A 00 00 00 1A
 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     //dbg!(ele_data);
 }
 
@@ -407,8 +399,7 @@ fn test_sample_15213_499928_12_1() {
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         //dbg!(map.value());
     };
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     //dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -435,8 +426,7 @@ fn test_gdb_13802_5652() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -489,8 +479,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -535,8 +524,7 @@ fn test_gdb_exp_f32() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -571,8 +559,7 @@ fn test_gdb_exp_f32_13792_31766() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -614,8 +601,7 @@ fn test_gdb_exp_f32_13792_31770() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -641,8 +627,7 @@ fn test_gdb_exp_f32_13792_31779() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -681,8 +666,7 @@ FF FF FF FC 00 00 00 00 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -760,11 +744,10 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 2F 53 54 44 41 48 55 2D 42 41 53 45 31 00 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39) {
         dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}",ele_data.attr_data_map.to_string_hashmap());
 }
 
@@ -865,10 +848,47 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 49 46 2D 57 45 42 4F 55 54 00 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let mut lookup = StringLookupTable::default();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         // dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map, &mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}",ele_data.attr_data_map.to_string_hashmap());
+}
+
+#[test]
+fn test_mas_15194_5453() {
+    let data_str = "00 00 00 22 00 00 3B 5A 00 00 15 4D 00 0B FE 2A
+00 00 3B 5A 00 00 15 46 00 00 15 4D 00 18 00 01
+00 00 00 00 00 00 00 00 20 0F 80 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0F
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 03 00 00 03 F3 00 01 00 43 00 00 3B 5A
+00 00 15 4D 00 00 00 00 00 00 00 00 FF F7 7D 0F
+1C 00 00 12 00 00 00 11 00 00 00 11 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 40 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 FF F5 20 EF
+1C 00 00 22 00 00 00 21 00 00 00 21 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 70 00 00 00 00 00
+00 00 00 03 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 00 6E 00 00 00 00 00 00 00 00 06
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 03 22 00 09 C1 8E
+3C 00 00 04 00 00 00 0A 2F 52 54 48 4F 4C 45 38
+2F 37 00 00 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
+        // dbg!(map.value());
+    };
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    println!("map={:?}",ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
 }

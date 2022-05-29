@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use aios_core::pdms_types::{PdmsDatabaseInfo, };
+use aios_core::tool::db_tool::{db1_hash, read_attr_info_config};
 use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
 
@@ -51,12 +52,11 @@ FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
 35 00 00 00";
     let data = convert_str_to_bytes(data_str);
     // let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let pdms_database_info = read_attr_info_config_json("all_attr_info.json");
+    let pdms_database_info = read_attr_info_config("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
     // if let Some(value) = lookup.lookup.get(&1433536923){
     //     println!("string={:?}",value.value());
@@ -137,12 +137,11 @@ fn test_sample_mdb() {
 00 00 5F FF 00 00 01 E1 00 00 5F FF 00 00 01 E4
 00 00 5F FF 00 00 01 E2 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_json("all_attr_info.json");
+    let pdms_database_info = read_attr_info_config("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
 }
 
@@ -173,11 +172,10 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 38 00 00 02 00 00 00 01 00 08 F3 A6 29 02 D6 DA
 28 00 00 03 00 00 00 05 31 52 31 30 31 00 00 00 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_json("all_attr_info.json");
+    let pdms_database_info = read_attr_info_config("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
 }

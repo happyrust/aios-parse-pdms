@@ -51,10 +51,25 @@ use skytable::types::{FromSkyhashBytes, IntoSkyhashBytes};
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct WholeAttMap{
+pub struct WholeAttMap {
     pub implicit_attmap: AttrMap,
     pub explicit_attmap: AttrMap,
     pub uda_attmap: AttrMap,
+}
+
+impl WholeAttMap {
+    pub fn refine(mut self,info_map:&DashMap<i32,AttrInfo>)  -> Self{
+        for (k,v) in self.explicit_attmap.clone().map {
+            let noun_hash = k.0;
+            if let Some(info) = info_map.get(&(noun_hash as i32)){
+                if info.offset > 0{
+                    let v = self.explicit_attmap.remove(&NounHash(noun_hash)).unwrap();
+                    self.implicit_attmap.insert(NounHash(noun_hash),v);
+                }
+            }
+        }
+        self
+    }
 }
 
 ///一个pdms db的整体数据
@@ -92,7 +107,7 @@ pub struct PdmsDbData {
     // pub field_no: u32,
     pub field_no: Integer,
     /// 对应的房间号下的所有  refno
-    pub room_code_map: DashMap<String,RefU64Vec>,
+    pub room_code_map: DashMap<String, RefU64Vec>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -446,16 +461,18 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     implicit_attmap.insert_by_att_name("TYPE", WordType(noun_name.clone()));
     implicit_attmap.insert_by_att_name("REFNO", RefU64Type(refno.into()));
     let mut name_hash = implicit_attmap.get_name();
+    let whole_attmap = WholeAttMap {
+        implicit_attmap,
+        explicit_attmap,
+        uda_attmap: Default::default(),
+    }.refine(attr_info_map);
+
     Some(EleData {
         refno: refno.into(),
         owner,
         noun,
         attr_data_map,
-        whole_attmap: WholeAttMap{
-            implicit_attmap,
-            explicit_attmap,
-            uda_attmap: Default::default()
-        },
+        whole_attmap,
         children,
         name_hash,
         version,
@@ -520,15 +537,14 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map).unwrap_or_default();
     let ele_node = EleTreeNode {
         refno,
-        name:name.0.to_string(),
-        noun:db1_dehash(noun),
-        owner
+        name: name.0.to_string(),
+        noun: db1_dehash(noun),
+        owner,
+        children_count: children.len(),
     };
     // 将房间信息保存到单独的数据结构中
     if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
-        if let Some(v) = val.string_value() {
-           room_code_map.entry(v.to_string()).or_insert_with(RefU64Vec::default).push(refno);
-        }
+        room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
     }
 
     total_attr_map.insert(refno, whole_attmap);
@@ -603,9 +619,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                         }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map) {
                 // 将房间信息保存到单独的数据结构中
                 if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
-                    if let Some(v) = val.string_value() {
-                        room_code_map.entry(v.to_string()).or_insert_with(RefU64Vec::default).push(refno);
-                    }
+                    room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
                 }
 
                 whole_attr_dashmap.insert(refno, whole_attmap);
