@@ -639,7 +639,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
     Ok(PdmsDbData {
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
-        ele_id_tree: PdmsTree(ele_id_tree),
+        ele_id_tree: PdmsTree::default(),
         all_attr_map: Arc::try_unwrap(all_attr_map).unwrap(),
         total_attr_map: Arc::try_unwrap(total_attr_map).unwrap(),
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
