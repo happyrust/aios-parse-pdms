@@ -24,10 +24,10 @@ impl DerefMut for StringDatabase {
     }
 }
 
-impl StringDatabase {
-    ///获得refno的project 名称
-    #[inline]
-    pub fn get_string(&self, hash: AiosStrHash) -> Result<Option<AiosStr>, bonsaidb::core::Error> {
-        Ok(AiosStr::get(hash, &self.db)?.map(|x| x.contents))
-    }
-}
+// impl StringDatabase {
+//     ///获得refno的project 名称
+//     #[inline]
+//     pub fn get_string(&self, hash: AiosStrHash) -> Result<Option<AiosStr>, bonsaidb::core::Error> {
+//         Ok(AiosStr::get(hash, &self.db)?.map(|x| x.contents))
+//     }
+// }

@@ -29,17 +29,9 @@ use crate::data_interface::PdmsDataInterface;
 use crate::db_tool::db1_hash;
 use crate::local_db::helper::combine_to_u64;
 use crate::parse::{get_dbnos_of_mdb, NOUN_TYPES_MAP, parse_file_basic_info, PdmsDbData, RoomCode};
-// use crate::pdms_types::{AiosStr, AiosStrHash, CachedMeshesMgr, DbnoVersion, EleGeoInstData, GeoData, Integer, PdmsMeshMgr, PdmsNodeId, PdmsTree, RefI32Tuple, RefnoInfo, RefU64, RefU64Vec, ScaledGeom, ShapeInstancesMgr, StringLookupTable};
-// use crate::prim_geo::ctorus::{CTorus, SCTorus};
-// use crate::prim_geo::extrusion::{CurveType, Extrusion};
-// use crate::shape::pdms_shape::{ PdmsPrimShape};
-// use crate::prim_geo::revolution::Revolution;
 use crate::local_db::consts::*;
 use crate::local_db::refno_info_database::RefInoDatabase;
 use crate::local_db::string_database::StringDatabase;
-// use crate::pdms_data::ScomInfo;
-// use crate::pdms_types::AttrVal::{RefU64Type, StringHashType, StringType, WordType};
-// use crate::prim_geo::facet::{Contour, Facet, Polygon};
 use async_trait::async_trait;
 use bevy::prelude::Transform;
 use dashmap::DashMap;
@@ -127,19 +119,19 @@ pub struct PdmsConfig {
 
 
 ///MDB数据库管理
-#[derive(Debug, Component)]
-pub struct AiosDBManager {
-    pub project_map: DashMap<u32, AiosPdmsProjectSkyTable>,
-    //project hash -> Project DBS
-    //project name hash -> Aios DB
-    pub info_db: Connection,
-
-    pub projects: Vec<String>,
-
-    pub needed_parse_files: Option<Vec<String>>,
-
-    pub project_path: String,  //整个项目的路径
-}
+// #[derive(Debug, Component)]
+// pub struct AiosDBManager {
+//     pub project_map: DashMap<u32, AiosPdmsProjectSkyTable>,
+//     //project hash -> Project DBS
+//     //project name hash -> Aios DB
+//     pub info_db: Connection,
+//
+//     pub projects: Vec<String>,
+//
+//     pub needed_parse_files: Option<Vec<String>>,
+//
+//     pub project_path: String,  //整个项目的路径
+// }
 
 // #[async_trait]
 // impl PdmsDataInterface for AiosDBManager {

@@ -41,6 +41,7 @@ use aios_core::tool::db_tool::{db1_hash, read_attr_info_config};
 use anyhow::anyhow;
 use futures::TryStreamExt;
 use id_tree::Tree;
+use lazy_static::lazy_static;
 use nalgebra_glm::Mat3;
 use skytable::actions::Actions;
 use skytable::{Connection, Element};
@@ -48,11 +49,14 @@ use skytable::ddl::{Ddl, Keymap, KeymapType};
 use skytable::types::RawString;
 use smol_str::SmolStr;
 use parse_pdms_db::notify_file_change::notify_file;
+use parse_pdms_db::options::DbOption;
+
 
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
 
 type AiosDbError = core::result::Result<(), Box<dyn std::error::Error>>;
+
 
 #[test]
 pub fn test_hash_noun() {
@@ -74,6 +78,24 @@ fn main() -> anyhow::Result<()> {
             WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), std::fs::File::create("parse_pdms_db.log").unwrap()),
         ]
     ).unwrap();
+
+    use config::{Config, ConfigError, Environment, File};
+    let s = Config::builder()
+        .add_source(File::with_name("DbOption"))
+        .build()?;
+    let db_option: DbOption = s.try_deserialize().unwrap();
+    dbg!(&db_option);
+    let mut time = Instant::now();
+    // let mut mgr = AiosDBManager::init(&db_option).unwrap();
+    // let v = mgr.get_attr(RefI32Tuple((23584, 205)).into())?;
+    println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
+    // let refno = RefU64::from_two_nums(15192, 77134);
+    // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
+    // let refno = RefU64::from_two_nums(15192, 77135);
+    // dbg!(mgr.get_attr(refno).unwrap().unwrap().to_string_hashmap());
+    // cache_viewer_data(&mut mgr, &db_option);
+    // mgr.build_collision_world(db_option.project_name.as_str(), db_option.main_db_code);
+    // mgr.set_ssc_room_tree(db_option.project_name.as_str(), db_option.main_db_code);
     return Ok(());
 }
 

@@ -52,6 +52,7 @@ use std::time::Instant;
 use aios_core::tool::db_tool::db1_hash;
 
 pub mod notify_file_change;
+pub mod options;
 
 pub type BHashMap<K, V> = bevy::utils::HashMap<K, V>;
 

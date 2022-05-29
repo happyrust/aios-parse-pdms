@@ -99,7 +99,7 @@ env_logger = "*"
 thiserror = "*"
 transmog-bincode = "0.1"
 
-bevy-inspector-egui = { path = "../new/bevy-inspector-egui" }
+#bevy-inspector-egui = { path = "../new/bevy-inspector-egui" }
 bevy = { path = "../new/bevy", default-features = true }
 bevy_egui = { path = "../new/bevy_egui", default-features = false, features = ["open_url"] }
 

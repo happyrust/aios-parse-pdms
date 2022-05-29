@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use aios_core::pdms_types::{PdmsDatabaseInfo, };
+use aios_core::tool::db_tool::{db1_hash, read_attr_info_config};
 use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
 
@@ -51,12 +52,11 @@ FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
 35 00 00 00";
     let data = convert_str_to_bytes(data_str);
     // let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let pdms_database_info = read_attr_info_config_json("all_attr_info.json");
+    let pdms_database_info = read_attr_info_config("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
     // if let Some(value) = lookup.lookup.get(&1433536923){
     //     println!("string={:?}",value.value());
@@ -137,12 +137,11 @@ fn test_sample_mdb() {
 00 00 5F FF 00 00 01 E1 00 00 5F FF 00 00 01 E4
 00 00 5F FF 00 00 01 E2 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_json("all_attr_info.json");
+    let pdms_database_info = read_attr_info_config("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
 }
 
@@ -152,4 +151,31 @@ fn change_info_bin_file() {
     let mut file = File::create("all_attr_info_new.json").unwrap();
     let v = serde_json::to_string(&info).unwrap();
     file.write(v.as_bytes()).unwrap();
+}
+
+#[test]
+fn test_room_code_sample() {
+    let data_str = "00 00 00 29 78 00 51 5C 00 00 21 65 00 08 F3 A6
+78 00 51 5C 00 00 21 64 00 00 09 56 00 15 00 01
+00 00 00 00 00 00 00 00 20 04 80 00 00 00 00 03
+7A E1 47 A0 40 C9 B0 74 47 AE 14 80 C0 CF 71 81
+00 00 00 00 C0 A1 F8 00 00 00 00 03 00 00 00 00
+40 56 80 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 0C 00 00 3B 6D 00 03 EF F2
+00 00 3B 6D 00 03 EF E8 00 00 00 01 00 00 00 02
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 40 9F 40 00 00 00 00 02 11 E3 A0 D7
+80 00 00 01 00 01 00 17 78 00 51 5C 00 00 21 65
+00 00 00 00 00 00 00 00 00 09 2E A7 0C 00 00 01
+FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
+06 A0 26 04 0C 00 00 01 00 36 7E CC 00 CC 6B 3F
+38 00 00 02 00 00 00 01 00 08 F3 A6 29 02 D6 DA
+28 00 00 03 00 00 00 05 31 52 31 30 31 00 00 00 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.json");
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
+    //     dbg!(map.value());
+    // }
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("ele_data={:?}",ele_data.whole_attmap);
 }
