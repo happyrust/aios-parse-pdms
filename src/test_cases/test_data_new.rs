@@ -179,3 +179,4 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
 }
+
