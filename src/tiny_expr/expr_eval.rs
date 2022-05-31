@@ -141,6 +141,7 @@ static FUNCTIONS: phf::Map<&'static str, Functions> = phf_map! {
     "pow" => Functions{fun: pow, flag: Flags::TE_FUNCTION2},
     "rand01" => Functions{fun: rand01, flag: Flags::TE_FUNCTION0},
     "randint" => Functions{fun: randint, flag: Flags::TE_FUNCTION2},
+    "min" => Functions{fun: min, flag: Flags::TE_FUNCTION2},
     "round" => Functions{fun: round, flag: Flags::TE_FUNCTION1},
     "sin" => Functions{fun: sin, flag: Flags::TE_FUNCTION1},
     "sinh" => Functions{fun: sinh, flag: Flags::TE_FUNCTION1},
@@ -175,6 +176,9 @@ fn comma(_: f64, b: f64) -> f64 {
 }
 fn abs(a: f64, _: f64) -> f64 {
     a.abs()
+}
+fn min(a: f64, b: f64) -> f64 {
+    a.min(b)
 }
 fn acos(a: f64, _: f64) -> f64 {
     a.acos().to_degrees()
