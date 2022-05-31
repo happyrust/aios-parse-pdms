@@ -892,3 +892,34 @@ fn test_mas_15194_5453() {
     println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
     println!("map={:?}",ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
 }
+
+#[test]
+fn test_mas_23704_838729(){
+    let data_str ="00 00 00 19 00 00 5C 98 00 0C CC 49 00 08 A1 E7
+00 00 5C 98 00 0C CC 2E 00 00 2A 3E 00 26 80 01
+00 00 00 00 00 00 00 00 20 0A C0 00 00 0A 50 65
+00 0E 07 0D 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 08 A1 E7
+00 00 00 00 00 01 00 30 00 00 5C 98 00 0C CC 49
+00 00 00 00 00 00 00 00 00 09 39 40 28 00 00 06
+00 00 00 14 4D 44 53 20 41 6E 63 69 6C 6C 61 72
+79 20 57 65 69 67 68 74 00 0E 39 6E 28 00 00 06
+00 00 00 14 4D 44 53 20 41 6E 63 69 6C 6C 61 72
+79 20 57 65 69 67 68 74 FF F3 2D C0 1C 00 00 12
+00 00 00 11 00 00 00 11 00 00 00 01 00 00 00 6A
+00 00 00 02 2C F2 AF 1C 00 00 00 01 00 00 00 01
+00 00 00 00 00 00 06 42 00 00 00 07 00 00 00 02
+00 00 00 00 00 00 00 22 00 0D BC F9 00 00 00 01
+00 00 00 05 00 00 06 A5 00 09 C1 8E 3C 00 00 05
+00 00 00 0F 2F 53 54 35 33 2D 44 41 54 41 2D 57
+45 49 47 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
+        dbg!(map.value());
+    };
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    println!("map={:?}",ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
+}
