@@ -58,17 +58,41 @@ pub struct WholeAttMap {
 }
 
 impl WholeAttMap {
-    pub fn refine(mut self,info_map:&DashMap<i32,AttrInfo>)  -> Self{
-        for (k,v) in self.explicit_attmap.clone().map {
+    pub fn refine(mut self, info_map: &DashMap<i32, AttrInfo>) -> Self {
+        for (k, v) in self.explicit_attmap.clone().map {
             let noun_hash = k.0;
-            if let Some(info) = info_map.get(&(noun_hash as i32)){
-                if info.offset > 0{
+            if let Some(info) = info_map.get(&(noun_hash as i32)) {
+                if info.offset > 0 /*&& EXPR_ATT_SET.contains(&(noun_hash as i32))*/ {
                     let v = self.explicit_attmap.remove(&NounHash(noun_hash)).unwrap();
-                    self.implicit_attmap.insert(NounHash(noun_hash),v);
+                    self.implicit_attmap.insert(NounHash(noun_hash), v);
                 }
             }
         }
         self
+    }
+
+    #[inline]
+    pub fn into_bincode_bytes(&self) -> Vec<u8> {
+        bincode::serialize(self).unwrap()
+    }
+
+    #[inline]
+    pub fn into_compress_bytes(&self) -> Vec<u8> {
+        use flate2::Compression;
+        use flate2::write::DeflateEncoder;
+        let mut e = DeflateEncoder::new(Vec::new(), Compression::default());
+        e.write_all(&self.into_bincode_bytes());
+        e.finish().unwrap_or_default()
+    }
+
+    #[inline]
+    pub fn from_compress_bytes(bytes: &[u8]) -> Option<Self> {
+        use flate2::write::DeflateDecoder;
+        let mut writer = Vec::new();
+        let mut deflater = DeflateDecoder::new(writer);
+        deflater.write_all(bytes).ok()?;
+        // writer = ;
+        bincode::deserialize(&deflater.finish().ok()?).ok()
     }
 }
 
@@ -806,9 +830,12 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
     let total_len = input.len();
 
     while residual.len() >= 8 {
+
         let mut att_value = None;
         let debug_pos = total_len - residual.len();
+        let origin_explicit_hash = parse_to_u32(&residual[..4]);
         let hash_val = convert_to_hash(&residual[..4]);
+
         if check_is_expr(hash_val as i32) {
             let (input, (expression_type, value)) = parse_expression_attr(residual, refno)?;
             att_value = Some(StringType(value));
@@ -1066,9 +1093,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         }
         if let Some(v) = att_value {
             if EXPR_ATT_SET.contains(&(hash_val as i32)) {
-                attr_data_map.insert(NounHash(hash_val), v);
+                attr_data_map.insert(NounHash(origin_explicit_hash), v);
             } else {
-                attr_data_map.entry(NounHash(hash_val)).or_insert(v);
+                attr_data_map.entry(NounHash(origin_explicit_hash)).or_insert(v);
             }
         }
     }
@@ -3140,10 +3167,3 @@ pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 0x8D92Bi32 => "DLLB",
 0xB55143Ai32 => "XPITEM",
 };
-
-
-#[test]
-fn parse_files_test() {
-    let dir = r"D:\ABA(12.0)\ABA\ABA000\debug_files";
-    parse_pdms_dir(&dir, "", None, &None);
-}
