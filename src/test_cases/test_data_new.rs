@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Write;
-use aios_core::pdms_types::{PdmsDatabaseInfo, };
-use aios_core::tool::db_tool::{db1_hash, read_attr_info_config};
+use aios_core::pdms_types::{NounHash, PdmsDatabaseInfo};
+use aios_core::tool::db_tool::{db1_dehash, db1_hash, read_attr_info_config};
 use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
 
@@ -222,4 +222,41 @@ fn test_sample_23584_2702() {
     }
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
+}
+
+#[test]
+fn test_sample_23584_5703(){
+    let data_str = "00 00 00 2B 00 00 5C 20 00 00 16 47 00 0C 54 7E
+00 00 5C 20 00 00 16 3D 00 00 03 2F 00 39 60 01
+00 00 00 00 00 00 00 00 20 09 40 00 00 00 00 03
+00 00 00 00 40 C2 3E 00 00 00 00 00 40 C7 40 C0
+00 00 00 00 40 8B 98 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 40 56 80 00 00 00 00 00
+00 00 00 00 00 00 00 0C 00 00 3B 58 00 03 83 BC
+00 00 3B 58 00 03 80 2D 00 00 00 01 00 00 00 02
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 02 53 72 94 35
+80 00 00 01 00 00 00 00 00 00 00 00 00 01 00 2A
+00 00 5C 20 00 00 16 47 00 00 00 00 00 00 00 00
+00 0A AF CA 14 00 00 01 00 00 00 00 00 09 2E A7
+0C 00 00 01 FF FF FF FF 00 0B C6 C0 14 00 00 01
+00 00 00 01 06 A0 26 04 0C 00 00 01 00 0D F3 17
+10 71 D1 20 08 00 00 02 00 00 00 00 00 00 00 00
+10 71 D1 2B 08 00 00 02 00 00 00 00 00 00 00 00
+0F B7 7D 24 18 00 00 07 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
+00 0C 54 7E 00 08 DF C1 1C 00 00 02 00 00 00 01
+00 00 00 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xC547E) {
+        dbg!(map.value());
+    }
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("ele_data={:?}",ele_data.whole_attmap);
+    if let Some(noll) = ele_data.whole_attmap.implicit_attmap.get(&NounHash(835759)) {
+        let noll = noll.double_value().unwrap();
+        assert_eq!(0.0,noll);
+    }
 }
