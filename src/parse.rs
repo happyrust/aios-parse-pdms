@@ -453,16 +453,16 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             parse_explict_attrs(&merged_data, &attr_info_map, &mut explicit_attmap, refno).ok()?;
         }
     }
-    attr_info_map.iter().for_each(|pair| {
-        let name = &pair.value().name;
-        if !attr_data_map.contains_attr_hash(*pair.key() as u32) {
-            match name.as_str() {
-                "PTCDI" => attr_data_map.insert_by_att_name("PTCD", StringType("Y".into())),
-                "PARA" => attr_data_map.insert_by_att_name("PARA", DoubleArrayType(vec![])),
-                _ => {}
-            }
-        }
-    });
+    // attr_info_map.iter().for_each(|pair| {
+    //     let name = &pair.value().name;
+    //     if !attr_data_map.contains_attr_hash(*pair.key() as u32) {
+    //         match name.as_str() {
+    //             "PTCDI" => attr_data_map.insert_by_att_name("PTCD", StringType("Y".into())),
+    //             "PARA" => attr_data_map.insert_by_att_name("PARA", DoubleArrayType(vec![])),
+    //             _ => {}
+    //         }
+    //     }
+    // });
 
     //添加遗漏的属性
     implicit_attmap.insert_by_att_name("OWNER", RefU64Type(owner));
