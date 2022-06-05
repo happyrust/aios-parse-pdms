@@ -45,8 +45,6 @@ use anyhow::*;
 use bevy::prelude::In;
 use concurrent_queue::ConcurrentQueue;
 use rayon::prelude::IntoParallelIterator;
-use skytable::{Element, SkyResult};
-use skytable::types::{FromSkyhashBytes, IntoSkyhashBytes};
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
@@ -140,20 +138,6 @@ pub struct RoomCode {
     pub name_hash: AiosStrHash,
 }
 
-impl IntoSkyhashBytes for &RoomCode {
-    fn as_bytes(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
-    }
-}
-
-impl FromSkyhashBytes for RoomCode {
-    fn from_element(element: Element) -> SkyResult<Self> {
-        if let Element::Binstr(v) = element {
-            return Ok(bincode::deserialize::<RoomCode>(&v).unwrap());
-        }
-        Err(skytable::error::Error::ParseError("Bad element type".to_string()))
-    }
-}
 
 
 ///解析pdms的目录
