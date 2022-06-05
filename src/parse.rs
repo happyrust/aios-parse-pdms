@@ -60,7 +60,7 @@ impl WholeAttMap {
         for (k, v) in self.explicit_attmap.clone().map {
             let noun_hash = k.0;
             if let Some(info) = info_map.get(&(noun_hash as i32)) {
-                if info.offset > 0 /*&& EXPR_ATT_SET.contains(&(noun_hash as i32))*/ {
+                if info.offset > 0 && EXPR_ATT_SET.contains(&(noun_hash as i32)) {
                     let v = self.explicit_attmap.remove(&NounHash(noun_hash)).unwrap();
                     self.implicit_attmap.insert(NounHash(noun_hash), v);
                 }
@@ -817,7 +817,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
 
         let mut att_value = None;
         let debug_pos = total_len - residual.len();
-        let origin_explicit_hash = parse_to_u32(&residual[..4]);
+        // let origin_explicit_hash = parse_to_u32(&residual[..4]);
         let hash_val = convert_to_hash(&residual[..4]);
 
         if check_is_expr(hash_val as i32) {
@@ -1077,9 +1077,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         }
         if let Some(v) = att_value {
             if EXPR_ATT_SET.contains(&(hash_val as i32)) {
-                attr_data_map.insert(NounHash(origin_explicit_hash), v);
+                attr_data_map.insert(NounHash(hash_val), v);
             } else {
-                attr_data_map.entry(NounHash(origin_explicit_hash)).or_insert(v);
+                attr_data_map.entry(NounHash(hash_val)).or_insert(v);
             }
         }
     }
