@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use aios_core::pdms_types::{NounHash, PdmsDatabaseInfo};
-use aios_core::tool::db_tool::{db1_dehash, db1_hash, read_attr_info_config};
+use aios_core::tool::db_tool::{db1_dehash, db1_hash, read_attr_info_config_from_bin, read_attr_info_config_from_json};
 use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
 
@@ -30,7 +30,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 35 00 00 00
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("SECT") as i32)) {
         dbg!(map.value());
     };
@@ -51,8 +51,8 @@ fn test_24575_228_sample() {
 FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
 35 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    // let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    let pdms_database_info = read_attr_info_config("all_attr_info.json");
+    // let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
@@ -137,7 +137,7 @@ fn test_sample_mdb() {
 00 00 5F FF 00 00 01 E1 00 00 5F FF 00 00 01 E4
 00 00 5F FF 00 00 01 E2 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config("all_attr_info.json");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
@@ -172,7 +172,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 38 00 00 02 00 00 00 01 00 08 F3 A6 29 02 D6 DA
 28 00 00 03 00 00 00 05 31 52 31 30 31 00 00 00 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config("all_attr_info.json");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
@@ -253,10 +253,114 @@ fn test_sample_23584_5703(){
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xC547E) {
         dbg!(map.value());
     }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
     if let Some(noll) = ele_data.whole_attmap.implicit_attmap.get(&NounHash(835759)) {
         let noll = noll.double_value().unwrap();
         assert_eq!(0.0,noll);
     }
+}
+
+#[test]
+fn test_scb_2013286748_34484() {
+    let data_str = "00 00 00 1C 78 00 51 5C 00 00 86 B4 00 09 D6 5A
+78 00 31 5C 00 00 00 00 00 00 A7 F3 00 1C 40 01
+00 00 A7 F3 00 1A E0 01 20 04 C0 06 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 02 00 0B 78 00 51 5C 00 00 86 B4 00 00 00 00
+00 00 00 00 78 00 51 5C 00 00 C8 5E 78 00 51 5C
+00 00 86 BD 78 00 51 5C 00 00 9B 37 00 01 00 18
+78 00 51 5C 00 00 86 B4 00 00 00 00 00 00 00 00
+00 CC 6B 3F 38 00 00 02 00 00 00 01 00 09 D6 5A
+00 09 C1 8E 3C 00 00 09 00 00 00 1F 2F E5 B7 A5
+E8 89 BA E5 B8 83 E7 BD AE E4 B8 93 E4 B8 9A 2D
+43 4E 50 45 53 53 43 54 45 53 54 00 29 02 D6 E0
+28 00 00 02 00 00 00 04 50 49 50 45 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xC547E) {
+        dbg!(map.value());
+    }
+    let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("ele_data={:?}",ele_data.whole_attmap);
+}
+
+#[test]
+fn test_scb_2013286748_51294_cnpedivco() {
+    let data_str = "00 00 00 22 78 00 51 5C 00 00 C8 5E 00 09 C5 ED
+78 00 51 5C 00 00 86 B4 00 00 A7 D1 00 33 80 01
+00 00 A7 D1 00 31 E0 01 20 05 00 08 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 02 00 0D 78 00 51 5C
+00 00 C8 5E 00 00 00 00 00 00 00 00 78 00 51 5C
+00 00 C8 5F 78 00 51 5C 00 00 C8 60 78 00 51 5C
+00 00 C8 61 78 00 51 5C 00 00 C8 62 00 01 00 19
+78 00 51 5C 00 00 C8 5E 00 00 00 00 00 00 00 00
+00 CC 6B 3F 38 00 00 02 00 00 00 01 00 09 C5 ED
+00 84 9D 24 0C 00 00 01 00 00 00 02 00 09 C1 8E
+3C 00 00 06 00 00 00 11 2F 50 49 50 45 53 55 2D
+31 52 31 30 31 2E 30 30 31 00 00 00 29 02 D6 E1
+28 00 00 03 00 00 00 06 50 49 50 45 53 55 00 00 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
+    let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("ele_data={:?}",ele_data.whole_attmap);
+}
+
+#[test]
+fn test_scb_2013286748_51300 () {
+    let data_str = "00 00 00 25 78 00 51 5C 00 00 C8 64 00 08 61 E0
+78 00 51 5C 00 00 C8 63 00 00 AB 5A 00 14 80 01
+00 00 00 00 00 00 00 00 20 01 C0 00 00 00 00 03
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 3F E0 00 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 0A
+00 00 00 02 00 00 00 00 40 24 00 00 00 00 00 00
+40 52 C0 00 00 00 00 00 40 69 00 00 00 00 00 01
+05 F6 AC 58 00 01 00 0C 78 00 51 5C 00 00 C8 64
+00 00 00 00 00 00 00 00 29 02 D6 DA 28 00 00 05
+00 00 00 0E 31 52 58 2D 52 4D 30 36 2D 31 52 31
+30 31 00 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
+    let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("ele_data={:?}",ele_data.whole_attmap);
+}
+
+#[test]
+fn test_sample_23584_5445() {
+    let data_str = "00 00 00 2B 00 00 5C 20 00 00 15 45 00 0C 54 7E
+00 00 5C 20 00 00 15 43 00 00 08 BB 00 0D C0 01
+00 00 00 00 00 00 00 00 20 09 40 00 00 00 00 03
+00 00 00 00 40 C8 65 00 00 00 00 00 40 C7 FC 00
+00 00 00 00 40 91 FE 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 C0 56 80 00 00 00 00 00
+00 00 00 00 00 00 00 0E 00 00 3B 58 00 03 83 EC
+00 00 3B 58 00 03 80 27 00 00 00 01 00 00 00 02
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 02 53 72 A2 0B
+80 00 00 01 00 00 00 00 00 00 00 00 00 01 00 2A
+00 00 5C 20 00 00 15 45 00 00 00 00 00 00 00 00
+00 0A AF CA 14 00 00 01 00 00 00 00 00 09 2E A7
+0C 00 00 01 FF FF FF FF 00 0B C6 C0 14 00 00 01
+00 00 00 01 06 A0 26 04 0C 00 00 01 00 0D F3 17
+10 71 D1 20 08 00 00 02 00 00 00 00 00 00 00 00
+10 71 D1 2B 08 00 00 02 00 00 00 00 00 00 00 00
+0F B7 7D 24 18 00 00 07 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
+00 0C 54 7E 00 08 DF C1 1C 00 00 02 00 00 00 01
+00 00 00 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
+    let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("ele_data={:?}",ele_data.whole_attmap);
 }

@@ -12,6 +12,7 @@ pub const ATT_NUMB: i32 = 0x8DD01;
 pub const ATT_PTRE: i32 = 0x9D1CE;
 pub const ATT_PRTR: i32 = 0x557F908;
 pub const ATT_ROOM: i32 = 0x2902D6DA;
+pub const ATT_DIVCO: i32 = 688051937;
 
 // pub const URL:&'static str = "10.27.20.30";
 pub const URL:&'static str = "127.0.0.1";

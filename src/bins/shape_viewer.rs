@@ -12,7 +12,6 @@ use std::f32::consts::FRAC_PI_4;
 use std::io::Read;
 use std::sync::Arc;
 use bevy::input::keyboard::KeyboardInput;
-use bevy::prelude::MouseButton;
 use lyon::path::Position;
 use truck_meshalgo::prelude::*;
 use truck_modeling::*;
