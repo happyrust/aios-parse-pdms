@@ -37,7 +37,7 @@ use parse_pdms_db::parse::*;
 use parse_pdms_db::parse_explict_tools::*;
 use std::ffi::OsString;
 use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, RefI32Tuple, };
-use aios_core::tool::db_tool::{db1_hash, read_attr_info_config_from_bin};
+use aios_core::tool::db_tool::{db1_hash};
 use anyhow::anyhow;
 use futures::TryStreamExt;
 use id_tree::Tree;
@@ -54,20 +54,6 @@ const ATT_DB: i32 = 0x81C2B;
 type AiosDbError = core::result::Result<(), Box<dyn std::error::Error>>;
 
 
-#[test]
-pub fn test_hash_noun() {
-    //dbg!(db1_dehash(0xE5461));
-    //dbg!(db1_dehash(0x95A34));
-    //dbg!(db1_dehash(0xC89B3));
-    //dbg!(db1_dehash(0x9298B));
-    //dbg!(db1_dehash(0x9CAF3));
-    //dbg!(db1_dehash(0x9BBDAC));
-
-    //dbg!(db1_dehash(convert_to_hash([0xFF, 0xF6, 0x94, 0x65].as_slice())));
-}
-
-// #[tokio::main]
-// async
 fn main() -> anyhow::Result<()> {
     CombinedLogger::init(
         vec![

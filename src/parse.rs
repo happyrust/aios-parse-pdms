@@ -115,13 +115,13 @@ pub struct PdmsDbData {
     /// refno 到 NodeId的映射表
     pub refno_node_id_map: HashMap<RefU64, NodeId>,
     ///数据文件名
-    pub filename: SmolStr,
+    pub filename: String,
     ///数据文件的版本号
     pub version: Integer,
     ///数据文件的db type（DESI、CATA、SYS等等）
-    pub db_type: SmolStr,
+    pub db_type: String,
     /// 数据文件的db 名称（SYS里用的名称）
-    pub db_name: SmolStr,
+    pub db_name: String,
     ///数据文件的 db number
     // pub db_no: u32,
     pub db_no: Integer,
@@ -139,9 +139,8 @@ pub struct RoomCode {
 }
 
 
-
 ///解析pdms的目录
-pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_parsed_files: &Option<Vec<String>>) -> anyhow::Result<DashMap<SmolStr, PdmsDbData>> {
+pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_parsed_files: &Option<Vec<String>>) -> anyhow::Result<DashMap<String, PdmsDbData>> {
     let dir = PathBuf::from(dir);
     let mut pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?.into_iter().map(|entry| {
@@ -171,11 +170,11 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
                 let map = m.value();
                 let num = map.get_u32("NUMBDB").ok_or(anyhow!("NUMBDB not exist".to_string()))?;
                 let fnum = map.get_u32("FINO").ok_or(anyhow!("FINO not exist".to_string()))?;
-                let name = map.get_as_string("NAME").ok_or(anyhow!("NAME not exist".to_string()))?;
+                let name = map.get_as_string("NAME").ok_or(anyhow!("NAME not exist".to_string()))?.to_string();
                 let db_no = if fnum == 0 { num } else { fnum };
                 pdms_db_name_map.insert(db_no, name);
                 Ok(())
-            });
+            })?;
             if pdms_db_name_map.contains_key(&pdms_db_data.db_no.0) {
                 pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no.0).unwrap().clone();
             } else {
@@ -202,11 +201,11 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
                     let cur_dbno = pdms_db_data.db_no.0.to_string();
                     if pdms_db_data.filename.contains(&cur_dbno) {
                         if pdms_db_name_map.contains_key(&pdms_db_data.db_no.0) {
-                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no.0).unwrap().clone();
+                            pdms_db_data.db_name = /*SmolStr::new(*/pdms_db_name_map.get(&pdms_db_data.db_no.0).unwrap().clone()/*)*/;
                         }
                     } else {
                         if pdms_db_name_map.contains_key(&pdms_db_data.field_no.0) {
-                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.field_no.0).unwrap().clone();
+                            pdms_db_data.db_name = /*SmolStr::new(*/pdms_db_name_map.get(&pdms_db_data.field_no.0).unwrap().clone()/*)*/;
                         } else {
                             pdms_db_data.db_name = file_name.into();
                         }
@@ -338,7 +337,6 @@ fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
 ///解析单个Element Data数据
 #[inline]
 pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> Option<EleData> {
-    // dbg!(attr_info_map.len());
     let mut attr_data_map = AttrMap::default();
     let mut implicit_attmap = AttrMap::default();
     let mut explicit_attmap = AttrMap::default();
@@ -440,8 +438,10 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
                 } else {
                     cur_offset += advance as i32;
                 }
-                // attr_data_map.insert_by_att_name(attr_info.name.as_str(), att_val);
-                implicit_attmap.insert_by_att_name(attr_info.name.as_str(), att_val);
+                // unset 是pdms数据中存在info文件里没有的offset数据，手动在info文件里面加的这个 unset 占位
+                if attr_info.name!= "unset" {
+                    implicit_attmap.insert_by_att_name(attr_info.name.as_str(), att_val);
+                }
             }
         }
     }
@@ -506,7 +506,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut all_attr_map: Arc<DashMap<RefU64, AttrMap>> = Arc::new(DashMap::new());
     let mut total_attr_map: Arc<DashMap<RefU64, WholeAttMap>> = Arc::new(DashMap::new());
     /// 所有的房间号信息的refno和对应的房间号
-    // let mut room_code_map: Arc<DashMap<RefU64, RoomCode>> = Arc::new(DashMap::new());
     let mut room_code_map: Arc<DashMap<String, RefU64Vec>> = Arc::new(DashMap::new());
     let time_start = std::time::Instant::now();
     let mut field_no = 0;
@@ -554,7 +553,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
         room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
     }
-
     total_attr_map.insert(refno, whole_attmap);
     type_ele_map.entry(noun).or_insert(HashSet::default()).insert(refno);
     let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
@@ -569,7 +567,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     if children.len() > 0 {
         children_map.insert(refno, children.clone());
     }
-
 
     let mut memb_time = Instant::now();
     let mut pending_refnos = vec![root_refno.clone()];
@@ -668,6 +665,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32) -> IResult<&'a [u8], (usize, AttrVal)> {
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
+
     let n = db1_dehash(attr_info.hash as u32);
     let b_expr = check_is_expr(attr_info.hash);
     let data_len = input.len();
@@ -713,8 +711,13 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
                         advance_offset = 1;
                     } else {
                         let d = parse_to_f64(&input[..8]);
-                        val = AttrVal::DoubleType(d);
-                        advance_offset = 2;
+                        if d > f32::MAX as f64 {
+                            val = AttrVal::DoubleType(0.0);
+                            advance_offset = 2;
+                        } else {
+                            val = AttrVal::DoubleType(d);
+                            advance_offset = 2;
+                        }
                     }
                 }
                 DbAttributeType::BOOL => {
@@ -814,7 +817,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
     let total_len = input.len();
 
     while residual.len() >= 8 {
-
         let mut att_value = None;
         let debug_pos = total_len - residual.len();
         // let origin_explicit_hash = parse_to_u32(&residual[..4]);
@@ -1720,11 +1722,11 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 /// 获取文件的type和version, db number
-pub fn parse_file_basic_info(input: &[u8]) -> (SmolStr, u32, u32) {
+pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
     let t = parse_to_u32(&input[32..36]);
-    let mut file_type = SmolStr::new("");
+    let mut file_type = "".to_string();
     if t >= 0x81BF1 {
-        file_type = db1_dehash(t).into();
+        file_type = db1_dehash(t);
     }
     let db_no = parse_to_u32(&input[8..12]);
     let version = parse_to_u32(&input[40..44]);

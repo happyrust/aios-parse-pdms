@@ -18410,6 +18410,15 @@
 				},
 				"att_type": "BOOL"
 			},
+			"28933118" : {
+				"name": "unset",
+				"hash": 28933118,
+				"offset":38,
+				"default_val": {
+					"StringType": ""
+				},
+				"att_type": "STRING"
+			},
 			"835759": {
 				"name": "ALLO",
 				"hash": 835759,

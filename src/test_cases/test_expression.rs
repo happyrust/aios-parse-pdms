@@ -893,8 +893,7 @@ fn test_mas_15194_5453() {
     println!("map={:?}",ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
 }
 
-/// "PPRO": "StringType(\"ATTRIB :C'PT OF CATR\")", 属性有问题
-///
+/// PPRO dehash返回值错误 应为： ( :MDSSprWei OF CATR  )
 #[test]
 fn test_mas_23704_838729(){
     let data_str ="00 00 00 19 00 00 5C 98 00 0C CC 49 00 08 A1 E7
