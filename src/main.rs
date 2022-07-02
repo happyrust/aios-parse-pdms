@@ -37,7 +37,7 @@ use parse_pdms_db::parse::*;
 use parse_pdms_db::parse_explict_tools::*;
 use std::ffi::OsString;
 use aios_core::pdms_types::{AiosStr, PdmsCachedAttrMap, RefI32Tuple, };
-use aios_core::tool::db_tool::{db1_hash, read_attr_info_config};
+use aios_core::tool::db_tool::{db1_hash, read_attr_info_config_from_bin};
 use anyhow::anyhow;
 use futures::TryStreamExt;
 use id_tree::Tree;
@@ -155,7 +155,7 @@ fn change_info_bin_data() {
     // file.write(&bincode::serialize(&config).unwrap());
 
     // 查看是否修改成功
-    let att = read_attr_info_config("all_attr_info_new.bin").noun_attr_info_map;
+    let att = read_attr_info_config_from_bin("all_attr_info_new.bin").noun_attr_info_map;
     if let Some(value) = att.get(&(db1_hash("DB") as i32)) {
         if let Some(mut v) = value.value().get(&865153) {
             println!("v={:?}", v.value());

@@ -58,7 +58,7 @@ instant = "0.1.12"
 pollster = "0.2.5"
 ordered-float = "2.10.0"
 config = "0.13.1"
-flate2 = "1.0.23"
+flate2 = "1.0.24"
 
 highway = "0.7.0"
 hash32 = "0.2.1"
@@ -93,9 +93,7 @@ env_logger = "*"
 thiserror = "*"
 transmog-bincode = "0.1"
 
-#bevy-inspector-egui = { path = "../new/bevy-inspector-egui" }
-bevy = { path = "../new/bevy", default-features = false }
-#bevy_egui = { path = "../new/bevy_egui", default-features = false, features = ["open_url"] }
+bevy = { path = "../bevy", default-features = false }
 aios_core = { path = "../aios_core" }
 
 truck-base = { version = "0.3.0",git = "https://gitee.com/happydpc/truck.git" }
