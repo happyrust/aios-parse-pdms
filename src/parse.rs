@@ -1098,7 +1098,19 @@ fn get_param_type_with_i32(input: i32) -> String {
         val = format!("IPARAM {}", value);
     } else if input >= 0x1F5 {
         let value = input - 0x1F4;
-        val = format!("TWICE PARAM {}", value);
+        match value {
+            0..50 => {
+                val = format!("TWICE PARAM {}", value);
+            }
+            50..0x65 => {
+                val = format!("TWICE DESIGN PARAM {}", value - 50);
+            }
+            0x65..0x1F5 => {
+                let value = ((((input - 0x64) as f32 + 0.005) * 100.0).round() / 100.0) as i32;
+                val = format!("IPARAM {}", value);
+            }
+            _ => {}
+        }
     } else if input <= 0xFFFFFFFFu32 as i32 {
         let value = match_angle_or_return_number(input);
         val = value.to_string();
@@ -1393,10 +1405,11 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
                 if value >= 50 && value < 0x65 {
                     let value = value - 50;
+                    val = val.replace("PARAM", ""); // 防止出现两个para
                     val = format!("{} DESIGN PARAM {}", val, value);
                 } else if value >= 500 && value < 0x3E9 {
                     let value = value - 500;
-                    if value < 0x65 {
+                    if value < 50 {
                         val = format!("TWICE PARAM {}", value);
                     } else {
                         let value = value - 100;

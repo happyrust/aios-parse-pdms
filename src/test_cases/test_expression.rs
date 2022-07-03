@@ -484,8 +484,6 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 }
 
 
-
-
 #[test]
 fn test_gdb_exp_f32() {
     let data_str = "
@@ -671,7 +669,6 @@ FF FF FF FC 00 00 00 00 00 00 00 06 00 00 03 24
 }
 
 
-
 #[test]
 fn test_15194_5572_sample() {
     let data_str = "00 00 00 2E 00 00 3B 5A 00 00 15 C4 00 0F 7C 39
@@ -748,7 +745,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
         dbg!(map.value());
     };
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    println!("map={:?}",ele_data.attr_data_map.to_string_hashmap());
+    println!("map={:?}", ele_data.attr_data_map.to_string_hashmap());
 }
 
 #[test]
@@ -852,7 +849,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
         // dbg!(map.value());
     };
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    println!("map={:?}",ele_data.attr_data_map.to_string_hashmap());
+    println!("map={:?}", ele_data.attr_data_map.to_string_hashmap());
 }
 
 #[test]
@@ -889,14 +886,14 @@ fn test_mas_15194_5453() {
         // dbg!(map.value());
     };
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
-    println!("map={:?}",ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
+    println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    println!("map={:?}", ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
 }
 
 /// PPRO dehash返回值错误 应为： ( :MDSSprWei OF CATR  )
 #[test]
-fn test_mas_23704_838729(){
-    let data_str ="00 00 00 19 00 00 5C 98 00 0C CC 49 00 08 A1 E7
+fn test_mas_23704_838729() {
+    let data_str = "00 00 00 19 00 00 5C 98 00 0C CC 49 00 08 A1 E7
 00 00 5C 98 00 0C CC 2E 00 00 2A 3E 00 26 80 01
 00 00 00 00 00 00 00 00 20 0A C0 00 00 0A 50 65
 00 0E 07 0D 00 00 00 04 00 00 00 00 00 00 00 00
@@ -921,8 +918,8 @@ fn test_mas_23704_838729(){
         dbg!(map.value());
     };
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
-    println!("map={:?}",ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
+    println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    println!("map={:?}", ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
 }
 
 #[test]
@@ -948,12 +945,12 @@ fn test_mas_15213_499889() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
 }
 
 #[test]
 fn test_mas_15213_499728() {
-    let data_str ="00 00 00 21 00 00 3B 6D 00 07 A0 10 00 0F 56 3E
+    let data_str = "00 00 00 21 00 00 3B 6D 00 07 A0 10 00 0F 56 3E
 00 00 3B 6D 00 07 A0 0D 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 03
 00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
@@ -968,7 +965,7 @@ fn test_mas_15213_499728() {
         dbg!(map.value());
     };
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
 }
 
 #[test]
@@ -988,5 +985,42 @@ FF FF FF D8 00 00 00 01 00 00 00 48 00 00 00 00
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PY") {
+        let result = val.string_value();
+        assert_eq!(result, "-1 TIMES  DESIGN PARAM 22".to_string());
+    }
+}
+
+#[test]
+fn test_mas_15213_499886() {
+    let data_str = "00 00 00 41 00 00 3B 6D 00 07 A0 AE 00 0D CC D4
+00 00 3B 6D 00 07 A0 AB 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0F
+00 00 00 02 00 00 00 01 00 00 00 01 00 00 00 02
+00 00 00 01 00 00 00 03 00 00 00 02 00 00 00 03
+00 00 03 EA 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 28 00 00 00 01 00 00 00 42 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 28 00 00 00 04
+00 00 00 34 00 00 02 35 00 00 00 04 00 00 00 28
+00 00 00 04 00 00 00 35 00 00 02 35 00 00 00 04
+00 00 00 28 00 00 00 04 00 00 00 34 00 00 02 35
+00 00 00 04 00 00 00 28 00 00 00 04 00 00 00 35
+00 00 02 35 00 00 00 41 00 00 3B 6D 00 07 A0 B0
+00 0D CC D4";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PCTP") {
+        let result = val.string_value();
+        assert_eq!(result, "SUM DESIGN PARAM 3 TWICE DESIGN PARAM 15".to_string());
+    }
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PTDI") {
+        let result = val.string_value();
+        assert_eq!(result, " DESIGN PARAM 16".to_string());
+    }
 }
