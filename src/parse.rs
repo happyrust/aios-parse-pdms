@@ -1508,8 +1508,8 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
             }
             &[0x0, 0x0, 0x0, 0x7] => {
                 let (_, refno_0) = be_u32(&tmp_input[8..12])?;
-                let (_, refnp_1) = be_u32(&tmp_input[12..16])?;
-                val = format!("{}/{}", refno_0, refnp_1);
+                let (_, refno_1) = be_u32(&tmp_input[12..16])?;
+                val = format!("{}/{}", refno_0, refno_1);
                 //return Ok((input, StringType(String::new())));
             }
             &[0x0, 0x0, 0x0, 0x8] => {
