@@ -28,7 +28,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
 00 00 00 56 00 00 00 41 00 00 00 43 00 00 00 41
 00 00 00 44 00 00 00 56 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     if let Some(r) = ele_data.attr_data_map.get_val("PPRO") {
@@ -64,7 +64,7 @@ fn test_dbp_5194_136() {
 00 00 06 41 00 00 06 A5 00 09 D4 C4 0C 00 00 01
 00 00 00 01 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     if let Some(r) = ele_data.attr_data_map.get_val("PPRO") {
@@ -106,7 +106,7 @@ fn test_gdp_15194_223() {
 FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
@@ -139,7 +139,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // //dbg!(ele_data);
     let mut result = "".to_string();
@@ -182,7 +182,7 @@ fn test_gdp_15194_8039() {
 00 00 00 06 00 00 40 00 00 00 00 00 00 00 00 02
 00 00 00 00 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39i32) {
     //     //dbg!(map.value());
@@ -269,7 +269,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
 00 00 06 41 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
 
@@ -326,7 +326,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
 00 00 40 00 00 00 00 00 00 00 00 04 00 00 00 00
 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xBEEBFi32) {
     //     //dbg!(map.value());
@@ -367,7 +367,7 @@ FF F1 F3 AA 1C 00 00 1B 00 00 00 1A 00 00 00 1A
 00 00 00 00 40 00 04 02 00 00 00 00 00 00 00 06
 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     //dbg!(ele_data);
 }
@@ -395,7 +395,7 @@ fn test_sample_15213_499928_12_1() {
 00 00 00 00 00 00 00 00 10 10 00 00 00 10 00 01
 00 00 00 07 00 00 00 41 00 00 3B 6D 00 07 A0 D9";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         //dbg!(map.value());
     };
@@ -425,7 +425,7 @@ fn test_gdb_13802_5652() {
 00 00 00 65 00 00 00 02 00 00 00 03 00 00 03 EB
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -478,7 +478,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 06 41 00 00 06 A5 00 00 03 22
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -523,7 +523,7 @@ fn test_gdb_exp_f32() {
 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -558,7 +558,7 @@ fn test_gdb_exp_f32_13792_31766() {
 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -600,7 +600,7 @@ fn test_gdb_exp_f32_13792_31770() {
 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -626,7 +626,7 @@ fn test_gdb_exp_f32_13792_31779() {
 00 00 00 00 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -665,7 +665,7 @@ FF FF FF FC 00 00 00 00 00 00 00 06 00 00 03 24
 00 00 00 00 00 00 00 06 00 00 00 10 00 00 00 3D
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -743,7 +743,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 23 00 09 C1 8E 3C 00 00 05 00 00 00 0D
 2F 53 54 44 41 48 55 2D 42 41 53 45 31 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39) {
         dbg!(map.value());
     };
@@ -847,7 +847,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 09 C1 8E 3C 00 00 05 00 00 00 0D 2F 52 53 54
 49 46 2D 57 45 42 4F 55 54 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         // dbg!(map.value());
     };
@@ -884,7 +884,7 @@ fn test_mas_15194_5453() {
 3C 00 00 04 00 00 00 0A 2F 52 54 48 4F 4C 45 38
 2F 37 00 00 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         // dbg!(map.value());
     };
@@ -916,7 +916,7 @@ fn test_mas_23704_838729(){
 00 00 00 0F 2F 53 54 35 33 2D 44 41 54 41 2D 57
 45 49 47 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
         dbg!(map.value());
     };

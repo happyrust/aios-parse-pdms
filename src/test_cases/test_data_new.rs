@@ -30,7 +30,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 35 00 00 00
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("SECT") as i32)) {
         dbg!(map.value());
     };
@@ -52,7 +52,7 @@ FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
 35 00 00 00";
     let data = convert_str_to_bytes(data_str);
     // let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    // let pdms_database_info = read_attr_info_config_from_bin("all_attr_info.bin");
+    // let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());

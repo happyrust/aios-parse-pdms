@@ -44,7 +44,6 @@ use id_tree::Tree;
 use lazy_static::lazy_static;
 use nalgebra_glm::Mat3;
 use smol_str::SmolStr;
-use parse_pdms_db::notify_file_change::notify_file;
 use parse_pdms_db::options::DbOption;
 
 
@@ -125,26 +124,4 @@ fn main() -> anyhow::Result<()> {
 //     Ok(true)
 // }
 
-// 修改 all_attr_info_bin 文件的属性的默认值
-#[test]
-fn change_info_bin_data() {
-    // let mut config = read_attr_info_config("all_attr_info.bin");
-    // let att = config.noun_attr_info_map.clone();
-    // if let Some(value) = att.get(&(db1_hash("DB") as i32)){
-    //     if let Some(mut v) = value.value().get_mut(&865153){
-    //         v.att_type = aios_core::pdms_types::DbAttributeType::INTEGER;
-    //         v.default_val = aios_core::pdms_types::AttrVal::IntegerType(1);
-    //     }
-    // };
-    // config.noun_attr_info_map = att;
-    // let mut file = File::create("all_attr_info_new.bin").unwrap();
-    // file.write(&bincode::serialize(&config).unwrap());
 
-    // 查看是否修改成功
-    let att = read_attr_info_config_from_bin("all_attr_info_new.bin").noun_attr_info_map;
-    if let Some(value) = att.get(&(db1_hash("DB") as i32)) {
-        if let Some(mut v) = value.value().get(&865153) {
-            println!("v={:?}", v.value());
-        }
-    };
-}
