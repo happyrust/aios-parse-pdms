@@ -439,7 +439,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
                     cur_offset += advance as i32;
                 }
                 // unset 是pdms数据中存在info文件里没有的offset数据，手动在info文件里面加的这个 unset 占位
-                if attr_info.name!= "unset" {
+                if attr_info.name != "unset" {
                     implicit_attmap.insert_by_att_name(attr_info.name.as_str(), att_val);
                 }
             }
@@ -1261,6 +1261,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                     }
                     &[0x0, 0x0, 0x0, 0x20] => {
                         let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        dbg!(&value);
                         let result = format!("Z {} Y", value);
                         val = AttrVal::StringType(result.into());
                     }
@@ -1716,7 +1717,8 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
 pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
     let mut value = get_implicit_angle_expression(input);
     if value == "".to_string() {
-        value = format!("PARAM {}", be_u32(input)?.1);
+        value = get_param_type_with_i32(parse_to_i32(input));
+        // value = format!("PARAM {}", be_u32(input)?.1);
     }
     Ok((input, value))
 }
