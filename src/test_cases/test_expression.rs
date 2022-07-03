@@ -1,7 +1,7 @@
 use crate::parse::parse_ele_data;
 // use crate::pdms_types::{AttrVal, StringLookupTable};
 use aios_core::pdms_types::{AttrVal};
-use aios_core::tool::db_tool::read_attr_info_config_from_bin;
+use aios_core::tool::db_tool::{read_attr_info_config_from_bin, read_attr_info_config_from_json};
 use crate::test_cases::{convert_str_to_bytes};
 
 #[test]
@@ -923,4 +923,30 @@ fn test_mas_23704_838729(){
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
     println!("map={:?}",ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
+}
+
+#[test]
+fn test_mas_15213_499889() {
+    let data_str = "00 00 00 41 00 00 3B 6D 00 07 A0 B1 00 0D CC D4
+00 00 3B 6D 00 07 A0 AF 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0F
+00 00 00 02 00 00 00 01 00 00 00 01 00 00 00 02
+00 00 00 20 00 00 00 40 00 00 00 02 00 00 00 03
+00 00 00 06 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 28 00 00 00 01 00 00 00 38 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 28 00 00 00 01
+00 00 00 34 00 00 00 00 00 00 00 04 00 00 00 28
+00 00 00 01 00 00 00 35 00 00 00 00 00 00 00 04
+00 00 00 28 00 00 00 01 00 00 00 34 00 00 00 00
+00 00 00 04 00 00 00 28 00 00 00 01 00 00 00 35
+00 00 00 00 00 00 00 20 00 00 3B 6D 00 07 A0 B2
+00 0C D8 2B 00 00 3B 6D 00 07 A0 AF ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
 }
