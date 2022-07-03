@@ -1393,7 +1393,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                 let (_, value) = be_i32(&tmp_input[8..12])?;
                 if value >= 50 && value < 0x65 {
                     let value = value - 50;
-                    val = format!("DESIGN PARAM {}", value);
+                    val = format!("{} DESIGN PARAM {}", val, value);
                 } else if value >= 500 && value < 0x3E9 {
                     let value = value - 500;
                     if value < 0x65 {

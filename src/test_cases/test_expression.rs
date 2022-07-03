@@ -950,3 +950,43 @@ fn test_mas_15213_499889() {
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
 }
+
+#[test]
+fn test_mas_15213_499728() {
+    let data_str ="00 00 00 21 00 00 3B 6D 00 07 A0 10 00 0F 56 3E
+00 00 3B 6D 00 07 A0 0D 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 03
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 14
+00 00 00 01 00 00 00 3F 00 00 00 00 00 00 00 02
+00 00 00 01 00 00 00 01 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 21 00 00 3B 6D 00 07 A0 11 00 0F 56 3E";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF563E) {
+        dbg!(map.value());
+    };
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+}
+
+#[test]
+fn test_mas_15213_499777() {
+    let data_str = "00 00 00 2B 00 00 3B 6D 00 07 A0 41 00 0A F7 1D
+00 00 3B 6D 00 07 A0 3D 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 05
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 28
+00 00 00 01 00 00 00 47 00 00 00 00 00 00 00 04
+FF FF FF D8 00 00 00 01 00 00 00 48 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 02 00 00 00 02 00 00 00 02
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2B
+ 00 00 3B 6D 00 07 A0 42 00 0A F7 1D";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    println!("map={:?}",ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+}
