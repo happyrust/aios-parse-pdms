@@ -184,17 +184,17 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             let mut expression;
             if flags == (-1, -1) {
                 let v = result_stack.pop().unwrap_or_default();
-                expression = format!("ATTRIB {att_name}[{v}]{rpro_name}");
+                expression = format!("{att_name}[{v}]{rpro_name}");
             } else {
                 let num = flags.1;
                 if s_value == 0 {
                     if num == 1 {
-                        expression = format!("ATTRIB {att_name}");
+                        expression = format!("{att_name}");
                     } else {
-                        expression = format!("ATTRIB {att_name}[{num}]");
+                        expression = format!("{att_name}[{num}]");
                     }
                 } else {
-                    expression = format!("ATTRIB {att_name}{rpro_name}");
+                    expression = format!("{att_name}{rpro_name}");
                 }
             }
             result_stack.push(expression);
@@ -333,12 +333,12 @@ pub fn parse_xyz_data(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String
     Ok((&input[data_len * 4 + 4..], format!("{} ( {} ) ", coordinate, data)))
 }
 
-/// 返回ATTRIB PARA类的函数名
+/// 返回PARA类的函数名
 pub fn get_expression_func_name(input: &[u8]) -> IResult<&[u8], String> {
     let mut result = "".to_string();
     let (_, v) = be_u32(&input[4..8])?;
     if v > 0x81BF1 {
-        result = format!("ATTRIB {}", db1_dehash(v));
+        result = format!("{}", db1_dehash(v));
     }
     Ok((input, result))
 }

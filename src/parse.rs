@@ -1273,7 +1273,6 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                     }
                     &[0x0, 0x0, 0x0, 0x20] => {
                         let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
-                        dbg!(&value);
                         let result = format!("Z {} Y", value);
                         val = AttrVal::StringType(result.into());
                     }
