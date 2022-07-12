@@ -144,6 +144,7 @@ static FUNCTIONS: phf::Map<&'static str, Functions> = phf_map! {
     "min" => Functions{fun: min, flag: Flags::TE_FUNCTION2},
     "max" => Functions{fun: max, flag: Flags::TE_FUNCTION2},
     "round" => Functions{fun: round, flag: Flags::TE_FUNCTION1},
+    "int" => Functions{fun: int, flag: Flags::TE_FUNCTION1},
     "sin" => Functions{fun: sin, flag: Flags::TE_FUNCTION1},
     "sinh" => Functions{fun: sinh, flag: Flags::TE_FUNCTION1},
     "sqrt" => Functions{fun: sqrt, flag: Flags::TE_FUNCTION1},
@@ -177,6 +178,9 @@ fn comma(_: f64, b: f64) -> f64 {
 }
 fn abs(a: f64, _: f64) -> f64 {
     a.abs()
+}
+fn int(a: f64, _: f64) -> f64 {
+    f64::floor(a)
 }
 fn min(a: f64, b: f64) -> f64 {
     a.min(b)

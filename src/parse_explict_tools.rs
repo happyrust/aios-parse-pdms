@@ -16,7 +16,7 @@ use nom::sequence::tuple;
 use smol_str::SmolStr;
 use crate::BHashMap;
 use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string, parse_to_expression};
-use crate::tool::hash_tool::f32_round_2;
+use crate::tool::hash_tool::{f32_round_2, f64_round_2, f64_round_3};
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
@@ -37,27 +37,27 @@ const ATT_PTCDI: i32 = 0x95A34;
 lazy_static! {
     pub static ref MATH_OPERATORS_MAP: BHashMap<i32, &'static str> = {
         let mut s = BHashMap::new();
-        s.insert(0x321, "( -{} )");
-        s.insert(0x322, "( {} + {} )");
-        s.insert(0x323, "( {} - {} )");
-        s.insert(0x324, "{} * {}");
-        s.insert(0x325, "{} / {}");
-        s.insert(0x3E9, "SQRT ( {} )");
-        s.insert(0x385, "SIN ( {} )");
-        s.insert(0x386, "COS ( {} )");
-        s.insert(0x387, "TAN ( {} )");
-        s.insert(0x388, "ASIN ( {} )");
-        s.insert(0x389, "ACOS ( {} )");
-        s.insert(0x38A, "ATAN ( {} )");
-        s.insert(0x38B, "ATAN ( {},{} )");
-        s.insert(0x3EA, "POW ( {},{} )");
-        s.insert(0x3EB, "LOG ( {} )");
-        s.insert(0x3EC, "ALOG ( {} )");
-        s.insert(0x3ED, "INT ( {} )");
-        s.insert(0x3EE, "NINT ( {} )");
-        s.insert(0x3EF, "ABS ( {} )");
-        // s.insert(0x3F0, "MAX ( {},{} )");   //特殊处理
-        // s.insert(0x3F1, "MIN ( {},{} )");
+        s.insert(0x321, "(-{})");
+        s.insert(0x322, "({}+{})");
+        s.insert(0x323, "({}-{})");
+        s.insert(0x324, "{}*{}");
+        s.insert(0x325, "{}/{}");
+        s.insert(0x3E9, "SQRT({})");
+        s.insert(0x385, "SIN({})");
+        s.insert(0x386, "COS({})");
+        s.insert(0x387, "TAN({})");
+        s.insert(0x388, "ASIN({})");
+        s.insert(0x389, "ACOS({})");
+        s.insert(0x38A, "ATAN({})");
+        s.insert(0x38B, "ATAN({},{})");
+        s.insert(0x3EA, "POW({},{})");
+        s.insert(0x3EB, "LOG({})");
+        s.insert(0x3EC, "ALOG({})");
+        s.insert(0x3ED, "INT({})");
+        s.insert(0x3EE, "NINT({})");
+        s.insert(0x3EF, "ABS({})");
+        // s.insert(0x3F0, "MAX ({},{})");   //特殊处理
+        // s.insert(0x3F1, "MIN ({},{})");
         s
     };
 }
@@ -91,7 +91,7 @@ fn get_expression_attr_test() {
     // let mut file = File::open("BDIA").unwrap();
     // let mut attr_buf: Vec<u8> = Vec::new();
     // file.read_to_end(&mut attr_buf);
-    // let (_, (types, result)) = parse_expression_attr(&attr_buf, ).unwrap();
+    // let (_, (types, result)) = parse_expression_attr(&attr_buf,).unwrap();
     // println!("type={},result={}", types, result);
 }
 
@@ -184,17 +184,17 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             let mut expression;
             if flags == (-1, -1) {
                 let v = result_stack.pop().unwrap_or_default();
-                expression = format!("ATTRIB {att_name}[{v}]{rpro_name}");
+                expression = format!("{att_name}[{v}]{rpro_name}");
             } else {
                 let num = flags.1;
                 if s_value == 0 {
                     if num == 1 {
-                        expression = format!("ATTRIB {att_name}");
+                        expression = format!("{att_name}");
                     } else {
-                        expression = format!("ATTRIB {att_name}[{num}]");
+                        expression = format!("{att_name}[{num}]");
                     }
                 } else {
-                    expression = format!("ATTRIB {att_name}{rpro_name}");
+                    expression = format!("{att_name}{rpro_name}");
                 }
             }
             result_stack.push(expression);
@@ -215,10 +215,10 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         }
                         expression_input = &expression_input[20..];
                     }
-                    let (expression_tmp, (refno0, refno1, )) = tuple((
+                    let (expression_tmp, (refno0, refno1,)) = tuple((
                         be_i32,
                         be_i32,
-                    ))(&expression_input[..])?;
+                   ))(&expression_input[..])?;
                     expression_input = &expression_tmp[..];
                     if refno0 == 0 {
                         let expression = get_expression_of_func(&expression_input[..4]);
@@ -230,7 +230,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                     } else {
                         let refno = format!("{}/{}", refno0, refno1);
                         let func = result_stack.pop().unwrap_or_default();
-                        let result = format!("( {} OF = {} )", func, refno);
+                        let result = format!("({} OF = {})", func, refno);
                         return Ok((input, result.into()));
                     }
                 }
@@ -271,7 +271,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
                         }
-                        symbol = format!("MAX ( {} )", max_array);
+                        symbol = format!("MAX ({})", max_array);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0xF1] => {
@@ -289,7 +289,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
                         }
-                        symbol = format!("MIN ( {} )", max_array);
+                        symbol = format!("MIN ({})", max_array);
                     }
                 }
                 &[0x0, 0x0, 0x0, 0x3] => {
@@ -330,15 +330,15 @@ pub fn parse_xyz_data(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String
     let coordinate = match_explicit_attribute_to_string(parse_to_u32(&input[..4]));
     let data_len = parse_to_u32(&input[4..8]) as usize;
     let data = parse_expression_func(&input[12..(data_len + 1) * 4], refno)?.1;
-    Ok((&input[data_len * 4 + 4..], format!("{} ( {} ) ", coordinate, data)))
+    Ok((&input[data_len * 4 + 4..], format!("{} ({}) ", coordinate, data)))
 }
 
-/// 返回ATTRIB PARA类的函数名
+/// 返回PARA类的函数名
 pub fn get_expression_func_name(input: &[u8]) -> IResult<&[u8], String> {
     let mut result = "".to_string();
     let (_, v) = be_u32(&input[4..8])?;
     if v > 0x81BF1 {
-        result = format!("ATTRIB {}", db1_dehash(v));
+        result = format!("{}", db1_dehash(v));
     }
     Ok((input, result))
 }
@@ -350,6 +350,7 @@ pub fn parse_explicit_num_00(data: &[u8]) -> IResult<&[u8], f64> {
     let (_, a) = be_i32(&data[..4])?;
     let (_, b) = be_i32(&data[4..8])?;
     let value = (((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 1000.0).round() / 1000.0;
+    let value = f64_round_3(value);
     Ok((data, value))
 }
 
@@ -360,6 +361,7 @@ pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
     dst_data[0] = dst_first;
     dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
     let value = f64::from_be_bytes(dst_data.try_into().unwrap());
+    let value = f64_round_3(value);
     Ok((data, value))
 }
 
@@ -372,7 +374,8 @@ pub fn parse_explicit_num_ff(data: &[u8]) -> IResult<&[u8], f64> {
     let c = 0xFFFFu32 - parse_to_u16(&data[10..12]) as u32;   //parse like 0xFF FE
     let div_times = 2_i32.pow(c);
     let v = (v * 1000.0).round() / (div_times as f64) / 1000.0;
-    Ok((data, v as f64))
+    let value = f64_round_3(v);
+    Ok((data, value))
 }
 
 #[inline]
