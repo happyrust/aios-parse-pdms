@@ -35,17 +35,9 @@ pub mod parse_explict_tools;
 pub mod parsed_data;
 pub mod parse;
 pub mod tool;
-
-
-
 pub mod consts;
 pub mod shape;
-// pub mod prim_geo;
-// pub mod sctn;
-pub mod pipes;
 pub mod grpc;
-
-// pub mod local_db;
 
 pub use parse::{parse_db, parse_file};
 use std::time::Instant;
