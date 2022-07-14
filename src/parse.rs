@@ -687,7 +687,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
             }
             val = AttrVal::IntArrayType(result);
         } else if attr_info.hash == ATT_BANG {
-            let r = parse_to_u32(input);
+            let r = parse_to_i32(input);
             val = AttrVal::DoubleType((r as f64) / 100.0)
         } else {
             match attr_info.att_type {
