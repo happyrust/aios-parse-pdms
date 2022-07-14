@@ -80,34 +80,3 @@ fn test_aios_hash() {
     let aios_str = AiosStr(SmolStr::new("SCB"));
     println!("r={}",aios_str.get_u32_hash());
 }
-
-use skytable::{Connection, SkyResult};
-use skytable::ddl::Ddl;
-
-#[test]
-fn test_sky_table_att() {
-
-
-    let mut con = Connection::new("127.0.0.1", 2003).unwrap();
-    con.switch("ABA:attrs").unwrap();
-    let key :RefU64 = RefI32Tuple((16476,57)).into();
-    let v:AttrMap = con.get(&key).unwrap();
-    println!("v={:?}",v);
-}
-
-#[test]
-fn test_sky_table_type_refnos() {
-    let mut con = Connection::new("127.0.0.1", 2003).unwrap();
-    let noun:Integer = Integer(db1_hash("MDB"));
-    let v:RefU64Vec = con.get(&noun).unwrap();
-    println!("v={:?}",v);
-}
-
-#[test]
-fn test_sky_table_refno_info(){
-    let mut con = Connection::new("127.0.0.1", 2003).unwrap();
-    con.switch("ref_infos:infos").unwrap();
-    let refno:RefU64 = RefI32Tuple((23584,69)).into();
-    let v :SkyResult<RefnoInfo>= con.get(&Integer(refno.get_0()));
-    println!("v={:?}",v);
-}

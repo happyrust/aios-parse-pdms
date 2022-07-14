@@ -94,8 +94,10 @@ env_logger = "*"
 thiserror = "*"
 transmog-bincode = "0.1"
 
-bevy = { path = "../bevy", default-features = false }
-aios_core = { path = "../aios_core" }
+bevy = { git = "https://gitee.com/happydpc/bevy", default-features = false }
+#bevy = { path = "../bevy", default-features = false }
+#aios_core = { path = "../aios_core" }
+aios_core = { git = "https://gitee.com/happydpc/aios-core" }
 
 truck-base = { version = "0.3.0",git = "https://gitee.com/happydpc/truck.git" }
 truck-geotrait = { version = "0.2.0", git = "https://gitee.com/happydpc/truck.git"}
