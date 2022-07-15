@@ -1,7 +1,10 @@
+use std::fs::File;
+use std::io::Write;
 use crate::parse::parse_ele_data;
 // use crate::pdms_types::{AttrVal, StringLookupTable};
-use aios_core::pdms_types::{AttrVal};
+use aios_core::pdms_types::{AttrVal, PdmsDatabaseInfo};
 use aios_core::tool::db_tool::{read_attr_info_config_from_bin, read_attr_info_config_from_json};
+use dashmap::DashMap;
 use crate::test_cases::{convert_str_to_bytes};
 
 #[test]
@@ -1023,4 +1026,28 @@ fn test_mas_15213_499886() {
         let result = val.string_value();
         assert_eq!(result, " DESIGN PARAM 16".to_string());
     }
+}
+
+#[test]
+fn take_off_uda() {
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let info_map = pdms_database_info.noun_attr_info_map;
+    let db_names_map = pdms_database_info.db_names_map;
+    let new_info_map = DashMap::new();
+    for (att_type, map) in info_map {
+        let new_map = DashMap::new();
+        for (k, v) in map {
+            if v.name.starts_with(":") {
+                continue;
+            }
+            new_map.insert(k, v);
+        }
+        new_info_map.insert(att_type, new_map);
+    }
+    let new_pdms_database_info = PdmsDatabaseInfo {
+        db_names_map,
+        noun_attr_info_map: new_info_map,
+    };
+    let mut file = File::create("all_attr_info_new.json").unwrap();
+    file.write(serde_json::to_string(&new_pdms_database_info).unwrap_or_default().as_bytes()).unwrap();
 }
