@@ -140,7 +140,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     let mut result_stack = vec![];
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
     let mut check_val2 = parse_to_i32(&expression_data[4..8]);
-    let mut number_flag = check_val1 == 0x65 ;
+    let mut number_flag = check_val1 == 0x65;
     while expression_data.len() >= 8 && (number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3]) {
         //解析数值
         if number_flag {
@@ -215,10 +215,10 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         }
                         expression_input = &expression_input[20..];
                     }
-                    let (expression_tmp, (refno0, refno1,)) = tuple((
+                    let (expression_tmp, (refno0, refno1, )) = tuple((
                         be_i32,
                         be_i32,
-                   ))(&expression_input[..])?;
+                    ))(&expression_input[..])?;
                     expression_input = &expression_tmp[..];
                     if refno0 == 0 {
                         let expression = get_expression_of_func(&expression_input[..4]);
@@ -410,6 +410,19 @@ pub fn times_keep_f32_two_decimal_place(input: i32) -> f32 {
     result
 }
 
+#[inline]
+pub fn times_keep_f32_three_decimal_place(input: i32) -> f32 {
+    let input = input as f32;
+    let result = input / 40.0f32 * 1000.0;
+    let b_seven = result as i32 % 10 == 7 && result < 100.0;
+    let mut result = result;
+    if b_seven {
+        result = f32::trunc(result) / 1000.0;
+    } else {
+        result = result.round() / 1000.0;
+    }
+    result
+}
 
 #[test]
 fn ceil_test() {

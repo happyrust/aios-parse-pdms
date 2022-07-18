@@ -1377,7 +1377,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
         match &tmp_input[..2] {
             &[0x0, 0x0] => {
                 let (_, times) = be_i16(&tmp_input[2..4])?;
-                let times = times_keep_f32_two_decimal_place(times as i32);
+                let times = times_keep_f32_three_decimal_place(times as i32);
                 if times == 1.0 {
                     val = "PARAM".to_string();
                 } else if times == 0.0 {
@@ -1476,7 +1476,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
             }
             &[0x0, 0x0, 0x0, 0x3] => {
                 let (_, times) = be_i32(&tmp_input[..4])?;
-                let times = times_keep_f32_two_decimal_place(times);
+                let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1492,7 +1492,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
 
             &[0x0, 0x0, 0x0, 0x4] => {
                 let (_, times) = be_i32(&tmp_input[..4])?;
-                let times = times_keep_f32_two_decimal_place(times);
+                let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1514,7 +1514,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
             }
             &[0x0, 0x0, 0x0, 0x8] => {
                 let (_, times) = be_i32(&tmp_input[..4])?;
-                let times = times_keep_f32_two_decimal_place(times);
+                let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
@@ -1529,7 +1529,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
             }
             &[0x0, 0x0, 0x0, 0x9] => {
                 let (_, times) = be_i32(&tmp_input[..4])?;
-                let times = times_keep_f32_two_decimal_place(times);
+                let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((
                     be_i32,
                     be_i32,
