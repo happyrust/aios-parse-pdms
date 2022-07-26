@@ -50,7 +50,7 @@ lazy_static! {
         s.insert(0x388, "ASIN({})");
         s.insert(0x389, "ACOS({})");
         s.insert(0x38A, "ATAN({})");
-        s.insert(0x38B, "ATAN({},{})");
+        s.insert(0x38B, "ATANT({},{})");
         s.insert(0x3EA, "POW({},{})");
         s.insert(0x3EB, "LOG({})");
         s.insert(0x3EC, "ALOG({})");
@@ -100,7 +100,7 @@ fn get_expression_attr_test() {
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val));
-    if expression_type == "PTCDI" {
+    if expression_type == "PTCDI" || expression_type == "PTCD"{
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];

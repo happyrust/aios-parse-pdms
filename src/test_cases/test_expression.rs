@@ -1029,6 +1029,70 @@ fn test_mas_15213_499886() {
 }
 
 #[test]
+fn test_master_15194_4234() {
+    let data_str = "00 00 00 2F 00 00 3B 5A 00 00 10 8A 00 08 73 8B
+00 00 3B 5A 00 00 10 81 00 00 13 FE 00 1A C0 01
+00 00 00 00 00 00 00 00 20 23 00 00 00 00 00 08
+00 00 00 04 00 00 00 28 00 00 00 07 00 00 03 08
+00 00 03 C6 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 3F F0 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 01 00 91
+00 00 3B 5A 00 00 10 8A 00 00 00 00 00 00 00 00
+00 09 5A 34 1C 00 00 59 00 00 00 58 00 00 00 58
+00 00 00 06 00 00 00 02 00 00 00 16 00 00 00 0E
+00 00 00 51 00 00 00 01 00 00 00 65 00 00 00 06
+00 00 50 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 0D 20 C7
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 00 65 00 00 00 06 00 00 40 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 50 00 00 00 00 00
+00 00 00 03 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 23
+00 00 00 65 00 00 00 06 00 00 40 00 00 00 00 00
+00 00 00 02 00 00 00 00 00 00 00 06 00 00 03 25
+00 00 03 23 00 00 00 65 00 00 00 06 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 06
+00 00 00 65 00 00 00 06 00 00 58 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 23
+00 00 03 8B 00 00 00 0B 00 00 00 3D FF F7 E1 77
+1C 00 00 0A 00 00 00 09 00 00 00 09 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 06 FF F7 E1 5C
+1C 00 00 0A 00 00 00 09 00 00 00 09 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 06 FF F7 E1 41
+1C 00 00 12 00 00 00 11 00 00 00 11 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 5E 00 00 00 00 00
+00 00 00 06 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 09 C1 8E
+3C 00 00 03 00 00 00 08 2F 46 4F 52 44 2D 50 38";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8738B) {
+    //     dbg!(map.value());
+    // };
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    // println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
+    // println!("map={:?}", ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
+    if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("PTCD") {
+        let result = val.string_value();
+        assert_eq!(result, "AXIS -Y (ATANT((DESP[10]-(DESP[4]-DESP[5])/2),(0-DESP[11]))) X".to_string());
+    }
+}
+
+#[test]
 fn take_off_uda() {
     let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let info_map = pdms_database_info.noun_attr_info_map;
