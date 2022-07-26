@@ -251,9 +251,11 @@ fn test_sample_23584_5703(){
 00 00 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
-    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xC547E) {
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("MDB") as i32)) {
         dbg!(map.value());
     }
+    let hash = db1_hash("CURD");
+    println!("hash={:?}",hash);
     let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
     if let Some(noll) = ele_data.whole_attmap.implicit_attmap.get(&NounHash(835759)) {

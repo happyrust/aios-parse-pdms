@@ -10,6 +10,7 @@ use dynfmt::{Format, SimpleCurlyFormat};
 use fixed::types::I24F8;
 use itertools::Itertools;
 use nalgebra_glm::exp;
+use nom::combinator::value;
 use nom::IResult;
 use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
@@ -99,7 +100,7 @@ fn get_expression_attr_test() {
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val));
-    if expression_type == "PTCD" {
+    if expression_type == "PTCDI" {
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
@@ -360,9 +361,22 @@ pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
     let dst_first = (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
     dst_data[0] = dst_first;
     dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
-    let value = f64::from_be_bytes(dst_data.try_into().unwrap());
+    let value = if data[0] == 0x40 {
+        let value = f64::from_be_bytes(dst_data.try_into().unwrap());
+        -value
+    } else {
+        f64::from_be_bytes(dst_data.try_into().unwrap())
+    };
     let value = f64_round_3(value);
     Ok((data, value))
+}
+
+#[test]
+fn test_parse_explicit_num_40() {
+    // let data = [0x40u8, 0x06, 0x80, 0x0, 0x0, 0, 0, 0, 0x40, 0, 4, 4];
+    let data = [0x0u8, 0x06, 0x80, 0x0, 0x0, 0, 0, 0, 0x40, 0, 4, 4];
+    let data = parse_explicit_num_40(&data[..]).unwrap().1;
+    println!("data={:?}", data);
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种

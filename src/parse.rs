@@ -1171,7 +1171,7 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
             &_ => {
                 match &tmp_input[..3] {
                     &[0xFF, 0xFF, 0xFF] => {
-                        let (_, radius) = be_u32(&tmp_input[4..8])?;
+                        let (_, radius) = be_i32(&tmp_input[4..8])?;
                         let radius = radius / 100;
                         let mut result = String::new();
                         match &tmp_input[3..4] {
