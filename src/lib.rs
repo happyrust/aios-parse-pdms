@@ -30,11 +30,9 @@ pub use parse::parse_pdms_dir;
 
 pub mod error_types;
 pub mod test_cases;
-pub mod tiny_expr;
 pub mod parse_explict_tools;
 pub mod parsed_data;
 pub mod parse;
-pub mod tool;
 pub mod consts;
 pub mod shape;
 pub mod grpc;

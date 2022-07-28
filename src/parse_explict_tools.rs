@@ -16,8 +16,8 @@ use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
 use smol_str::SmolStr;
 use crate::BHashMap;
-use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string, parse_to_expression};
-use crate::tool::hash_tool::{f32_round_2, f64_round_2, f64_round_3};
+use aios_core::tool::float_tool::f64_round_3;
+use crate::parse::*;
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
@@ -85,16 +85,6 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
     }
 }
 
-
-#[test]
-fn get_expression_attr_test() {
-    // let x = BHashMap::new();
-    // let mut file = File::open("BDIA").unwrap();
-    // let mut attr_buf: Vec<u8> = Vec::new();
-    // file.read_to_end(&mut attr_buf);
-    // let (_, (types, result)) = parse_expression_attr(&attr_buf,).unwrap();
-    // println!("type={},result={}", types, result);
-}
 
 /// 解析表达式
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
