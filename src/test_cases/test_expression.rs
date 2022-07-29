@@ -1093,6 +1093,27 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 }
 
 #[test]
+fn test_sample_23984_1039_pdis() {
+    let data_str = "00 00 00 21 00 00 5D B0 00 00 04 0F 00 0F 56 3E
+00 00 5D B0 00 00 03 90 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 28
+00 00 00 02 FF FF FF FD FF FF FF FC 00 00 00 02
+00 00 00 01 00 00 00 02 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PDIS") {
+        let result = val.string_value();
+        println!("{}",&result);
+        assert_eq!(result,"TANF DDRADIUS DDANGLE");
+    }
+}
+
+#[test]
 fn take_off_uda() {
     let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let info_map = pdms_database_info.noun_attr_info_map;

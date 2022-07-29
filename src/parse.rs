@@ -1463,14 +1463,27 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                         _ => {}
                     }
                 } else {
-                    match &tmp_input[12..16] {
-                        &[0xFF, 0xFF, 0xFF, 0xFB] => {
-                            val = format!("TANF {} {} DDHEIGHT", val, value);
+                    let angle = get_implicit_angle_expression(&tmp_input[8..12]);
+                    if angle != "" {
+                        match &tmp_input[12..16] {
+                            &[0xFF, 0xFF, 0xFF, 0xFB] => {
+                                val = format!("TANF {} DDHEIGHT", angle);
+                            }
+                            &[0xFF, 0xFF, 0xFF, 0xFC] => {
+                                val = format!("TANF {} DDANGLE", angle);
+                            }
+                            _ => {}
                         }
-                        &[0xFF, 0xFF, 0xFF, 0xFC] => {
-                            val = format!("TANF {} {} DDANGLE", val, value);
+                    } else {
+                        match &tmp_input[12..16] {
+                            &[0xFF, 0xFF, 0xFF, 0xFB] => {
+                                val = format!("TANF {} {} DDHEIGHT", val, value);
+                            }
+                            &[0xFF, 0xFF, 0xFF, 0xFC] => {
+                                val = format!("TANF {} {} DDANGLE", val, value);
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
             }
