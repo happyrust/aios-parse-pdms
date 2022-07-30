@@ -16,8 +16,8 @@ use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
 use nom::sequence::tuple;
 use smol_str::SmolStr;
 use crate::BHashMap;
-use aios_core::tool::float_tool::f64_round_3;
-use crate::parse::*;
+use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string, parse_to_expression};
+use crate::tool::hash_tool::{f32_round_2, f64_round_2, f64_round_3};
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
@@ -41,8 +41,8 @@ lazy_static! {
         s.insert(0x321, "(-{})");
         s.insert(0x322, "({}+{})");
         s.insert(0x323, "({}-{})");
-        s.insert(0x324, "{}*{}");
-        s.insert(0x325, "{}/{}");
+        s.insert(0x324, "({}*{})");
+        s.insert(0x325, "{}/({})");  //need a bracket
         s.insert(0x3E9, "SQRT({})");
         s.insert(0x385, "SIN({})");
         s.insert(0x386, "COS({})");
@@ -79,18 +79,27 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
         0x3800 => { Some(TYPEX) }
         0x0000 => { None }
         _ => {
-            // println!("failed to find explicit attr type {:#04X?} position={:#04X?}", input, pos);
             None
         }
     }
 }
 
 
+#[test]
+fn get_expression_attr_test() {
+    // let x = BHashMap::new();
+    // let mut file = File::open("BDIA").unwrap();
+    // let mut attr_buf: Vec<u8> = Vec::new();
+    // file.read_to_end(&mut attr_buf);
+    // let (_, (types, result)) = parse_expression_attr(&attr_buf,).unwrap();
+    // println!("type={},result={}", types, result);
+}
+
 /// 解析表达式
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val));
-    if expression_type == "PTCDI" || expression_type == "PTCD"{
+    if expression_type == "PTCDI" || expression_type == "PTCD" {
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
@@ -115,7 +124,6 @@ pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
         // 表达式都是以0x0 0 0 1开头的
         let _expression_start = &expression_data[..4];
         expression_data = &expression_data[4..];
-
         let result = parse_expression_func(expression_data, refno)?.1;
         Ok((input, (expression_type, result.into())))
     }
@@ -132,7 +140,13 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
     let mut check_val2 = parse_to_i32(&expression_data[4..8]);
     let mut number_flag = check_val1 == 0x65;
-    while expression_data.len() >= 8 && (number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3]) {
+    while expression_data.len() >= 8 && (number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3] || check_val2 == 0x65) {
+        let expression_const = parse_expression_const(&expression_data[..4]);
+        if expression_const != "" {
+            result_stack.push(expression_const);
+            expression_data = &expression_data[4..];
+            number_flag = true;
+        }
         //解析数值
         if number_flag {
             expression_data = &expression_data[8..];
@@ -292,6 +306,9 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         }
                     }
                 }
+                &[0,0,0,0x6F] => {
+                    symbol = "PI".to_string();
+                }
                 _ => {}
             }
             if symbol != "" {
@@ -359,6 +376,13 @@ pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
     };
     let value = f64_round_3(value);
     Ok((data, value))
+}
+
+pub fn parse_expression_const(input: &[u8]) -> String {
+    match input {
+        &[0, 0, 0, 0x6F] => { "PI".to_string() }
+        &_ => { "".to_string() }
+    }
 }
 
 #[test]
