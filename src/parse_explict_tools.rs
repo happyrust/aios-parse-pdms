@@ -5,6 +5,7 @@ use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
 use aios_core::pdms_types::AttrVal::StringType;
 use aios_core::pdms_types::DbAttributeType::{BOOL, DOUBLE, DOUBLEVEC, ELEMENT, INTEGER, INTVEC, STRING, TYPEX};
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash};
+use aios_core::tool::float_tool::f64_round_3;
 use dashmap::DashMap;
 use dynfmt::{Format, SimpleCurlyFormat};
 use fixed::types::I24F8;
@@ -17,7 +18,6 @@ use nom::sequence::tuple;
 use smol_str::SmolStr;
 use crate::BHashMap;
 use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string, parse_to_expression};
-use crate::tool::hash_tool::{f32_round_2, f64_round_2, f64_round_3};
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
