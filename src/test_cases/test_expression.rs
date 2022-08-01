@@ -1189,6 +1189,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     }
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PZ") {
         let result = val.string_value();
+        dbg!(&result);
         assert_eq!(result, "(-((PARA[2]+PARA[4])/(2)*COS((180*PARA[6])/((PI*(PARA[2]+PARA[4]))))))");
     }
 }
