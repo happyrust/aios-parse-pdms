@@ -870,6 +870,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                             let (_, a) = be_u32(tmp_input)?;
                             let len_a = a as usize;
                             if tmp_input.len() > 4 && 4 + len_a <= tmp_input.len() {
+                                // println!("{:#4X?}", &tmp_input[4..4 + len_a]);
                                 let (decode_string, _b_chi) = decode_chars_data(&tmp_input[4..4 + len_a]);
                                 // let name_hash = string_lookup.add_str(decode_string.as_str());
                                 // att_value = Some(StringHashType(name_hash));
