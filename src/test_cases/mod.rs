@@ -14,6 +14,7 @@ pub fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
 mod test_expression;
 mod test_data_new;
 mod test_nom;
+mod test_chinese;
 // pub mod test_database;
 
 
