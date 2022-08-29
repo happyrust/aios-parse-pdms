@@ -101,7 +101,7 @@ pub struct PdmsDbData {
     pub type_ele_map: DashMap<u32, HashSet<RefU64>>,
     /// 基本数据的Tree
     // pub ele_id_tree: Tree<EleNode>,
-    pub ele_id_tree: PdmsTree,
+    // pub ele_id_tree: PdmsTree,
     //todo 改成EleNode
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<RefU64, AttrMap>,
@@ -113,7 +113,7 @@ pub struct PdmsDbData {
     /// 所有包含子节点的map
     pub children_map: HashMap<RefU64, RefU64Vec>,
     /// refno 到 NodeId的映射表
-    pub refno_node_id_map: HashMap<RefU64, NodeId>,
+    // pub refno_node_id_map: HashMap<RefU64, NodeId>,
     ///数据文件名
     pub filename: String,
     ///数据文件的版本号
@@ -126,10 +126,11 @@ pub struct PdmsDbData {
     // pub db_no: u32,
     pub db_no: Integer,
     ///数据文件的field no
-    // pub field_no: u32,
     pub field_no: Integer,
     /// 对应的房间号下的所有  refno
     pub room_code_map: DashMap<String, RefU64Vec>,
+    /// 所有参考号对应的外键类型和外键参考号
+    pub foreign_refnos_map: DashMap<RefU64, DashMap<String, RefU64>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -303,6 +304,8 @@ pub struct EleData {
     pub children: RefU64Vec,
     pub name_hash: AiosStr,
     pub version: u32,
+    // 参考号的引用 catr等 k : 外键类型  v ：引用的参考号
+    pub foreign_refnos: DashMap<String, RefU64>,
 }
 
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
@@ -330,7 +333,6 @@ fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
             }
         }
     }
-
     members
 }
 
@@ -341,6 +343,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let mut implicit_attmap = AttrMap::default();
     let mut explicit_attmap = AttrMap::default();
     let mut children = RefU64Vec::default();
+    let mut foreign_refnos = DashMap::new();
     let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4;  //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize;  //隐含数据长度  0-4
     let refno = RefI32Tuple::from(&input[4..12]);
@@ -429,14 +432,22 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         }
         if cur_len > 0 && (cur_offset + cur_len) <= (implicit_data.len() / 4) as i32 {
             if let Ok((_, (advance, att_val))) = parse_implicit_attr_value(
-                &implicit_data[cur_offset as usize * 4..(cur_offset + cur_len) as usize * 4], &attr_info, refno,
-                is_double, 0) {
+                &implicit_data[cur_offset as usize * 4..(cur_offset + cur_len) as usize * 4], &attr_info,
+                is_double) {
                 if advance == 0 {    //nullref的处理
                     if att_will_change {
                         cur_offset += 1;   //如果不是Element了，就可以继续向前
                     }
                 } else {
                     cur_offset += advance as i32;
+                }
+                match &att_val {
+                    RefU64Type(value) => {
+                        if attr_info.name.to_lowercase() != "owner" && value != &RefU64(0) {
+                            foreign_refnos.insert(attr_info.name.to_string(), *value);
+                        }
+                    }
+                    _ => {}
                 }
                 // unset 是pdms数据中存在info文件里没有的offset数据，手动在info文件里面加的这个 unset 占位
                 if attr_info.name != "unset" {
@@ -450,7 +461,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len);
-            parse_explict_attrs(&merged_data, &attr_info_map, &mut explicit_attmap, refno).ok()?;
+            parse_explict_attrs(&merged_data, &attr_info_map, &mut explicit_attmap, refno, &mut foreign_refnos).ok()?;
         }
     }
     // attr_info_map.iter().for_each(|pair| {
@@ -484,6 +495,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         children,
         name_hash,
         version,
+        foreign_refnos,
     })
 }
 
@@ -501,12 +513,15 @@ pub fn take_off_007(mut input: &[u8]) -> &[u8] {
 pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = Arc::new(DashMap::new());
     /// 基本数据的Tree
-    let mut ele_id_tree: Tree<EleTreeNode> = Tree::new();
+    // let mut ele_id_tree: Tree<EleTreeNode> = Tree::new();
     /// 完整属性数据的存储
     let mut all_attr_map: Arc<DashMap<RefU64, AttrMap>> = Arc::new(DashMap::new());
     let mut total_attr_map: Arc<DashMap<RefU64, WholeAttMap>> = Arc::new(DashMap::new());
     /// 所有的房间号信息的refno和对应的房间号
     let mut room_code_map: Arc<DashMap<String, RefU64Vec>> = Arc::new(DashMap::new());
+    /// 所有参考号的外键关系
+    // k : 参考号  v : dashmap -> k : 外键的类型  v: 外键的参考号
+    let mut foreign_refnos_map: Arc<DashMap<RefU64, DashMap<String, RefU64>>> = Arc::new(DashMap::new());
     let time_start = std::time::Instant::now();
     let mut field_no = 0;
 
@@ -541,6 +556,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         children,
         version,
         name_hash: name,
+        foreign_refnos,
     } = parse_ele_data(&input[entry.pos - 4..], noun_attr_info_map).unwrap_or_default();
     let ele_node = EleTreeNode {
         refno,
@@ -555,9 +571,10 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     }
     total_attr_map.insert(refno, whole_attmap);
     type_ele_map.entry(noun).or_insert(HashSet::default()).insert(refno);
-    let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
-    let mut refno_node_id_map = HashMap::new();
-    refno_node_id_map.insert(refno, root_id.clone());
+    foreign_refnos_map.insert(refno, foreign_refnos);
+    // let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
+    // let mut refno_node_id_map = HashMap::new();
+    // refno_node_id_map.insert(refno, root_id.clone());
     let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
@@ -584,13 +601,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             let membs = parse_ele_membs(&input[pos - 4..]);
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
-                    if let Some(parent_id) = refno_node_id_map.get(&refno) {
-                        let id = ele_id_tree.insert(Node::new(EleTreeNode {
-                            refno: *memb,
-                            ..default()
-                        }), UnderNode(parent_id)).unwrap();
-                        refno_node_id_map.insert(*memb, id);
-                    }
+                    // if let Some(parent_id) = refno_node_id_map.get(&refno) {
+                    //     let id = ele_id_tree.insert(Node::new(EleTreeNode {
+                    //         refno: *memb,
+                    //         ..default()
+                    //     }), UnderNode(parent_id)).unwrap();
+                    //     refno_node_id_map.insert(*memb, id);
+                    // }
                     pending_refnos.push(*memb);
                 }
             }
@@ -621,8 +638,10 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             children,
                             version,
                             name_hash,
+                            foreign_refnos,
                         }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map) {
                 // 将房间信息保存到单独的数据结构中
+
                 if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
                     room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
                 }
@@ -634,22 +653,24 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                     ref_0: ref_0.0,
                     db_no,
                 });
+                foreign_refnos_map.insert(refno, foreign_refnos);
             }
         }
     });
     println!("解析属性所耗时间: {:?} ms", eles_time.elapsed().as_millis());
-    println!("Tree nodes height: {}", ele_id_tree.height());
+    // println!("Tree nodes height: {}", ele_id_tree.height());
+    println!("带有外键属性的参考号个数为 {}", foreign_refnos_map.len());
     println!("DB {} attrs count: {}", file_name, total_attr_map.len());
     println!("解析db: {} 所耗时间: {:?}ms", file_name, time_start.elapsed().as_millis());
 
     Ok(PdmsDbData {
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
-        ele_id_tree: PdmsTree::default(),
+        // ele_id_tree: PdmsTree::default(),
         all_attr_map: Arc::try_unwrap(all_attr_map).unwrap(),
         total_attr_map: Arc::try_unwrap(total_attr_map).unwrap(),
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
         children_map,
-        refno_node_id_map,
+        // refno_node_id_map,
         filename: file_name.into(),
         version: Integer(file_version),
         db_type,
@@ -657,12 +678,13 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         db_no: Integer(db_no),
         field_no: Integer(field_no),
         room_code_map: Arc::try_unwrap(room_code_map).unwrap(),
+        foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
 }
 
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
-pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, ref_no: RefI32Tuple, double_flag: bool, i1: i32) -> IResult<&'a [u8], (usize, AttrVal)> {
+pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, double_flag: bool) -> IResult<&'a [u8], (usize, AttrVal)> {
     let mut val = AttrVal::InvalidType;
     use nom::bytes::complete::take;
 
@@ -812,7 +834,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, r
 
 /// 获取已知显式属性
 pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, AttrInfo>, attr_data_map: &mut AttrMap,
-                               refno: RefI32Tuple) -> IResult<&'a [u8], bool> {
+                               refno: RefI32Tuple, foreign_refnos: &mut DashMap<String, RefU64>) -> IResult<&'a [u8], bool> {
     let mut residual = input;
     let total_len = input.len();
 
@@ -886,7 +908,11 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                                 be_u32,
                                 be_u32,
                             ))(tmp_input)?;
-                            att_value = Some(RefU64Type(RefU64::from_two_nums(ref_0, ref_1)));
+                            let refno = RefU64::from_two_nums(ref_0, ref_1);
+                            if *refno != 0 {
+                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
+                            }
+                            att_value = Some(RefU64Type(refno));
                         }
                         DbAttributeType::RefU64Vec => {
                             let (tmp_input, len) = be_u32(tmp_input)?;
@@ -1009,7 +1035,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
                                     be_u32,
                                     be_u32,
                                 ))(tmp_input)?;
-                                att_value = Some(RefU64Type(RefU64::from_two_nums(ref_0, ref_1)));
+                                let refno = RefU64::from_two_nums(ref_0, ref_1);
+                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
+                                att_value = Some(RefU64Type(refno));
                             }
                             DbAttributeType::WORD => {
                                 let (_, val) = be_i32(tmp_input)?;

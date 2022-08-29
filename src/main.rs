@@ -82,7 +82,6 @@ fn main() -> anyhow::Result<()> {
 
 
 // pub fn cache_viewer_data(mgr: &mut AiosDBManager, db_option: &DbOption) -> anyhow::Result<bool> {
-    //todo 可以用多线程去并发tree，获取节点下面，然后并发
 
     // let r = mgr.cache_geos_data(db_option.main_db_code, db_option.project_name.as_str());
     // match r {
