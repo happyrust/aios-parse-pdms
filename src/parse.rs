@@ -92,6 +92,16 @@ impl WholeAttMap {
         // writer = ;
         bincode::deserialize(&deflater.finish().ok()?).ok()
     }
+
+    /// 将隐式属性和显示属性放到一个attrmap中
+    #[inline]
+    pub fn change_implicit_explicit_into_attr(self) -> AttrMap {
+        let mut map = self.implicit_attmap;
+        for (k,v) in self.explicit_attmap.map{
+            map.insert(k,v);
+        }
+        map
+    }
 }
 
 ///一个pdms db的整体数据
