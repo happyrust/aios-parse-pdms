@@ -1227,7 +1227,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 
 // 去掉部分括号
 #[test]
-fn test_mas_15213_421214(){
+fn test_mas_15213_421214() {
     let data_str = "00 00 00 2F 00 00 3B 6D 00 06 6D 5E 00 08 73 8B
 00 00 3B 6D 00 06 6D 48 00 00 84 2B 00 22 40 01
 00 00 00 00 00 00 00 00 20 39 80 00 00 00 00 02
@@ -1328,4 +1328,36 @@ fn take_off_uda() {
     };
     let mut file = File::create("all_attr_info_new.json").unwrap();
     file.write(serde_json::to_string(&new_pdms_database_info).unwrap_or_default().as_bytes()).unwrap();
+}
+
+#[test]
+fn test_mas_15193_22276_dpro() {
+    let data_str = "00 00 00 19 00 00 3B 59 00 00 57 04 00 08 A1 E7
+00 00 3B 59 00 00 39 C1 00 00 06 6B 00 1E 00 01
+00 00 00 00 00 00 00 00 20 0A 00 00 00 0A 50 56
+00 0E 54 BF 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 0D 20 C7
+00 00 00 02 00 01 00 2D 00 00 3B 59 00 00 57 04
+00 00 00 00 00 00 00 00 00 0E 39 6E 28 00 00 03
+00 00 00 06 48 65 69 67 68 74 00 00 00 09 D4 C4
+0C 00 00 01 00 00 00 01 FF F3 2D C0 1C 00 00 12
+00 00 00 11 00 00 00 11 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 40 00 00 00 00 00 00 00 00 02
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 FF F3 2D CC 1C 00 00 0A
+00 00 00 09 00 00 00 09 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 7D 00 00 00 00 00 00 00 00 0B
+00 00 00 00 00 00 00 06 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
+    //     dbg!(map.value());
+    // };
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("DPRO") {
+        let result = val.string_value();
+        assert_eq!(result, "2000");
+    }
 }

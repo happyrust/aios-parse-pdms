@@ -97,8 +97,8 @@ impl WholeAttMap {
     #[inline]
     pub fn change_implicit_explicit_into_attr(self) -> AttrMap {
         let mut map = self.implicit_attmap;
-        for (k,v) in self.explicit_attmap.map{
-            map.insert(k,v);
+        for (k, v) in self.explicit_attmap.map {
+            map.insert(k, v);
         }
         map
     }
@@ -369,7 +369,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let version = parse_to_u32(&input[32..36]);
     //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
     let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
-    //todo 调整为 多个0和一个7结束
+
     while tmp_value == 0 || tmp_value == 7 {
         actual_impl_len += 4;
         tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
