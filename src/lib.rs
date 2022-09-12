@@ -118,6 +118,7 @@ const IMP_PXTS: i32 = 0xE0C56;
 const IMP_PYTS: i32 = 0xE0C71;
 const IMP_PXBS: i32 = 0xDD914;
 const IMP_PYBS: i32 = 0xDD92F;
+const IMP_DPRO: i32 = 0xCD234;
 
 lazy_static! {
     pub static ref EXPR_ATT_SET: HashSet<i32> = {
@@ -142,7 +143,7 @@ lazy_static! {
         s.insert(IMP_PBBT);s.insert(IMP_PBOF);s.insert(IMP_PCOF);s.insert(IMP_PBTP);
         s.insert(IMP_PTCDI);s.insert(IMP_POFF);s.insert(IMP_DX);s.insert(IMP_DY);
         s.insert(IMP_PLAX);s.insert(IMP_PXTS);s.insert(IMP_PYTS);s.insert(IMP_PXBS);
-        s.insert(IMP_PYBS);s.insert(ATT_PANG);
+        s.insert(IMP_PYBS);s.insert(ATT_PANG);s.insert(IMP_DPRO);
         s
     };
 }
