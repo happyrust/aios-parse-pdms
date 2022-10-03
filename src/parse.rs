@@ -851,7 +851,6 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
     while residual.len() >= 8 {
         let mut att_value = None;
         let debug_pos = total_len - residual.len();
-        // let origin_explicit_hash = parse_to_u32(&residual[..4]);
         let hash_val = convert_to_hash(&residual[..4]);
 
         if check_is_expr(hash_val as i32) {

@@ -85,16 +85,6 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 }
 
 
-#[test]
-fn get_expression_attr_test() {
-    // let x = BHashMap::new();
-    // let mut file = File::open("BDIA").unwrap();
-    // let mut attr_buf: Vec<u8> = Vec::new();
-    // file.read_to_end(&mut attr_buf);
-    // let (_, (types, result)) = parse_expression_attr(&attr_buf,).unwrap();
-    // println!("type={},result={}", types, result);
-}
-
 /// 解析表达式
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
     let hash_val = &input[..4];
