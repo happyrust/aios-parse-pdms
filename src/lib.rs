@@ -43,12 +43,6 @@ pub mod options;
 
 pub type BHashMap<K, V> = bevy::utils::HashMap<K, V>;
 
-
-#[macro_use]
-extern crate lazy_static;
-extern crate core;
-
-
 //cached functions to get value
 //todo 数据分层，尽可能的用缓存
 

@@ -46,6 +46,7 @@ use bevy::prelude::In;
 use concurrent_queue::ConcurrentQueue;
 use rayon::prelude::IntoParallelIterator;
 
+
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -466,7 +467,9 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
             }
         }
     }
+
     let explicit_data = take_off_007(explicit_data);
+
     if maybe_refno == refno {
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
@@ -516,6 +519,19 @@ pub fn take_off_007(mut input: &[u8]) -> &[u8] {
             return input;
         }
         input = &input[4..];
+    }
+    input
+}
+
+pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
+    while input.len() >= 4 {
+        let head = &input[..4];
+        if head == &[0, 0, 0, 0][..] || head == &[0, 0, 0, 7][..] { input = &input[4..]; }
+        if &head[..2] != &[0, 1][..] { return input; }
+        let explicit_len = parse_to_u16(&head[2..4]) as usize;
+        let b_007 = &input[explicit_len * 4..explicit_len * 4 + 4];
+        if b_007 != &[0, 0, 0, 7] { return &input[..explicit_len * 4]; }
+
     }
     input
 }
@@ -1994,9 +2010,9 @@ fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
     }
     let mut tmp_offset = *len;
     while tmp_offset + 4 <= input.len() && &input[tmp_offset..tmp_offset + 4] == &[0x0, 0x0, 0x0, 0x7] {
-        // println!("{:#4X?}", input[tmp_offset..tmp_offset + 4].to_vec());
         let seg_len = parse_to_u16(&input[tmp_offset + 6..tmp_offset + 8]) as usize * 4;
         let mut seg_offset = tmp_offset + 16;
+        // let mut seg_offset = tmp_offset + 24;
         let mut i = 0;
         while &input[seg_offset..seg_offset + 4] == &[0x0, 0x0, 0x0, 0x0] {
             seg_offset += 4;
