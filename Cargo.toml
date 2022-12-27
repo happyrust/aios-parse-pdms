@@ -3,33 +3,6 @@ name = "parse_pdms_db"
 version = "1.0.0"
 edition = "2021"
 
-#[[bin]]
-#name = "shape_viewer"
-#path = "src/bins/shape_viewer.rs"
-
-
-#[profile.dev]
-#opt-level = 0
-#debug = true
-#debug-assertions = true
-#overflow-checks = true
-#lto = false
-#panic = 'unwind'
-#incremental = true
-#codegen-units = 256
-#rpath = false
-
-#[profile.release]
-#opt-level = 3
-#overflow-checks = false
-#incremental = true
-
-#[profile.release]
-#debug = true
-#opt-level = 2
-#[profile.release]
-#debug = true
-
 [features]
 default = ["compression"]  #"compression"
 compression = []
@@ -95,10 +68,10 @@ thiserror = "*"
 transmog-bincode = "0.1"
 
 
-#bevy = { path = "../bevy", default-features = false }
-#aios_core = { path = "../aios_core" }
-bevy = { git = "https://gitee.com/happydpc/bevy", default-features = false }
-aios_core = { git = "https://gitee.com/happydpc/aios-core" }
+bevy = { path = "../crates/bevy", default-features = false }
+aios_core = { path = "../crates/aios-core" }
+#bevy = { git = "https://gitee.com/happydpc/bevy", default-features = false }
+#aios_core = { git = "https://gitee.com/happydpc/aios-core" }
 
 truck-base = { version = "0.3.0",git = "https://gitee.com/happydpc/truck.git" }
 truck-geotrait = { version = "0.2.0", git = "https://gitee.com/happydpc/truck.git"}
