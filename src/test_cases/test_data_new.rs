@@ -263,3 +263,31 @@ fn test_sample_23584_5703(){
         assert_eq!(0.0,noll);
     }
 }
+
+#[test]
+fn test_uda() {
+    let data_str = "00 00 00 1B 00 00 3B 78 00 00 3D 5E 00 08 1F 4B
+00 00 3B 78 00 00 3D 5C 00 00 01 CC 00 0F 20 01
+00 00 00 00 00 00 00 00 20 07 00 00 2C 14 B1 A7
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 0E 62 A0
+00 00 00 0A 00 00 00 00 00 00 00 00 00 00 00 00
+00 0E 62 A0 00 09 C5 E1 00 00 00 00 00 01 00 21
+00 00 3B 78 00 00 3D 5E 00 00 00 00 00 00 00 00
+00 0A FA 16 28 00 00 02 00 00 00 04 4E 4F 4E 45
+11 A9 8C A9 14 00 00 01 00 00 00 00 00 09 39 40
+28 00 00 06 00 00 00 12 E7 AE A1 E9 81 93 E5 AE
+89 E5 85 A8 E7 AD 89 E7 BA A7 00 00 00 0B C6 1B
+1C 00 00 02 00 00 00 01 00 09 CA F3 00 0E 40 7F
+28 00 00 03 00 00 00 05 55 4E 53 45 54 00 00 00
+01 56 07 8A 28 00 00 02 00 00 00 04 41 51 44 4A";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x81F4B) {
+    //     dbg!(map.value());
+    // };
+    dbg!(&db1_dehash(641779));
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    dbg!(&ele_data.whole_attmap.explicit_attmap);
+}
