@@ -96,9 +96,9 @@ transmog-bincode = "0.1"
 
 
 #bevy = { path = "../bevy", default-features = false }
-aios_core = { path = "../aios-core" }
+#aios_core = { path = "../aios-core" }
 bevy = { git = "https://gitee.com/happydpc/bevy", default-features = false }
-#aios_core = { git = "https://gitee.com/happydpc/aios-core" }
+aios_core = { git = "https://gitee.com/happydpc/aios-core" }
 
 #truck-base = { version = "0.3.0", git = "https://gitee.com/happydpc/truck.git" }
 #truck-geotrait = { version = "0.2.0", git = "https://gitee.com/happydpc/truck.git" }
