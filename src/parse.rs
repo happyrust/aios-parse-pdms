@@ -134,7 +134,6 @@ pub struct PdmsDbData {
     /// 数据文件的db 名称（SYS里用的名称）
     pub db_name: String,
     ///数据文件的 db number
-    // pub db_no: u32,
     pub db_no: Integer,
     ///数据文件的field no
     pub field_no: Integer,
@@ -552,6 +551,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut field_no = 0;
 
     let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
+    dbg!(&(db_type.as_str(), file_version, db_no, file_name));
     let db_no_str = db_no.to_string();
     if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
         let _chars_len = db_no_str.len();
@@ -605,7 +605,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
             ref_0: ref_0.0,
-            db_no: if field_no == 0 { db_no } else { field_no },  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
+            db_no,  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
         });
     if children.len() > 0 {
         children_map.insert(refno, children.clone());
@@ -644,7 +644,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     println!("All refnos count: {}", all_refnos.len());
     let noun_attr_info_map = Arc::new(database_info.noun_attr_info_map.clone());
     let mut eles_time = Instant::now();
-    let db_no = if field_no == 0 { db_no } else { field_no };
     dbg!("Begin parse attributes");
     // let mut version_map = HashMap::new();
     all_refnos.iter().for_each(|refno| {
