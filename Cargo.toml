@@ -95,19 +95,19 @@ thiserror = "*"
 transmog-bincode = "0.1"
 
 
-#bevy = { path = "../bevy", default-features = false }
-#aios_core = { path = "../aios-core" }
-bevy = { git = "https://gitee.com/happydpc/bevy", default-features = false }
-aios_core = { git = "https://gitee.com/happydpc/aios-core" }
+bevy = { path = "../crates/bevy", default-features = false }
+aios_core = { path = "../crates/aios-core" }
+#bevy = { git = "https://gitee.com/happydpc/bevy", default-features = false }
+#aios_core = { git = "https://gitee.com/happydpc/aios-core" }
 
-truck-base = { version = "0.3.0", git = "https://gitee.com/happydpc/truck.git" }
-truck-geotrait = { version = "0.2.0", git = "https://gitee.com/happydpc/truck.git" }
-truck-geometry = { version = "0.3.0", git = "https://gitee.com/happydpc/truck.git" }
-truck-polymesh = { version = "0.4.0", git = "https://gitee.com/happydpc/truck.git" }
-truck-topology = { version = "0.4.0", git = "https://gitee.com/happydpc/truck.git" }
-truck-modeling = { version = "0.4.0", git = "https://gitee.com/happydpc/truck.git" }
-truck-meshalgo = { version = "0.2.0", git = "https://gitee.com/happydpc/truck.git" }
-truck-stepio = { version = "0.1.0", git = "https://gitee.com/happydpc/truck.git" }
+truck-base = { version = "0.4.0", path = "../crates/truck/truck-base" }
+truck-geotrait = { version = "0.3.0", path = "../crates/truck/truck-geotrait"}
+truck-geometry = { version = "0.4.0", path = "../crates/truck/truck-geometry" }
+truck-polymesh = { version = "0.5.0", path = "../crates/truck/truck-polymesh" }
+truck-topology = { version = "0.5.0", path = "../crates/truck/truck-topology" }
+truck-modeling = { version = "0.5.1", path = "../crates/truck/truck-modeling" }
+truck-meshalgo = { version = "0.3.0", path = "../crates/truck/truck-meshalgo" }
+truck-stepio = { version = "0.2.0", path = "../crates/truck/truck-stepio" }
 
 
 
