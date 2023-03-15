@@ -778,11 +778,12 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                     let (_, str_len) = be_i32(input)?;
                     let str_len = str_len as usize;
                     //优先按照string来处理
-                    if data_len == 8 && str_len != 1 {    //todo 什么情况 按double 来处理
-                        let d = parse_to_f64(&input[..8]);
-                        val = AttrVal::DoubleType(d);
-                        advance_offset = 2;
-                    } else if data_len == 4 && str_len != 0 {
+                    // if data_len == 8 && str_len != 1 {    //todo 什么情况 按double 来处理
+                    //     let d = parse_to_f64(&input[..8]);
+                    //     val = AttrVal::DoubleType(d);
+                    //     advance_offset = 2;
+                    // }
+                    if data_len == 4 && str_len != 0 {
                         if &input[..2] == &[0, 0] || &input[..2] == &[0xFF, 0xFF] {
                             let d = parse_to_i32(&input[..4]);
                             val = AttrVal::IntegerType(d);
@@ -792,14 +793,14 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                             val = AttrVal::DoubleType(d);
                             advance_offset = 1;   //按f32处理
                         }
-                    } else if str_len < input.len() && input.len() > 4 && str_len > 4 {
+                    } else if str_len < input.len() && input.len() >= 4 /* && str_len >= 4 */{
                         let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
                         // let name_hash = string_lookup.add_str(decode_string.as_str());
                         // val = AttrVal::StringHashType(name_hash);
                         val = AttrVal::StringType(decode_string.into());
                         advance_offset = str_len / 4 + 1;
                     } else {
-                        val = AttrVal::StringType("unset".into());
+                        val = AttrVal::StringType("".into());
                         // let name_hash = string_lookup.add_str("unset");
                         // val = AttrVal::StringHashType(name_hash);
                         //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);

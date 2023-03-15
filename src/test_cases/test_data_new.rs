@@ -283,10 +283,67 @@ fn test_uda() {
 01 56 07 8A 28 00 00 02 00 00 00 04 41 51 44 4A";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
-    // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x81F4B) {
-    //     dbg!(map.value());
-    // };
     dbg!(&db1_dehash(641779));
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    dbg!(&ele_data.whole_attmap.explicit_attmap);
+}
+
+#[test]
+fn test_detr_15192_232504() {
+    let data_str = "00 00 00 19 00 00 3B 58 00 03 8C 38 00 0C A7 8C
+00 00 3B 58 00 06 0B 7A 00 00 68 F4 00 2C 00 01
+00 00 00 00 00 00 00 00 20 03 80 00 00 00 00 00
+40 46 80 00 00 00 00 00 40 46 80 00 00 00 3B 58
+00 00 12 15 00 00 3B 58 00 05 C7 70 00 00 3B 58
+00 00 D5 38 00 00 3B 60 00 00 89 17 00 00 00 00
+00 00 00 00 00 01 00 13 00 00 3B 58 00 03 8C 38
+00 00 00 00 00 00 00 00 05 57 C1 73 40 00 00 02
+00 00 00 00 00 00 00 00 00 0D F8 D7 28 00 00 02
+00 00 00 04 54 52 55 45 00 09 C1 8E 3C 00 00 04
+00 00 00 09 2F 46 31 43 2F 45 43 36 35 00 00 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    dbg!(&ele_data.whole_attmap.explicit_attmap);
+}
+
+#[test]
+fn test_skey_15192_762() {
+    let data_str = "00 00 00 11 00 00 3B 58 00 00 02 FA 00 09 D5 D3
+00 00 3B 58 00 00 02 F9 00 00 0C 83 00 02 40 01
+00 00 00 00 00 00 00 00 20 05 80 00 00 00 00 04
+56 43 46 4C 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 01 00 1B 00 00 3B 58 00 00 02 FA
+00 00 00 00 00 00 00 00 00 CC 6B 3F 38 00 00 02
+00 00 00 01 00 09 D5 D3 00 0F 61 A4 28 00 00 0A
+00 00 00 24 57 4F 52 43 45 53 54 45 52 20 45 4C
+45 43 20 4F 50 20 43 54 52 4C 20 56 41 4C 56 45
+20 23 31 35 30 20 52 46 00 09 C1 8E 3C 00 00 04
+00 00 00 0A 2F 57 43 49 46 42 42 45 2D 44 00 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    dbg!(&ele_data.whole_attmap.explicit_attmap);
+}
+
+#[test]
+fn test_skey_15192_464() {
+    let data_str = "00 00 00 11 00 00 3B 58 00 00 01 D0 00 09 D5 D3
+00 00 3B 58 00 00 01 CF 00 00 2F B2 00 09 20 01
+00 00 00 00 00 00 00 00 20 05 00 00 00 00 00 02
+4F 50 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 01 00 19 00 00 3B 58 00 00 01 D0
+00 00 00 00 00 00 00 00 00 CC 6B 3F 38 00 00 02
+00 00 00 01 00 09 D5 D3 00 0F 61 A4 28 00 00 08
+00 00 00 1C 4F 52 49 46 49 43 45 20 50 4C 41 54
+45 20 33 4D 4D 20 26 20 36 4D 4D 20 23 33 30 30
+00 09 C1 8E 3C 00 00 04 00 00 00 0A 2F 41 30 49
+51 42 44 30 2D 44 00 00 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
