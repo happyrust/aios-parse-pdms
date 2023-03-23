@@ -1,8 +1,8 @@
-use smol_str::SmolStr;
-use crate::{db1_dehash, read_attr_info_config};
 use crate::parse::parse_ele_data;
 use crate::pdms_types::{AttrVal, StringLookupTable};
-use crate::test_cases::{convert_str_to_bytes, };
+use crate::test_cases::convert_str_to_bytes;
+use crate::{db1_dehash, read_attr_info_config};
+use smol_str::SmolStr;
 
 #[test]
 fn test_ahu_sample_15392_7313() {
@@ -74,7 +74,13 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
     //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     //dbg!(&ele_data);
 }
 
@@ -99,7 +105,13 @@ fn test_aba_14352_102824() {
     //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     let mut value = SmolStr::new("");
     if let Ok(m) = ele_data.attr_data_map.get_val("DETR") {
         match m {
@@ -173,7 +185,13 @@ fn test_aba_8193_90707() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     //dbg!(&ele_data);
 }
 
@@ -206,7 +224,13 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     let mut value = SmolStr::new("");
     if let Ok(m) = ele_data.attr_data_map.get_val("DX") {
         match m {
@@ -218,7 +242,6 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     }
     assert_eq!(value, "( 0.05 * ( ATTRIB PARA[6] + ATTRIB PARA[28] ) )")
 }
-
 
 #[test]
 fn test_sann() {
@@ -260,11 +283,16 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     //     //dbg!(map.value());
     // }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data);
 }
-
 
 #[test]
 fn test_atta() {
@@ -298,11 +326,16 @@ fn test_atta() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
-
 
 //test height
 //issue: height is 0
@@ -329,12 +362,16 @@ fn test_aba_height() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
-
-
 
 //issue: position is zero
 #[test]
@@ -364,12 +401,16 @@ C7 30 2C 00 43 48 00 00 00 00 00 03 00 00 00 00
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
-
-
 
 //issue: position is zero
 #[test]
@@ -399,11 +440,13 @@ fn test_sample_positon() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup,0).unwrap();
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+        0,
+    )
+    .unwrap();
     let mut value = SmolStr::new("");
     //dbg!(&ele_data.attr_data_map.to_string_hashmap());
 }
-
-
-
-

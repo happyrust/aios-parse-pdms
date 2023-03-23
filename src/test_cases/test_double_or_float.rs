@@ -1,7 +1,7 @@
 use crate::parse::parse_ele_data;
 use crate::pdms_types::StringLookupTable;
 use crate::read_attr_info_config;
-use crate::test_cases::{convert_str_to_bytes};
+use crate::test_cases::convert_str_to_bytes;
 
 #[test]
 fn test_spine_aba_32769_21909() {
@@ -21,11 +21,13 @@ fn test_spine_aba_32769_21909() {
         //dbg!(map.value());
     }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup);
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+    );
     //dbg!(&ele_data);
 }
-
-
 
 //15192,
 //     238890,
@@ -56,13 +58,17 @@ fn test_sample_15192_238890() {
         //dbg!(map.value());
     }
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup);
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+    );
     //dbg!(&ele_data);
 }
 
 #[test]
 fn test_aba_14352_38281() {
-    let data_str="
+    let data_str = "
 00 00 00 17 00 00 38 10 00 00 95 89 00 0C A7 8C
 00 00 38 10 00 00 95 88 00 00 10 B5 00 26 A0 01
 00 00 00 00 00 00 00 00 00 10 40 00 42 48 00 00
@@ -90,6 +96,10 @@ fn test_aba_14352_38281() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,&mut lookup);
+    let ele_data = parse_ele_data(
+        data.as_slice(),
+        &pdms_database_info.noun_attr_info_map,
+        &mut lookup,
+    );
     //dbg!(&ele_data);
 }

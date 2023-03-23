@@ -15,6 +15,7 @@ mod test_expression;
 mod test_data_new;
 mod test_nom;
 mod test_chinese;
+mod test_uda;
 // pub mod test_database;
 
 
