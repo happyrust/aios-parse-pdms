@@ -34,7 +34,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
     let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
-    if let Some(r) = ele_data.attr_data_map.get_val("PPRO") {
+    if let Some(r) = ele_data.whole_attmap.implicit_attmap.get_val("PPRO") {
         match r {
             AttrVal::StringType(v) => {
                 result = v.to_string();
@@ -42,7 +42,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
             _ => {}
         }
     }
-    assert_eq!("ATTRIB FLNM OF CATR", result);
+    assert_eq!("FLNM OF CATR", result);
 }
 
 #[test]

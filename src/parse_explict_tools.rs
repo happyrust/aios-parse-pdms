@@ -200,10 +200,12 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                 let length = length as usize * 4;
                 let mut expression_input = &tmp_input[4..length];
                 while expression_input.len() > 4 {
+                    println!("input={:#4X?}",expression_input);
                     let expression = get_expression_of_func(&expression_input[..4]);
                     if expression != "".to_string() {
                         let func = result_stack.pop().unwrap_or_default();
                         let result = format!("{} OF {} ", func, expression);
+                        dbg!(&result);
                         result_stack.push(result);
                         if expression_input.len() < 20 {
                             break;
@@ -215,7 +217,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         be_i32,
                     ))(&expression_input[..])?;
                     expression_input = &expression_tmp[..];
-                    if refno0 == 0 || refno1 == 1701 { // 1701 是 0x 06 A5 代表表达式的结束
+                    if &expression != "" || refno0 == 0 || refno1 == 1701 { // 1701 是 0x 06 A5 代表表达式的结束
                         let expression = get_expression_of_func(&expression_input[..4]);
                         let func = result_stack.pop().unwrap_or_default();
                         let result = format!("{} OF {} ", func, expression);
