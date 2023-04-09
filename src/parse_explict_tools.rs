@@ -215,7 +215,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         be_i32,
                     ))(&expression_input[..])?;
                     expression_input = &expression_tmp[..];
-                    if refno0 == 0 {
+                    if refno0 == 0 || refno1 == 1701 { // 1701 是 0x 06 A5 代表表达式的结束
                         let expression = get_expression_of_func(&expression_input[..4]);
                         let func = result_stack.pop().unwrap_or_default();
                         let result = format!("{} OF {} ", func, expression);
@@ -296,7 +296,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         }
                     }
                 }
-                &[0,0,0,0x6F] => {
+                &[0, 0, 0, 0x6F] => {
                     symbol = "PI".to_string();
                 }
                 _ => {}
@@ -400,6 +400,12 @@ pub fn parse_explicit_num_ff(data: &[u8]) -> IResult<&[u8], f64> {
 pub fn get_expression_of_func(input: &[u8]) -> String {
     let mut result = "".to_string();
     match input {
+        &[0, 0, 0, 0xA] => {
+            result = "PREV".to_string()
+        }
+        &[0, 0, 0, 0xB] => {
+            result = "NEXT".to_string()
+        }
         &[0x0, 0xA, 0x1D, 0xCB] => {
             result = "BLRF NUM 1".to_string();
         }
