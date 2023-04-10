@@ -400,6 +400,12 @@ pub fn parse_explicit_num_ff(data: &[u8]) -> IResult<&[u8], f64> {
 pub fn get_expression_of_func(input: &[u8]) -> String {
     let mut result = "".to_string();
     match input {
+        &[0, 0, 0, 0xA] => {
+            result = "PREV".to_string()
+        }
+        &[0, 0, 0, 0xB] => {
+            result = "NEXT".to_string()
+        }
         &[0x0, 0xA, 0x1D, 0xCB] => {
             result = "BLRF NUM 1".to_string();
         }
