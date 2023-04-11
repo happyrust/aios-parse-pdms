@@ -975,9 +975,9 @@
 				"hash": 623865,
 				"offset": 0,
 				"default_val": {
-					"RefU64Array": []
+					"ElementType": ""
 				},
-				"att_type": "RefU64Vec"
+				"att_type": "ELEMENT"
 			},
 			"639374": {
 				"name": "NAME",
@@ -29796,7 +29796,7 @@
 			"900454": {
 				"name": "DETR",
 				"hash": 900454,
-				"offset": 17,
+				"offset": 0,
 				"default_val": {
 					"ElementType": ""
 				},
