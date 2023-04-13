@@ -215,7 +215,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         be_i32,
                     ))(&expression_input[..])?;
                     expression_input = &expression_tmp[..];
-                    if refno0 == 0 {
+                    if &expression != "" || refno0 == 0 || refno1 == 1701 { // 1701 是 0x 06 A5 代表表达式的结束
                         let expression = get_expression_of_func(&expression_input[..4]);
                         let func = result_stack.pop().unwrap_or_default();
                         let result = format!("{} OF {} ", func, expression);
@@ -296,7 +296,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         }
                     }
                 }
-                &[0,0,0,0x6F] => {
+                &[0, 0, 0, 0x6F] => {
                     symbol = "PI".to_string();
                 }
                 _ => {}

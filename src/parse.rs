@@ -530,7 +530,6 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
         let explicit_len = parse_to_u16(&head[2..4]) as usize;
         let b_007 = &input[explicit_len * 4..explicit_len * 4 + 4];
         if b_007 != &[0, 0, 0, 7] { return &input[..explicit_len * 4]; }
-
     }
     input
 }
@@ -793,7 +792,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                             val = AttrVal::DoubleType(d);
                             advance_offset = 1;   //按f32处理
                         }
-                    } else if str_len < input.len() && input.len() >= 4 /* && str_len >= 4 */{
+                    } else if str_len < input.len() && input.len() >= 4 /* && str_len >= 4 */ {
                         let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
                         // let name_hash = string_lookup.add_str(decode_string.as_str());
                         // val = AttrVal::StringHashType(name_hash);
@@ -1576,8 +1575,10 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
             &[0x0, 0x0, 0x0, 0x7] => {
                 let (_, refno_0) = be_u32(&tmp_input[8..12])?;
                 let (_, refno_1) = be_u32(&tmp_input[12..16])?;
-                val = format!("{}/{}", refno_0, refno_1);
-                //return Ok((input, StringType(String::new())));
+                match (refno_0, refno_1) {
+                    (0x39F, 0x1B9) => { val = "RECT".to_string() }
+                    _ => { val = format!("{}/{}", refno_0, refno_1); }
+                }
             }
             &[0x0, 0x0, 0x0, 0x8] => {
                 let (_, times) = be_i32(&tmp_input[..4])?;
