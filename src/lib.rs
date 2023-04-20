@@ -43,23 +43,6 @@ pub mod options;
 
 pub type BHashMap<K, V> = bevy::utils::HashMap<K, V>;
 
-//cached functions to get value
-//todo 数据分层，尽可能的用缓存
-
-//todo wasm need use feature
-// pub fn init_pdms_db(db_option: &DbOption) -> anyhow::Result<AiosDBManager> {
-//     let mut time = Instant::now();
-//     let mut db_manager = AiosDBManager::init(db_option).unwrap();
-//
-//     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
-//     let refno = RefU64::from_two_nums(16395, 39308);
-//     //cached 一些常用的取值操作
-//     let refno_info = db_manager.get_refno_info(refno);
-//     //dbg!(&refno_info);
-//
-//     return Ok(db_manager);
-// }
-
 
 
 

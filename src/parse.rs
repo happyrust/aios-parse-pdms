@@ -151,7 +151,8 @@ pub struct RoomCode {
 
 
 ///解析pdms的目录
-pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_parsed_files: &Option<Vec<String>>) -> anyhow::Result<DashMap<String, PdmsDbData>> {
+pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_parsed_files: &Option<Vec<String>>)
+                      -> anyhow::Result<DashMap<String, PdmsDbData>> {
     let dir = PathBuf::from(dir);
     let mut pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?.into_iter().map(|entry| {
@@ -212,11 +213,11 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
                     let cur_dbno = pdms_db_data.db_no.0.to_string();
                     if pdms_db_data.filename.contains(&cur_dbno) {
                         if pdms_db_name_map.contains_key(&pdms_db_data.db_no.0) {
-                            pdms_db_data.db_name = /*SmolStr::new(*/pdms_db_name_map.get(&pdms_db_data.db_no.0).unwrap().clone()/*)*/;
+                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no.0).unwrap().clone();
                         }
                     } else {
                         if pdms_db_name_map.contains_key(&pdms_db_data.field_no.0) {
-                            pdms_db_data.db_name = /*SmolStr::new(*/pdms_db_name_map.get(&pdms_db_data.field_no.0).unwrap().clone()/*)*/;
+                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.field_no.0).unwrap().clone();
                         } else {
                             pdms_db_data.db_name = file_name.into();
                         }
@@ -230,7 +231,8 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
     return Ok(pdms_project_data_map);
 }
 
-pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
+pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str,
+                  project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
@@ -530,7 +532,6 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
         let explicit_len = parse_to_u16(&head[2..4]) as usize;
         let b_007 = &input[explicit_len * 4..explicit_len * 4 + 4];
         if b_007 != &[0, 0, 0, 7] { return &input[..explicit_len * 4]; }
-
     }
     input
 }
@@ -793,7 +794,7 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                             val = AttrVal::DoubleType(d);
                             advance_offset = 1;   //按f32处理
                         }
-                    } else if str_len < input.len() && input.len() >= 4 /* && str_len >= 4 */{
+                    } else if str_len < input.len() && input.len() >= 4 /* && str_len >= 4 */ {
                         let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
                         // let name_hash = string_lookup.add_str(decode_string.as_str());
                         // val = AttrVal::StringHashType(name_hash);
