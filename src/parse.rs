@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs;
 use std::fs::{File, OpenOptions};
-use std::intrinsics::size_of;
+use std::intrinsics::{offset, size_of};
 use std::io::{Read, Write};
 use std::ops::Index;
 use std::path::{Path, PathBuf};
@@ -27,8 +27,6 @@ use nom::combinator::{map, verify};
 use nom::multi::many_till;
 use serde::__private::from_utf8_lossy;
 use crate::parse_explict_tools::*;
-use crossbeam_deque::Steal::{Empty, Success};
-use crossbeam_queue::SegQueue;
 use id_tree::{Node, NodeId, Tree};
 use id_tree::InsertBehavior::{AsRoot, UnderNode};
 use nalgebra_glm::{e, round};
@@ -37,6 +35,7 @@ use smol_str::SmolStr;
 use core::result::Result::Ok;
 use std::default::default;
 use aios_core::consts::EXPR_ATT_SET;
+use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::*;
 use aios_core::pdms_types::AttrVal::*;
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
@@ -119,7 +118,6 @@ pub struct PdmsDbData {
 
     pub total_attr_map: DashMap<RefU64, WholeAttMap>,
     /// 所有的refno在tree里面对应的node_id
-    // pub refno_info_map: DashMap<u32, RefnoInfo>,
     pub refno_info_map: DashMap<Integer, RefnoInfo>,
     /// 所有包含子节点的map
     pub children_map: HashMap<RefU64, RefU64Vec>,
@@ -242,12 +240,11 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
     println!("read file {:?} finished in {:?}", path, time);
 
     if database_info.is_none() {
-        if let Ok(db_info) = serde_json::from_str(&include_str!("../all_attr_info.json")) {
-            let db_data = parse_db(input, &db_info, file_name, project, target_refno_str);
-            return db_data;
-        }
+        let db_info = get_default_pdms_db_info();
+        parse_db(input, &db_info, file_name, project, target_refno_str)
+    }else {
+        parse_db(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
     }
-    parse_db(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
 }
 
 ///从mdb里获取projects
@@ -567,9 +564,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
     let noun_attr_info_map = &database_info.noun_attr_info_map;
     let mut root_refno = world_refno;
-    if !target_refno_str.is_empty() {
-        // root_refno = RefU64::from_str(target_refno_str);
-    }
     let mut refno_info_map = Arc::new(DashMap::new());
     let mut children_map = HashMap::new();
     let entry = &*refno_table_map.get(&root_refno).ok_or(anyhow!("Not found refno in entry"))?;
@@ -599,14 +593,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     total_attr_map.insert(refno, whole_attmap);
     type_ele_map.entry(noun).or_insert(HashSet::default()).insert(refno);
     foreign_refnos_map.insert(refno, foreign_refnos);
-    // let root_id: NodeId = ele_id_tree.insert(Node::new(ele_node), AsRoot).unwrap();
-    // let mut refno_node_id_map = HashMap::new();
-    // refno_node_id_map.insert(refno, root_id.clone());
     let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
             ref_0: ref_0.0,
-            db_no,  //todo field number 的情况也要考虑在内, 如果是field number，需要重新刷一遍
+            db_no,
         });
     if children.len() > 0 {
         children_map.insert(refno, children.clone());
@@ -615,7 +606,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut memb_time = Instant::now();
     let mut pending_refnos = vec![root_refno.clone()];
 
-    dbg!(refno_table_map.len());
+    // dbg!(refno_table_map.len());
     let mut all_refnos = HashSet::new();
 
     while !pending_refnos.is_empty() {
@@ -628,13 +619,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             let membs = parse_ele_membs(&input[pos - 4..]);
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
-                    // if let Some(parent_id) = refno_node_id_map.get(&refno) {
-                    //     let id = ele_id_tree.insert(Node::new(EleTreeNode {
-                    //         refno: *memb,
-                    //         ..default()
-                    //     }), UnderNode(parent_id)).unwrap();
-                    //     refno_node_id_map.insert(*memb, id);
-                    // }
                     pending_refnos.push(*memb);
                 }
             }
@@ -646,7 +630,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let noun_attr_info_map = Arc::new(database_info.noun_attr_info_map.clone());
     let mut eles_time = Instant::now();
     dbg!("Begin parse attributes");
-    // let mut version_map = HashMap::new();
     all_refnos.iter().for_each(|refno| {
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();
@@ -655,6 +638,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             let whole_attr_dashmap = total_attr_map.clone();
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
+            if *refno == RefU64::from_refno_str("13245/519612").unwrap() {
+                dbg!(entry);
+            }
             if let Some(EleData {
                             refno,
                             owner,
@@ -684,19 +670,16 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         }
     });
     println!("解析属性所耗时间: {:?} ms", eles_time.elapsed().as_millis());
-    // println!("Tree nodes height: {}", ele_id_tree.height());
     println!("带有外键属性的参考号个数为 {}", foreign_refnos_map.len());
     println!("DB {} attrs count: {}", file_name, total_attr_map.len());
     println!("解析db: {} 所耗时间: {:?}ms", file_name, time_start.elapsed().as_millis());
 
     Ok(PdmsDbData {
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
-        // ele_id_tree: PdmsTree::default(),
         all_attr_map: Arc::try_unwrap(all_attr_map).unwrap(),
         total_attr_map: Arc::try_unwrap(total_attr_map).unwrap(),
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
         children_map,
-        // refno_node_id_map,
         filename: file_name.into(),
         version: Integer(file_version),
         db_type,
@@ -1818,13 +1801,14 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
     (file_type, version, db_no)
 }
 
+//todo 需要完善情况
 ///获得参考号对应的Entry
 #[inline]
 fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)> {
     let input = &input[offset - 4..];
     let noun_hash = parse_to_i32(&input[12..16]);
     let mut refno_entry = None;
-    let mut is_ok = false;
+    let mut is_ok = true;
     if NOUN_TYPES_MAP.contains_key(&noun_hash) {
         let (_, (len, refno)) = tuple::<_, _, nom::error::Error<&[u8]>, _>((
             be_i32,   //len
@@ -1836,24 +1820,26 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
 
         if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
-            if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 100], &input[4..12]) {   //允许一定范围去查找
-                let end_pos = (next_pos + 12);      //隐含属性实际结束点
-                if end_pos >= tmp_pos + 4 {
-                    let diff_len = end_pos - tmp_pos - 4;
-                    is_ok = diff_len == 0;
-                    if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
-                        let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x| x == 0),
-                                                                           verify(be_i32, |&x| x == 7))(&input[tmp_pos..end_pos]);
-                        if s.is_ok() {
-                            is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
+            let found_0_7 = memmem::find(&input[tmp_pos..tmp_pos + 20], &[0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7] );
+            if found_0_7.is_some()  {   //允许一定范围去查找
+                if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 20], &input[4..12]) {
+                    let end_pos = (next_pos + 12);      //隐含属性实际结束点
+                    if end_pos >= tmp_pos + 4 {
+                        let diff_len = end_pos - tmp_pos - 4;
+                        is_ok = diff_len == 0;
+                        if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
+                            let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(verify(be_i32, |&x| x == 0),
+                                                                               verify(be_i32, |&x| x == 7))(&input[tmp_pos..end_pos]);
+                            if s.is_ok() {
+                                is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
+                            }
                         }
                     }
                 }
             } else {
-                let next_len = parse_to_u32(&input[tmp_pos..tmp_pos + 4]);   //接下来是个长度的情况，没有02 （Members）， 也没有 01 （Explicit）
-                is_ok = next_len & 0xFFFFFF00 == 0;
-                if !is_ok {
-                    // //dbg!(next_len);
+                let mem_flag = parse_to_u16(&input[tmp_pos..tmp_pos + 2]);
+                if mem_flag == 2 || mem_flag == 1{
+                    is_ok = (&input[tmp_pos+4..tmp_pos+12]) == &input[4..12] ;
                 }
             }
         }
@@ -1928,24 +1914,36 @@ pub struct DbInfo {
     pub db_name: String,
 }
 
+pub const WORLD_NOUN: i32 = 0xBEB83;
+
 pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let refno_0_set = get_total_refno_0s(input);
     let mut refno_table = DashMap::new();
     let mut word_refno_hashset = DashSet::new();
+    // let p = 0x6B1CF00;
+    // let s = get_refno_entry(input, p).unwrap();
+    // dbg!(&s);
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
-            if let Some(refno_entry) = get_refno_entry(input, p) {
+            //需要检查是否满足要求，前面基本是 0x 00 00 00 xx
+            let t = &input[p-4..p];
+            if !(t[0] == 0 && t[1] == 0 && t[2] == 0 && t[3] >= 0x8){
+                continue;
+            }
+            if let Some((refno, entry)) = get_refno_entry(input, p) {
+                // if refno == RefU64::from_refno_str("15521/0").unwrap() {
+                //     dbg!(&entry);
+                // }
                 //判断是否是World
-                if refno_entry.1.noun_hash == 0xBEB83 {
-                    word_refno_hashset.insert(refno_entry.0);
+                if entry.noun_hash == WORLD_NOUN {
+                    word_refno_hashset.insert(refno);
                 }
-                refno_table.entry(refno_entry.0).or_insert(refno_entry.1);
+                refno_table.entry(refno).or_insert(entry);
             }
         }
     });
     let world_refno = word_refno_hashset.into_iter().next().unwrap_or_default();
-    // dbg!(world_refno.to_refno_str());
     (refno_table, world_refno)
 }
 
