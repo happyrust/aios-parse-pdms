@@ -39,7 +39,7 @@ pub mod test_cases;
 pub mod parse_explict_tools;
 pub mod parse;
 pub mod consts;
-pub mod options;
+// pub mod options;
 
 pub type BHashMap<K, V> = bevy::utils::HashMap<K, V>;
 
