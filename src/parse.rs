@@ -318,25 +318,24 @@ pub struct EleData {
 }
 
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
-fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
+pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
     let mut members = vec![];
-    let mut actual_impl_len = (parse_to_i32(&input[0..4]) * 4) as usize;  //隐含数据长度  0-4
+    let mut a = parse_to_i32(&input[0..4]) as usize * 4 ;  //隐含数据长度  0-4
     let refno = RefI32Tuple::from(&input[4..12]);
-    let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
-    while tmp_value == 0 || tmp_value == 7 {
-        actual_impl_len += 4;
-        tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
+    let mut t = parse_to_i32(&input[a..a + 4]);
+    while t == 0 || t == 7 {
+        a += 4;
+        t = parse_to_i32(&input[a..a + 4]);
     }
     //隐藏属性得数据切片
-    let membs_pos = actual_impl_len;
-    let membs_data = &input[membs_pos..];
+    let membs_data = &input[a..];
     let maybe_refno: RefI32Tuple = (&membs_data[4..12]).into();
     let mut memb_bytes_len = 0;
 
     if maybe_refno == refno {
         if &membs_data[0..2] == [0x0, 0x2].as_slice() {
             memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
+            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len, 0x2);
             if let Ok((_, c)) = parse_attr_members(&merged_data) {
                 members = c.0;
             }
@@ -360,13 +359,9 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let type_hash = parse_to_i32(&input[12..16]);
     let noun = type_hash as u32;
     let noun_name: SmolStr = db1_dehash(noun).into();  //类型hash  12-16
-    if !attr_info_map.contains_key(&type_hash) {
-        //todo info those can't parse types
-    }
     let attr_info_map = &*attr_info_map.get(&type_hash)?;
     let owner = RefU64::from(&input[16..24]);
     let version = parse_to_u32(&input[32..36]);
-    //有连接关系 ([0x0, 0x0, 0x0, 0x0(或者0x7)])
     let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
 
     while tmp_value == 0 || tmp_value == 7 {
@@ -383,7 +378,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     if maybe_refno == refno {
         if &membs_data[0..2] == [0x0, 0x2].as_slice() {
             memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len);
+            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len, 0x2);
             if let Ok((_, c)) = parse_attr_members(&merged_data) {
                 children = c;
             }
@@ -402,7 +397,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = attr_info_map.get(&last_key).unwrap();
         let step = match last_att_info.att_type {
-            // DbAttributeType::BOOL | DbAttributeType::DOUBLE | DbAttributeType::WORD => 1,
             DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => 3 * 2,
             DbAttributeType::ELEMENT => 2,
             _ => 1,
@@ -424,8 +418,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
                 DbAttributeType::DOUBLE | DbAttributeType::DIRECTION | DbAttributeType::POSITION | DbAttributeType::ORIENTATION | DbAttributeType::Vec3Type => {
                     if attr_info.att_type != DbAttributeType::DOUBLE {
                         let nums = u32::from_be_bytes(implicit_data[cur_offset as usize * 4..cur_offset as usize * 4 + 4].try_into().unwrap());
-                        //num 不对  00 00 00 01 4D 7C 74 D0 00 00 00 03 C6 0F C0 00
-                        // C7 30 2C 00 43 48 00 00   todo SPAMAP用来做啥
                         if nums == 1 {
                             cur_offset += 2;
                         }
@@ -466,25 +458,14 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         }
     }
 
-    let explicit_data = take_off_007(explicit_data);
-
+    let explicit_data = remove_007(explicit_data);
     if maybe_refno == refno {
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len);
+            let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len, 0x1);
             parse_explict_attrs(&merged_data, &attr_info_map, &mut explicit_attmap, refno, &mut foreign_refnos).ok()?;
         }
     }
-    // attr_info_map.iter().for_each(|pair| {
-    //     let name = &pair.value().name;
-    //     if !attr_data_map.contains_attr_hash(*pair.key() as u32) {
-    //         match name.as_str() {
-    //             "PTCDI" => attr_data_map.insert_by_att_name("PTCD", StringType("Y".into())),
-    //             "PARA" => attr_data_map.insert_by_att_name("PARA", DoubleArrayType(vec![])),
-    //             _ => {}
-    //         }
-    //     }
-    // });
 
     //添加遗漏的属性
     implicit_attmap.insert_by_att_name("OWNER", RefU64Type(owner));
@@ -510,7 +491,8 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     })
 }
 
-pub fn take_off_007(mut input: &[u8]) -> &[u8] {
+//移除00 00 00 007，保留后面的数据
+pub fn remove_007(mut input: &[u8]) -> &[u8] {
     while input.len() >= 4 {
         let v = parse_to_i32(&input[..4]);
         if v != 0 && v != 7 {
@@ -605,8 +587,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
     let mut memb_time = Instant::now();
     let mut pending_refnos = vec![root_refno.clone()];
-
-    // dbg!(refno_table_map.len());
     let mut all_refnos = HashSet::new();
 
     while !pending_refnos.is_empty() {
@@ -616,6 +596,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         if refno_table_map.contains_key(&refno) {
             let entry = &*refno_table_map.get(&refno).unwrap();
             let pos = entry.pos;
+            //解析到members数据
             let membs = parse_ele_membs(&input[pos - 4..]);
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
@@ -638,9 +619,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             let whole_attr_dashmap = total_attr_map.clone();
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
-            if *refno == RefU64::from_refno_str("13245/519612").unwrap() {
-                dbg!(entry);
-            }
+            // if *refno == RefU64::from_refno_str("13245/519612").unwrap() {
+            //     dbg!(entry);
+            // }
             if let Some(EleData {
                             refno,
                             owner,
@@ -2004,27 +1985,26 @@ pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleData
     (refno_table, world_refno)
 }
 
-fn get_merged_data(input: &[u8], len: &mut usize) -> Vec<u8> {
+// 02 代表 members, 01 代表 显示属性
+//00 00 00 07 00 02(maybe 01) 00 xx  (REF0)  (REF1)  00 00 00 00  00 00 00 00
+fn get_merged_data(input: &[u8], len: &mut usize, flag: u8) -> Vec<u8> {
+    // if *len > input.len() {
+    //     println!("{:#4X?}", input);
+    // }
     let mut data = input[20..*len].to_vec();
     if *len + 4 > input.len() {
         return data;
     }
-    let mut tmp_offset = *len;
-    while tmp_offset + 4 <= input.len() && &input[tmp_offset..tmp_offset + 4] == &[0x0, 0x0, 0x0, 0x7] {
-        let seg_len = parse_to_u16(&input[tmp_offset + 6..tmp_offset + 8]) as usize * 4;
-        let mut seg_offset = tmp_offset + 16;
-        // let mut seg_offset = tmp_offset + 24;
-        let mut i = 0;
-        while &input[seg_offset..seg_offset + 4] == &[0x0, 0x0, 0x0, 0x0] {
-            seg_offset += 4;
-            i += 1;
-            if i == 2 { break; }   //暂时最多允许2个0的DWORD
-        }
-        let next_seg = &input[seg_offset..tmp_offset + seg_len + 4];
+    let mut t = *len;
+    while t + 4 <= input.len() && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
+        let seg_len = parse_to_u16(&input[t + 6..t + 8]) as usize * 4;
+
+        let mut s = t + 16 + 8;
+        let next_seg = &input[s..t + seg_len + 4];
         data.extend_from_slice(next_seg);
-        tmp_offset += seg_len + 4;
+        t += seg_len + 4;
     }
-    *len = tmp_offset;
+    *len = t;
     data
 }
 

@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::Write;
+use aios_core::get_default_pdms_db_info;
 use crate::parse::parse_ele_data;
 // use crate::pdms_types::{AttrVal, StringLookupTable};
 use aios_core::pdms_types::{AttrVal, PdmsDatabaseInfo};
@@ -31,7 +32,7 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
 00 00 00 56 00 00 00 41 00 00 00 43 00 00 00 41
 00 00 00 44 00 00 00 56 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     if let Some(r) = ele_data.whole_attmap.implicit_attmap.get_val("PPRO") {
@@ -67,7 +68,7 @@ fn test_dbp_5194_136() {
 00 00 06 41 00 00 06 A5 00 09 D4 C4 0C 00 00 01
 00 00 00 01 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     if let Some(r) = ele_data.attr_data_map.get_val("PPRO") {
@@ -109,7 +110,7 @@ fn test_gdp_15194_223() {
 FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
@@ -142,7 +143,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // //dbg!(ele_data);
     let mut result = "".to_string();
@@ -185,7 +186,7 @@ fn test_gdp_15194_8039() {
 00 00 00 06 00 00 40 00 00 00 00 00 00 00 00 02
 00 00 00 00 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39i32) {
     //     //dbg!(map.value());
@@ -272,7 +273,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
 00 00 06 41 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     let mut result = "".to_string();
 
@@ -329,7 +330,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
 00 00 40 00 00 00 00 00 00 00 00 04 00 00 00 00
 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xBEEBFi32) {
     //     //dbg!(map.value());
@@ -370,7 +371,7 @@ FF F1 F3 AA 1C 00 00 1B 00 00 00 1A 00 00 00 1A
 00 00 00 00 40 00 04 02 00 00 00 00 00 00 00 06
 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     //dbg!(ele_data);
 }
@@ -398,7 +399,7 @@ fn test_sample_15213_499928_12_1() {
 00 00 00 00 00 00 00 00 10 10 00 00 00 10 00 01
 00 00 00 07 00 00 00 41 00 00 3B 6D 00 07 A0 D9";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         //dbg!(map.value());
     };
@@ -428,7 +429,7 @@ fn test_gdb_13802_5652() {
 00 00 00 65 00 00 00 02 00 00 00 03 00 00 03 EB
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -481,7 +482,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 06 41 00 00 06 A5 00 00 03 22
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -524,7 +525,7 @@ fn test_gdb_exp_f32() {
 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -559,7 +560,7 @@ fn test_gdb_exp_f32_13792_31766() {
 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -601,7 +602,7 @@ fn test_gdb_exp_f32_13792_31770() {
 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -627,7 +628,7 @@ fn test_gdb_exp_f32_13792_31779() {
 00 00 00 00 00 00 00 06 00 00 03 24
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -666,7 +667,7 @@ FF FF FF FC 00 00 00 00 00 00 00 06 00 00 03 24
 00 00 00 00 00 00 00 06 00 00 00 10 00 00 00 3D
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(ele_data.attr_data_map.to_string_hashmap());
 }
@@ -743,7 +744,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 23 00 09 C1 8E 3C 00 00 05 00 00 00 0D
 2F 53 54 44 41 48 55 2D 42 41 53 45 31 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39) {
         dbg!(map.value());
     };
@@ -847,7 +848,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 09 C1 8E 3C 00 00 05 00 00 00 0D 2F 52 53 54
 49 46 2D 57 45 42 4F 55 54 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         // dbg!(map.value());
     };
@@ -884,7 +885,7 @@ fn test_mas_15194_5453() {
 3C 00 00 04 00 00 00 0A 2F 52 54 48 4F 4C 45 38
 2F 37 00 00 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         // dbg!(map.value());
     };
@@ -916,7 +917,7 @@ fn test_mas_23704_838729() {
 00 00 00 0F 2F 53 54 35 33 2D 44 41 54 41 2D 57
 45 49 47 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
         dbg!(map.value());
     };
@@ -946,7 +947,7 @@ fn test_mas_15213_499889() {
 00 00 00 00 00 00 00 20 00 00 3B 6D 00 07 A0 B2
 00 0C D8 2B 00 00 3B 6D 00 07 A0 AF ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
 }
@@ -963,7 +964,7 @@ fn test_mas_15213_499728() {
 00 00 00 01 00 00 00 01 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 21 00 00 3B 6D 00 07 A0 11 00 0F 56 3E";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF563E) {
         dbg!(map.value());
     };
@@ -986,7 +987,7 @@ FF FF FF D8 00 00 00 01 00 00 00 48 00 00 00 00
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2B
  00 00 3B 6D 00 07 A0 42 00 0A F7 1D";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PY") {
@@ -1016,7 +1017,7 @@ fn test_mas_15213_499886() {
 00 00 02 35 00 00 00 41 00 00 3B 6D 00 07 A0 B0
 00 0D CC D4";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PCTP") {
         let result = val.string_value();
@@ -1079,7 +1080,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 00 00 00 00 06 41 00 00 06 A5 00 09 C1 8E
 3C 00 00 03 00 00 00 08 2F 46 4F 52 44 2D 50 38";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     // println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
     // println!("map={:?}", ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
@@ -1101,7 +1102,7 @@ fn test_sample_23984_1039_pdis() {
 00 00 00 01 00 00 00 02 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PDIS") {
         let result = val.string_value();
@@ -1178,7 +1179,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 00 03 22 00 00 03 24 00 00 03 25
 00 00 03 86 00 00 03 24 00 00 03 21 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
         let result = val.string_value();
@@ -1217,7 +1218,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 22 00 00 03 24 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
         let result = val.string_value();
@@ -1300,7 +1301,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 00 01 00 00 00 01 00 09 FC 08 00 00 06 41
 00 00 06 A5 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
     println!("map={:?}", ele_data.whole_attmap.explicit_attmap.to_string_hashmap());
@@ -1308,7 +1309,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 
 #[test]
 fn take_off_uda() {
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let info_map = pdms_database_info.noun_attr_info_map;
     let db_names_map = pdms_database_info.db_names_map;
     let new_info_map = DashMap::new();
@@ -1351,7 +1352,7 @@ fn test_mas_15193_22276_dpro() {
 00 00 00 06 00 00 7D 00 00 00 00 00 00 00 00 0B
 00 00 00 00 00 00 00 06 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
     //     dbg!(map.value());
     // };
@@ -1397,7 +1398,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 40 00 00 00 00 00 00 00 00 02 00 00 00 00
 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
     //     dbg!(map.value());
     // };
@@ -1633,7 +1634,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 00 0B 00 00 00 3D 00 58 52 59 1C 00 00 03
 00 00 00 02 00 00 00 01 00 00 00 03 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
@@ -1881,7 +1882,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 00 00 40 00 04 00 00 00 00 00 00 00 00 00
 00 00 03 25 00 00 03 23 00 00 03 24 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("map={:?}", ele_data.whole_attmap.implicit_attmap.to_string_hashmap());
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
@@ -1937,7 +1938,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 07 1E 00 09 C1 8E 3C 00 00 04 00 00 00 0A
 2F 43 54 55 42 45 2D 50 41 31 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PBOR") {
         let result = val.string_value();
@@ -2006,7 +2007,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 09 C1 8E 3C 00 00 04 00 00 00 0B
 2F 52 54 54 48 52 45 2D 50 41 31 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PCON") {
         let result = val.string_value();
@@ -2239,7 +2240,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 00 0B 00 00 00 3D 00 58 52 59 1C 00 00 03
 00 00 00 02 00 00 00 01 00 00 00 03 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
         let result = val.string_value();

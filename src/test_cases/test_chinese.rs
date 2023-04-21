@@ -1,3 +1,4 @@
+use aios_core::get_default_pdms_db_info;
 use aios_core::tool::db_tool::read_attr_info_config_from_json;
 use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
@@ -21,7 +22,7 @@ fn test_znp_17500_5192_description() {
 00 84 9D 24 0C 00 00 01 00 00 00 02 00 CC 6B 3F
 38 00 00 02 00 00 00 01 00 0E A0 01 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("DESC") {
         let result = val.string_value();
@@ -46,7 +47,7 @@ fn test_znp_9309_2_description() {
 37 3F 20 26 28 26 7E 40 48 35 40 47 78 20 26 29
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("DESC") {
         let result = val.string_value();

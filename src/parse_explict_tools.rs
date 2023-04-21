@@ -110,10 +110,10 @@ pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
         let mut expression_data = &input[16..(expression_length * 4) as usize + 8];
-        if &expression_type == "PX" {
-            let mut file = File::create("px.bin").unwrap();
-            file.write_all(expression_data).unwrap();
-        }
+        // if &expression_type == "PX" {
+        //     let mut file = File::create("px.bin").unwrap();
+        //     file.write_all(expression_data).unwrap();
+        // }
         let input = &input[(expression_length * 4) as usize + 8..];
         // 表达式都是以0x0 0 0 1开头的
         let _expression_start = &expression_data[..4];

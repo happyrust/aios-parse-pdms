@@ -19,8 +19,3 @@ mod test_uda;
 mod test_parse_element;
 // pub mod test_database;
 
-
-#[inline]
-pub fn load_test_pdms_att_info() -> PdmsDatabaseInfo{
-    read_attr_info_config_from_json("all_attr_info.json")
-}
