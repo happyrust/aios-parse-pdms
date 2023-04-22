@@ -1958,8 +1958,6 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 // 00 00 00 01 00 00 00 01 00 00 00 02 00 00 00 01
 // 00 00 00 02 00 00 00 04 00 00 00 00 00 00 00 00
 // 00 00 00 00 00 00 00 00
-// [src/data_interface/tidb_manager.rs:1169] &to_refno = 24381/56675
-// [src/data_interface/tidb_manager.rs:1170] &arrive = 1
 // 输入表达式 : (LBOR OF = 10/1701)
 // 计算后表达式 : (LBOR OF = 10/1701)
 // 期望的结果是：(LEAWID OF PREV +IPAR[1])
