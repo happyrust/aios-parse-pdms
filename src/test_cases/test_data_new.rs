@@ -1,9 +1,10 @@
 use std::fs::File;
 use std::io::Write;
+use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::{NounHash, PdmsDatabaseInfo};
 use aios_core::tool::db_tool::{db1_dehash, db1_hash, read_attr_info_config_from_bin, read_attr_info_config_from_json};
 use crate::parse::parse_ele_data;
-use crate::test_cases::{convert_str_to_bytes, load_test_pdms_att_info};
+use crate::test_cases::{convert_str_to_bytes};
 
 #[test]
 fn test_sample_2013286748_1428() {
@@ -30,7 +31,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 35 00 00 00
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("SECT") as i32)) {
         dbg!(map.value());
     };
@@ -52,8 +53,8 @@ FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
 35 00 00 00";
     let data = convert_str_to_bytes(data_str);
     // let pdms_database_info = read_attr_info_config("all_attr_info.bin");
-    // let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    // let pdms_database_info = get_default_pdms_db_info();
+    let pdms_database_info = get_default_pdms_db_info();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
@@ -138,7 +139,7 @@ fn test_sample_mdb() {
 00 00 5F FF 00 00 01 E1 00 00 5F FF 00 00 01 E4
 00 00 5F FF 00 00 01 E2 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
@@ -146,13 +147,7 @@ fn test_sample_mdb() {
     println!("ele_data={:?}",ele_data.whole_attmap);
 }
 
-#[test]
-fn change_info_bin_file() {
-    let info = load_test_pdms_att_info();
-    let mut file = File::create("all_attr_info_new.json").unwrap();
-    let v = serde_json::to_string(&info).unwrap();
-    file.write(v.as_bytes()).unwrap();
-}
+
 
 #[test]
 fn test_room_code_sample() {
@@ -173,7 +168,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
 38 00 00 02 00 00 00 01 00 08 F3 A6 29 02 D6 DA
 28 00 00 03 00 00 00 05 31 52 31 30 31 00 00 00 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
@@ -217,7 +212,7 @@ fn test_sample_23584_2702() {
 00 00 00 01 00 00 00 07 00 00 00 12 00 0B 0D 89
 00 00 00 06";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
+    let pdms_database_info:PdmsDatabaseInfo = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x9A45C) {
         dbg!(map.value());
     }
@@ -250,7 +245,7 @@ fn test_sample_23584_5703(){
 00 0C 54 7E 00 08 DF C1 1C 00 00 02 00 00 00 01
 00 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info:PdmsDatabaseInfo = serde_json::from_str(&include_str!("../../all_attr_info.json")).unwrap();
+    let pdms_database_info:PdmsDatabaseInfo = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("MDB") as i32)) {
         dbg!(map.value());
     }
@@ -282,7 +277,7 @@ fn test_uda() {
 28 00 00 03 00 00 00 05 55 4E 53 45 54 00 00 00
 01 56 07 8A 28 00 00 02 00 00 00 04 41 51 44 4A";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     dbg!(&db1_dehash(641779));
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
@@ -303,7 +298,7 @@ fn test_detr_15192_232504() {
 00 00 00 04 54 52 55 45 00 09 C1 8E 3C 00 00 04
 00 00 00 09 2F 46 31 43 2F 45 43 36 35 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
@@ -323,7 +318,7 @@ fn test_skey_15192_762() {
 20 23 31 35 30 20 52 46 00 09 C1 8E 3C 00 00 04
 00 00 00 0A 2F 57 43 49 46 42 42 45 2D 44 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
@@ -343,7 +338,7 @@ fn test_skey_15192_464() {
 00 09 C1 8E 3C 00 00 04 00 00 00 0A 2F 41 30 49
 51 42 44 30 2D 44 00 00 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
