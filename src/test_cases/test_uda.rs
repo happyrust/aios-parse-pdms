@@ -15,6 +15,9 @@ fn test_uda_dehash() {
     assert_eq!(":3D_SJRY".to_string(),hash);
 }
 
+// ams desi 24381/48631
+// 当前值  :4WO
+// 期望值  :3D_SJRY
 #[test]
 fn test_parse_uda_data_24381_48631() {
     let data_str = "00 00 00 1C 00 00 5F 3D 00 00 BD F7 00 09 D6 5A
