@@ -210,6 +210,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         let result = format!("{} OF {} ", func, expression);
                         result_stack.push(result);
                         if expression_input.len() < 20 {
+                            // OF 后面可能还有其他表达式
                             break;
                         }
                         expression_input = &expression_input[20..];
@@ -230,10 +231,15 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         let refno = format!("{}/{}", refno0, refno1);
                         let func = result_stack.pop().unwrap_or_default();
                         let result = format!("({} OF = {})", func, refno);
+                        // result_stack.push(result);
                         return Ok((input, result.into()));
                     }
                 }
-                expression_data = &expression_data[length..];
+                if expression_data.len() > 28 + length {
+                    expression_data = &expression_data[24 + length + 4..];
+                } else {
+                    expression_data = &expression_data[length..];
+                }
             } else {
                 // 跳过普通表达式的结束位
                 expression_data = &expression_data[24..];

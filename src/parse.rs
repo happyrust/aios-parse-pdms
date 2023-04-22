@@ -833,7 +833,7 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         let mut att_value = None;
         let debug_pos = total_len - residual.len();
         let hash_val = convert_to_hash(&residual[..4]);
-
+        dbg!(hash_val as i32);
         if check_is_expr(hash_val as i32) {
             let (input, (expression_type, value)) = parse_expression_attr(residual, refno)?;
             att_value = Some(StringType(value));
