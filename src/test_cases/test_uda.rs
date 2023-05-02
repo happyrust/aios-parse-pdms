@@ -1,3 +1,4 @@
+use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::RefU64;
 use aios_core::tool::db_tool::{db1_dehash, read_attr_info_config_from_json};
 use crate::parse::parse_ele_data;
@@ -20,30 +21,34 @@ fn test_uda_dehash() {
 // 期望值  :3D_SJRY
 #[test]
 fn test_parse_uda_data_24381_48631() {
-    let data_str = "00 00 00 1C 00 00 5F 3D 00 00 BD F7 00 09 D6 5A
-00 00 3F 3D 00 00 00 00 00 00 22 58 00 0A 40 01
-00 00 22 58 00 07 60 01 20 07 40 12 00 08 1C F2
-00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
+    let data_str = "
+    00 00 00 29 00 00 5C 20 00 00 15 D4 00 08 F3 A6
+00 00 5C 20 00 00 15 D1 00 00 26 F5 00 05 40 01
+00 00 00 00 00 00 00 00 20 08 C0 00 00 00 00 03
+00 00 00 00 40 C1 FA 80 00 00 00 00 40 C8 06 00
+00 00 00 00 40 8A 54 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 C0 56 80 00 00 00 00 00
+00 00 00 00 00 00 00 0C 00 00 3B 58 00 03 80 68
+00 00 3B 58 00 03 80 27 00 00 00 01 00 00 00 02
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00 02 00 17 00 00 5F 3D 00 00 BD F7 00 00 00 00
-00 00 00 00 00 00 5F 3D 00 00 BD F8 00 00 5F 3D
-00 00 BF 31 00 00 5F 3D 00 00 C1 74 00 00 5F 3D
-00 00 DB A3 00 00 5F 3D 00 00 DD 52 00 00 5F 3D
-00 00 DD 73 00 00 5F 3D 00 00 DE BD 00 00 5F 3D
-00 00 DF 50 00 00 5F 3D 00 00 E0 24 00 01 00 22
-00 00 5F 3D 00 00 BD F7 00 00 00 00 00 00 00 00
-00 CC 6B 3F 38 00 00 02 00 00 00 01 00 09 D6 5A
-00 09 C1 8E 3C 00 00 04 00 00 00 0C 2F 31 43 41
-56 2D 48 56 41 43 48 42 00 09 39 40 28 00 00 07
-00 00 00 18 E7 8E AF E5 BD A2 E7 A9 BA E9 97 B4
-E9 80 9A E9 A3 8E E7 B3 BB E7 BB 9F 00 09 2C B5
-28 00 00 02 00 00 00 04 48 56 41 43 26 52 AB 0D
-28 00 00 04 00 00 00 0B 7A 68 61 6E 67 73 68 75
-61 69 61 00";
+00 00 00 00 00 00 00 00 00 00 00 02 2F B0 E7 4C
+80 00 00 01 00 01 00 28 00 00 5C 20 00 00 15 D4
+00 00 00 00 00 00 00 00 00 0A AF CA 14 00 00 01
+00 00 00 00 00 09 2E A7 0C 00 00 01 FF FF FF FF
+00 0B C6 C0 14 00 00 01 00 00 00 01 06 A0 26 04
+0C 00 00 01 00 0D F3 17 10 71 D1 20 08 00 00 02
+00 00 00 00 00 00 00 00 10 71 D1 2B 08 00 00 02
+00 00 00 00 00 00 00 00 00 0D FD 22 14 00 00 01
+00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
+00 08 F3 A6 00 08 DF C1 1C 00 00 02 00 00 00 01
+00 00 00 00 2C F2 AE D5 28 00 00 02 00 00 00 04
+74 65 73 74 00 00 00 00 00 00 00 00
+    ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = read_attr_info_config_from_json("all_attr_info.json");
+    let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
-    dbg!(&ele_data.whole_attmap.explicit_attmap);
+    for (key,value) in ele_data.whole_attmap.explicit_attmap.map {
+        dbg!(&key.0);
+        dbg!(&value);
+    }
 }

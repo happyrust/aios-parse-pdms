@@ -238,7 +238,6 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
     let input = &buf[..];
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
-
     if database_info.is_none() {
         let db_info = get_default_pdms_db_info();
         parse_db(input, &db_info, file_name, project, target_refno_str)
@@ -548,7 +547,8 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     let mut root_refno = world_refno;
     let mut refno_info_map = Arc::new(DashMap::new());
     let mut children_map = HashMap::new();
-    let entry = &*refno_table_map.get(&root_refno).ok_or(anyhow!("Not found refno in entry"))?;
+    let entry = &*refno_table_map.get(&root_refno).ok_or(
+        anyhow!("Not found refno in entry"))?;
 
     let EleData {
         refno,
@@ -568,6 +568,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         owner,
         children_count: children.len(),
     };
+
     // 将房间信息保存到单独的数据结构中
     if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
         room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
@@ -634,7 +635,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             foreign_refnos,
                         }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map) {
                 // 将房间信息保存到单独的数据结构中
-
                 if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
                     room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
                 }
@@ -1901,21 +1901,15 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, R
     let refno_0_set = get_total_refno_0s(input);
     let mut refno_table = DashMap::new();
     let mut word_refno_hashset = DashSet::new();
-    // let p = 0x6B1CF00;
-    // let s = get_refno_entry(input, p).unwrap();
-    // dbg!(&s);
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
             //需要检查是否满足要求，前面基本是 0x 00 00 00 xx
             let t = &input[p-4..p];
-            if !(t[0] == 0 && t[1] == 0 && t[2] == 0 && t[3] >= 0x8){
+            if !(t[0] == 0 && t[1] == 0 && t[2] == 0 && t[3] >= 0x8) {
                 continue;
             }
             if let Some((refno, entry)) = get_refno_entry(input, p) {
-                // if refno == RefU64::from_refno_str("15521/0").unwrap() {
-                //     dbg!(&entry);
-                // }
                 //判断是否是World
                 if entry.noun_hash == WORLD_NOUN {
                     word_refno_hashset.insert(refno);
