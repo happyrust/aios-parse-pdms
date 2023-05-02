@@ -110,10 +110,6 @@ pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
         let mut expression_data = &input[16..(expression_length * 4) as usize + 8];
-        // if &expression_type == "PX" {
-        //     let mut file = File::create("px.bin").unwrap();
-        //     file.write_all(expression_data).unwrap();
-        // }
         let input = &input[(expression_length * 4) as usize + 8..];
         // 表达式都是以0x0 0 0 1开头的
         let _expression_start = &expression_data[..4];
@@ -171,7 +167,6 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             let num = u32::from_be_bytes(expression_data[..4].try_into().unwrap());
             let att_name = db1_dehash(u32::from_be_bytes(expression_data[4..8].try_into().unwrap()));
             let flags = (parse_to_i32(&expression_data[8..12]), parse_to_i32(&expression_data[12..16]));
-
             let mut rpro_name = String::new();
             let s_value = u32::from_be_bytes(expression_data[16..20].try_into().unwrap());
             if att_name.as_str() == "RPRO" && s_value != 0 {
@@ -187,7 +182,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             } else {
                 let num = flags.1;
                 if s_value == 0 {
-                    if num == 1 {
+                    if num == 1 && &att_name != "PARA" {
                         expression = format!("{att_name}");
                     } else {
                         expression = format!("{att_name}[{num}]");
