@@ -2654,3 +2654,47 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
         assert_eq!(&result, "(-0.5*PARA[1]+PARA[3])")
     }
 }
+
+#[test]
+fn test_13246_198158_paax() {
+    let data_str = "00 00 00 1B 00 00 33 BE 00 03 06 0E 00 0C D6 96
+00 00 33 BE 00 03 05 F0 00 00 29 9B 00 08 E0 01
+00 00 00 00 00 00 00 00 20 00 C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0F
+00 00 00 02 00 00 00 03 00 00 04 10 00 00 00 02
+00 00 00 03 00 00 00 29 00 00 00 04 00 00 00 28
+00 00 00 01 FF FF FF 4C 00 00 00 00 00 01 00 08
+00 00 33 BE 00 03 06 0E 00 00 00 00 00 00 00 00
+00 0D 17 DA 0C 00 00 01 00 00 00 02";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PAAX") {
+        let result = val.string_value();
+        assert_eq!(&result, "-P40");
+    }
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PBAX") {
+        let result = val.string_value();
+        assert_eq!(&result, "P41");
+    }
+}
+
+#[test]
+fn test_13246_198158_paax_2() {
+    let data_str = "00 00 00 1B 00 00 33 BE 00 03 06 0E 00 0C D6 96
+00 00 33 BE 00 03 05 F0 00 00 FE DE 00 03 80 01
+00 00 00 00 00 00 00 00 20 00 C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0F
+00 00 00 02 00 00 00 03 00 00 03 E9 00 00 00 02
+00 00 00 03 00 00 00 29 00 00 00 04 00 00 00 28
+00 00 00 01 FF FF FF 4C 00 00 00 00 00 01 00 08
+00 00 33 BE 00 03 06 0E 00 00 00 00 00 00 00 00
+00 0D 17 DA 0C 00 00 01 00 00 00 02";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PAAX") {
+        let result = val.string_value();
+        assert_eq!(&result, "-P1");
+    }
+}
