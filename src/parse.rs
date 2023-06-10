@@ -1228,10 +1228,11 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                 //todo use dynfmt
                 match &tmp_input[..4] {
                     &[0x0, 0x0, 0x0, 0x3] => {
-                        let (_, value) = be_u8(&tmp_input[7..8])?;
+                        // let (_, value) = be_u8(&tmp_input[7..8])?;
+                        let (_, value) = be_u32(&tmp_input[4..8])?;
                         val = AttrVal::StringType(format!("P{}", value).into());
-                        if value > 0xE8 {
-                            let value = value - 0xE8;
+                        if value > 1000 {
+                            let value = value - 1000;
                             val = AttrVal::StringType(format!("-P{}", value).into());
                         }
                     }
