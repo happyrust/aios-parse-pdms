@@ -44,7 +44,6 @@ use anyhow::anyhow;
 use futures::TryStreamExt;
 use id_tree::Tree;
 use lazy_static::lazy_static;
-use nalgebra_glm::Mat3;
 use smol_str::SmolStr;
 
 

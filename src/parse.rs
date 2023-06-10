@@ -29,7 +29,6 @@ use serde::__private::from_utf8_lossy;
 use crate::parse_explict_tools::*;
 use id_tree::{Node, NodeId, Tree};
 use id_tree::InsertBehavior::{AsRoot, UnderNode};
-use nalgebra_glm::{e, round};
 use serde_json::Value::Bool;
 use smol_str::SmolStr;
 use core::result::Result::Ok;
@@ -48,6 +47,7 @@ use rayon::prelude::IntoParallelIterator;
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
+///解析出来的所有数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WholeAttMap {
     pub implicit_attmap: AttrMap,
@@ -95,10 +95,10 @@ impl WholeAttMap {
 
     /// 将隐式属性和显示属性放到一个attrmap中
     #[inline]
-    pub fn change_implicit_explicit_into_attr(self) -> AttrMap {
-        let mut map = self.implicit_attmap;
-        for (k, v) in self.explicit_attmap.map {
-            map.insert(k, v);
+    pub fn merge_implicit_explicit_into_attr(&self) -> AttrMap {
+        let mut map = self.implicit_attmap.clone();
+        for (k, v) in &self.explicit_attmap.map {
+            map.insert(k.clone(), v.clone());
         }
         map
     }
@@ -118,7 +118,7 @@ pub struct PdmsDbData {
 
     pub total_attr_map: DashMap<RefU64, WholeAttMap>,
     /// 所有的refno在tree里面对应的node_id
-    pub refno_info_map: DashMap<Integer, RefnoInfo>,
+    pub refno_info_map: DashMap<u32, RefnoInfo>,
     /// 所有包含子节点的map
     pub children_map: HashMap<RefU64, RefU64Vec>,
     /// refno 到 NodeId的映射表
@@ -126,15 +126,15 @@ pub struct PdmsDbData {
     ///数据文件名
     pub filename: String,
     ///数据文件的版本号
-    pub version: Integer,
+    pub version: u32,
     ///数据文件的db type（DESI、CATA、SYS等等）
     pub db_type: String,
     /// 数据文件的db 名称（SYS里用的名称）
     pub db_name: String,
     ///数据文件的 db number
-    pub db_no: Integer,
+    pub db_no: u32,
     ///数据文件的field no
-    pub field_no: Integer,
+    pub field_no: u32,
     /// 对应的房间号下的所有  refno
     pub room_code_map: DashMap<String, RefU64Vec>,
     /// 所有参考号对应的外键类型和外键参考号
@@ -185,8 +185,8 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
                 pdms_db_name_map.insert(db_no, name);
                 Ok(())
             })?;
-            if pdms_db_name_map.contains_key(&pdms_db_data.db_no.0) {
-                pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no.0).unwrap().clone();
+            if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
             } else {
                 pdms_db_data.db_name = file_name.into();
             }
@@ -208,14 +208,14 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
                 println!("path={:?}", file_name);
                 if let Ok(mut pdms_db_data) = parse_file(&path, &database_info, file_name, project, "") {
                     pdms_db_data.filename = file_name.into();
-                    let cur_dbno = pdms_db_data.db_no.0.to_string();
+                    let cur_dbno = pdms_db_data.db_no.to_string();
                     if pdms_db_data.filename.contains(&cur_dbno) {
-                        if pdms_db_name_map.contains_key(&pdms_db_data.db_no.0) {
-                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no.0).unwrap().clone();
+                        if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
                         }
                     } else {
-                        if pdms_db_name_map.contains_key(&pdms_db_data.field_no.0) {
-                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.field_no.0).unwrap().clone();
+                        if pdms_db_name_map.contains_key(&pdms_db_data.field_no) {
+                            pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.field_no).unwrap().clone();
                         } else {
                             pdms_db_data.db_name = file_name.into();
                         }
@@ -576,10 +576,10 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     total_attr_map.insert(refno, whole_attmap);
     type_ele_map.entry(noun).or_insert(HashSet::default()).insert(refno);
     foreign_refnos_map.insert(refno, foreign_refnos);
-    let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
+    let ref_0 = refno.get_0();
     refno_info_map.entry(ref_0).or_insert(
         RefnoInfo {
-            ref_0: ref_0.0,
+            ref_0: ref_0,
             db_no,
         });
     if children.len() > 0 {
@@ -641,9 +641,9 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
 
                 whole_attr_dashmap.insert(refno, whole_attmap);
                 type_ele_map.entry(noun).or_insert(HashSet::default()).insert(refno);
-                let ref_0 = Integer(RefI32Tuple::from(&refno).get_0() as u32);
+                let ref_0 = refno.get_0();
                 refno_info_map.entry(ref_0).or_insert(RefnoInfo {
-                    ref_0: ref_0.0,
+                    ref_0,
                     db_no,
                 });
                 foreign_refnos_map.insert(refno, foreign_refnos);
@@ -662,11 +662,11 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
         refno_info_map: Arc::try_unwrap(refno_info_map).unwrap(),
         children_map,
         filename: file_name.into(),
-        version: Integer(file_version),
+        version: file_version,
         db_type,
         db_name: Default::default(),
-        db_no: Integer(db_no),
-        field_no: Integer(field_no),
+        db_no: db_no,
+        field_no: field_no,
         room_code_map: Arc::try_unwrap(room_code_map).unwrap(),
         foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
