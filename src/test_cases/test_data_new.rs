@@ -253,7 +253,7 @@ fn test_sample_23584_5703(){
     println!("hash={:?}",hash);
     let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
-    if let Some(noll) = ele_data.whole_attmap.implicit_attmap.get(&NounHash(835759)) {
+    if let Some(noll) = ele_data.whole_attmap.implicit_attmap.get(&(835759)) {
         let noll = noll.double_value().unwrap();
         assert_eq!(0.0,noll);
     }

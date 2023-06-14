@@ -30,7 +30,6 @@ use crate::parse_explict_tools::*;
 use id_tree::{Node, NodeId, Tree};
 use id_tree::InsertBehavior::{AsRoot, UnderNode};
 use serde_json::Value::Bool;
-use smol_str::SmolStr;
 use core::result::Result::Ok;
 use std::default::default;
 use aios_core::consts::EXPR_ATT_SET;
@@ -58,11 +57,11 @@ pub struct WholeAttMap {
 impl WholeAttMap {
     pub fn refine(mut self, info_map: &DashMap<i32, AttrInfo>) -> Self {
         for (k, v) in self.explicit_attmap.clone().map {
-            let noun_hash = k.0;
+            let noun_hash = k;
             if let Some(info) = info_map.get(&(noun_hash as i32)) {
                 if info.offset > 0 && EXPR_ATT_SET.contains(&(noun_hash as i32)) {
-                    let v = self.explicit_attmap.remove(&NounHash(noun_hash)).unwrap();
-                    self.implicit_attmap.insert(NounHash(noun_hash), v);
+                    let v = self.explicit_attmap.remove(&(noun_hash)).unwrap();
+                    self.implicit_attmap.insert((noun_hash), v);
                 }
             }
         }
@@ -357,7 +356,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     //todo wrapper i32 to type_hash type
     let type_hash = parse_to_i32(&input[12..16]);
     let noun = type_hash as u32;
-    let noun_name: SmolStr = db1_dehash(noun).into();  //类型hash  12-16
+    let noun_name = db1_dehash(noun);  //类型hash  12-16
     let attr_info_map = &*attr_info_map.get(&type_hash)?;
     let owner = RefU64::from(&input[16..24]);
     let version = parse_to_u32(&input[32..36]);
@@ -570,7 +569,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     };
 
     // 将房间信息保存到单独的数据结构中
-    if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
+    if let Some(val) = whole_attmap.explicit_attmap.get(&(ATT_ROOM as u32)) {
         room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
     }
     total_attr_map.insert(refno, whole_attmap);
@@ -635,7 +634,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
                             foreign_refnos,
                         }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map) {
                 // 将房间信息保存到单独的数据结构中
-                if let Some(val) = whole_attmap.explicit_attmap.get(&NounHash(ATT_ROOM as u32)) {
+                if let Some(val) = whole_attmap.explicit_attmap.get(&(ATT_ROOM as u32)) {
                     room_code_map.entry(val.string_value()).or_insert_with(RefU64Vec::default).push(refno);
                 }
 
@@ -1098,9 +1097,9 @@ pub fn parse_explict_attrs<'a>(input: &'a [u8], attr_info_map: &DashMap<i32, Att
         }
         if let Some(v) = att_value {
             if EXPR_ATT_SET.contains(&(hash_val as i32)) {
-                attr_data_map.insert(NounHash(hash_val), v);
+                attr_data_map.insert((hash_val), v);
             } else {
-                attr_data_map.entry(NounHash(hash_val)).or_insert(v);
+                attr_data_map.entry((hash_val)).or_insert(v);
             }
         }
     }
@@ -1612,7 +1611,7 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefI32Tuple) -> IRes
             }
             let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno)?;
             let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
-            result = AttrVal::StringType(SmolStr::new(format!("{}{}{}", first_data, second_data, third)));
+            result = AttrVal::StringType((format!("{}{}{}", first_data, second_data, third)));
         } else if [d, e] == [0x2, 0x16] {
             // 0x16 开头就是 X () Y ... 两个坐标的类型
             // 0x2 0x16 后面第一个就是 X Y Z 这三种坐标
@@ -1621,7 +1620,7 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefI32Tuple) -> IRes
                 first_data = format!("AXIS {}", first_data);
             }
             let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
-            result = AttrVal::StringType(SmolStr::new(format!("{}{}", first_data, second)));
+            result = AttrVal::StringType((format!("{}{}", first_data, second)));
             // 最后以 0x3D结束
         } else {
             match &tmp_input[..8] {
@@ -1730,10 +1729,10 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> anyhow::Result<()> {
 }
 
 ///处理type_hash对应的refno位置信息
-fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefU64, SmolStr)>, path: &PathBuf) -> bool {
+fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefU64, String)>, path: &PathBuf) -> bool {
     let refno_0_set = get_total_refno_0s(input);
     let path = Path::new(path);
-    let file_name: SmolStr = path.file_name().unwrap().to_owned().to_string_lossy().to_string().into();
+    let file_name: String = path.file_name().unwrap().to_owned().to_string_lossy().to_string().into();
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {

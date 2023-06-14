@@ -84,7 +84,7 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 
 
 /// 解析表达式
-pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, SmolStr)> {
+pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val));
     if expression_type == "PTCDI" || expression_type == "PTCD" {
@@ -93,7 +93,7 @@ pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
-        let mut result: SmolStr = "".into();
+        let mut result: String = "".into();
         match axis {
             StringType(value) => {
                 result = value;
