@@ -97,7 +97,10 @@ impl WholeAttMap {
     pub fn merge_implicit_explicit_into_attr(&self) -> AttrMap {
         let mut map = self.implicit_attmap.clone();
         for (k, v) in &self.explicit_attmap.map {
-            map.insert(k.clone(), v.clone());
+            // todo check why the explicit attribute has same as implicit
+            if !map.contains_attr_hash(*k) {
+                map.insert(k.clone(), v.clone());
+            }
         }
         map
     }
