@@ -41,7 +41,7 @@ pub mod parse;
 pub mod consts;
 // pub mod options;
 
-pub type BHashMap<K, V> = bevy::utils::HashMap<K, V>;
+pub type BHashMap<K, V> = std::collections::HashMap<K, V>;
 
 
 

@@ -39,7 +39,6 @@ use aios_core::pdms_types::AttrVal::*;
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use crate::consts::*;
 use anyhow::*;
-use bevy::prelude::In;
 use concurrent_queue::ConcurrentQueue;
 use rayon::prelude::IntoParallelIterator;
 
@@ -613,7 +612,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     println!("All refnos count: {}", all_refnos.len());
     let noun_attr_info_map = Arc::new(database_info.noun_attr_info_map.clone());
     let mut eles_time = Instant::now();
-    dbg!("Begin parse attributes");
+    println!("Begin parse attributes");
     all_refnos.iter().for_each(|refno| {
         if refno_table_map.contains_key(refno) {
             let entry = &*refno_table_map.get(refno).unwrap();

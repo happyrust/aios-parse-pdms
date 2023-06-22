@@ -48,7 +48,7 @@ fn test_parse_uda_data_24381_48631() {
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     for (key,value) in ele_data.whole_attmap.explicit_attmap.map {
-        dbg!(&key.0);
+        dbg!(&key);
         dbg!(&value);
     }
 }
