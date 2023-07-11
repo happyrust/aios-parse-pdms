@@ -242,7 +242,7 @@ pub fn parse_file(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file
     if database_info.is_none() {
         let db_info = get_default_pdms_db_info();
         parse_db(input, &db_info, file_name, project, target_refno_str)
-    }else {
+    } else {
         parse_db(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
     }
 }
@@ -320,7 +320,7 @@ pub struct EleData {
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
 pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
     let mut members = vec![];
-    let mut a = parse_to_i32(&input[0..4]) as usize * 4 ;  //隐含数据长度  0-4
+    let mut a = parse_to_i32(&input[0..4]) as usize * 4;  //隐含数据长度  0-4
     let refno = RefI32Tuple::from(&input[4..12]);
     let mut t = parse_to_i32(&input[a..a + 4]);
     while t == 0 || t == 7 {
@@ -1605,38 +1605,83 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefI32Tuple) -> IRes
             be_u32,
             be_u32,
         ))(input)?;
-        // 0x17 开头代表是 X () Y () Z 这种类型
-        if [d, e] == [0x2, 0x17] {
-            let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
-            if first_data.starts_with("-") {
-                first_data = format!("AXIS {}", first_data);
-            }
-            let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno)?;
-            let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
-            result = AttrVal::StringType((format!("{}{}{}", first_data, second_data, third)));
-        } else if [d, e] == [0x2, 0x16] {
+        match [d, e] {
             // 0x16 开头就是 X () Y ... 两个坐标的类型
             // 0x2 0x16 后面第一个就是 X Y Z 这三种坐标
-            let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
-            if first_data.starts_with("-") {
-                first_data = format!("AXIS {}", first_data);
+            [0x2, 0x16] => {
+                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+                if first_data.starts_with("-") {
+                    first_data = format!("AXIS {}", first_data);
+                }
+                let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+                result = AttrVal::StringType((format!("{}{}", first_data, second)));
             }
-            let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
-            result = AttrVal::StringType((format!("{}{}", first_data, second)));
-            // 最后以 0x3D结束
-        } else {
-            match &tmp_input[..8] {
-                &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("X".into()) }
-                &[0x0, 0x0, 0x0, 0xC, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-X".into()) }
-                &[0x0, 0x0, 0x0, 0xD, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Y".into()) }
-                &[0x0, 0x0, 0x0, 0xE, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Y".into()) }
-                &[0x0, 0x0, 0x0, 0xF, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Z".into()) }
-                &[0x0, 0x0, 0x0, 0x10, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Z".into()) }
-                _ => {}
+            // 0x17 开头代表是 X () Y () Z 这种类型
+            [0x2, 0x17] => {
+                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+                if first_data.starts_with("-") {
+                    first_data = format!("AXIS {}", first_data);
+                }
+                let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno)?;
+                let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+                result = AttrVal::StringType((format!("{}{}{}", first_data, second_data, third)));
+            }
+            [0x2, 0x34] => {
+                let func = match_direction_attribute_to_string(parse_to_u32(&tmp_input[4..8]));
+                let (_tmp_input, mut first_data) = parse_xyz_data(&tmp_input[8..], refno)?;
+                result = AttrVal::StringType((format!("{} {}", func, first_data)));
+            }
+            _ => {
+                match &tmp_input[..8] {
+                    &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("X".into()) }
+                    &[0x0, 0x0, 0x0, 0xC, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-X".into()) }
+                    &[0x0, 0x0, 0x0, 0xD, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Y".into()) }
+                    &[0x0, 0x0, 0x0, 0xE, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Y".into()) }
+                    &[0x0, 0x0, 0x0, 0xF, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Z".into()) }
+                    &[0x0, 0x0, 0x0, 0x10, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Z".into()) }
+                    _ => {}
+                }
             }
         }
+        // if [d, e] == [0x2, 0x17] {
+        //     let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+        //     if first_data.starts_with("-") {
+        //         first_data = format!("AXIS {}", first_data);
+        //     }
+        //     let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno)?;
+        //     let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+        //     result = AttrVal::StringType((format!("{}{}{}", first_data, second_data, third)));
+        // } else if [d, e] == [0x2, 0x16] {
+        //     // 0x16 开头就是 X () Y ... 两个坐标的类型
+        //     // 0x2 0x16 后面第一个就是 X Y Z 这三种坐标
+        //     let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+        //     if first_data.starts_with("-") {
+        //         first_data = format!("AXIS {}", first_data);
+        //     }
+        //     let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+        //     result = AttrVal::StringType((format!("{}{}", first_data, second)));
+        //     // 最后以 0x3D结束
+        // } else {
+        //     match &tmp_input[..8] {
+        //         &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("X".into()) }
+        //         &[0x0, 0x0, 0x0, 0xC, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-X".into()) }
+        //         &[0x0, 0x0, 0x0, 0xD, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Y".into()) }
+        //         &[0x0, 0x0, 0x0, 0xE, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Y".into()) }
+        //         &[0x0, 0x0, 0x0, 0xF, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("Z".into()) }
+        //         &[0x0, 0x0, 0x0, 0x10, 0x0, 0x0, 0x0, 0x3D] => { result = StringType("-Z".into()) }
+        //         _ => {}
+        //     }
+        // }
     }
     Ok((input, result))
+}
+
+/// match ptcdirection 的方法
+pub fn match_direction_attribute_to_string(key: u32) -> String {
+    match key {
+        0x1F => { "TO".to_string() }
+        _ => { "".to_string() }
+    }
 }
 
 /// match AXIS显式属性对应的值
@@ -1803,8 +1848,8 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
 
         if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
-            let found_0_7 = memmem::find(&input[tmp_pos..tmp_pos + 20], &[0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7] );
-            if found_0_7.is_some()  {   //允许一定范围去查找
+            let found_0_7 = memmem::find(&input[tmp_pos..tmp_pos + 20], &[0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7]);
+            if found_0_7.is_some() {   //允许一定范围去查找
                 if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 20], &input[4..12]) {
                     let end_pos = (next_pos + 12);      //隐含属性实际结束点
                     if end_pos >= tmp_pos + 4 {
@@ -1821,8 +1866,8 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
                 }
             } else {
                 let mem_flag = parse_to_u16(&input[tmp_pos..tmp_pos + 2]);
-                if mem_flag == 2 || mem_flag == 1{
-                    is_ok = (&input[tmp_pos+4..tmp_pos+12]) == &input[4..12] ;
+                if mem_flag == 2 || mem_flag == 1 {
+                    is_ok = (&input[tmp_pos + 4..tmp_pos + 12]) == &input[4..12];
                 }
             }
         }
@@ -1907,7 +1952,7 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, R
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
             //需要检查是否满足要求，前面基本是 0x 00 00 00 xx
-            let t = &input[p-4..p];
+            let t = &input[p - 4..p];
             if !(t[0] == 0 && t[1] == 0 && t[2] == 0 && t[3] >= 0x8) {
                 continue;
             }

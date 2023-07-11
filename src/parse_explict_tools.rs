@@ -91,6 +91,7 @@ pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
+        // let expression_data = &input[..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
         let mut result: String = "".into();
