@@ -342,3 +342,19 @@ fn test_parse_mdb_with_many_pages() {
     let d = parse_ele_data(data.as_slice(), &m);
     dbg!(d);
 }
+
+#[test]
+fn test_parse_suppo() {
+    let data_str = "00 00 00 10 00 00 5F 3F 00 01 8A FA 00 86 BD 1A
+00 00 5F 3F 00 01 20 C8 00 00 63 47 00 2B C0 01
+00 00 00 00 00 00 00 00 20 02 80 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 01 00 0F 00 00 5F 3F 00 01 8A FA 00 00 00 00
+00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
+00 86 BD 1A 00 09 C1 8E 3C 00 00 04 00 00 00 0B
+2F 74 65 73 74 5F 73 75 70 70 6F 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    dbg!(&ele_data);
+}

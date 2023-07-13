@@ -515,7 +515,8 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
     input
 }
 
-pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
+pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo,
+                file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<PdmsDbData> {
     let mut type_ele_map = Arc::new(DashMap::new());
     /// 基本数据的Tree
     // let mut ele_id_tree: Tree<EleTreeNode> = Tree::new();
@@ -541,10 +542,10 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
     }
 
     let mut gen_ref_time = Instant::now();
-    let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
+    let noun_attr_info_map = &database_info.noun_attr_info_map;
+    let (refno_table_map, world_refno) = gen_ref_type_pos_table(input,noun_attr_info_map);
     println!("gen_ref_type_pos_table: {} ms", gen_ref_time.elapsed().as_millis());
 
-    let noun_attr_info_map = &database_info.noun_attr_info_map;
     let mut root_refno = world_refno;
     let mut refno_info_map = Arc::new(DashMap::new());
     let mut children_map = HashMap::new();
@@ -624,6 +625,7 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo, file_name: &str,
             // if *refno == RefU64::from_refno_str("13245/519612").unwrap() {
             //     dbg!(entry);
             // }
+
             if let Some(EleData {
                             refno,
                             owner,
@@ -1780,10 +1782,11 @@ fn process_type_hash<'a>(input: &'a [u8], type_hash: &mut DashMap<i32, (RefU64, 
     let refno_0_set = get_total_refno_0s(input);
     let path = Path::new(path);
     let file_name: String = path.file_name().unwrap().to_owned().to_string_lossy().to_string().into();
+    let noun_map = get_default_pdms_db_info();
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
-            if let Some(refno_entry) = get_refno_entry(input, p) {
+            if let Some(refno_entry) = get_refno_entry(input, p,&noun_map.noun_attr_info_map) {
                 type_hash.entry(refno_entry.1.noun_hash).or_insert((refno_entry.0, file_name.clone()));
                 break;  //if found, just break
             }
@@ -1832,7 +1835,7 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
 //todo 需要完善情况
 ///获得参考号对应的Entry
 #[inline]
-fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)> {
+fn get_refno_entry(input: &[u8], offset: usize,noun_attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> Option<(RefU64, EleDataEntry)> {
     let input = &input[offset - 4..];
     let noun_hash = parse_to_i32(&input[12..16]);
     let mut refno_entry = None;
@@ -1944,7 +1947,7 @@ pub struct DbInfo {
 
 pub const WORLD_NOUN: i32 = 0xBEB83;
 
-pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
+pub fn gen_ref_type_pos_table(input: &[u8],noun_attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let refno_0_set = get_total_refno_0s(input);
     let mut refno_table = DashMap::new();
     let mut word_refno_hashset = DashSet::new();
@@ -1956,7 +1959,7 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, R
             if !(t[0] == 0 && t[1] == 0 && t[2] == 0 && t[3] >= 0x8) {
                 continue;
             }
-            if let Some((refno, entry)) = get_refno_entry(input, p) {
+            if let Some((refno, entry)) = get_refno_entry(input, p,noun_attr_info_map) {
                 //判断是否是World
                 if entry.noun_hash == WORLD_NOUN {
                     word_refno_hashset.insert(refno);
@@ -1973,7 +1976,7 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, R
 /// 根据get_last_index_position返回的hashset获取所有的ref_no + type的位置
 /// 返回值是hashmap k:所有的ref_no v:(ref_no的position,type的hash)
 /// 利用这个层级关系去解析数据，加快速度
-pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
+pub fn gen_ref_type_pos_table_parallel(input: &[u8],noun_attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let get_total_timer = Instant::now();
     let refno_0_set = get_total_refno_0s(input);
     println!("Get total refnos {} ms", get_total_timer.elapsed().as_millis());
@@ -1999,7 +2002,7 @@ pub fn gen_ref_type_pos_table_parallel(input: &[u8]) -> (DashMap<RefU64, EleData
                     let pos_iter = rfind_iter(data, ref_0);
                     for p in pos_iter {
                         if p < start { continue; }
-                        if let Some(refno_entry) = get_refno_entry(data, p - start) {
+                        if let Some(refno_entry) = get_refno_entry(data, p - start,noun_attr_info_map) {
                             //判断是否是World
                             if refno_entry.1.noun_hash == 0xBEB83 {
                                 word_refno_hashset.insert(refno_entry.0);
@@ -2053,6 +2056,7 @@ pub fn get_project_name_from_filename(filename: &str) -> IResult<&str, &str> {
     let (input, p) = alpha1(filename)?;
     Ok((input, p))
 }
+
 
 pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 
@@ -3256,4 +3260,5 @@ pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 0xE2DECi32 => "ASET",
 0x8D92Bi32 => "DLLB",
 0xB55143Ai32 => "XPITEM",
+0x86BD1Ai32 => "SUPPO",
 };
