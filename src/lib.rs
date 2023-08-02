@@ -6,7 +6,6 @@
 #![feature(once_cell)]
 #![feature(async_closure)]
 #![feature(generic_const_exprs)]
-#![feature(default_free_fn)]
 #![feature(exclusive_range_pattern)]
 #[macro_use]
 extern crate approx;
