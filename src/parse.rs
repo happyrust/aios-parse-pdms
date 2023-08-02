@@ -3536,4 +3536,9 @@ pub(crate) static NOUN_TYPES_MAP: phf::Map<i32, &'static str> = phf_map! {
 0x8D92Bi32 => "DLLB",
 0xB55143Ai32 => "XPITEM",
 0x86BD1Ai32 => "SUPPO",
+0x12A08752i32 => "ENDATU",
+0x93274i32 => "SUPC",
+0xAD9F2i32 => "ANCI",
+0xD706DB5i32 => "AIDGRO",
+0xC4E0040i32 => "AIDLIN",
 };
