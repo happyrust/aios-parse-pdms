@@ -32,6 +32,7 @@ use id_tree::InsertBehavior::{AsRoot, UnderNode};
 use serde_json::Value::Bool;
 use core::result::Result::Ok;
 use std::default;
+use aios_core::cache::refno::CachedRefBasic;
 use aios_core::consts::EXPR_ATT_SET;
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::*;
@@ -230,9 +231,9 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
     return Ok(pdms_project_data_map);
 }
 
-///解析db文件
+///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_file_children_map(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str,
-                               project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, RefU64Vec>> {
+                               project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
@@ -590,8 +591,9 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
     input
 }
 
+///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
-                             file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, RefU64Vec>> {
+                             file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
     let mut field_no = 0;
 
     let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
@@ -618,11 +620,13 @@ pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
         anyhow!("Not found refno in entry"))?;
 
 
-    let (refno, children) = parse_ele_children(&input[entry.pos - 4..], noun_attr_info_map);
+    let (refno, children_refnos) = parse_ele_children(&input[entry.pos - 4..], noun_attr_info_map);
+    let children = children_refnos.iter()
+        .filter(|x| refno_table_map.contains_key(x))
+        .map(|x| (*x, db1_dehash(refno_table_map.get(x).unwrap().noun_hash as _)))
+        .collect::<Vec<_>>();
 
-    // if children.len() > 0 {
-    children_map.insert(refno, children.clone());
-    // }
+    children_map.insert(refno, children);
 
     let mut memb_time = Instant::now();
     let mut pending_refnos = vec![root_refno.clone()];
@@ -637,12 +641,16 @@ pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
             let pos = entry.pos;
             //解析到members数据
             let membs = parse_ele_membs(&input[pos - 4..]);
+            let children = membs.iter()
+                .filter(|x| refno_table_map.contains_key(x))
+                .map(|x| (*x, db1_dehash(refno_table_map.get(x).unwrap().noun_hash as _)))
+                .collect::<Vec<_>>();
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
                     pending_refnos.push(*memb);
                 }
             }
-            children_map.insert(refno, RefU64Vec(membs));
+            children_map.insert(refno, children);
         }
     }
     println!("Parsing children members cost: {} ms", memb_time.elapsed().as_millis());
