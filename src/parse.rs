@@ -1,38 +1,29 @@
 #[allow(unused_mut)]
 use core::slice::SlicePattern;
-use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs;
 use std::fs::{File, OpenOptions};
-use std::intrinsics::{offset, size_of};
 use std::io::{Read, Write};
-use std::ops::Index;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 use dashmap::{DashMap, DashSet};
-use futures::{AsyncReadExt, TryFutureExt};
+use futures::AsyncReadExt;
 use memchr::memmem;
-use memchr::memmem::{find, find_iter, rfind_iter};
-use nom::bytes::complete::{take_till, take_until, take_while};
+use memchr::memmem::rfind_iter;
+use nom::bytes::complete::take_until;
 use nom::character::complete::alpha1;
 use nom::IResult;
-use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u64, be_u8};
+use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
 use nom::sequence::tuple;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use phf::phf_map;
 use aios_core::helper::*;
-use nom::combinator::{map, verify};
+use nom::combinator::verify;
 use nom::multi::many_till;
-use serde::__private::from_utf8_lossy;
 use crate::parse_explict_tools::*;
-use id_tree::{Node, NodeId, Tree};
-use id_tree::InsertBehavior::{AsRoot, UnderNode};
-use serde_json::Value::Bool;
 use core::result::Result::Ok;
-use std::default;
-use aios_core::cache::refno::CachedRefBasic;
 use aios_core::consts::EXPR_ATT_SET;
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::*;
@@ -40,7 +31,6 @@ use aios_core::pdms_types::AttrVal::*;
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use crate::consts::*;
 use anyhow::*;
-use concurrent_queue::ConcurrentQueue;
 use rayon::prelude::IntoParallelIterator;
 
 
@@ -962,8 +952,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo,
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, double_flag: bool) -> IResult<&'a [u8], (usize, AttrVal)> {
     let mut val = AttrVal::InvalidType;
-    use nom::bytes::complete::take;
-
     let n = db1_dehash(attr_info.hash as u32);
     let b_expr = check_is_expr(attr_info.hash);
     let data_len = input.len();
