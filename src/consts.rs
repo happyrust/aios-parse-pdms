@@ -1,5 +1,3 @@
-use smol_str::SmolStr;
-
 pub const UNSET_STR: &'static str = "unset";
 
 pub const ATT_MDB: i32 = 0x8221C;

@@ -1,37 +1,29 @@
 #[allow(unused_mut)]
 use core::slice::SlicePattern;
-use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs;
 use std::fs::{File, OpenOptions};
-use std::intrinsics::{offset, size_of};
 use std::io::{Read, Write};
-use std::ops::Index;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 use dashmap::{DashMap, DashSet};
-use futures::{AsyncReadExt, TryFutureExt};
+use futures::AsyncReadExt;
 use memchr::memmem;
-use memchr::memmem::{find, find_iter, rfind_iter};
-use nom::bytes::complete::{take_till, take_until, take_while};
+use memchr::memmem::rfind_iter;
+use nom::bytes::complete::take_until;
 use nom::character::complete::alpha1;
 use nom::IResult;
-use nom::number::complete::{be_f64, be_i16, be_i32, be_u16, be_u32, be_u64, be_u8};
+use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
 use nom::sequence::tuple;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use phf::phf_map;
 use aios_core::helper::*;
-use nom::combinator::{map, verify};
+use nom::combinator::verify;
 use nom::multi::many_till;
-use serde::__private::from_utf8_lossy;
 use crate::parse_explict_tools::*;
-use id_tree::{Node, NodeId, Tree};
-use id_tree::InsertBehavior::{AsRoot, UnderNode};
-use serde_json::Value::Bool;
 use core::result::Result::Ok;
-use std::default;
 use aios_core::consts::EXPR_ATT_SET;
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::*;
@@ -39,7 +31,6 @@ use aios_core::pdms_types::AttrVal::*;
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use crate::consts::*;
 use anyhow::*;
-use concurrent_queue::ConcurrentQueue;
 use rayon::prelude::IntoParallelIterator;
 
 
@@ -230,9 +221,9 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
     return Ok(pdms_project_data_map);
 }
 
-///解析db文件
+///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_file_children_map(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str,
-                               project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, RefU64Vec>> {
+                               project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
@@ -590,8 +581,9 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
     input
 }
 
+///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
-                             file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, RefU64Vec>> {
+                             file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
     let mut field_no = 0;
 
     let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
@@ -618,11 +610,13 @@ pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
         anyhow!("Not found refno in entry"))?;
 
 
-    let (refno, children) = parse_ele_children(&input[entry.pos - 4..], noun_attr_info_map);
+    let (refno, children_refnos) = parse_ele_children(&input[entry.pos - 4..], noun_attr_info_map);
+    let children = children_refnos.iter()
+        .filter(|x| refno_table_map.contains_key(x))
+        .map(|x| (*x, db1_dehash(refno_table_map.get(x).unwrap().noun_hash as _)))
+        .collect::<Vec<_>>();
 
-    // if children.len() > 0 {
-    children_map.insert(refno, children.clone());
-    // }
+    children_map.insert(refno, children);
 
     let mut memb_time = Instant::now();
     let mut pending_refnos = vec![root_refno.clone()];
@@ -637,12 +631,16 @@ pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
             let pos = entry.pos;
             //解析到members数据
             let membs = parse_ele_membs(&input[pos - 4..]);
+            let children = membs.iter()
+                .filter(|x| refno_table_map.contains_key(x))
+                .map(|x| (*x, db1_dehash(refno_table_map.get(x).unwrap().noun_hash as _)))
+                .collect::<Vec<_>>();
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
                     pending_refnos.push(*memb);
                 }
             }
-            children_map.insert(refno, RefU64Vec(membs));
+            children_map.insert(refno, children);
         }
     }
     println!("Parsing children members cost: {} ms", memb_time.elapsed().as_millis());
@@ -954,8 +952,6 @@ pub fn parse_db(input: &[u8], database_info: &PdmsDatabaseInfo,
 #[inline]
 pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, double_flag: bool) -> IResult<&'a [u8], (usize, AttrVal)> {
     let mut val = AttrVal::InvalidType;
-    use nom::bytes::complete::take;
-
     let n = db1_dehash(attr_info.hash as u32);
     let b_expr = check_is_expr(attr_info.hash);
     let data_len = input.len();
