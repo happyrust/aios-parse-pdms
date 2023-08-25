@@ -378,3 +378,39 @@ fn tets_17496_161418_udtype() {
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(&ele_data.whole_attmap);
 }
+
+#[test]
+fn test_17496_124126_ukey() {
+    let data_str = "00 00 00 27 00 00 44 58 00 01 E4 DE 00 0E 57 9A
+00 00 44 58 00 01 9F 9F 00 00 13 42 00 05 00 01
+00 00 00 00 00 00 00 00 20 0F 00 00 00 00 00 00
+00 00 00 00 67 E6 A3 C5 40 88 AE E6 00 00 00 00
+00 0F 2F 52 00 00 00 03 00 00 00 00 C0 90 2C 00
+00 00 00 00 00 00 00 00 00 00 00 04 BE 97 90 70
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 3B 59
+00 01 03 AE 00 00 00 01 80 00 00 01 00 01 00 41
+00 00 44 58 00 01 E4 DE 00 00 00 00 00 00 00 00
+00 09 C1 8E 3C 00 00 05 00 00 00 0D 2F 31 52 53
+30 34 53 53 30 30 30 31 4D 00 00 00 00 0D 20 C7
+18 00 00 0B 00 00 00 05 00 00 00 00 40 A0 2C 00
+00 00 00 00 40 8C 20 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 40 59 00 00
+17 AA A7 23 28 00 00 0E 00 00 00 34 26 7E 4E 5E
+43 45 43 45 36 34 21 22 30 32 57 30 36 34 23 28
+20 26 4D 26 7E 23 29 20 26 7C 7C 26 7E 3E 58 50
+4E 20 26 7C 32 30 37 30 2A 39 30 30 2A 32 30 30
+18 AA A7 23 28 00 00 02 00 00 00 03 7C 7C 7C 00
+19 AA A7 23 28 00 00 0A 00 00 00 24 53 2D 58 52
+58 2D 4E 49 2D 32 44 32 2D 30 33 2D 32 32 44 34
+2D 32 33 41 33 7C 41 7C 26 7E 50 42 3D 28 20 26
+1A AA A7 23 28 00 00 02 00 00 00 02 7C 7C 00 00
+00 CC 6B 3F 38 00 00 02 00 00 00 01 00 0E 57 9A";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    for map in ele_data.whole_attmap.explicit_attmap.map {
+        println!("key = {:?} : value = {:?}",map.0,map.1);
+    }
+}
