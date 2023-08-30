@@ -537,7 +537,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     implicit_attmap.insert_by_att_name("OWNER", RefU64Type(owner));
     implicit_attmap.insert_by_att_name("TYPE", WordType(noun_name.clone()));
     implicit_attmap.insert_by_att_name("REFNO", RefU64Type(refno.into()));
-    let mut name_hash = implicit_attmap.get_name();
+    let mut name_hash = implicit_attmap.get_name_string();
     let whole_attmap = WholeAttMap {
         implicit_attmap,
         explicit_attmap,
@@ -551,7 +551,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
         attr_data_map,
         whole_attmap,
         children,
-        name_hash,
+        name_hash:AiosStr(name_hash),
         version,
         foreign_refnos,
     })
