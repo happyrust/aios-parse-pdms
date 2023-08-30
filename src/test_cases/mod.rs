@@ -12,5 +12,4 @@ mod test_nom;
 mod test_chinese;
 mod test_uda;
 mod test_parse_element;
-// pub mod test_database;
 
