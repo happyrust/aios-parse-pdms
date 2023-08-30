@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -24,6 +24,7 @@ use nom::combinator::verify;
 use nom::multi::many_till;
 use crate::parse_explict_tools::*;
 use core::result::Result::Ok;
+use std::ops::Range;
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH};
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::*;
@@ -32,7 +33,7 @@ use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
 use crate::consts::*;
 use anyhow::*;
 use rayon::prelude::IntoParallelIterator;
-
+use std::os::windows::fs::FileExt;
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
@@ -93,13 +94,16 @@ impl WholeAttMap {
 
     /// 将隐式属性和显示属性放到一个attrmap中
     #[inline]
-    pub fn merge_implicit_explicit_into_attr(&self) -> AttrMap {
+    pub fn merge(&self) -> AttrMap {
         let mut map = self.implicit_attmap.clone();
         for (k, v) in &self.explicit_attmap.map {
             // todo check why the explicit attribute has same as implicit
             if !map.contains_attr_hash(*k) {
                 map.insert(k.clone(), v.clone());
             }
+        }
+        for (k, v) in &self.uda_attmap.map {
+            map.insert(k.clone(), v.clone());
         }
         map
     }
@@ -231,22 +235,21 @@ pub fn parse_pdms_dir(dir: &str, project: &str, config_path: Option<&str>, need_
 }
 
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
-pub fn parse_file_children_map(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>, file_name: &str,
-                               project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
+pub fn parse_file_children_map(path: &PathBuf, database_info: &Option<PdmsDatabaseInfo>,
+                               file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
     let time_start = std::time::Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buf).ok();
-    let input = &buf[..];
+    let input = {
+        file.read_to_end(&mut buf).ok();
+        &buf[..]
+    };
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
-    if database_info.is_none() {
-        //使用默认的配置信息
-        let db_info = get_default_pdms_db_info();
-        parse_db_children_map(input, &db_info, file_name, project, target_refno_str)
-    } else {
-        parse_db_children_map(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
-    }
+    let db_info = database_info.clone().unwrap_or(get_default_pdms_db_info());
+
+    parse_db_children_map(input, &db_info, file_name, project, target_refno_str)
+
 }
 
 ///解析db文件
@@ -430,7 +433,6 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4;  //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize;  //隐含数据长度  0-4
     let refno = RefI32Tuple::from(&input[4..12]);
-    //todo wrapper i32 to type_hash type
     let type_hash = parse_to_i32(&input[12..16]);
     let noun = type_hash as u32;
     let noun_name = db1_dehash(noun);  //类型hash  12-16
@@ -447,6 +449,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let implicit_data = &input[0..actual_impl_len];
     let membs_pos = actual_impl_len;
     let membs_data = &input[membs_pos..];
+    if membs_data.len()  <= 12  { return None; }
     let maybe_refno: RefI32Tuple = (&membs_data[4..12]).into();
     let mut memb_bytes_len = 0;
 
@@ -593,32 +596,16 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
                              file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
-    let mut field_no = 0;
-
-    let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
-    dbg!(&(db_type.as_str(), file_version, db_no, file_name));
-    let db_no_str = db_no.to_string();
-    if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
-        let _chars_len = db_no_str.len();
-        let l = file_name.len();
-        let end = file_name.chars().position(|x| x == '_').unwrap_or(l);
-        if end < project.len() {
-            return Err(anyhow!("Not a valid db file"));
-        }
-        field_no = file_name[project.len()..end].parse::<u32>().unwrap_or_default();
-    }
 
     let mut gen_ref_time = Instant::now();
     let noun_attr_info_map = &database_info.noun_attr_info_map;
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input, noun_attr_info_map);
-    println!("gen_ref_type_pos_table: {} ms", gen_ref_time.elapsed().as_millis());
+    println!("gen_ref_type_pos_table: {} ms, world refno: {}", gen_ref_time.elapsed().as_millis(), world_refno.to_refno_string());
 
     let mut root_refno = world_refno;
     let mut children_map = HashMap::new();
-    let entry = &*refno_table_map.get(&root_refno).ok_or(
-        anyhow!("Not found refno in entry"))?;
 
-
+    let entry = &*refno_table_map.get(&root_refno).ok_or(anyhow!("Not found refno in entry"))?;
     let (refno, children_refnos) = parse_ele_children(&input[entry.pos - 4..], noun_attr_info_map);
     let children = children_refnos.iter()
         .filter(|x| refno_table_map.contains_key(x))
@@ -654,8 +641,6 @@ pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
     }
     println!("Parsing children members cost: {} ms", memb_time.elapsed().as_millis());
     println!("All refnos count: {}", all_refnos.len());
-    // let mut eles_time = Instant::now();
-    // let res_refnos = all_refnos.into_iter().collect::<Vec<_>>();
 
     Ok(children_map)
 }
@@ -1025,12 +1010,6 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                 DbAttributeType::STRING => {
                     let (_, str_len) = be_i32(input)?;
                     let str_len = str_len as usize;
-                    //优先按照string来处理
-                    // if data_len == 8 && str_len != 1 {    //todo 什么情况 按double 来处理
-                    //     let d = parse_to_f64(&input[..8]);
-                    //     val = AttrVal::DoubleType(d);
-                    //     advance_offset = 2;
-                    // }
                     if data_len == 4 && str_len != 0 {
                         if &input[..2] == &[0, 0] || &input[..2] == &[0xFF, 0xFF] {
                             let d = parse_to_i32(&input[..4]);
@@ -1043,15 +1022,10 @@ pub fn parse_implicit_attr_value<'a>(input: &'a [u8], attr_info: &'a AttrInfo, d
                         }
                     } else if str_len < input.len() && input.len() >= 4 /* && str_len >= 4 */ {
                         let (decode_string, _b_chi) = decode_chars_data(&input[4..str_len + 4]);
-                        // let name_hash = string_lookup.add_str(decode_string.as_str());
-                        // val = AttrVal::StringHashType(name_hash);
                         val = AttrVal::StringType(decode_string.into());
                         advance_offset = str_len / 4 + 1;
                     } else {
                         val = AttrVal::StringType("".into());
-                        // let name_hash = string_lookup.add_str("unset");
-                        // val = AttrVal::StringHashType(name_hash);
-                        //log::error!("字符串解析出错，数据为：{:#4X?}, 属性为：{:#4X?}", input, &attr_info);
                     }
                 }
                 DbAttributeType::ELEMENT => {
@@ -2095,7 +2069,6 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
     let mut value = get_implicit_angle_expression(input);
     if value == "".to_string() {
         value = get_param_type_with_i32(parse_to_i32(input));
-        // value = format!("PARAM {}", be_u32(input)?.1);
     }
     Ok((input, value))
 }
