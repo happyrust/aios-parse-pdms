@@ -46,11 +46,10 @@ pub struct WholeAttMap {
 }
 
 impl WholeAttMap {
-
-    pub fn get_name(&self) -> String{
-        if let  Some(AttrVal::StringType(s)) = self.explicit_attmap.get(&NAME_HASH) {
+    pub fn get_name(&self) -> String {
+        if let Some(AttrVal::StringType(s)) = self.explicit_attmap.get(&NAME_HASH) {
             s.clone()
-        }else{
+        } else {
             Default::default()
         }
     }
@@ -249,7 +248,6 @@ pub fn parse_file_children_map(path: &PathBuf, database_info: &Option<PdmsDataba
     let db_info = database_info.clone().unwrap_or(get_default_pdms_db_info());
 
     parse_db_children_map(input, &db_info, file_name, project, target_refno_str)
-
 }
 
 ///解析db文件
@@ -439,21 +437,23 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     let attr_info_map = &*attr_info_map.get(&type_hash)?;
     let owner = RefU64::from(&input[16..24]);
     let version = parse_to_u32(&input[32..36]);
-    let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
+    if actual_impl_len + 4 < input.len() {
+        let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
 
-    while tmp_value == 0 || tmp_value == 7 {
-        actual_impl_len += 4;
-        tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
+        while tmp_value == 0 || tmp_value == 7 {
+            actual_impl_len += 4;
+            tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
+        }
     }
     //隐藏属性得数据切片
     let implicit_data = &input[0..actual_impl_len];
     let membs_pos = actual_impl_len;
     let membs_data = &input[membs_pos..];
-    if membs_data.len()  <= 12  { return None; }
-    let maybe_refno: RefI32Tuple = (&membs_data[4..12]).into();
+    // if membs_data.len()  <= 12  { return None; }
+    let maybe_refno: Option<RefI32Tuple> = if membs_data.len() > 12 { Some(RefI32Tuple::from(&membs_data[4..12])) } else { None };
     let mut memb_bytes_len = 0;
 
-    if maybe_refno == refno {
+    if maybe_refno.is_some() && maybe_refno.unwrap() == refno {
         if &membs_data[0..2] == [0x0, 0x2].as_slice() {
             memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(membs_data, &mut memb_bytes_len, 0x2);
@@ -465,7 +465,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
 
     let explicit_start = actual_impl_len + memb_bytes_len;
     let explicit_data = &input[explicit_start..];
-    let maybe_refno = RefI32Tuple::from(&membs_data[4..12]);
+    let maybe_refno = if membs_data.len() > 12 { Some(RefI32Tuple::from(&membs_data[4..12])) } else { None };
     let mut explicit_bytes_len = 0;
     let mut sorted_noun_hash = sort_offsets(attr_info_map.clone());
     let mut cur_offset: i32 = 0;
@@ -537,7 +537,7 @@ pub fn parse_ele_data(input: &[u8], attr_info_map: &DashMap<i32, DashMap<i32, At
     }
 
     let explicit_data = remove_007(explicit_data);
-    if maybe_refno == refno {
+    if maybe_refno.is_some() && maybe_refno.unwrap() == refno {
         if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
             explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len, 0x1);
@@ -596,7 +596,6 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_db_children_map(input: &[u8], database_info: &PdmsDatabaseInfo,
                              file_name: &str, project: &str, target_refno_str: &str) -> anyhow::Result<HashMap<RefU64, Vec<(RefU64, String)>>> {
-
     let mut gen_ref_time = Instant::now();
     let noun_attr_info_map = &database_info.noun_attr_info_map;
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input, noun_attr_info_map);
@@ -781,7 +780,6 @@ pub fn parse_db_with_chunk(input: &[u8], database_info: &PdmsDatabaseInfo,
         foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
 }
-
 
 
 ///解析db文件，因为有可能db文件会很大，所以需要做一个分段运行的策略

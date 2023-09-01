@@ -414,3 +414,19 @@ fn test_17496_124126_ukey() {
         println!("key = {:?} : value = {:?}",map.0,map.1);
     }
 }
+
+#[test]
+fn test_17496_118611_parse() {
+    let data_str = "00 00 00 16 00 00 44 58 00 01 CF 53 00 0E 51 8C
+00 00 44 58 00 01 CF 49 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 03
+3D 70 A3 D7 40 90 35 0A 00 00 00 00 C0 9F 40 00
+00 00 00 00 40 B7 5C 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 0E 57 9A";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    for map in ele_data.whole_attmap.implicit_attmap.map {
+        println!("key = {:?} : value = {:?}",map.0,map.1);
+    }
+}
