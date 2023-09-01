@@ -24,7 +24,7 @@ use nom::combinator::verify;
 use nom::multi::many_till;
 use crate::parse_explict_tools::*;
 use core::result::Result::Ok;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH};
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::*;
@@ -245,9 +245,13 @@ pub fn parse_file_children_map(path: &PathBuf, database_info: &Option<PdmsDataba
     };
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
-    let db_info = database_info.clone().unwrap_or(get_default_pdms_db_info());
-
-    parse_db_children_map(input, &db_info, file_name, project, target_refno_str)
+    if database_info.is_none() {
+        //使用默认的配置信息
+        let db_info = get_default_pdms_db_info();
+        parse_db_children_map(input, &db_info, file_name, project, target_refno_str)
+    } else {
+        parse_db_children_map(input, database_info.as_ref().unwrap(), file_name, project, target_refno_str)
+    }
 }
 
 ///解析db文件
