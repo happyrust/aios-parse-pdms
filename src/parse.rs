@@ -96,7 +96,11 @@ impl WholeAttMap {
     pub fn merge_implicit_explicit_into_attr(&self) -> AttrMap {
         let mut map = self.implicit_attmap.clone();
         for (k, v) in &self.explicit_attmap.map {
-            // todo check why the explicit attribute has same as implicit
+            if !map.contains_attr_hash(*k) {
+                map.insert(k.clone(), v.clone());
+            }
+        }
+        for (k, v) in &self.uda_attmap.map {
             if !map.contains_attr_hash(*k) {
                 map.insert(k.clone(), v.clone());
             }
@@ -110,10 +114,6 @@ impl WholeAttMap {
 pub struct PdmsDbData {
     /// 按noun类型分类的参考号
     pub type_ele_map: DashMap<u32, HashSet<RefU64>>,
-    /// 基本数据的Tree
-    // pub ele_id_tree: Tree<EleNode>,
-    // pub ele_id_tree: PdmsTree,
-    //todo 改成EleNode
     /// 完整属性数据的存储
     pub all_attr_map: DashMap<RefU64, AttrMap>,
 
