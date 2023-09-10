@@ -1,4 +1,5 @@
 use aios_core::get_default_pdms_db_info;
+use aios_core::tool::db_tool::{db1_dehash, db1_hash, db1_hash_i32};
 use crate::parse::{parse_attr_members, parse_ele_data, parse_ele_membs};
 use crate::test_cases::convert_str_to_bytes;
 
@@ -159,8 +160,6 @@ C0 72 70 00 00 00 00 00 40 57 30 00 00 00 00 00
     ";
     let data = convert_str_to_bytes(data_str);
     let m = get_default_pdms_db_info().noun_attr_info_map;
-    let d = parse_ele_data(data.as_slice(), &m);
-    dbg!(d);
 }
 
 
@@ -339,8 +338,6 @@ fn test_parse_mdb_with_many_pages() {
     ";
     let data = convert_str_to_bytes(data_str);
     let m = get_default_pdms_db_info().noun_attr_info_map;
-    let d = parse_ele_data(data.as_slice(), &m);
-    dbg!(d);
 }
 
 #[test]
@@ -355,7 +352,7 @@ fn test_parse_suppo() {
 2F 74 65 73 74 5F 73 75 70 70 6F 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data);
 }
 
@@ -375,7 +372,7 @@ fn tets_17496_161418_udtype() {
 0C 00 00 01 2C 00 D4 9E";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data.whole_attmap);
 }
 
@@ -409,7 +406,7 @@ fn test_17496_124126_ukey() {
 00 CC 6B 3F 38 00 00 02 00 00 00 01 00 0E 57 9A";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     for map in ele_data.whole_attmap.explicit_attmap.map {
         println!("key = {:?} : value = {:?}",map.0,map.1);
     }
@@ -425,8 +422,211 @@ fn test_17496_118611_parse() {
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 0E 57 9A";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     for map in ele_data.whole_attmap.implicit_attmap.map {
         println!("key = {:?} : value = {:?}",map.0,map.1);
     }
+}
+
+
+//test tube flag
+#[test]
+fn test_13244_354361_parse() {
+    let data_str = "
+    00 00 00 3B 00 00 33 BC 00 05 68 39 00 09 12 D0
+    00 00 33 BC 00 05 68 38 00 00 F1 69 00 1E A0 01
+    00 00 00 00 00 00 00 00 20 11 00 00 00 00 00 04
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+    00 00 00 01 00 00 00 02 00 00 00 04 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04
+    00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00
+    00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+    00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 02
+    00 00 00 00 00 00 00 14 00 00 00 02 00 01 00 49
+    00 00 33 BC 00 05 68 39 00 00 00 00 00 00 00 00
+    FF F7 E1 77 1C 00 00 13 00 00 00 12 00 00 00 12
+    00 00 00 01 00 00 00 6A 00 00 00 02 00 0C D2 42
+    00 00 00 01 00 00 00 01 00 08 3C 30 00 00 06 41
+    00 00 06 A5 00 00 00 65 00 00 00 06 00 00 00 00
+    00 00 00 00 40 00 04 00 00 00 00 00 00 00 00 06
+    00 00 03 25 FF F7 E1 5C 1C 00 00 13 00 00 00 12
+    00 00 00 12 00 00 00 01 00 00 00 6A 00 00 00 02
+    00 0C D2 42 00 00 00 01 00 00 00 01 00 0A 50 56
+    00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+    00 00 00 00 00 00 00 00 40 00 04 00 00 00 00 00
+    00 00 00 06 00 00 03 25 FF F6 3E DC 1C 00 00 0B
+    00 00 00 0A 00 00 00 0A 00 00 00 01 00 00 00 6A
+    00 00 00 02 00 0C D2 42 00 00 00 01 00 00 00 01
+    00 08 3C 30 00 00 06 41 00 00 06 A5 FF F6 3E C1
+    1C 00 00 0B 00 00 00 0A 00 00 00 0A 00 00 00 01
+    00 00 00 6A 00 00 00 02 00 0C D2 42 00 00 00 01
+    00 00 00 01 00 0A 50 56 00 00 06 41 00 00 06 A5
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let type_info_map = &pdms_database_info.noun_attr_info_map;
+    dbg!(explicit_nouns.len());
+    let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
+    dbg!(test_noun.value());
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    // for map in ele_data.whole_attmap.implicit_attmap.map {
+    //     // println!("key = {:?} : value = {:?}",map.0,map.1);
+    // }
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}
+
+
+
+
+#[test]
+fn test_23704_714918_nscy_parse() {
+    let data_str = "
+00 00 00 23 00 00 5C 98 00 0A E8 A6 00 0F A8 B6
+00 00 5C 98 00 0A E8 9B 00 02 06 6C 00 38 40 01
+00 00 00 00 00 00 00 00 20 1D 40 00 00 00 00 02
+00 00 00 02 00 00 00 06 00 00 00 0A 00 00 00 0E
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 03 00 00 00 01 00 00 00 06 00 01 00 3E
+00 00 5C 98 00 0A E8 A6 00 02 06 6D 00 00 20 01
+FF F2 15 19 1C 00 00 23 00 00 00 22 00 00 00 22
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 80 00
+00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 88 7F FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 60 00 00 00 00 00
+00 00 00 02 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 88 73 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+00 00 03 21 FF F7 7D 0F 1C 00 00 1A 00 00 00 19
+00 00 00 19 00 00 00 01 00 00 00 65 00 00 00 06
+00 00 80 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 0D 88 73
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 00 07 00 01 00 41 00 00 5C 98
+00 0A E8 A6 00 00 00 00 00 00 00 00 00 00 00 65
+00 00 00 06 00 00 80 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 03 22 FF F5 20 EF
+1C 00 00 32 00 00 00 31 00 00 00 31 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 80 00 00 00 00 00
+00 00 00 02 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 88 7F FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 00 80 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 00 65 00 00 00 06
+00 00 60 00 00 00 00 00 00 00 00 02 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 0D 88 73
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 03 24 00 00 03 22 00 00 00 65
+00 00 00 06 00 00 80 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 03 22
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let type_info_map = &pdms_database_info.noun_attr_info_map;
+    dbg!(explicit_nouns.len());
+    let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
+    dbg!(test_noun.value());
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    // for map in ele_data.whole_attmap.implicit_attmap.map {
+    //     // println!("key = {:?} : value = {:?}",map.0,map.1);
+    // }
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}
+
+
+
+
+#[test]
+fn test_23704_714908_nsex_parse() {
+    let data_str = "
+00 00 00 2B 00 00 5C 98 00 0A E8 9C 00 0F 61 85
+00 00 5C 98 00 0A E8 9B 00 02 06 6C 00 28 C0 01
+00 02 06 6C 00 27 E0 01 20 15 00 02 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 02
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 01 00 00 00 03 00 00 00 02 00 00 00 01
+00 00 00 01 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 FF FF FF FF 00 02 00 07
+00 00 5C 98 00 0A E8 9C 00 00 00 00 00 00 00 00
+00 00 5C 98 00 0A E8 9D 00 01 00 59 00 00 5C 98
+00 0A E8 9C 00 00 00 00 00 00 00 00 FF F7 E1 77
+1C 00 00 22 00 00 00 21 00 00 00 21 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 60 00 00 00 00 00
+00 00 00 02 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 88 7F FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 FF FF 80 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 03 25 00 00 00 65
+00 00 00 06 00 00 40 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 03 22 FF F7 E1 41
+1C 00 00 1A 00 00 00 19 00 00 00 19 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 80 00 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 88 7F FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 FF FF 80 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 03 25 FF F5 20 EF
+1C 00 00 12 00 00 00 11 00 00 00 11 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 80 00 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 88 7F FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let type_info_map = &pdms_database_info.noun_attr_info_map;
+    dbg!(explicit_nouns.len());
+    let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
+    dbg!(test_noun.value());
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    // for map in ele_data.whole_attmap.implicit_attmap.map {
+    //     // println!("key = {:?} : value = {:?}",map.0,map.1);
+    // }
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}
+
+
+
+
+#[test]
+fn test_appldw_parse() {
+    let data_str = "
+00 00 00 0D 00 00 5B 67 00 00 02 24 13 D8 1D 37
+00 00 3B 67 00 00 00 00 00 00 00 0B 00 0D E0 01
+00 00 00 0B 00 0D 00 01 20 06 00 02 00 08 1C 46
+00 00 00 00 00 02 00 07 00 00 5B 67 00 00 02 24
+00 00 00 00 00 00 00 00 00 00 5B 67 00 00 02 25
+00 01 00 1D 00 00 5B 67 00 00 02 24 00 00 00 00
+00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
+13 D8 1D 37 00 09 39 40 28 00 00 03 00 00 00 07
+31 2E 31 2E 30 2E 30 00 00 09 2C B5 28 00 00 05
+00 00 00 0D 64 65 73 69 67 6E 63 68 65 63 6B 65
+72 00 00 00 00 09 C1 8E 3C 00 00 06 00 00 00 14
+2F 44 65 73 69 67 6E 43 68 65 63 6B 65 72 2F 52
+75 6C 65 73
+";
+    dbg!(db1_dehash(0xCC6B3F));
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
 }

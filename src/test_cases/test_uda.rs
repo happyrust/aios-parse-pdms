@@ -46,7 +46,7 @@ fn test_parse_uda_data_24381_48631() {
     ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     for (key, value) in ele_data.whole_attmap.explicit_attmap.map {
         dbg!(&key);
         dbg!(&value);
@@ -86,7 +86,7 @@ fn test_14194_4_udna() {
 00 09 72 47";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
@@ -109,6 +109,6 @@ fn test_13292_185_udna() {
 1C 00 00 02 00 00 00 01 00 AC 03 06";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
