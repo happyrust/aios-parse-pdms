@@ -62,9 +62,10 @@ impl WholeAttMap {
             let hash = kv.hash;
             let info = kv.value();
             //将explicit 的属性覆写implicit
-            if info.offset == 0 && !self.explicit_attmap.contains_attr_hash(noun_hash) {
-                self.explicit_attmap.insert(noun_hash, info.default_val.clone());
-            } else if info.offset > 0
+            // if info.offset == 0 && !self.explicit_attmap.contains_attr_hash(noun_hash) {
+            //     self.explicit_attmap.insert(noun_hash, info.default_val.clone());
+            // } else
+            if info.offset > 0
                 && self.implicit_attmap.contains_attr_hash(noun_hash)
                 && self.explicit_attmap.contains_attr_hash(noun_hash)
                 && EXPR_ATT_SET.contains(&hash) {
@@ -1275,7 +1276,6 @@ pub fn parse_implicit_attr_value<'a>(
                 }
                 DbAttributeType::WORD => {
                     let (_, v) = be_i32(input)?;
-                    dbg!(attr_info);
                     if v > 0x81BF1 {
                         val = AttrVal::WordType(db1_dehash(v as u32).into());
                     } else {
@@ -1331,7 +1331,7 @@ pub fn parse_explicit_attrs<'a>(
     while residual.len() >= 8 {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
-        dbg!(db1_dehash(hash_val));
+        // dbg!(db1_dehash(hash_val));
         if check_is_expr(hash_val as i32) {
             let (input, (expression_type, value)) = parse_expression_attr(residual, refno)?;
             att_value = Some(StringType(value));

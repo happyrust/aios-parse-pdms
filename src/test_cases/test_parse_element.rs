@@ -109,7 +109,6 @@ fn test_parse_members_has_07() {
 0C 00 00 01 00 00 00 02
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = get_default_pdms_db_info().noun_attr_info_map;
     let members = parse_ele_membs(data.as_slice());
     dbg!(members);
 }
@@ -159,7 +158,7 @@ C0 72 70 00 00 00 00 00 40 57 30 00 00 00 00 00
 
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = get_default_pdms_db_info().noun_attr_info_map;
+
 }
 
 
@@ -337,7 +336,7 @@ fn test_parse_mdb_with_many_pages() {
 
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = get_default_pdms_db_info().noun_attr_info_map;
+
 }
 
 #[test]
@@ -605,28 +604,40 @@ fn test_23704_714908_nsex_parse() {
 
 
 
+
+
+
+
+
 #[test]
-fn test_appldw_parse() {
+fn test_pointr_parse() {
     let data_str = "
-00 00 00 0D 00 00 5B 67 00 00 02 24 13 D8 1D 37
-00 00 3B 67 00 00 00 00 00 00 00 0B 00 0D E0 01
-00 00 00 0B 00 0D 00 01 20 06 00 02 00 08 1C 46
-00 00 00 00 00 02 00 07 00 00 5B 67 00 00 02 24
-00 00 00 00 00 00 00 00 00 00 5B 67 00 00 02 25
-00 01 00 1D 00 00 5B 67 00 00 02 24 00 00 00 00
-00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
-13 D8 1D 37 00 09 39 40 28 00 00 03 00 00 00 07
-31 2E 31 2E 30 2E 30 00 00 09 2C B5 28 00 00 05
-00 00 00 0D 64 65 73 69 67 6E 63 68 65 63 6B 65
-72 00 00 00 00 09 C1 8E 3C 00 00 06 00 00 00 14
-2F 44 65 73 69 67 6E 43 68 65 63 6B 65 72 2F 52
-75 6C 65 73
+00 00 00 14 00 00 44 58 00 04 0F F6 10 13 A5 FB
+00 00 44 58 00 04 0F F3 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 03
+AE 14 7A E1 40 61 49 47 CC CC CC CD 40 85 DC CC
+00 00 00 00 00 00 00 00 00 00 00 00 40 59 00 00
+00 00 00 1D 00 00 44 58 00 04 0F F7 00 0E A0 01
+00 00 44 58 00 04 0F D9 00 00 76 54 00 35 40 01
+00 00 76 54 00 34 20 01 20 04 40 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 02 00 09 00 00 44 58 00 04 0F F7
+00 00 00 00 00 00 00 00 00 00 44 58 00 04 0F F8
+00 00 44 58 00 04 0F F9 00 01 00 16 00 00 44 58
+00 04 0F F7 00 00 00 00 00 00 00 00 00 CC 6B 3F
+38 00 00 02 00 00 00 01 00 0E A0 01 00 09 C1 8E
+3C 00 00 06 00 00 00 11 2F 36 52 53 2D 53 54 52
+55 2D 45 2D 53 4C 45 30 31 00 00 00 00 09 39 40
+28 00 00 03 00 00 00 08 2D 33 2E 34 6D 7E 30 6D
 ";
-    dbg!(db1_dehash(0xCC6B3F));
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    // dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }

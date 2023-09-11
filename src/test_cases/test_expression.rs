@@ -1310,8 +1310,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 #[test]
 fn take_off_uda() {
     let pdms_database_info = get_default_pdms_db_info();
-    let info_map = pdms_database_info.noun_attr_info_map;
-    let db_names_map = pdms_database_info.db_names_map;
+    let info_map = pdms_database_info.noun_attr_info_map.clone();
     let new_info_map = DashMap::new();
     for (att_type, map) in info_map {
         let new_map = DashMap::new();
@@ -1324,7 +1323,6 @@ fn take_off_uda() {
         new_info_map.insert(att_type, new_map);
     }
     let new_pdms_database_info = PdmsDatabaseInfo {
-        db_names_map,
         noun_attr_info_map: new_info_map,
     };
     let mut file = File::create("all_attr_info_new.json").unwrap();
