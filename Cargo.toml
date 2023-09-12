@@ -5,16 +5,15 @@ edition = "2021"
 
 
 [features]
-default = ["compression"]  #"compression"
+default = ["compression"] #"compression"
 compression = []
-web = []   #compile for just web usage, now it is too heavy now
+web = []                  #compile for just web usage, now it is too heavy now
 
 [dependencies]
-memchr = "2.5.0"
+memchr = "2.6.3"
 nom = "7.1.1"
 #nom-derive = "0.10.0"
-lyon = "0.17.10"
-itertools = "0.10.1"
+itertools = "0.11.0"
 bincode = "1.3.3"
 #glam = { version = "0.20.2", features = ["transform-types"] }
 fasteval = "0.2.4"
@@ -22,20 +21,20 @@ regex = "1.5.4"
 futures = "0.3.19"
 async-trait = "0.1.52"
 approx = "0.5.1"
-bitflags = "1.3.2"
+bitflags = "2.4.0"
 derivative = "2.2.0"
 concurrent-queue = "1.2.2"
 instant = "0.1.12"
-pollster = "0.2.5"
+pollster = "0.3.0"
 ordered-float = "2.10.0"
 config = "0.13.1"
 
 
 highway = "0.7.0"
-hash32 = "0.2.1"
+hash32 = "0.3.1"
 hash32-derive = "0.1.1"
 
-serde-name = "0.1.1"
+serde-name = "0.2.1"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_derive = "1.0.137"
 phf = { version = "0.10.1", features = ["macros"] }
@@ -46,13 +45,11 @@ rayon = "1.5.2"
 tokio = { version = "1.18.2", features = ["full"] }
 serde_json = { version = "1.0" }
 lazy_static = "1.4.0"
-cached = { version = "0.26.2", default-features = false, features = ["proc_macro"] }
-dashmap = { version = "5.3.4", features = ["serde"] }
+cached = { version = "0.26.2", default-features = false, features = [
+    "proc_macro",
+] }
+dashmap = { version = "5.5.3", features = ["serde"] }
 hex = "0.4.3"
-notify = "4.0.17"
-crossbeam-deque = "0.8.1"
-crossbeam-queue = "0.3.3"
-hexasphere = "7.0.0"
 flate2 = "1.0.24"
 
 calamine = "0.18.0"
@@ -63,13 +60,12 @@ smol_str = { version = "0.2.0", features = ["serde"] }
 anyhow = "1.0"
 env_logger = "*"
 thiserror = "*"
-transmog-bincode = "0.1"
 
 
 aios_core = { path = "../crates/aios-core" }
 
 truck-base = { version = "0.4.0", path = "../crates/truck/truck-base" }
-truck-geotrait = { version = "0.3.0", path = "../crates/truck/truck-geotrait"}
+truck-geotrait = { version = "0.3.0", path = "../crates/truck/truck-geotrait" }
 truck-geometry = { version = "0.4.0", path = "../crates/truck/truck-geometry" }
 truck-polymesh = { version = "0.5.0", path = "../crates/truck/truck-polymesh" }
 truck-topology = { version = "0.5.0", path = "../crates/truck/truck-topology" }
@@ -78,7 +74,5 @@ truck-meshalgo = { version = "0.3.0", path = "../crates/truck/truck-meshalgo" }
 #truck-stepio = { version = "0.2.0", path = "../crates/truck/truck-stepio" }
 
 
-
-prost = "0.8.0"
 once_cell = "1.9.0"
 dynfmt = { version = "0.1.5", features = ["curly", "python"] }

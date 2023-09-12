@@ -19,11 +19,11 @@ type AiosDbError = Result<(), Box<dyn std::error::Error>>;
 
 
 fn main() -> anyhow::Result<()> {
-    CombinedLogger::init(
-        vec![
-            WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), std::fs::File::create("parse_pdms_db.log").unwrap()),
-        ]
-    ).unwrap();
+    // CombinedLogger::init(
+    //     vec![
+    //         WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), std::fs::File::create("parse_pdms_db.log").unwrap()),
+    //     ]
+    // ).unwrap();
 
     use config::{Config, File};
     let s = Config::builder()

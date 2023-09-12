@@ -58,7 +58,7 @@ FF FF FF FF 31 41 52 2D 52 4D 30 36 2D 41 36 32
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
     // if let Some(value) = lookup.lookup.get(&1433536923){
     //     println!("string={:?}",value.value());
@@ -143,7 +143,7 @@ fn test_sample_mdb() {
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
 }
 
@@ -172,7 +172,7 @@ FF FF FF FF 00 0B C6 C0 14 00 00 01 00 00 00 01
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xCC3A5) {
     //     dbg!(map.value());
     // }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
 }
 
@@ -212,11 +212,11 @@ fn test_sample_23584_2702() {
 00 00 00 01 00 00 00 07 00 00 00 12 00 0B 0D 89
 00 00 00 06";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info:PdmsDatabaseInfo = get_default_pdms_db_info();
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x9A45C) {
         dbg!(map.value());
     }
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
 }
 
@@ -245,13 +245,13 @@ fn test_sample_23584_5703(){
 00 0C 54 7E 00 08 DF C1 1C 00 00 02 00 00 00 01
 00 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info:PdmsDatabaseInfo = get_default_pdms_db_info();
+    let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("MDB") as i32)) {
         dbg!(map.value());
     }
     let hash = db1_hash("CURD");
     println!("hash={:?}",hash);
-    let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let mut ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     println!("ele_data={:?}",ele_data.whole_attmap);
     if let Some(noll) = ele_data.whole_attmap.implicit_attmap.get(&(835759)) {
         let noll = noll.double_value().unwrap();
@@ -279,7 +279,7 @@ fn test_uda() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     dbg!(&db1_dehash(641779));
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
@@ -299,7 +299,7 @@ fn test_detr_15192_232504() {
 00 00 00 09 2F 46 31 43 2F 45 43 36 35 00 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
@@ -319,7 +319,7 @@ fn test_skey_15192_762() {
 00 00 00 0A 2F 57 43 49 46 42 42 45 2D 44 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
@@ -337,6 +337,46 @@ fn test_skey_15192_464() {
 45 20 33 4D 4D 20 26 20 36 4D 4D 20 23 33 30 30
 00 09 C1 8E 3C 00 00 04 00 00 00 0A 2F 41 30 49
 51 42 44 30 2D 44 00 00 ";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    dbg!(&ele_data.whole_attmap.explicit_attmap);
+}
+
+#[test]
+fn test_anci_17496_167490() {
+    let data_str = "00 00 00 3A 00 00 44 58 00 02 8E 42 00 0A D9 F2
+00 00 44 58 00 02 8E 41 00 00 29 E4 00 32 C0 01
+00 00 00 00 00 00 00 00 20 0F 40 00 00 00 00 00
+00 00 00 03 00 00 00 00 C0 D6 B7 00 00 00 00 00
+C0 C8 18 00 00 00 00 00 C0 94 50 00 00 00 00 03
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 C0 56 80 00 00 00 00 0C 00 00 5C 98
+00 12 CC 7B 00 00 00 01 00 00 00 02 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 02 4D 7C 3A 35 80 00 00 01
+00 00 00 00 40 66 80 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 01 00 42 00 00 44 58
+00 02 8E 42 00 00 00 00 00 00 00 00 00 0A AF CA
+14 00 00 01 00 00 00 00 06 A0 26 04 0C 00 00 01
+00 0D F3 17 00 09 FB FA 14 00 00 01 00 00 00 01
+10 71 D1 20 08 00 00 02 00 00 00 00 00 00 00 00
+10 71 D1 2B 08 00 00 02 00 00 00 00 00 00 00 00
+00 0D FD 22 14 00 00 01 00 00 00 00 00 CC 6B 3F
+38 00 00 02 00 00 00 01 00 0A D9 F2 00 09 C1 8E
+3C 00 00 06 00 00 00 13 2F 36 4B 41 30 32 2D 4D
+53 55 50 2D 45 30 30 34 35 2E 36 00 00 0D 20 C7
+18 00 00 05 00 00 00 02 00 00 00 00 40 7F 40 00
+00 00 00 00 00 00 00 00 0F 7A 2C C8 1C 00 00 03
+00 00 00 02 00 0E 54 BF 00 09 C5 E1 00 09 2F 7A
+0C 00 00 01 00 08 2D B8 00 0F 61 A5 28 00 00 05
+00 00 00 10 36 4B 41 30 32 2D 4D 53 55 50 2D 45
+30 30 34 35 0A 03 38 58 14 00 00 01 00 00 00 01
+04 E5 C3 C7 40 00 00 02 00 00 44 58 00 02 7C B6";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
