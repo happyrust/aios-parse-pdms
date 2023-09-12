@@ -1,4 +1,5 @@
 use aios_core::get_default_pdms_db_info;
+use nom::AsBytes;
 use aios_core::tool::db_tool::{db1_dehash, db1_hash, db1_hash_i32};
 use crate::parse::{parse_attr_members, parse_ele_data, parse_ele_membs};
 use crate::test_cases::convert_str_to_bytes;
@@ -373,6 +374,8 @@ fn tets_17496_161418_udtype() {
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
     dbg!(&ele_data.whole_attmap);
+    let typex = ele_data.whole_attmap.explicit_attmap.get_typex().as_bytes();
+    println!("input={:#4X?}",typex);
 }
 
 #[test]
