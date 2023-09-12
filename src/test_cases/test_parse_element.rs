@@ -641,3 +641,116 @@ AE 14 7A E1 40 61 49 47 CC CC CC CD 40 85 DC CC
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
+
+
+
+
+#[test]
+fn test_expr_parse() {
+    let data_str = "
+00 00 00 2A 00 00 5C 98 00 0A E9 21 00 0E 62 9F
+00 00 5C 98 00 0A E8 AC 00 02 06 78 00 37 40 01
+00 02 06 78 00 36 60 01 20 13 C0 02 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 02
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 02 00 00 00 02 00 00 00 02 00 00 00 01
+00 00 00 03 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 02 00 07 00 00 5C 98
+00 0A E9 21 00 00 00 00 00 00 00 00 00 00 5C 98
+00 0A E9 22 00 01 00 46 00 00 5C 98 00 0A E9 21
+00 02 06 79 00 00 20 01 00 0D 17 DA 0C 00 00 01
+00 00 00 01 FF F7 E1 77 1C 00 00 1A 00 00 00 19
+00 00 00 19 00 00 00 01 00 00 00 65 00 00 00 06
+00 00 60 00 00 00 00 00 00 00 00 02 00 00 00 00
+00 00 00 06 00 00 00 6A 00 00 00 02 00 0D 88 71
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 00 65 00 00 00 06 00 00 20 00
+00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 06
+00 00 03 24 FF F7 E1 41 1C 00 00 1A 00 00 00 19
+00 00 00 19 00 00 00 01 00 00 00 65 00 00 00 06
+FF FF E0 00 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 06 00 00 00 65 00 00 00 06 00 00 40 00
+00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 03 24 FF F5 20 EF 1C 00 00 12 00 00 00 11
+00 00 00 11 00 00 00 01 00 00 00 65 00 00 00 07
+00 01 00 13 00 00 5C 98 00 0A E9 21 00 00 00 00
+00 00 00 00 00 00 00 06 00 00 40 00 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    dbg!(&ele_data);
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}
+
+
+
+
+
+#[test]
+fn test_expr_vert_parse() {
+    let data_str = "
+00 00 00 1A 00 00 5C 98 00 0A E9 23 00 0D 94 89
+00 00 5C 98 00 0A E9 22 00 02 06 89 00 00 20 01
+00 00 00 00 00 00 00 00 20 05 00 00 00 00 00 04
+00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 07 00 01 00 19 00 00 5C 98
+00 0A E9 23 00 00 00 00 00 00 00 00 FF F7 E1 5C
+1C 00 00 12 00 00 00 11 00 00 00 11 00 00 00 01
+00 00 00 65 00 00 00 06 00 00 40 00 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 88 73 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    dbg!(&ele_data);
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}
+
+
+
+
+#[test]
+fn test_cata_para_parse() {
+    let data_str = "
+00 00 00 18 00 00 5C 98 00 0A E8 9A 00 0C 6B 9B
+00 00 5C 98 00 0A E8 99 00 02 06 6B 00 34 40 01
+00 00 00 00 00 00 00 00 20 07 C0 00 00 0C 6B 9B
+00 00 00 00 00 00 00 00 00 00 5C 98 00 0A E9 30
+00 00 5C 98 00 0A E9 29 00 00 5C 98 00 0A E8 AC
+00 00 5C 98 00 0A E8 9B 00 00 5C 98 00 0A E9 34
+00 01 00 24 00 00 5C 98 00 0A E8 9A 00 00 00 00
+00 00 00 00 00 CC 6B 3F 38 00 00 02 00 00 00 01
+00 0C 6B 9B 00 08 9C 41 18 00 00 11 00 00 00 08
+60 00 00 00 40 59 66 66 60 00 00 00 40 59 66 66
+C0 00 00 00 40 23 0C CC C0 00 00 00 40 23 0C CC
+C0 00 00 00 40 23 0C CC 60 00 00 00 40 49 66 66
+60 00 00 00 40 49 66 66 00 00 00 00 40 2F C0 00
+00 09 C1 8E 3C 00 00 06 00 00 00 12 2F 4D 44 53
+2D 4A 4E 54 2D 56 54 31 39 2F 4A 4F 49 4E 00 00
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    dbg!(&ele_data);
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}

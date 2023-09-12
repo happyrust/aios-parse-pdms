@@ -643,7 +643,7 @@ pub fn parse_ele_data(
                 if advance == 0 {
                     //nullref的处理
                     if att_will_change {
-                        cur_offset += 1; //如果不是Element了，就可以继续向前
+                        cur_offset += 1; //如果不是之前的类型了，就可以继续向前
                     }
                 } else {
                     cur_offset += advance as i32;
@@ -1118,7 +1118,7 @@ pub fn parse_db(
                             version,
                             name,
                             foreign_refnos,
-                        }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map,)
+                        }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map)
             {
                 // 将房间信息保存到单独的数据结构中
                 if let Some(val) = whole_attmap.explicit_attmap.get(&(ATT_ROOM as u32)) {
@@ -1348,22 +1348,39 @@ pub fn parse_explicit_attrs<'a>(
                 let tmp_input = &l[..type_len * 4];
                 if attr_info_map.contains_key(&explict_hash) {
                     let mut attr_info = attr_info_map.get_mut(&explict_hash).unwrap();
-                    if attr_type_num == 0x1800 {
-                        attr_info.att_type = DbAttributeType::DOUBLEVEC;
-                    } else if attr_type_num == 0x1C00
-                    /*|| attr_type_num == 0x2000*/
-                    {
-                        attr_info.att_type = DbAttributeType::INTVEC;
-                    } else if attr_type_num == 0x0C00 {
-                        attr_info.att_type = DbAttributeType::WORD;
-                    }
+                    // if attr_type_num == 0x1800 {
+                    //     attr_info.att_type = DbAttributeType::DOUBLEVEC;
+                    // } else if attr_type_num == 0x1C00 {
+                    //     attr_info.att_type = DbAttributeType::INTVEC;
+                    // }
                     // 根据获取到的type hash值，拿到需要的类型
-                    match attr_info.att_type {
-                        DbAttributeType::INTEGER => {
+                    match attr_info.default_val {
+
+                        // DbAttributeType::DOUBLE => {
+
+                        // }
+                        // DbAttributeType::BOOL => {
+
+                        // }
+                        InvalidType => {}
+                        IntegerType(_) => {
                             let (_, val) = be_i32(tmp_input)?;
                             att_value = Some(IntegerType(val));
                         }
-                        DbAttributeType::DOUBLE => {
+                        StringType(_) => {
+                            let (_, a) = be_u32(tmp_input)?;
+                            let len_a = a as usize;
+                            if tmp_input.len() > 4 && 4 + len_a <= tmp_input.len() {
+                                let (decode_string, _b_chi) =
+                                    decode_chars_data(&tmp_input[4..4 + len_a]);
+                                att_value = Some(AttrVal::StringType(decode_string.into()));
+                            } else {
+                                println!("len_a={:#04X?}", len_a);
+                                println!("error refno={:?}", refno);
+                                println!("error 显示 input={:#04X?}", tmp_input);
+                            }
+                        }
+                        DoubleType(_) => {
                             let dou_len = tmp_input.len() / 4;
                             if dou_len == 1 {
                                 let (_, val) = be_i32(tmp_input)?;
@@ -1373,69 +1390,7 @@ pub fn parse_explicit_attrs<'a>(
                                 att_value = Some(DoubleType(val));
                             }
                         }
-                        DbAttributeType::BOOL => {
-                            let (_, val) = be_u32(tmp_input)?;
-                            att_value = Some(BoolType(val != 0));
-                        }
-                        DbAttributeType::STRING => {
-                            let (_, a) = be_u32(tmp_input)?;
-                            let len_a = a as usize;
-                            if tmp_input.len() > 4 && 4 + len_a <= tmp_input.len() {
-                                // println!("{:#4X?}", &tmp_input[4..4 + len_a]);
-                                let (decode_string, _b_chi) =
-                                    decode_chars_data(&tmp_input[4..4 + len_a]);
-                                // let name_hash = string_lookup.add_str(decode_string.as_str());
-                                // att_value = Some(StringHashType(name_hash));
-                                att_value = Some(AttrVal::StringType(decode_string.into()));
-                            } else {
-                                println!("len_a={:#04X?}", len_a);
-                                println!("error refno={:?}", refno);
-                                println!("error 显示 input={:#04X?}", tmp_input);
-                            }
-                        }
-                        DbAttributeType::ELEMENT => {
-                            let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
-                            let refno = RefU64::from_two_nums(ref_0, ref_1);
-                            if *refno != 0 {
-                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
-                            }
-                            att_value = Some(RefU64Type(refno));
-                        }
-                        DbAttributeType::RefU64Vec => {
-                            let (tmp_input, len) = be_u32(tmp_input)?;
-                            let len = len as usize;
-                            let mut tmp_input = tmp_input;
-                            let mut data = vec![];
-                            for _ in 0..len {
-                                let (remain_input, val) = be_u64(tmp_input)?;
-                                data.push(RefU64(val));
-                                tmp_input = remain_input;
-                            }
-                            att_value = Some(RefU64Array(RefU64Vec(data)));
-                        }
-                        DbAttributeType::WORD => {
-                            let (tmp_bytes, val) = be_i32(tmp_input)?;
-                            if val >= 0x81BF1 {
-                                let val_word = db1_dehash(val as u32);
-                                att_value = Some(WordType(val_word.into()));
-                            } else if val == 1 {
-                                //如果为1时，有个长度信息, 特别是TYPEX
-                                let (_, val) = be_i32(tmp_bytes)?;
-                                let val_word = db1_dehash(val as u32);
-                                att_value = Some(WordType(val_word.into()));
-                            }
-                        }
-                        DbAttributeType::DIRECTION
-                        | DbAttributeType::POSITION
-                        | DbAttributeType::ORIENTATION => {
-                            let (l, v) = be_i32(tmp_input)?;
-                            let _len = v as usize;
-                            let data = parse_to_f64_arr(l);
-                            att_value = Some(Vec3Type(data));
-                        }
-                        DbAttributeType::DATETIME => {}
-
-                        DbAttributeType::DOUBLEVEC => {
+                        DoubleArrayType(_) => {
                             let mut bytes_len = tmp_input.len() / 4;
                             if bytes_len >= 3 {
                                 bytes_len -= 1; //去掉一个自身
@@ -1469,7 +1424,9 @@ pub fn parse_explicit_attrs<'a>(
                                 }
                             }
                         }
-                        DbAttributeType::INTVEC => {
+                        StringArrayType(_) => {}
+                        BoolArrayType(_) => {}
+                        IntArrayType(_) => {
                             let (tmp_input, len) = be_u32(tmp_input)?;
                             let len = len as usize;
                             let mut tmp_input = tmp_input;
@@ -1481,8 +1438,50 @@ pub fn parse_explicit_attrs<'a>(
                             }
                             att_value = Some(IntArrayType(data));
                         }
-
-                        _ => {}
+                        BoolType(_) => {
+                            let (_, val) = be_u32(tmp_input)?;
+                            att_value = Some(BoolType(val != 0));
+                        }
+                        Vec3Type(_) => {
+                            let (l, v) = be_i32(tmp_input)?;
+                            let _len = v as usize;
+                            let data = parse_to_f64_arr(l);
+                            att_value = Some(Vec3Type(data));
+                        }
+                        ElementType(_) => {}
+                        WordType(_) => {
+                            let (tmp_bytes, val) = be_i32(tmp_input)?;
+                            if val >= 0x81BF1 {
+                                let val_word = db1_dehash(val as u32);
+                                att_value = Some(WordType(val_word.into()));
+                            } else if val == 1 {
+                                //如果为1时，有个长度信息, 特别是TYPEX
+                                let (_, val) = be_i32(tmp_bytes)?;
+                                let val_word = db1_dehash(val as u32);
+                                att_value = Some(WordType(val_word.into()));
+                            }
+                        }
+                        RefU64Type(_) => {
+                            let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
+                            let refno = RefU64::from_two_nums(ref_0, ref_1);
+                            if *refno != 0 {
+                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
+                            }
+                            att_value = Some(RefU64Type(refno));
+                        }
+                        StringHashType(_) => {}
+                        RefU64Array(_) => {
+                            let (tmp_input, len) = be_u32(tmp_input)?;
+                            let len = len as usize;
+                            let mut tmp_input = tmp_input;
+                            let mut data = vec![];
+                            for _ in 0..len {
+                                let (remain_input, val) = be_u64(tmp_input)?;
+                                data.push(RefU64(val));
+                                tmp_input = remain_input;
+                            }
+                            att_value = Some(RefU64Array(RefU64Vec(data)));
+                        }
                     }
                 } else {
                     // 这里的逻辑改了一下，先判断是否为表达式，所以之前在这里的表达式判断就注释掉了
