@@ -32,7 +32,6 @@ use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::ops::{Deref, Range};
-use std::os::windows::fs::FileExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
