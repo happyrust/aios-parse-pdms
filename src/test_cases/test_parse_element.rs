@@ -109,7 +109,6 @@ fn test_parse_members_has_07() {
 0C 00 00 01 00 00 00 02
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = get_default_pdms_db_info().noun_attr_info_map;
     let members = parse_ele_membs(data.as_slice());
     dbg!(members);
 }
@@ -159,8 +158,8 @@ C0 72 70 00 00 00 00 00 40 57 30 00 00 00 00 00
 
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = get_default_pdms_db_info().noun_attr_info_map;
-    let d = parse_ele_data(data.as_slice(), &m);
+    let m = &get_default_pdms_db_info().noun_attr_info_map;
+    let d = parse_ele_data(data.as_slice(), m);
     dbg!(d);
 }
 
@@ -339,8 +338,8 @@ fn test_parse_mdb_with_many_pages() {
 
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = get_default_pdms_db_info().noun_attr_info_map;
-    let d = parse_ele_data(data.as_slice(), &m);
+    let m = &get_default_pdms_db_info().noun_attr_info_map;
+    let d = parse_ele_data(data.as_slice(), m);
     dbg!(d);
 }
 
