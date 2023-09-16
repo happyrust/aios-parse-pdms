@@ -212,7 +212,7 @@ fn test_sample_23584_2702() {
 00 00 00 01 00 00 00 07 00 00 00 12 00 0B 0D 89
 00 00 00 06";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let pdms_database_info:PdmsDatabaseInfo = get_default_pdms_db_info().clone();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x9A45C) {
         dbg!(map.value());
     }
@@ -245,7 +245,7 @@ fn test_sample_23584_5703(){
 00 0C 54 7E 00 08 DF C1 1C 00 00 02 00 00 00 01
 00 00 00 00";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let pdms_database_info:PdmsDatabaseInfo = get_default_pdms_db_info().clone();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&(db1_hash("MDB") as i32)) {
         dbg!(map.value());
     }

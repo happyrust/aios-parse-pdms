@@ -159,7 +159,9 @@ C0 72 70 00 00 00 00 00 40 57 30 00 00 00 00 00
 
     ";
     let data = convert_str_to_bytes(data_str);
-
+    let m = &get_default_pdms_db_info().noun_attr_info_map;
+    let d = parse_ele_data(data.as_slice(), m);
+    dbg!(d);
 }
 
 
@@ -337,7 +339,9 @@ fn test_parse_mdb_with_many_pages() {
 
     ";
     let data = convert_str_to_bytes(data_str);
-
+    let m = &get_default_pdms_db_info().noun_attr_info_map;
+    let d = parse_ele_data(data.as_slice(), m);
+    dbg!(d);
 }
 
 #[test]
