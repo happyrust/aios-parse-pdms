@@ -757,3 +757,44 @@ C0 00 00 00 40 23 0C CC 60 00 00 00 40 49 66 66
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
+
+#[test]
+fn test_cata_uda_expr_parse() {
+    let data_str = "
+00 00 00 21 00 00 3B 5A 00 00 01 51 00 0F 56 3E
+00 00 3B 5A 00 00 01 50 00 00 0F 24 00 3B 20 01
+00 00 00 00 00 00 00 00 20 0D 00 00 00 00 00 01
+00 00 00 04 00 00 00 28 00 00 00 07 00 00 02 5B
+00 00 03 5A 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 02
+00 00 00 02 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 01 00 27 00 00 3B 5A 00 00 01 51
+00 00 0F 25 00 00 20 01 00 58 52 59 1C 00 00 03
+00 00 00 02 00 00 00 01 00 00 00 03 06 76 B4 60
+1C 00 00 05 00 00 00 04 00 00 00 28 00 00 00 01
+FF FF FF F6 00 00 00 00 00 09 6B 9B 1C 00 00 05
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 0A DF 11 1C 00 00 05 00 00 00 04
+00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00
+FF F2 51 1C 1C 00 00 12 00 00 00 11 00 00 00 11
+00 00 00 01 00 00 00 65 00 00 00 06 00 10 00 00
+00 00 00 07 00 01 00 17 00 00 3B 5A 00 00 01 51
+00 00 00 00 00 00 00 00 00 00 00 00 40 00 03 FF
+00 00 00 00 00 00 00 00 00 00 00 6A 00 00 00 02
+2C 00 D5 76 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 09 C1 8E 3C 00 00 04
+00 00 00 0B 2F 48 43 54 55 42 45 2D 50 41 31 00
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    dbg!(&ele_data);
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}
+
+
+
+

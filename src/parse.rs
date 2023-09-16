@@ -1407,7 +1407,7 @@ pub fn parse_explicit_attrs<'a>(
                                         }
                                         att_value = Some(DoubleArrayType(data));
                                     } else {
-                                        att_value = Some(DoubleArrayType(vec![0.0]));
+                                        att_value = Some(DoubleArrayType(vec![]));
                                     }
                                 } else if double_or_float == 1 {
                                     if tmp_input.len() > 4 {
@@ -1418,7 +1418,7 @@ pub fn parse_explicit_attrs<'a>(
                                         }
                                         att_value = Some(DoubleArrayType(data));
                                     } else {
-                                        att_value = Some(DoubleArrayType(vec![0.0]));
+                                        att_value = Some(DoubleArrayType(vec![]));
                                     }
                                 }
                             }
