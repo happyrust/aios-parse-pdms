@@ -762,6 +762,8 @@ C0 00 00 00 40 23 0C CC 60 00 00 00 40 49 66 66
     dbg!(&att_map);
 }
 
+
+//PBORE 出错，应该为 :HXYsize
 #[test]
 fn test_cata_uda_expr_parse() {
     let data_str = "
