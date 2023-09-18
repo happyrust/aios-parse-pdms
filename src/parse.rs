@@ -5,7 +5,7 @@ use aios_core::get_default_pdms_db_info;
 use aios_core::helper::*;
 use aios_core::pdms_types::AttrVal::*;
 use aios_core::pdms_types::*;
-use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, decode_chars_data};
+use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, db1_hash, decode_chars_data, GLOBAL_UDA_NAME_MAP, GLOBAL_UDA_UKEY_MAP};
 use anyhow::*;
 use nom::error::ErrorKind;
 use nom::multi::count;
@@ -1164,6 +1164,61 @@ pub fn parse_db(
         room_code_map: Arc::try_unwrap(room_code_map).unwrap(),
         foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
+}
+
+/// 解析uda 文件 file_type -> DICT
+pub async fn parse_uda_file(project_name: &str, children_path: Vec<PathBuf>, need_parse_file: &Option<Vec<String>>) {
+    for path in children_path {
+        let file_name = path.file_name().unwrap_or_default().to_str().unwrap_or("").to_string();
+        if !need_parse_file.is_none() && !need_parse_file.clone().unwrap().contains(&file_name) { continue; }
+        let Ok(mut file) = fs::File::open(path.clone()) else { continue; };
+        let mut input = [0; 50];
+        let Ok(_exact_file) = fs::File::read_exact(&mut file, &mut input) else { continue; };
+        let basic_info = parse_file_basic_info(&input.to_vec());
+        // DICT 为 uda文件
+        if basic_info.0 != "DICT".to_string() { continue; };
+        let path_clone = path.clone();
+        let project_name_clone = project_name.to_string();
+        let file_name_clone = file_name.clone();
+        if let Ok(Ok(PdmsDbData {
+                         total_attr_map,
+                         type_ele_map,
+                         refno_info_map,
+                         db_type,
+                         db_no,
+                         version,
+                         room_code_map,
+                         foreign_refnos_map,
+                         ..
+                     })) = tokio::task::spawn_blocking(move || {
+            parse_file(
+                &path_clone,
+                &None,
+                &file_name_clone,
+                &project_name_clone,
+                "",
+            )
+        }).await {
+            // 将uda放到缓存中
+            let Some(uda_refnos) = type_ele_map.get(&db1_hash("UDA")) else { continue; };
+            let uda_refnos = uda_refnos.value();
+            for refno in uda_refnos {
+                let Some(attr) = total_attr_map.get(refno) else { continue; };
+                let Some(AttrVal::IntegerType(ukey)) = attr.implicit_attmap.get_val("UKEY") else { continue; };
+                let Some(AttrVal::StringType(udna)) = attr.implicit_attmap.get_val("UDNA") else { continue; };
+                let mut udna = udna.to_string();
+                // 如果udna为空，就在显示属性的dyuda里面
+                if udna.is_empty() {
+                    let Some(AttrVal::StringType(dyudna)) = attr.explicit_attmap.get_val("DYUDNA") else { continue; };
+                    udna = dyudna.to_string();
+                }
+                let udna = format!(":{}", udna);
+                // 插入到缓存中
+                GLOBAL_UDA_NAME_MAP.insert(*ukey as u32, udna.clone());
+                GLOBAL_UDA_UKEY_MAP.insert(udna, *ukey as u32);
+            }
+        }
+    }
 }
 
 /// 获取隐式属性, input为分段数据，已经限制了长度

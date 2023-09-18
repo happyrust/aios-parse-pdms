@@ -145,9 +145,9 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
-    // //dbg!(ele_data);
     let mut result = "".to_string();
-    if let Some(r) = ele_data.attr_data_map.get_val("PZLE") {
+    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    if let Some(r) = ele_data.whole_attmap.implicit_attmap.get_val("PZLE") {
         match r {
             AttrVal::StringType(v) => {
                 result = v.to_string();
@@ -155,7 +155,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
             _ => {}
         }
     }
-    assert_eq!("ATTRIB :HXYS[2]", result);
+    assert_eq!(":HXYS[2]", result);
 }
 
 #[test]
@@ -2855,4 +2855,33 @@ C0 56 80 00 00 00 00 00 00 00 00 00 00 00 00 00
     let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
+}
+
+#[test]
+fn test_hxysize_15194_277() {
+    let data_str = "00 00 00 1D 00 00 3B 5A 00 00 01 15 00 0B 15 DB
+00 00 3B 5A 00 00 01 14 00 00 0F 1A 00 16 20 01
+00 00 00 00 00 00 00 00 20 0B C0 00 00 00 00 02
+00 00 00 02 00 00 00 00 00 00 00 0A 00 00 00 0F
+00 00 00 02 00 00 00 03 00 00 00 02 00 00 00 04
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 01 00 34 00 00 3B 5A 00 00 01 15
+00 00 00 00 00 00 00 00 FF F6 3E DC 1C 00 00 12
+00 00 00 11 00 00 00 11 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 40 00 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+17 EF 4B 61 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 FF F6 3E A6 1C 00 00 12
+00 00 00 11 00 00 00 11 00 00 00 01 00 00 00 65
+00 00 00 06 00 00 40 00 00 00 00 00 00 00 00 02
+00 00 00 00 00 00 00 06 00 00 00 6A 00 00 00 02
+17 EF 4B 61 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 09 C1 8E 3C 00 00 05
+00 00 00 0D 2F 48 52 54 55 42 45 32 2D 42 4F 58
+49 00 00 00";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    dbg!(&ele_data.whole_attmap.implicit_attmap);
 }

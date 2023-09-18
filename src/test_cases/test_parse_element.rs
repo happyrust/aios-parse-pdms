@@ -792,6 +792,7 @@ FF F2 51 1C 1C 00 00 12 00 00 00 11 00 00 00 11
 00 00 06 41 00 00 06 A5 00 09 C1 8E 3C 00 00 04
 00 00 00 0B 2F 48 43 54 55 42 45 2D 50 41 31 00
 ";
+    // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
