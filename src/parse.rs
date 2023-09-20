@@ -1167,7 +1167,8 @@ pub fn parse_db(
 }
 
 /// 解析uda 文件 file_type -> DICT
-pub async fn parse_uda_file(project_name: &str, children_path: Vec<PathBuf>, need_parse_file: &Option<Vec<String>>) {
+pub async fn parse_uda_file(project_name: &str, children_path: Vec<PathBuf>, need_parse_file: &Option<Vec<String>>) -> anyhow::Result<()> {
+    let mut project_uda_map = HashMap::new();
     for path in children_path {
         let file_name = path.file_name().unwrap_or_default().to_str().unwrap_or("").to_string();
         if !need_parse_file.is_none() && !need_parse_file.clone().unwrap().contains(&file_name) { continue; }
@@ -1213,12 +1214,19 @@ pub async fn parse_uda_file(project_name: &str, children_path: Vec<PathBuf>, nee
                     udna = dyudna.to_string();
                 }
                 let udna = format!(":{}", udna);
+                project_uda_map.entry(*ukey as u32).or_insert(udna.clone());
                 // 插入到缓存中
                 GLOBAL_UDA_NAME_MAP.insert(*ukey as u32, udna.clone());
                 GLOBAL_UDA_UKEY_MAP.insert(udna, *ukey as u32);
             }
         }
     }
+    // 将每个项目的uda写入到文件中
+    let file_path = format!("{}_uda.bin", project_name);
+    let mut file = File::create(file_path)?;
+    let data = bincode::serialize(&project_uda_map)?;
+    file.write_all(&data)?;
+    Ok(())
 }
 
 /// 获取隐式属性, input为分段数据，已经限制了长度
