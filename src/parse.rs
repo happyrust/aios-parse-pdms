@@ -521,7 +521,6 @@ pub fn parse_ele_children(
 pub fn parse_ele_data(
     input: &[u8],
     attr_info_map: &DashMap<i32, DashMap<i32, AttrInfo>>,
-    // explicit_nouns: &DashMap<i32, AttrInfo>,
 ) -> Option<EleData> {
     let mut attr_data_map = AttrMap::default();
     let mut implicit_attmap = AttrMap::default();
@@ -1410,20 +1409,9 @@ pub fn parse_explicit_attrs<'a>(
                 let tmp_input = &l[..type_len * 4];
                 if attr_info_map.contains_key(&explict_hash) {
                     let mut attr_info = attr_info_map.get_mut(&explict_hash).unwrap();
-                    // if attr_type_num == 0x1800 {
-                    //     attr_info.att_type = DbAttributeType::DOUBLEVEC;
-                    // } else if attr_type_num == 0x1C00 {
-                    //     attr_info.att_type = DbAttributeType::INTVEC;
-                    // }
+                    dbg!(attr_info.value());
                     // 根据获取到的type hash值，拿到需要的类型
                     match attr_info.default_val {
-
-                        // DbAttributeType::DOUBLE => {
-
-                        // }
-                        // DbAttributeType::BOOL => {
-
-                        // }
                         InvalidType => {}
                         IntegerType(_) => {
                             let (_, val) = be_i32(tmp_input)?;
@@ -1510,7 +1498,17 @@ pub fn parse_explicit_attrs<'a>(
                             let data = parse_to_f64_arr(l);
                             att_value = Some(Vec3Type(data));
                         }
-                        ElementType(_) => {}
+                        ElementType(_) => {
+                            let (_, (ref_0, ref_1)) = tuple((
+                                be_u32,
+                                be_u32,
+                            ))(tmp_input)?;
+                            let refno = RefU64::from_two_nums(ref_0, ref_1);
+                            if *refno != 0 {
+                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
+                            }
+                            att_value = Some(RefU64Type(refno));
+                        }
                         WordType(_) => {
                             let (tmp_bytes, val) = be_i32(tmp_input)?;
                             if val >= 0x81BF1 {

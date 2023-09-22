@@ -805,3 +805,36 @@ FF F2 51 1C 1C 00 00 12 00 00 00 11 00 00 00 11
 
 
 
+
+///测试缺失 Prtreference /8BC01
+#[test]
+fn test_tabite_att_parse() {
+    let data_str = "
+00 00 00 0C 00 00 33 BC 00 02 00 DD 04 F3 C0 B8
+00 00 33 BC 00 02 00 DC 00 00 43 29 00 22 40 01
+00 00 00 00 00 00 00 00 20 02 80 00 00 00 00 01
+00 01 00 0F 00 00 33 BC 00 02 00 DD 00 00 00 00
+00 00 00 00 00 09 C1 8E 3C 00 00 04 00 00 00 09
+2F 44 59 2D 38 42 43 30 31 00 00 00 05 57 F9 08
+40 00 00 02 00 00 33 BC 00 01 FF C0 00 00 00 0C
+00 00 33 BC 00 02 00 DE 04 F3 C0 B8 00 00 33 BC
+00 02 00 DC 00 00 43 29 00 25 A0 01 00 00 00 00
+00 00 00 00 20 02 80 00 00 00 00 01 00 01 00 0F
+00 00 33 BC 00 02 00 DE 00 00 00 00 00 00 00 00
+00 09 C1 8E 3C 00 00 04 00 00 00 09 2F 44 59 2D
+38 42 43 30 32 00 00 00 05 57 F9 08 40 00 00 02
+00 00 33 BC 00 01 FF C1
+";
+    // 2C 00 D5 76
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    dbg!(&ele_data);
+    let att_map = ele_data.whole_attmap.merge();
+    dbg!(&att_map);
+}
+
+
+
+
