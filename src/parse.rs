@@ -38,87 +38,87 @@ use std::time::Instant;
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
-///解析出来的所有数据
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct WholeAttMap {
-    pub implicit_attmap: AttrMap,
-    pub explicit_attmap: AttrMap,
-    pub uda_attmap: AttrMap,
-}
-
-impl WholeAttMap {
-    pub fn get_name(&self) -> String {
-        if let Some(AttrVal::StringType(s)) = self.explicit_attmap.get(&NAME_HASH) {
-            s.clone()
-        } else {
-            Default::default()
-        }
-    }
-
-    pub fn refine(mut self, info_map: &DashMap<i32, AttrInfo>) -> Self {
-        for kv in info_map {
-            let noun_hash = kv.hash as u32;
-            let hash = kv.hash;
-            let info = kv.value();
-            //将explicit 的属性覆写implicit
-            // if info.offset == 0 && !self.explicit_attmap.contains_attr_hash(noun_hash) {
-            //     self.explicit_attmap.insert(noun_hash, info.default_val.clone());
-            // } else
-            if info.offset > 0
-                && self.implicit_attmap.contains_attr_hash(noun_hash)
-                && self.explicit_attmap.contains_attr_hash(noun_hash)
-                && EXPR_ATT_SET.contains(&hash) {
-                let v = self.explicit_attmap.remove(&noun_hash).unwrap();
-                self.implicit_attmap.insert(noun_hash, v);
-            }
-        }
-        self
-    }
-
-    #[inline]
-    pub fn into_bincode_bytes(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
-    }
-
-    #[inline]
-    pub fn into_compress_bytes(&self) -> Vec<u8> {
-        use flate2::write::DeflateEncoder;
-        use flate2::Compression;
-        let mut e = DeflateEncoder::new(Vec::new(), Compression::default());
-        e.write_all(&self.into_bincode_bytes());
-        e.finish().unwrap_or_default()
-    }
-
-    #[inline]
-    pub fn from_compress_bytes(bytes: &[u8]) -> Option<Self> {
-        use flate2::write::DeflateDecoder;
-        let mut writer = Vec::new();
-        let mut deflater = DeflateDecoder::new(writer);
-        deflater.write_all(bytes).ok()?;
-        // writer = ;
-        bincode::deserialize(&deflater.finish().ok()?).ok()
-    }
-
-    /// 将隐式属性和显示属性放到一个attrmap中
-    #[inline]
-    pub fn merge(&self) -> AttrMap {
-        let mut map = self.implicit_attmap.clone();
-        for (k, v) in &self.explicit_attmap.map {
-            if !map.contains_attr_hash(*k) {
-                map.insert(k.clone(), v.clone());
-            }
-        }
-        for (k, v) in &self.uda_attmap.map {
-            if !map.contains_attr_hash(*k) {
-                map.insert(k.clone(), v.clone());
-            }
-        }
-        for (k, v) in &self.uda_attmap.map {
-            map.insert(k.clone(), v.clone());
-        }
-        map
-    }
-}
+// ///解析出来的所有数据
+// #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+// pub struct WholeAttMap {
+//     pub implicit_attmap: AttrMap,
+//     pub explicit_attmap: AttrMap,
+//     pub uda_attmap: AttrMap,
+// }
+//
+// impl WholeAttMap {
+//     pub fn get_name(&self) -> String {
+//         if let Some(AttrVal::StringType(s)) = self.explicit_attmap.get(&NAME_HASH) {
+//             s.clone()
+//         } else {
+//             Default::default()
+//         }
+//     }
+//
+//     pub fn refine(mut self, info_map: &DashMap<i32, AttrInfo>) -> Self {
+//         for kv in info_map {
+//             let noun_hash = kv.hash as u32;
+//             let hash = kv.hash;
+//             let info = kv.value();
+//             //将explicit 的属性覆写implicit
+//             // if info.offset == 0 && !self.explicit_attmap.contains_attr_hash(noun_hash) {
+//             //     self.explicit_attmap.insert(noun_hash, info.default_val.clone());
+//             // } else
+//             if info.offset > 0
+//                 && self.implicit_attmap.contains_attr_hash(noun_hash)
+//                 && self.explicit_attmap.contains_attr_hash(noun_hash)
+//                 && EXPR_ATT_SET.contains(&hash) {
+//                 let v = self.explicit_attmap.remove(&noun_hash).unwrap();
+//                 self.implicit_attmap.insert(noun_hash, v);
+//             }
+//         }
+//         self
+//     }
+//
+//     #[inline]
+//     pub fn into_bincode_bytes(&self) -> Vec<u8> {
+//         bincode::serialize(self).unwrap()
+//     }
+//
+//     #[inline]
+//     pub fn into_compress_bytes(&self) -> Vec<u8> {
+//         use flate2::write::DeflateEncoder;
+//         use flate2::Compression;
+//         let mut e = DeflateEncoder::new(Vec::new(), Compression::default());
+//         e.write_all(&self.into_bincode_bytes());
+//         e.finish().unwrap_or_default()
+//     }
+//
+//     #[inline]
+//     pub fn from_compress_bytes(bytes: &[u8]) -> Option<Self> {
+//         use flate2::write::DeflateDecoder;
+//         let mut writer = Vec::new();
+//         let mut deflater = DeflateDecoder::new(writer);
+//         deflater.write_all(bytes).ok()?;
+//         // writer = ;
+//         bincode::deserialize(&deflater.finish().ok()?).ok()
+//     }
+//
+//     /// 将隐式属性和显示属性放到一个attrmap中
+//     #[inline]
+//     pub fn merge(&self) -> AttrMap {
+//         let mut map = self.implicit_attmap.clone();
+//         for (k, v) in &self.explicit_attmap.map {
+//             if !map.contains_attr_hash(*k) {
+//                 map.insert(k.clone(), v.clone());
+//             }
+//         }
+//         for (k, v) in &self.uda_attmap.map {
+//             if !map.contains_attr_hash(*k) {
+//                 map.insert(k.clone(), v.clone());
+//             }
+//         }
+//         for (k, v) in &self.uda_attmap.map {
+//             map.insert(k.clone(), v.clone());
+//         }
+//         map
+//     }
+// }
 
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

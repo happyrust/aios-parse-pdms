@@ -62,16 +62,16 @@ env_logger = "*"
 thiserror = "*"
 
 
-aios_core = { path = "../crates/aios-core" }
+aios_core = { path = "../new-crates/aios-core" }
 
-truck-base = { version = "0.4.0", path = "../crates/truck/truck-base" }
-truck-geotrait = { version = "0.3.0", path = "../crates/truck/truck-geotrait" }
-truck-geometry = { version = "0.4.0", path = "../crates/truck/truck-geometry" }
-truck-polymesh = { version = "0.5.0", path = "../crates/truck/truck-polymesh" }
-truck-topology = { version = "0.5.0", path = "../crates/truck/truck-topology" }
-truck-modeling = { version = "0.5.1", path = "../crates/truck/truck-modeling" }
-truck-meshalgo = { version = "0.3.0", path = "../crates/truck/truck-meshalgo" }
-#truck-stepio = { version = "0.2.0", path = "../crates/truck/truck-stepio" }
+truck-base = { version = "0.4.0", path = "../new-crates/truck/truck-base" }
+truck-geotrait = { version = "0.3.0", path = "../new-crates/truck/truck-geotrait" }
+truck-geometry = { version = "0.4.0", path = "../new-crates/truck/truck-geometry" }
+truck-polymesh = { version = "0.5.0", path = "../new-crates/truck/truck-polymesh" }
+truck-topology = { version = "0.5.0", path = "../new-crates/truck/truck-topology" }
+truck-modeling = { version = "0.5.1", path = "../new-crates/truck/truck-modeling" }
+truck-meshalgo = { version = "0.3.0", path = "../new-crates/truck/truck-meshalgo" }
+#truck-stepio = { version = "0.2.0", path = "../new-crates/truck/truck-stepio" }
 
 
 once_cell = "1.9.0"
