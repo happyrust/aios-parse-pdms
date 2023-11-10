@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use aios_core::get_default_pdms_db_info;
-use aios_core::pdms_types::{NounHash, PdmsDatabaseInfo};
+use aios_core::pdms_types::{NounHash};
 use aios_core::tool::db_tool::{db1_dehash, db1_hash, read_attr_info_config_from_bin, read_attr_info_config_from_json};
 use crate::parse::parse_ele_data;
 use crate::test_cases::{convert_str_to_bytes};

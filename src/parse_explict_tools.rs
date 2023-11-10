@@ -2,15 +2,17 @@ use std::fs::File;
 use std::io::BufReader;
 use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
-use aios_core::pdms_types::AttrVal::StringType;
-use aios_core::pdms_types::DbAttributeType::{BOOL, DOUBLE, DOUBLEVEC, ELEMENT, INTEGER, INTVEC, STRING, TYPEX};
+use aios_core::AttrVal::*;
+use aios_core::pdms_types::DbAttributeType::*;
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash};
 use aios_core::tool::float_tool::f64_round_3;
 use dashmap::DashMap;
 use dynfmt::Format;
 use nom::IResult;
-use nom::number::complete::{be_i32, be_u16, be_i16, be_u32};
+use nom::multi::count;
+use nom::number::complete::{be_i32, be_u16, be_i16, be_u32, be_u8};
 use nom::sequence::tuple;
+use tokio::count;
 use crate::BHashMap;
 use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string};
 
@@ -83,12 +85,28 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 /// 解析表达式
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
-    let expression_type = db1_dehash(convert_to_hash(hash_val));
+    let expression_type = db1_dehash(convert_to_hash(hash_val).abs()  as _);
+    //临时处理，后面需要总结规律
+    let (_, flag) =  be_i32( &input[4*5..4*6])?;
+    //string type
+    if flag == 0x66 {
+        // dbg!(&expression_type);
+        let (_, str_len) = be_i32( &input[4*6..4*7])?;
+        // dbg!(str_len);
+        let (input, chars) = count( be_i32, str_len as usize)(&input[4*7..])?;
+        let mut string = String::new();
+        string.push('\'');
+        for c in chars{
+            string.push(c as u8 as _);
+        }
+        string.push('\'');
+        // dbg!(&string);
+        return Ok((input, (expression_type, string)));
+    }
     if expression_type == "PTCDI" || expression_type == "PTCD" {
         let (_, expression_length) = be_u16(&input[6..8])?;
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
-        // let expression_data = &input[..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
         let mut result: String = "".into();
