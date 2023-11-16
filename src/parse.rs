@@ -385,6 +385,8 @@ pub fn parse_ele_data(
     let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4; //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
     let refno_tuple = RefI32Tuple::from(&input[4..12]);
+    let refno: RefU64 = RefU64::from(&input[4..12]);
+    let mut is_debug = false;
     let type_hash = parse_to_i32(&input[12..16]);
     let noun = type_hash as u32;
     let noun_name = db1_dehash(noun); //类型hash  12-16
@@ -1263,7 +1265,7 @@ pub fn parse_explicit_attrs<'a>(
     while residual.len() >= 8 {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
-        // dbg!(db1_dehash(hash_val));
+        // dbg!(db1_dehash(hash_val.abs() as _));
         if check_is_expr(hash_val) {
             let (input, (expression_type, value)) = parse_expression_attr(residual, refno)?;
             att_value = Some(StringType(value));
@@ -2137,12 +2139,11 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 /// 检查是否是Axis属性
 #[inline]
 pub fn check_is_expr(noun: i32) -> bool {
-    noun < 0
-    // if EXPR_ATT_SET.contains(&input) {
-    //     true
-    // } else {
-    //     false
-    // }
+    if EXPR_ATT_SET.contains(&noun) {
+        true
+    } else {
+        false
+    }
 }
 
 /// 隐式表达式解析，给一个字符串返回DDHEIGHT这种表达式

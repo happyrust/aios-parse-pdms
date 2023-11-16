@@ -13,3 +13,5 @@ mod test_chinese;
 mod test_uda;
 mod test_parse_element;
 
+mod test_parse_string;
+

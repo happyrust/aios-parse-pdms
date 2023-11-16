@@ -1,5 +1,5 @@
 use aios_core::get_default_pdms_db_info;
-use aios_core::tool::db_tool::read_attr_info_config_from_json;
+use aios_core::types::*;
 use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
 

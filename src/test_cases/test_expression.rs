@@ -2,9 +2,8 @@ use std::fs::File;
 use std::io::Write;
 use aios_core::get_default_pdms_db_info;
 use crate::parse::parse_ele_data;
-// use crate::pdms_types::{AttrVal, StringLookupTable};
-use aios_core::pdms_types::{AttrVal, PdmsDatabaseInfo};
-use aios_core::tool::db_tool::{read_attr_info_config_from_bin, read_attr_info_config_from_json};
+use aios_core::pdms_types::{PdmsDatabaseInfo};
+use aios_core::types::*;
 use dashmap::DashMap;
 use crate::test_cases::{convert_str_to_bytes};
 
@@ -1324,6 +1323,7 @@ fn take_off_uda() {
     }
     let new_pdms_database_info = PdmsDatabaseInfo {
         noun_attr_info_map: new_info_map,
+        named_attr_info_map: Default::default(),
     };
     let mut file = File::create("all_attr_info_new.json").unwrap();
     file.write(serde_json::to_string(&new_pdms_database_info).unwrap_or_default().as_bytes()).unwrap();
