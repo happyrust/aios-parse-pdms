@@ -793,8 +793,6 @@ pub fn parse_db_with_chunk(
                         .or_insert_with(RefU64Vec::default)
                         .push(refno);
                 }
-
-                // total_attrmap_clone.insert(refno, whole_attmap.merge().into());
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
                 named_attmap.set_e3d_version(version as _);
                 total_attrmap_clone.insert(refno, named_attmap);
@@ -1169,23 +1167,31 @@ pub fn parse_implicit_attr_value<'a>(
                             is_f32 = true;
                         }
                     }
+                    if attr_info.name == "ANGL" {
+                        dbg!(data_len);
+                        dbg!(is_f32);
+                    }
                     if is_f32 {
-                        // let d = parse_to_f32(&bytes[..4]) as f64;
-                        let (_, d) = be_f32(bytes)?;
-                        val = AttrVal::DoubleType(d as _);
-                        advance_offset = 1;
+                        let d = parse_to_f32(&bytes[..4]) as f64;
+                        if bytes.len() >= 4 {
+                            val = AttrVal::DoubleType(d as _);
+                            advance_offset = 1;
+                        }else{
+                            //todo fix
+                        }
                     } else {
-                        let (_, d) = be_f64(bytes)?;
-                        val = AttrVal::DoubleType(d);
-                        advance_offset = 2;
-                        // let d = parse_to_f64(&bytes[..8]);
-                        // if d > f32::MAX as f64 {
-                        //     val = AttrVal::DoubleType(0.0);
-                        //     advance_offset = 2;
-                        // } else {
-                        //     val = AttrVal::DoubleType(d);
-                        //     advance_offset = 2;
-                        // }
+                        if bytes.len() >= 8 {
+                            let d = parse_to_f64(&bytes[..8]);
+                            if d > f32::MAX as f64 {
+                                val = AttrVal::DoubleType(0.0);
+                                advance_offset = 2;
+                            } else {
+                                val = AttrVal::DoubleType(d);
+                                advance_offset = 2;
+                            }
+                        }else{
+                            //todo fix
+                        }
                     }
                 }
                 AttrVal::BoolType(_) => {

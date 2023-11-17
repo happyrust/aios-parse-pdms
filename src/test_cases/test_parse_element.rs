@@ -1,4 +1,4 @@
-use aios_core::get_default_pdms_db_info;
+use aios_core::{get_default_pdms_db_info, NamedAttrMap};
 use nom::AsBytes;
 use aios_core::tool::db_tool::{db1_dehash, db1_hash, db1_hash_i32};
 use crate::parse::{parse_attr_members, parse_ele_data, parse_ele_membs};
@@ -942,3 +942,34 @@ A0 00 00 33 BC 00 00 F0 15 00 00 15 9D 00 1B A0
 
 
 
+
+
+
+
+#[test]
+fn test_has_wrong_angle() {
+    let data_str = " 00 00 00 2B
+00 00 44 58 00 04 11 7D 00 09 77 E4 00 00 44 58
+00 04 11 7C 00 00 7A 4F 00 25 00 01 00 00 00 00
+00 00 00 00 20 03 40 00 00 00 00 03 00 00 00 00
+40 D1 F8 00 00 00 00 00 40 D1 F8 00 00 00 00 00
+40 EC 64 C0 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 40 56 80 00
+00 00 00 1C 00 00 33 BD 00 0C 08 40 00 00 33 BD
+00 0C 05 6B 00 00 00 01 00 00 00 02 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+40 56 80 00 00 00 00 00 40 D1 F8 00 00 00 00 02
+53 7B 2A 33 80 00 00 01 00 01 00 12 00 00 44 58
+00 04 11 7D 00 00 00 00 00 00 00 00 00 09 2E A7
+0C 00 00 01 FF FF FF FF 00 0B C6 C0 14 00 00 01
+00 00 00 01 06 A0 26 04 0C 00 00 01 00 0D F3 17
+00 CC 6B 3F 38 00 00 02 00 00 00 01 00 09 77 E4
+";
+    // 2C 00 D5 76
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    dbg!(&ele_data);
+    let att_map: NamedAttrMap = ele_data.whole_attmap.merge().into();
+    dbg!(&att_map);
+}
