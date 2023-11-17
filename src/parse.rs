@@ -1168,11 +1168,11 @@ pub fn parse_implicit_attr_value<'a>(
                         }
                     }
                     if is_f32 {
-                        let d = parse_to_f32(&bytes[..4]) as f64;
                         if bytes.len() >= 4 {
+                            let d = parse_to_f32(&bytes[..4]) as f64;
                             val = AttrVal::DoubleType(d as _);
                             advance_offset = 1;
-                        }else{
+                        } else {
                             //todo fix
                         }
                     } else {
@@ -1185,7 +1185,7 @@ pub fn parse_implicit_attr_value<'a>(
                                 val = AttrVal::DoubleType(d);
                                 advance_offset = 2;
                             }
-                        }else{
+                        } else {
                             //todo fix
                         }
                     }
