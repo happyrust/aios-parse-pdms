@@ -1167,10 +1167,6 @@ pub fn parse_implicit_attr_value<'a>(
                             is_f32 = true;
                         }
                     }
-                    if attr_info.name == "ANGL" {
-                        dbg!(data_len);
-                        dbg!(is_f32);
-                    }
                     if is_f32 {
                         let d = parse_to_f32(&bytes[..4]) as f64;
                         if bytes.len() >= 4 {
