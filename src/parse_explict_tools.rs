@@ -1,20 +1,20 @@
-use std::fs::File;
-use std::io::BufReader;
+use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string};
+use crate::BHashMap;
 use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
-use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
-use aios_core::AttrVal::*;
 use aios_core::pdms_types::DbAttributeType::*;
+use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash};
 use aios_core::tool::float_tool::f64_round_3;
+use aios_core::AttrVal::*;
 use dashmap::DashMap;
 use dynfmt::Format;
-use nom::IResult;
 use nom::multi::count;
-use nom::number::complete::{be_i32, be_u16, be_i16, be_u32, be_u8};
+use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u8};
 use nom::sequence::tuple;
+use nom::IResult;
+use std::fs::File;
+use std::io::BufReader;
 use tokio::count;
-use crate::BHashMap;
-use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string};
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
@@ -60,43 +60,43 @@ lazy_static! {
     };
 }
 
-
 #[inline]
 /// 若在反序列化给定的map集合中未找到该属性对应的hash ，则用该方法直接获取到该属性的数据类型 ，然后进行解析
 pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
     match input {
         // 2800 这个应该是个引用，数据给的是一个参考号 ，但是e3d没有这个属性值 ，但是他的类型不难看出是string   类型: 2C F2 AE D3
-        0x3C00 | 0x2800 => { Some(STRING) }
-        0x1800 => { Some(DOUBLEVEC) }
-        0x1C00 | 0x2000 => { Some(INTVEC) }
-        0x4000 | 0x1000 => { Some(ELEMENT) }
-        0x0C00 => { Some(INTEGER) }
-        0x1400 => { Some(BOOL) }
-        0x0800 => { Some(DOUBLE) }
-        0x3800 => { Some(TYPEX) }
-        0x0000 => { None }
-        _ => {
-            None
-        }
+        0x3C00 | 0x2800 => Some(STRING),
+        0x1800 => Some(DOUBLEVEC),
+        0x1C00 | 0x2000 => Some(INTVEC),
+        0x4000 | 0x1000 => Some(ELEMENT),
+        0x0C00 => Some(INTEGER),
+        0x1400 => Some(BOOL),
+        0x0800 => Some(DOUBLE),
+        0x3800 => Some(TYPEX),
+        0x0000 => None,
+        _ => None,
     }
 }
-
 
 /// 解析表达式
 pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
-    let expression_type = db1_dehash(convert_to_hash(hash_val).abs()  as _);
+    let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
     //临时处理，后面需要总结规律
-    let (_, flag) =  be_i32( &input[4*5..4*6])?;
+    if input.len() <= 4 * 6 {
+        dbg!(refno);
+        return Err(nom::Err::Incomplete(nom::Needed::Unknown));
+    }
+    let (_, flag) = be_i32(&input[4 * 5..4 * 6])?;
     //string type
     if flag == 0x66 {
         // dbg!(&expression_type);
-        let (_, str_len) = be_i32( &input[4*6..4*7])?;
+        let (_, str_len) = be_i32(&input[4 * 6..4 * 7])?;
         // dbg!(str_len);
-        let (input, chars) = count( be_i32, str_len as usize)(&input[4*7..])?;
+        let (input, chars) = count(be_i32, str_len as usize)(&input[4 * 7..])?;
         let mut string = String::new();
         string.push('\'');
-        for c in chars{
+        for c in chars {
             string.push(c as u8 as _);
         }
         string.push('\'');
@@ -144,7 +144,13 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
     let mut check_val2 = parse_to_i32(&expression_data[4..8]);
     let mut number_flag = check_val1 == 0x65;
-    while expression_data.len() >= 8 && (number_flag || check_val1 == 0x6A || check_val2 == 3 || &expression_data[..3] == &[0x0, 0x0, 0x3] || check_val2 == 0x65) {
+    while expression_data.len() >= 8
+        && (number_flag
+            || check_val1 == 0x6A
+            || check_val2 == 3
+            || &expression_data[..3] == &[0x0, 0x0, 0x3]
+            || check_val2 == 0x65)
+    {
         let expression_const = parse_expression_const(&expression_data[..4]);
         if expression_const != "" {
             result_stack.push(expression_const);
@@ -164,7 +170,9 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                 parse_explicit_num_40(&expression_data[..12])?.1
             } else if num_flag == -1i16 {
                 parse_explicit_num_ff(&expression_data[..12])?.1
-            } else { 0.0 };
+            } else {
+                0.0
+            };
             // 表达式的值
             result_stack.push(value.to_string());
             expression_data = &expression_data[12..];
@@ -179,8 +187,13 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             // 跳6A
             expression_data = &expression_data[4..];
             let num = u32::from_be_bytes(expression_data[..4].try_into().unwrap());
-            let att_name = db1_dehash(u32::from_be_bytes(expression_data[4..8].try_into().unwrap()));
-            let flags = (parse_to_i32(&expression_data[8..12]), parse_to_i32(&expression_data[12..16]));
+            let att_name = db1_dehash(u32::from_be_bytes(
+                expression_data[4..8].try_into().unwrap(),
+            ));
+            let flags = (
+                parse_to_i32(&expression_data[8..12]),
+                parse_to_i32(&expression_data[12..16]),
+            );
             let mut rpro_name = String::new();
             let s_value = u32::from_be_bytes(expression_data[16..20].try_into().unwrap());
             if att_name.as_str() == "RPRO" && s_value != 0 {
@@ -224,12 +237,11 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         }
                         expression_input = &expression_input[20..];
                     }
-                    let (expression_tmp, (refno0, refno1, )) = tuple((
-                        be_i32,
-                        be_i32,
-                    ))(&expression_input[..])?;
+                    let (expression_tmp, (refno0, refno1)) =
+                        tuple((be_i32, be_i32))(&expression_input[..])?;
                     expression_input = &expression_tmp[..];
-                    if &expression != "" || refno0 == 0 || refno1 == 1701 { // 1701 是 0x 06 A5 代表表达式的结束
+                    if &expression != "" || refno0 == 0 || refno1 == 1701 {
+                        // 1701 是 0x 06 A5 代表表达式的结束
                         let expression = get_expression_of_func(&expression_input[..4]);
                         let func = result_stack.pop().unwrap_or_default();
                         let result = format!("{} OF {} ", func, expression);
@@ -255,8 +267,12 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
             }
         }
         // 这里表达式是结束了，但是可能会有后序表达式的运算符
-        while expression_data.len() >= 4 && &expression_data[..2] == &[0x0, 0x0] && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x65]
-            && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x6A] && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x2] {
+        while expression_data.len() >= 4
+            && &expression_data[..2] == &[0x0, 0x0]
+            && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x65]
+            && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x6A]
+            && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x2]
+        {
             let mut symbol = String::new();
 
             let op_key = parse_to_i32(&expression_data[..4]);
@@ -265,7 +281,10 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                 let cnt = op_str.matches("{}").count();
                 let len = result_stack.len();
                 if len >= cnt {
-                    symbol = dynfmt::SimpleCurlyFormat.format(op_str, &result_stack[len - cnt..]).unwrap_or_default().to_string();
+                    symbol = dynfmt::SimpleCurlyFormat
+                        .format(op_str, &result_stack[len - cnt..])
+                        .unwrap_or_default()
+                        .to_string();
                     result_stack.drain(len - cnt..);
                 }
             }
@@ -275,12 +294,17 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         let value1 = result_stack.pop().unwrap_or_default();
                         let value2 = result_stack.pop().unwrap_or_default();
                         let mut max_array = format!("{},{}", value2, value1);
-                        while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF0] {
+                        while expression_data.len() > 36
+                            && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF0]
+                        {
                             let expression_data_value = &expression_data[12..24];
                             let mut dst_data = expression_data_value[..8].to_vec();
-                            let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
+                            let dst_first =
+                                (expression_data_value[10] & 0xF).checked_shl(4).unwrap()
+                                    + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
                             dst_data[0] = dst_first;
-                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
+                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap()
+                                + (expression_data_value[1] & 0xF);
                             let value = f64::from_be_bytes(dst_data.try_into().unwrap());
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
@@ -293,12 +317,17 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                         let value1 = result_stack.pop().unwrap_or_default();
                         let value2 = result_stack.pop().unwrap_or_default();
                         let mut max_array = format!("{},{}", value2, value1);
-                        while expression_data.len() > 36 && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF1] {
+                        while expression_data.len() > 36
+                            && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF1]
+                        {
                             let expression_data_value = &expression_data[12..24];
                             let mut dst_data = expression_data_value[..8].to_vec();
-                            let dst_first = (expression_data_value[10] & 0xF).checked_shl(4).unwrap() + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
+                            let dst_first =
+                                (expression_data_value[10] & 0xF).checked_shl(4).unwrap()
+                                    + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
                             dst_data[0] = dst_first;
-                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap() + (expression_data_value[1] & 0xF);
+                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap()
+                                + (expression_data_value[1] & 0xF);
                             let value = f64::from_be_bytes(dst_data.try_into().unwrap());
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
@@ -307,7 +336,9 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
                     }
                 }
                 &[0x0, 0x0, 0x0, 0x3] => {
-                    if expression_data.len() >= 8 && &expression_data[4..8] == &[0x0, 0x0, 0x6, 0xA5] {
+                    if expression_data.len() >= 8
+                        && &expression_data[4..8] == &[0x0, 0x0, 0x6, 0xA5]
+                    {
                         if result_stack.len() > 1 {
                             let value1 = result_stack.pop().unwrap_or_default();
                             let value2 = result_stack.pop().unwrap_or_default();
@@ -347,7 +378,10 @@ pub fn parse_xyz_data(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String
     let coordinate = match_explicit_attribute_to_string(parse_to_u32(&input[..4]));
     let data_len = parse_to_u32(&input[4..8]) as usize;
     let data = parse_expression_func(&input[12..(data_len + 1) * 4], refno)?.1;
-    Ok((&input[data_len * 4 + 4..], format!("{} ({}) ", coordinate, data)))
+    Ok((
+        &input[data_len * 4 + 4..],
+        format!("{} ({}) ", coordinate, data),
+    ))
 }
 
 /// 返回PARA类的函数名
@@ -366,7 +400,9 @@ pub fn parse_explicit_num_00(data: &[u8]) -> IResult<&[u8], f64> {
     let times = 2_f32.powf((5i16 - times) as f32) as f64;
     let (_, a) = be_i32(&data[..4])?;
     let (_, b) = be_i32(&data[4..8])?;
-    let value = (((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 1000.0).round() / 1000.0;
+    let value = (((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 1000.0)
+        .round()
+        / 1000.0;
     let value = f64_round_3(value);
     Ok((data, value))
 }
@@ -374,7 +410,8 @@ pub fn parse_explicit_num_00(data: &[u8]) -> IResult<&[u8], f64> {
 /// 解析axis显式属性的值，分为00 40 FF三种
 pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
     let mut dst_data = data[..8].to_vec();
-    let dst_first = (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
+    let dst_first =
+        (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
     dst_data[0] = dst_first;
     dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
     let value = if data[0] == 0x40 {
@@ -389,8 +426,8 @@ pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
 
 pub fn parse_expression_const(input: &[u8]) -> String {
     match input {
-        &[0, 0, 0, 0x6F] => { "PI".to_string() }
-        &_ => { "".to_string() }
+        &[0, 0, 0, 0x6F] => "PI".to_string(),
+        &_ => "".to_string(),
     }
 }
 
@@ -408,7 +445,7 @@ pub fn parse_explicit_num_ff(data: &[u8]) -> IResult<&[u8], f64> {
     //40 00 00 00 代表 0.5
     let b = parse_to_i32(&data[4..8]);
     let v = (a as f64 / 0x10024 as f64) + b as f64 / 0x40000000 as f64 * 0.5;
-    let c = 0xFFFFu32 - parse_to_u16(&data[10..12]) as u32;   //parse like 0xFF FE
+    let c = 0xFFFFu32 - parse_to_u16(&data[10..12]) as u32; //parse like 0xFF FE
     let div_times = 2_i32.pow(c);
     let v = (v * 1000.0).round() / (div_times as f64) / 1000.0;
     let value = f64_round_3(v);
@@ -419,12 +456,8 @@ pub fn parse_explicit_num_ff(data: &[u8]) -> IResult<&[u8], f64> {
 pub fn get_expression_of_func(input: &[u8]) -> String {
     let mut result = "".to_string();
     match input {
-        &[0, 0, 0, 0xA] => {
-            result = "PREV".to_string()
-        }
-        &[0, 0, 0, 0xB] => {
-            result = "NEXT".to_string()
-        }
+        &[0, 0, 0, 0xA] => result = "PREV".to_string(),
+        &[0, 0, 0, 0xB] => result = "NEXT".to_string(),
         &[0x0, 0xA, 0x1D, 0xCB] => {
             result = "BLRF NUM 1".to_string();
         }
@@ -494,10 +527,7 @@ fn pow_test() {
 fn read_deseralize_file() {
     let file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
     let reader = BufReader::new(file);
-    let database_info: DashMap<String, Vec<(String, String)>> = serde_json::from_reader(reader).unwrap();
+    let database_info: DashMap<String, Vec<(String, String)>> =
+        serde_json::from_reader(reader).unwrap();
     println!("value={:?}", database_info);
 }
-
-
-
-

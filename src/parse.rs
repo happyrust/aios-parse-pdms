@@ -3,13 +3,13 @@ use crate::parse_explict_tools::*;
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
 use aios_core::get_default_pdms_db_info;
 use aios_core::helper::*;
-use aios_core::types::*;
-use aios_core::AttrVal::*;
 use aios_core::pdms_types::*;
 use aios_core::tool::db_tool::*;
+use aios_core::types::db_info::PdmsDatabaseInfo;
+use aios_core::types::WholeAttMap;
+use aios_core::types::*;
+use aios_core::AttrVal::*;
 use anyhow::*;
-use nom::error::ErrorKind;
-use nom::multi::count;
 use core::result::Result::Ok;
 #[allow(unused_mut)]
 use core::slice::SlicePattern;
@@ -20,8 +20,12 @@ use memchr::memmem::rfind_iter;
 use nom::bytes::complete::take_until;
 use nom::character::complete::alpha1;
 use nom::combinator::verify;
+use nom::error::ErrorKind;
+use nom::multi::count;
 use nom::multi::many_till;
+use nom::number::complete::be_f64;
 use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
+use nom::number::streaming::be_f32;
 use nom::sequence::tuple;
 use nom::IResult;
 use phf::phf_map;
@@ -36,12 +40,8 @@ use std::ops::{Deref, Range};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
-use aios_core::types::WholeAttMap;
-use aios_core::types::db_info::PdmsDatabaseInfo;
-
 
 const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
-
 
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -112,9 +112,9 @@ pub fn parse_pdms_dir(
         if file_name.ends_with("sys") {
             if need_parsed_files.is_some()
                 && !need_parsed_files
-                .as_ref()
-                .unwrap()
-                .contains(&file_name.to_string())
+                    .as_ref()
+                    .unwrap()
+                    .contains(&file_name.to_string())
             {
                 continue;
             }
@@ -290,7 +290,6 @@ pub fn parse_file_with_chunk(
         )
     }
 }
-
 
 #[derive(Debug, Clone, Default)]
 pub struct EleData {
@@ -546,7 +545,8 @@ pub fn parse_ele_data(
         implicit_attmap,
         explicit_attmap,
         uda_attmap: Default::default(),
-    }.refine(cur_type_info_map);
+    }
+    .refine(cur_type_info_map);
 
     Ok(EleData {
         refno: refno_tuple.into(),
@@ -775,16 +775,16 @@ pub fn parse_db_with_chunk(
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
             if let Ok(EleData {
-                            refno,
-                            owner,
-                            noun,
-                            attr_data_map,
-                            whole_attmap,
-                            children,
-                            version,
-                            name,
-                            foreign_refnos,
-                        }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map)
+                refno,
+                owner,
+                noun,
+                attr_data_map,
+                whole_attmap,
+                children,
+                version,
+                name,
+                foreign_refnos,
+            }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map)
             {
                 // 将房间信息保存到单独的数据结构中
                 if let Some(val) = whole_attmap.explicit_attmap.get(&(ATT_ROOM as u32)) {
@@ -967,16 +967,16 @@ pub fn parse_db(
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
             if let Ok(EleData {
-                            refno,
-                            owner,
-                            noun,
-                            attr_data_map,
-                            whole_attmap,
-                            children,
-                            version,
-                            name,
-                            foreign_refnos,
-                        }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map)
+                refno,
+                owner,
+                noun,
+                attr_data_map,
+                whole_attmap,
+                children,
+                version,
+                name,
+                foreign_refnos,
+            }) = parse_ele_data(&input[pos - 4..], &noun_attr_info_map)
             {
                 // 将房间信息保存到单独的数据结构中
                 if let Some(val) = whole_attmap.explicit_attmap.get(&(ATT_ROOM as u32)) {
@@ -1025,31 +1025,48 @@ pub fn parse_db(
 }
 
 /// 解析uda 文件 file_type -> DICT
-pub async fn parse_uda_file(project_name: &str, children_path: Vec<PathBuf>, need_parse_file: &Option<Vec<String>>) -> anyhow::Result<()> {
+pub async fn parse_uda_file(
+    project_name: &str,
+    children_path: Vec<PathBuf>,
+    need_parse_file: &Option<Vec<String>>,
+) -> anyhow::Result<()> {
     let mut project_uda_map = HashMap::new();
     for path in children_path {
-        let file_name = path.file_name().unwrap_or_default().to_str().unwrap_or("").to_string();
-        if !need_parse_file.is_none() && !need_parse_file.clone().unwrap().contains(&file_name) { continue; }
-        let Ok(mut file) = fs::File::open(path.clone()) else { continue; };
+        let file_name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_str()
+            .unwrap_or("")
+            .to_string();
+        if !need_parse_file.is_none() && !need_parse_file.clone().unwrap().contains(&file_name) {
+            continue;
+        }
+        let Ok(mut file) = fs::File::open(path.clone()) else {
+            continue;
+        };
         let mut input = [0; 50];
-        let Ok(_exact_file) = fs::File::read_exact(&mut file, &mut input) else { continue; };
+        let Ok(_exact_file) = fs::File::read_exact(&mut file, &mut input) else {
+            continue;
+        };
         let basic_info = parse_file_basic_info(&input.to_vec());
         // DICT 为 uda文件
-        if basic_info.0 != "DICT".to_string() { continue; };
+        if basic_info.0 != "DICT".to_string() {
+            continue;
+        };
         let path_clone = path.clone();
         let project_name_clone = project_name.to_string();
         let file_name_clone = file_name.clone();
         if let Ok(Ok(PdmsDbData {
-                         total_attr_map,
-                         type_ele_map,
-                         refno_info_map,
-                         db_type,
-                         db_no,
-                         version,
-                         room_code_map,
-                         foreign_refnos_map,
-                         ..
-                     })) = tokio::task::spawn_blocking(move || {
+            total_attr_map,
+            type_ele_map,
+            refno_info_map,
+            db_type,
+            db_no,
+            version,
+            room_code_map,
+            foreign_refnos_map,
+            ..
+        })) = tokio::task::spawn_blocking(move || {
             parse_file(
                 &path_clone,
                 &None,
@@ -1057,18 +1074,30 @@ pub async fn parse_uda_file(project_name: &str, children_path: Vec<PathBuf>, nee
                 &project_name_clone,
                 "",
             )
-        }).await {
+        })
+        .await
+        {
             // 将uda放到缓存中
-            let Some(uda_refnos) = type_ele_map.get(&db1_hash("UDA")) else { continue; };
+            let Some(uda_refnos) = type_ele_map.get(&db1_hash("UDA")) else {
+                continue;
+            };
             let uda_refnos = uda_refnos.value();
             for refno in uda_refnos {
-                let Some(attr) = total_attr_map.get(refno) else { continue; };
-                let Some(ukey) = attr.get_i32("UKEY") else { continue; };
-                let Some(udna) = attr.get_string("UDNA") else { continue; };
+                let Some(attr) = total_attr_map.get(refno) else {
+                    continue;
+                };
+                let Some(ukey) = attr.get_i32("UKEY") else {
+                    continue;
+                };
+                let Some(udna) = attr.get_string("UDNA") else {
+                    continue;
+                };
                 let mut udna = udna.to_string();
                 // 如果udna为空，就在显示属性的dyuda里面
                 if udna.is_empty() {
-                    let Some(dyudna) = attr.get_string("DYUDNA") else { continue; };
+                    let Some(dyudna) = attr.get_string("DYUDNA") else {
+                        continue;
+                    };
                     udna = dyudna.to_string();
                 }
                 let udna = format!(":{}", udna);
@@ -1103,11 +1132,14 @@ pub fn parse_implicit_attr_value<'a>(
     let mut advance_offset = data_len / 4;
     let offset = (attr_info.offset & 0xFFFF) as usize * 4;
     if offset > origin_bytes.len() {
-        return Err(nom::Err::Error(nom::error::make_error(origin_bytes, ErrorKind::Eof)));
+        return Err(nom::Err::Error(nom::error::make_error(
+            origin_bytes,
+            ErrorKind::Eof,
+        )));
     }
-    let mut bytes = &origin_bytes[offset..];
+    let bytes = &origin_bytes[offset..];
     if b_expr {
-        let (_, attr_val) = parse_to_expression(bytes)?;
+        let (_, attr_val) = parse_to_expression(bytes, attr_info.default_val.clone())?;
         val = attr_val;
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
@@ -1138,18 +1170,22 @@ pub fn parse_implicit_attr_value<'a>(
                         }
                     }
                     if is_f32 {
-                        let d = parse_to_f32(&bytes[..4]) as f64;
-                        val = AttrVal::DoubleType(d);
+                        // let d = parse_to_f32(&bytes[..4]) as f64;
+                        let (_, d) = be_f32(bytes)?;
+                        val = AttrVal::DoubleType(d as _);
                         advance_offset = 1;
                     } else {
-                        let d = parse_to_f64(&bytes[..8]);
-                        if d > f32::MAX as f64 {
-                            val = AttrVal::DoubleType(0.0);
-                            advance_offset = 2;
-                        } else {
-                            val = AttrVal::DoubleType(d);
-                            advance_offset = 2;
-                        }
+                        let (_, d) = be_f64(bytes)?;
+                        val = AttrVal::DoubleType(d);
+                        advance_offset = 2;
+                        // let d = parse_to_f64(&bytes[..8]);
+                        // if d > f32::MAX as f64 {
+                        //     val = AttrVal::DoubleType(0.0);
+                        //     advance_offset = 2;
+                        // } else {
+                        //     val = AttrVal::DoubleType(d);
+                        //     advance_offset = 2;
+                        // }
                     }
                 }
                 AttrVal::BoolType(_) => {
@@ -1236,8 +1272,8 @@ pub fn parse_implicit_attr_value<'a>(
                     //     is_f32 = true;
                     // }
                     // if !is_f32 {
-                        data = parse_to_f32_arr(l, cnt as _);
-                        advance_offset += (1 + cnt as usize * 1);
+                    data = parse_to_f32_arr(l, cnt as _);
+                    advance_offset += (1 + cnt as usize * 1);
                     // }
                     // else {
                     //     data = parse_to_f32_arr(l);
@@ -1375,10 +1411,7 @@ pub fn parse_explicit_attrs<'a>(
                             att_value = Some(Vec3Type(data));
                         }
                         ElementType(_) => {
-                            let (_, (ref_0, ref_1)) = tuple((
-                                be_u32,
-                                be_u32,
-                            ))(tmp_input)?;
+                            let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
                             let refno = RefU64::from_two_nums(ref_0, ref_1);
                             if *refno != 0 {
                                 foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
@@ -1523,7 +1556,8 @@ pub fn parse_explicit_attrs<'a>(
                                     let (_, typex) = be_u32(&tmp_input[..4])?;
                                     let typex = db1_dehash(typex);
                                     att_value = Some(StringType(typex.into()));
-                                } else {}
+                                } else {
+                                }
                             }
                             _ => {}
                         }
@@ -1538,7 +1572,7 @@ pub fn parse_explicit_attrs<'a>(
             // if EXPR_ATT_SET.contains(&(hash_val as i32)) {
             //     attr_data_map.insert(hash_val, v);
             // } else {
-                attr_data_map.entry(hash_val.abs() as _).or_insert(v);
+            attr_data_map.entry(hash_val.abs() as _).or_insert(v);
             // }
         }
     }
@@ -1603,11 +1637,12 @@ pub fn round_f32(input: f32) -> f32 {
 }
 
 /// 特殊处理AXIS隐式属性
-pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
-    let (tmp_input, signal) = be_u32(input)?;
-    let mut val = AttrVal::StringType("".into());
-    if signal == 2 {
-        match &tmp_input[..8] {
+pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], AttrVal> {
+    let (res_input, flag) = be_u32(input)?;
+    let mut val = default;
+    // dbg!(flag);
+    if flag == 2 {
+        match &res_input[..8] {
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("X".into()),
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("Y".into()),
             &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => val = AttrVal::StringType("Z".into()),
@@ -1623,12 +1658,12 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
             &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xEA] => val = AttrVal::StringType("-P2".into()),
 
             &_ => {
-                match &tmp_input[..3] {
+                match &res_input[..3] {
                     &[0xFF, 0xFF, 0xFF] => {
-                        let (_, radius) = be_i32(&tmp_input[4..8])?;
+                        let (_, radius) = be_i32(&res_input[4..8])?;
                         let radius = radius / 100;
                         let mut result = String::new();
-                        match &tmp_input[3..4] {
+                        match &res_input[3..4] {
                             &[0xF4] => {
                                 result = format!("X {} Y", radius);
                             }
@@ -1709,10 +1744,10 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                     &_ => {}
                 }
                 //todo use dynfmt
-                match &tmp_input[..4] {
+                match &res_input[..4] {
                     &[0x0, 0x0, 0x0, 0x3] => {
                         // let (_, value) = be_u8(&tmp_input[7..8])?;
-                        let (_, value) = be_u32(&tmp_input[4..8])?;
+                        let (_, value) = be_u32(&res_input[4..8])?;
                         val = AttrVal::StringType(format!("P{}", value).into());
                         if value > 1000 {
                             let value = value - 1000;
@@ -1720,153 +1755,153 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                         }
                     }
                     &[0x0, 0x0, 0x0, 0xC] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0xD] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0xE] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} -X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0xF] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} -Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x10] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} -Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x15] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x17] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x18] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} -X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x19] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} -Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x1A] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} -Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x1F] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x20] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         // dbg!(&value);
                         let result = format!("Z {} Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x22] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} -X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x23] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} -Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x24] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} -Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x29] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} -X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2A] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2B] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2D] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} -Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2E] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} -Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x33] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x34] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x35] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x36] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} -X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x38] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} -Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x3D] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x3E] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} Y", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x3F] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} Z", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x40] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} -X", value);
                         val = AttrVal::StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x41] => {
-                        let value = get_expression_angle_or_param(&tmp_input[4..8])?.1;
+                        let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} -Y", value);
                         val = AttrVal::StringType(result.into());
                     }
@@ -1874,116 +1909,116 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                 }
             }
         }
-    } else if signal == 4 {
-        let mut val = String::new();
+    } else if flag == 4 {
+        let mut val_string = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
-        match &tmp_input[..2] {
+        match &res_input[..2] {
             &[0x0, 0x0] => {
-                let (_, times) = be_i16(&tmp_input[2..4])?;
+                let (_, times) = be_i16(&res_input[2..4])?;
                 let times = times_keep_f32_three_decimal_place(times as i32);
                 if times == 1.0 {
-                    val = "PARAM".to_string();
+                    val_string = "PARAM".to_string();
                 } else if times == 0.0 {
-                    val = "".to_string();
+                    val_string = "".to_string();
                 } else {
-                    val = format!("{} TIMES PARAM", times);
+                    val_string = format!("{} TIMES PARAM", times);
                 }
             }
             &[0xFF, 0xFF] => {
-                let (_, times) = be_i16(&tmp_input[2..4])?;
+                let (_, times) = be_i16(&res_input[2..4])?;
                 if times > 0xFFFFu16 as i16 {
                     let mut times = ((0xFFFFu16 as i16) as f32 - times as f32 - 1.0) / 40.0f32;
                     times = (times * 100.0_f32).round() / 100.0;
-                    val = format!("{} TIMES PARAM", times);
+                    val_string = format!("{} TIMES PARAM", times);
                 } else {
                     let mut times = (times as f32 - (0xFFFFu16 as i16) as f32 - 1.0) / 40.0f32;
                     times = (times * 100.0_f32).round() / 100.0;
-                    val = format!("{} TIMES PARAM", times);
+                    val_string = format!("{} TIMES PARAM", times);
                 }
             }
             _ => {}
         }
-        match &tmp_input[4..8] {
+        match &res_input[4..8] {
             &[0x0, 0x0, 0x0, 0x1] => {
-                let (_, value) = be_i32(&tmp_input[8..12])?;
+                let (_, value) = be_i32(&res_input[8..12])?;
                 if value >= 50 && value < 0x65 {
                     let value = value - 50;
-                    val = val.replace("PARAM", ""); // 防止出现两个para
-                    val = format!("{} DESIGN PARAM {}", val, value);
+                    val_string = val_string.replace("PARAM", ""); // 防止出现两个para
+                    val_string = format!("{} DESIGN PARAM {}", val_string, value);
                 } else if value >= 500 && value < 0x3E9 {
                     let value = value - 500;
                     if value < 50 {
-                        val = format!("TWICE PARAM {}", value);
+                        val_string = format!("TWICE PARAM {}", value);
                     } else {
                         let value = value - 100;
-                        val = format!("TWICE IPARAM {}", value);
+                        val_string = format!("TWICE IPARAM {}", value);
                     }
                 } else if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
-                    val = format!("IPARAM {}", value);
+                    val_string = format!("IPARAM {}", value);
                 } else if value >= 0x3E9 {
                     let value = value - 0x3E8;
                     if value >= 0x65 {
                         let value = value - 0x64;
-                        val = format!("- IPARAM {}", value);
+                        val_string = format!("- IPARAM {}", value);
                     } else {
-                        val = format!("- {} {}", val, value);
+                        val_string = format!("- {} {}", val_string, value);
                     }
                 } else if value <= 0xFFFFFFFFu32 as i32 {
-                    let (_, t) = be_i32(&tmp_input[..4])?;
+                    let (_, t) = be_i32(&res_input[..4])?;
                     // times是除以0x28的倍数
                     if t == 0x28 {
-                        val = match_angle_or_return_number(parse_to_i32(&tmp_input[8..12]));
+                        val_string = match_angle_or_return_number(parse_to_i32(&res_input[8..12]));
                     } else {
                         let mut value = "".to_string();
                         let v = t as f32 / 40.0;
                         let times = round_f32(v);
-                        value = get_implicit_angle_expression(&tmp_input[8..12]);
+                        value = get_implicit_angle_expression(&res_input[8..12]);
                         if value == "" {
-                            let v = parse_to_i32(&tmp_input[8..12]);
+                            let v = parse_to_i32(&res_input[8..12]);
                             if v != 0 {
                                 value = (-v as f32 / 10.0).to_string();
                             }
                         }
-                        val = format!("{} TIMES {}", times, value);
+                        val_string = format!("{} TIMES {}", times, value);
                     }
                 } else {
-                    val = format!("{} {}", val, value);
+                    val_string = format!("{} {}", val_string, value);
                 }
             }
             &[0x0, 0x0, 0x0, 0x2] => {
-                let (_, value) = be_i32(&tmp_input[8..12])?;
+                let (_, value) = be_i32(&res_input[8..12])?;
                 if value > 1000 {
                     let value = value - 1000;
-                    match &tmp_input[12..16] {
+                    match &res_input[12..16] {
                         &[0xFF, 0xFF, 0xFF, 0xFB] => {
-                            val = format!("TANF - {} {} DDHEIGHT", val, value);
+                            val_string = format!("TANF - {} {} DDHEIGHT", val_string, value);
                         }
                         &[0xFF, 0xFF, 0xFF, 0xFC] => {
-                            val = format!("TANF - {} {} DDANGLE", val, value);
+                            val_string = format!("TANF - {} {} DDANGLE", val_string, value);
                         }
                         _ => {}
                     }
                 } else {
-                    let angle = get_implicit_angle_expression(&tmp_input[8..12]);
+                    let angle = get_implicit_angle_expression(&res_input[8..12]);
                     if angle != "" {
-                        match &tmp_input[12..16] {
+                        match &res_input[12..16] {
                             &[0xFF, 0xFF, 0xFF, 0xFB] => {
-                                val = format!("TANF {} DDHEIGHT", angle);
+                                val_string = format!("TANF {} DDHEIGHT", angle);
                             }
                             &[0xFF, 0xFF, 0xFF, 0xFC] => {
-                                val = format!("TANF {} DDANGLE", angle);
+                                val_string = format!("TANF {} DDANGLE", angle);
                             }
                             _ => {}
                         }
                     } else {
-                        match &tmp_input[12..16] {
+                        match &res_input[12..16] {
                             &[0xFF, 0xFF, 0xFF, 0xFB] => {
-                                val = format!("TANF {} {} DDHEIGHT", val, value);
+                                val_string = format!("TANF {} {} DDHEIGHT", val_string, value);
                             }
                             &[0xFF, 0xFF, 0xFF, 0xFC] => {
-                                val = format!("TANF {} {} DDANGLE", val, value);
+                                val_string = format!("TANF {} {} DDANGLE", val_string, value);
                             }
                             _ => {}
                         }
@@ -1991,73 +2026,70 @@ pub fn parse_to_expression(input: &[u8]) -> IResult<&[u8], AttrVal> {
                 }
             }
             &[0x0, 0x0, 0x0, 0x3] => {
-                let (_, times) = be_i32(&tmp_input[..4])?;
+                let (_, times) = be_i32(&res_input[..4])?;
                 let times = times_keep_f32_three_decimal_place(times);
-                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&tmp_input[8..16])?;
-                val = get_param_type_with_i32(value1);
+                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
+                val_string = get_param_type_with_i32(value1);
                 let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
-                    val = format!("{} TIMES DIFFERENCE {} {}", times, val, result);
+                    val_string = format!("{} TIMES DIFFERENCE {} {}", times, val_string, result);
                 } else {
-                    val = format!("DIFFERENCE {} {}", val, result);
+                    val_string = format!("DIFFERENCE {} {}", val_string, result);
                 }
             }
 
             &[0x0, 0x0, 0x0, 0x4] => {
-                let (_, times) = be_i32(&tmp_input[..4])?;
+                let (_, times) = be_i32(&res_input[..4])?;
                 let times = times_keep_f32_three_decimal_place(times);
-                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&tmp_input[8..16])?;
+                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
 
-                val = get_param_type_with_i32(value1);
+                val_string = get_param_type_with_i32(value1);
                 let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
-                    val = format!("{} TIMES SUM {} {}", times, val, result);
+                    val_string = format!("{} TIMES SUM {} {}", times, val_string, result);
                 } else {
-                    val = format!("SUM {} {}", val, result);
+                    val_string = format!("SUM {} {}", val_string, result);
                 }
             }
+            //代表是WORD
             &[0x0, 0x0, 0x0, 0x7] => {
-                let (_, refno_0) = be_u32(&tmp_input[8..12])?;
-                let (_, refno_1) = be_u32(&tmp_input[12..16])?;
-                match (refno_0, refno_1) {
-                    (0x39F, 0x1B9) => val = "RECT".to_string(),
-                    _ => {
-                        val = format!("{}/{}", refno_0, refno_1);
-                    }
-                }
+                let (_, n0) = be_u32(&res_input[8..12])?;
+                let (_, n1) = be_u32(&res_input[12..16])?;
+                let hash: u32 = format!("{n0}{n1}").parse().unwrap_or_default();
+                val_string = db1_dehash(hash);
             }
             &[0x0, 0x0, 0x0, 0x8] => {
-                let (_, times) = be_i32(&tmp_input[..4])?;
+                let (_, times) = be_i32(&res_input[..4])?;
                 let times = times_keep_f32_three_decimal_place(times);
-                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&tmp_input[8..16])?;
-                val = get_param_type_with_i32(value1);
+                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
+                val_string = get_param_type_with_i32(value1);
                 let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
-                    val = format!("{} TIMES SUM {} {}", times, val, result);
+                    val_string = format!("{} TIMES SUM {} {}", times, val_string, result);
                 } else {
-                    val = format!("MULT {} {}", val, result);
+                    val_string = format!("MULT {} {}", val_string, result);
                 }
             }
             &[0x0, 0x0, 0x0, 0x9] => {
-                let (_, times) = be_i32(&tmp_input[..4])?;
+                let (_, times) = be_i32(&res_input[..4])?;
                 let times = times_keep_f32_three_decimal_place(times);
-                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&tmp_input[8..16])?;
-                val = get_param_type_with_i32(value1);
+                let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
+                val_string = get_param_type_with_i32(value1);
                 let result = get_param_type_with_i32(value2);
                 if times != 1.0 {
-                    val = format!("{} TIMES SUM {} {}", times, val, result);
+                    val_string = format!("{} TIMES SUM {} {}", times, val_string, result);
                 } else {
-                    val = format!("DIV {} {}", val, result);
+                    val_string = format!("DIV {} {}", val_string, result);
                 }
             }
 
             _ => {}
         }
-        if tmp_input.len() > 24 {
-            let value = get_implicit_angle_expression(&tmp_input[16..20]);
-            val = format!("{} {}", val, value);
+        if res_input.len() > 24 {
+            let value = get_implicit_angle_expression(&res_input[16..20]);
+            val_string = format!("{} {}", val_string, value);
         }
-        return Ok((input, StringType(val.into())));
+        return Ok((input, StringType(val_string.into())));
     }
     Ok((input, val))
 }
@@ -2069,7 +2101,7 @@ pub fn convert_to_explicit_axis_string(
 ) -> IResult<&[u8], AttrVal> {
     let mut result = AttrVal::StringType("".into());
     if input.len() < 20 {
-        let (_, val) = parse_to_expression(input)?;
+        let (_, val) = parse_to_expression(input, AttrVal::StringType("".to_owned()))?;
         result = val;
     } else {
         // 检测是否以 1A 1A 05 02 17 开头
@@ -2303,7 +2335,7 @@ fn get_refno_entry(
             be_i32, //len
             be_u64,
         ))(&input[0..12])
-            .ok()?;
+        .ok()?;
         let len = parse_to_u32(&input[0..4]);
         let refno = RefU64::from(&input[4..12]);
         let version = parse_to_u32(&input[32..36]);
@@ -2329,7 +2361,7 @@ fn get_refno_entry(
                                 &input[tmp_pos..end_pos]
                             );
                             if s.is_ok() {
-                                is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
+                                is_ok = (diff_len / 4) == (s.unwrap().1 .0.len() + 1);
                             }
                         }
                     }
@@ -2350,7 +2382,8 @@ fn get_refno_entry(
                     version,
                 },
             ));
-        } else {}
+        } else {
+        }
     }
     refno_entry
 }
