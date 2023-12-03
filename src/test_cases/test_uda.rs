@@ -1,8 +1,8 @@
+use crate::parse::parse_ele_data;
+use crate::test_cases::convert_str_to_bytes;
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::RefU64;
 use aios_core::tool::db_tool::{db1_dehash, read_attr_info_config_from_json};
-use crate::parse::parse_ele_data;
-use crate::test_cases::convert_str_to_bytes;
 
 #[test]
 fn test_uda_dehash() {
@@ -46,7 +46,7 @@ fn test_parse_uda_data_24381_48631() {
     ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     for (key, value) in ele_data.whole_attmap.explicit_attmap.map {
         dbg!(&key);
         dbg!(&value);
@@ -86,7 +86,7 @@ fn test_14194_4_udna() {
 00 09 72 47";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data.whole_attmap.implicit_attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
@@ -109,6 +109,41 @@ fn test_13292_185_udna() {
 1C 00 00 02 00 00 00 01 00 AC 03 06";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
+
+//15198/530
+#[test]
+fn test_13292_185_udna() {
+    let data_str = "
+    00 00 00 1B 00 00 3B 5E 00 00 02 12 00 08 1F 4B
+00 00 3B 5E 00 00 02 0D 00 00 00 13 00 00 20 01
+00 00 00 00 00 00 00 00 20 0B 40 00 2C 00 D5 7D
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 09 00 08 31 81
+00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00
+00 08 31 81 00 09 C5 E1 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 07 00 01 00 32 00 00 3B 5E
+00 00 02 12 00 00 00 00 00 00 00 00 00 0A FA 16
+28 00 00 02 00 00 00 04 4E 4F 4E 45 00 09 39 40
+28 00 00 07 00 00 00 18 43 6F 6E 73 69 73 74 65
+6E 63 79 20 63 68 65 63 6B 20 72 65 73 75 6C 74
+00 0B C6 1B 1C 00 00 02 00 00 00 01 00 0C 55 1C
+00 0E 40 7F 28 00 00 03 00 00 00 05 46 41 4C 53
+45 00 00 00 01 56 07 8A 28 00 00 04 00 00 00 09
+50 46 43 6F 6E 73 43 68 6B 00 00 00 00 09 C1 8E
+3C 00 00 08 00 00 00 19 2F 50 46 43 6F 6E 73 69
+73 74 65 6E 63 79 43 68 65 63 6B 52 65 73 75 6C
+74 00 00 00 00 0E 20 EC 28 00 00 05 00 00 00 10
+50 69 70 65 20 66 61 62 72 69 63 61 74 69 6F 6E
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    dbg!(&ele_data.whole_attmap.explicit_attmap);
+}
+
+
+

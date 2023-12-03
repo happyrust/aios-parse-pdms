@@ -1,8 +1,7 @@
 use crate::parse::{parse_db, parse_ele_data};
 use crate::pdms_types::StringLookupTable;
 use crate::read_attr_info_config;
-use crate::test_cases::{convert_str_to_bytes};
-
+use crate::test_cases::convert_str_to_bytes;
 
 #[test]
 pub fn test_xxx_problem() {
@@ -61,10 +60,9 @@ pub fn test_xxx_problem() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     //dbg!(&ele_data);
 }
-
 
 #[test]
 pub fn test_branch_sample_23584_5585() {
@@ -129,7 +127,7 @@ pub fn test_branch_sample_23584_5585() {
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
 
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
 
     //dbg!(&ele_data);
 }
@@ -166,7 +164,5 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let pdms_database_info = read_attr_info_config("all_attr_info.bin");
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF563Ei32) {}
     let mut lookup = StringLookupTable::default();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
 }
-
-

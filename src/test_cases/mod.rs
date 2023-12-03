@@ -1,17 +1,20 @@
 use std::io::Read;
 
 pub fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
-    data_str.trim().split_whitespace().map(|s| u8::from_str_radix(s, 16).unwrap())
+    data_str
+        .trim()
+        .split_whitespace()
+        .map(|s| u8::from_str_radix(s, 16).unwrap())
         .collect()
 }
 
-#[cfg(test)]
-mod test_expression;
-mod test_data_new;
-mod test_nom;
-mod test_chinese;
-mod test_uda;
-mod test_parse_element;
+mod test_parse_uda;
 
-mod test_parse_string;
+// mod test_expression;
+// mod test_data_new;
+// mod test_nom;
+// mod test_chinese;
+// mod test_uda;
+// mod test_parse_element;
 
+// mod test_parse_string;

@@ -5,7 +5,7 @@ use aios_core::pdms_types::DbAttributeType::*;
 use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash};
 use aios_core::tool::float_tool::f64_round_3;
-use aios_core::AttrVal::*;
+use aios_core::{AttrVal::*, RefU64};
 use dashmap::DashMap;
 use dynfmt::Format;
 use nom::multi::count;
@@ -79,7 +79,7 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 }
 
 /// 解析表达式
-pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], (String, String)> {
+pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
     //临时处理，后面需要总结规律
@@ -133,7 +133,7 @@ pub fn parse_expression_attr(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
     }
 }
 
-pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String> {
+pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], String> {
     if input.len() < 8 {
         return Ok((input, "".to_string()));
     }
@@ -374,7 +374,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8],
 }
 
 /// 返回 X () Y () Z 表达式 的 其中一个 坐标 + data 例如： X ()
-pub fn parse_xyz_data(input: &[u8], refno: RefI32Tuple) -> IResult<&[u8], String> {
+pub fn parse_xyz_data(input: &[u8], refno: RefU64) -> IResult<&[u8], String> {
     let coordinate = match_explicit_attribute_to_string(parse_to_u32(&input[..4]));
     let data_len = parse_to_u32(&input[4..8]) as usize;
     let data = parse_expression_func(&input[12..(data_len + 1) * 4], refno)?.1;

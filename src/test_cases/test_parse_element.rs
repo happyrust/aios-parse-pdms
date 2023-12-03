@@ -1,8 +1,8 @@
-use aios_core::{get_default_pdms_db_info, NamedAttrMap};
-use nom::AsBytes;
-use aios_core::tool::db_tool::{db1_dehash, db1_hash, db1_hash_i32};
 use crate::parse::{parse_attr_members, parse_ele_data, parse_ele_membs};
 use crate::test_cases::convert_str_to_bytes;
+use aios_core::tool::db_tool::{db1_dehash, db1_hash, db1_hash_i32};
+use aios_core::{get_default_pdms_db_info, NamedAttrMap};
+use nom::AsBytes;
 
 //00 00 00 07
 #[test]
@@ -114,8 +114,6 @@ fn test_parse_members_has_07() {
     dbg!(members);
 }
 
-
-
 //desp's values wrong
 
 #[test]
@@ -159,12 +157,9 @@ C0 72 70 00 00 00 00 00 40 57 30 00 00 00 00 00
 
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = &get_default_pdms_db_info().noun_attr_info_map;
-    let d = parse_ele_data(data.as_slice(), m);
+    let d = parse_ele_data(data.as_slice());
     dbg!(d);
 }
-
-
 
 #[test]
 fn test_parse_mdb_with_many_pages() {
@@ -339,8 +334,7 @@ fn test_parse_mdb_with_many_pages() {
 
     ";
     let data = convert_str_to_bytes(data_str);
-    let m = &get_default_pdms_db_info().noun_attr_info_map;
-    let d = parse_ele_data(data.as_slice(), m);
+    let d = parse_ele_data(data.as_slice());
     dbg!(d);
 }
 
@@ -356,7 +350,7 @@ fn test_parse_suppo() {
 2F 74 65 73 74 5F 73 75 70 70 6F 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
 }
 
@@ -376,10 +370,10 @@ fn tets_17496_161418_udtype() {
 0C 00 00 01 2C 00 D4 9E";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data.whole_attmap);
-    let typex = ele_data.whole_attmap.explicit_attmap.get_typex().as_bytes();
-    println!("input={:#4X?}",typex);
+    // let typex = ele_data.whole_attmap.explicit_attmap.get_typex().as_bytes();
+    // println!("input={:#4X?}", typex);
 }
 
 #[test]
@@ -412,9 +406,9 @@ fn test_17496_124126_ukey() {
 00 CC 6B 3F 38 00 00 02 00 00 00 01 00 0E 57 9A";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     for map in ele_data.whole_attmap.explicit_attmap.map {
-        println!("key = {:?} : value = {:?}",map.0,map.1);
+        println!("key = {:?} : value = {:?}", map.0, map.1);
     }
 }
 
@@ -428,12 +422,11 @@ fn test_17496_118611_parse() {
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 0E 57 9A";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     for map in ele_data.whole_attmap.implicit_attmap.map {
-        println!("key = {:?} : value = {:?}",map.0,map.1);
+        println!("key = {:?} : value = {:?}", map.0, map.1);
     }
 }
-
 
 //test tube flag
 #[test]
@@ -480,16 +473,13 @@ fn test_13244_354361_parse() {
     dbg!(explicit_nouns.len());
     let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
     dbg!(test_noun.value());
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     // for map in ele_data.whole_attmap.implicit_attmap.map {
     //     // println!("key = {:?} : value = {:?}",map.0,map.1);
     // }
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
 
 #[test]
 fn test_23704_714918_nscy_parse() {
@@ -543,16 +533,13 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     dbg!(explicit_nouns.len());
     let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
     dbg!(test_noun.value());
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     // for map in ele_data.whole_attmap.implicit_attmap.map {
     //     // println!("key = {:?} : value = {:?}",map.0,map.1);
     // }
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
 
 #[test]
 fn test_23704_714908_nsex_parse() {
@@ -600,21 +587,13 @@ fn test_23704_714908_nsex_parse() {
     dbg!(explicit_nouns.len());
     let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
     dbg!(test_noun.value());
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     // for map in ele_data.whole_attmap.implicit_attmap.map {
     //     // println!("key = {:?} : value = {:?}",map.0,map.1);
     // }
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
-
-
-
-
-
 
 #[test]
 fn test_pointr_parse() {
@@ -643,14 +622,11 @@ AE 14 7A E1 40 61 49 47 CC CC CC CD 40 85 DC CC
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     // dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
 
 #[test]
 fn test_expr_parse() {
@@ -694,15 +670,11 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
-
 
 #[test]
 fn test_expr_vert_parse() {
@@ -725,14 +697,11 @@ fn test_expr_vert_parse() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
 
 #[test]
 fn test_cata_para_parse() {
@@ -756,12 +725,11 @@ C0 00 00 00 40 23 0C CC 60 00 00 00 40 49 66 66
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
 
 //PBORE 出错，应该为 :HXYsize
 #[test]
@@ -796,15 +764,11 @@ FF F2 51 1C 1C 00 00 12 00 00 00 11 00 00 00 11
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
-
 
 ///测试缺失 Prtreference /8BC01
 #[test]
@@ -829,17 +793,11 @@ fn test_tabite_att_parse() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
-
-
-
 
 #[test]
 fn test_double_array_implicit_att_parse() {
@@ -875,7 +833,7 @@ fn test_double_array_implicit_att_parse() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
@@ -934,17 +892,11 @@ A0 00 00 33 BC 00 00 F0 15 00 00 15 9D 00 1B A0
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map,).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map = ele_data.whole_attmap.merge();
     dbg!(&att_map);
 }
-
-
-
-
-
-
 
 #[test]
 fn test_has_wrong_angle() {
@@ -968,7 +920,7 @@ fn test_has_wrong_angle() {
     // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     let att_map: NamedAttrMap = ele_data.whole_attmap.merge().into();
     dbg!(&att_map);

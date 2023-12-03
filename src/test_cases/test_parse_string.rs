@@ -25,7 +25,7 @@ fn test_ams_pcon() {
     dbg!(db1_hash("ATT"));
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), &pdms_database_info.noun_attr_info_map).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).unwrap();
     dbg!(&ele_data);
     if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PCON") {
         let result = val.string_value();

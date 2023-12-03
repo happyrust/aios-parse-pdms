@@ -113,7 +113,7 @@ fn test_aba_14352_102824() {
     )
     .unwrap();
     let mut value = SmolStr::new("");
-    if let Ok(m) = ele_data.attr_data_map.get_val("DETR") {
+    if let Ok(m) = ele_data.whole_attmap.merge().get_val("DETR") {
         match m {
             AttrVal::ElementType(v) => {
                 value = v.clone();
@@ -232,7 +232,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     )
     .unwrap();
     let mut value = SmolStr::new("");
-    if let Ok(m) = ele_data.attr_data_map.get_val("DX") {
+    if let Ok(m) = ele_data.whole_attmap.merge().get_val("DX") {
         match m {
             AttrVal::StringType(v) => {
                 value = v.clone();
@@ -334,7 +334,7 @@ fn test_atta() {
     )
     .unwrap();
     let mut value = SmolStr::new("");
-    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.whole_attmap.merge());
 }
 
 //test height
@@ -370,7 +370,7 @@ fn test_aba_height() {
     )
     .unwrap();
     let mut value = SmolStr::new("");
-    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.whole_attmap.merge());
 }
 
 //issue: position is zero
@@ -409,7 +409,7 @@ C7 30 2C 00 43 48 00 00 00 00 00 03 00 00 00 00
     )
     .unwrap();
     let mut value = SmolStr::new("");
-    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.whole_attmap.merge());
 }
 
 //issue: position is zero
@@ -448,5 +448,5 @@ fn test_sample_positon() {
     )
     .unwrap();
     let mut value = SmolStr::new("");
-    //dbg!(&ele_data.attr_data_map.to_string_hashmap());
+    //dbg!(&ele_data.whole_attmap.merge());
 }
