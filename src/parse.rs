@@ -1189,7 +1189,7 @@ pub async fn parse_explicit_attrs<'a>(
     while residual.len() >= 8 {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
-        let is_uda = is_uda(hash_val as _);
+        let is_uda = is_uda(hash_val);
         //UDA 需要单独处理
         // - 的处理
         let att_name = if is_uda {
