@@ -1162,6 +1162,8 @@ async fn get_uda_refno(hash: i32) -> Option<RefU64> {
         let refno: Option<RefU64> = response.take(1).unwrap();
         return refno;
     }
+    // let mut cache =  GET_UDA_REFNO.lock().await;
+    // cache.cache_remove(&0);
     None
 }
 
@@ -1184,7 +1186,8 @@ pub async fn parse_explicit_attrs<'a>(
     foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
-    // let is_debug = refno.get_0() == 15198 && refno.get_1() == 55;
+    let is_debug = refno.get_0() == 15198 && refno.get_1() == 55;
+    // let is_debug = refno == RefU64::from_two_nums(15194, 10446);
     let is_debug = false;
     while residual.len() >= 8 {
         let mut att_value = None;
@@ -1199,9 +1202,13 @@ pub async fn parse_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        if is_debug {
-            dbg!(&att_name);
-        }
+        // if is_debug 
+        // {
+        //     if att_name == "PHEI"{
+        //         println!("hash ={:#04X?}", hash_val);
+        //     }
+        //     dbg!(&att_name);
+        // }
 
         if check_is_expr(hash_val) {
             let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
@@ -1220,7 +1227,7 @@ pub async fn parse_explicit_attrs<'a>(
                 // println!("{:#4X}", explict_hash);
                 // dbg!(db1_dehash(explict_hash as u32));
                 if attr_info_map.contains_key(&att_name) {
-                    let mut attr_info = attr_info_map.get_mut(&att_name).unwrap();
+                    let attr_info = attr_info_map.get_mut(&att_name).unwrap();
                     // dbg!(&attr_info.value());
                     // 根据获取到的type hash值，拿到需要的类型
                     match attr_info.default_val {
@@ -1297,9 +1304,9 @@ pub async fn parse_explicit_attrs<'a>(
                                 tmp_input = remain_input;
                             }
                             att_value = Some(StringArrayType(dehash_strs));
-                            if is_debug && att_name == "ELEL" {
-                                dbg!(&att_value);
-                            }
+                            // if is_debug && att_name == "ELEL" {
+                            //     dbg!(&att_value);
+                            // }
                         }
                         BoolArrayType(_) => {}
                         IntArrayType(_) => {
@@ -1481,31 +1488,27 @@ pub async fn parse_explicit_attrs<'a>(
             }
         }
         // println!("{:#4X?}", &residual[..]);
-        if is_debug {
-            dbg!(&att_value);
-        }
+        // if is_debug 
+        // {
+        //     dbg!(&att_value);
+        //     dbg!(is_uda);
+        // }
 
         if let Some(v) = att_value {
             if is_uda {
-                // if refno.get_1() == 124126 {
-                //     dbg!(hash_val);
-                //     dbg!(db1_dehash(hash_val as _));
-                // }
                 if let Some(uda_refno) = get_uda_refno(hash_val).await {
-                    // if refno.get_1() == 124126 {
-                    //     dbg!(&uda_refno);
-                    // }
                     //要加UDA:表达区分
                     attr_data_map.insert(format!("UDA:{uda_refno}"), v.into());
                 }
             } else {
-                attr_data_map.entry(att_name).or_insert(v.into());
+                //覆盖可能在隐含属性里出现过的数据
+                attr_data_map.insert(att_name, v.into());
             }
         }
     }
-    if refno.get_0() == 15198 && refno.get_1() == 55 {
+    // if refno.get_0() == 15198 && refno.get_1() == 55 {
         // dbg!(&attr_data_map);
-    }
+    // }
     Ok((input, true))
 }
 
@@ -2098,7 +2101,8 @@ pub fn match_explicit_attribute_to_string(key: u32) -> String {
 /// 检查是否是Axis属性
 #[inline]
 pub fn check_is_expr(noun: i32) -> bool {
-    if EXPR_ATT_SET.contains(&noun) {
+    //todo make stable
+    if EXPR_ATT_SET.contains(&noun) || noun < 0 {
         true
     } else {
         false
