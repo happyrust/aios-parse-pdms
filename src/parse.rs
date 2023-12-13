@@ -1135,38 +1135,6 @@ async fn get_uda_full_name(hash: i32) -> Option<String> {
     None
 }
 
-#[cached]
-async fn get_uda_refno(hash: i32) -> Option<RefU64> {
-    if !is_uda(hash as _) {
-        return None;
-    }
-    let uda_hash_name = db1_dehash(hash as _);
-    let name = &uda_hash_name[1..];
-    let index = get_uda_index(hash as _);
-    if let Ok(mut response) = SUL_DB
-        .query(
-            r#"
-            let $a = select * from only UDA where UKEY=$key limit 1;
-            if $a {
-                return $a.id;
-            } else {
-                return (select * from UDA where string::contains(UDNA, $name) order by UKEY)[$i].id;
-            }
-            "#,
-        )
-        .bind(("key", hash))
-        .bind(("name", name))
-        .bind(("i", index.unwrap_or_default()))
-        .await
-    {
-        let refno: Option<RefU64> = response.take(1).unwrap();
-        return refno;
-    }
-    // let mut cache =  GET_UDA_REFNO.lock().await;
-    // cache.cache_remove(&0);
-    None
-}
-
 async fn get_uda_short_name(hash: i32) -> Option<String> {
     get_uda_full_name(hash).await.map(|x| {
         if x.len() < 4 {
@@ -1186,9 +1154,8 @@ pub async fn parse_explicit_attrs<'a>(
     foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
-    let is_debug = refno.get_0() == 15198 && refno.get_1() == 55;
-    // let is_debug = refno == RefU64::from_two_nums(15194, 10446);
     let is_debug = false;
+    // let is_debug = refno == RefU64::from_two_nums(15194, 337);
     while residual.len() >= 8 {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
@@ -1197,15 +1164,13 @@ pub async fn parse_explicit_attrs<'a>(
         // - 的处理
         let att_name = if is_uda {
             //UDA 单独处理
-            // get_uda_short_name(hash_val).await.unwrap_or_default()
             "_UDAS".into()
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        // if is_debug 
-        // {
-        //     if att_name == "PHEI"{
-        //         println!("hash ={:#04X?}", hash_val);
+        // if is_debug {
+        //     if att_name == "PBOR"{
+        //         println!("hash={:#04X?}", hash_val);
         //     }
         //     dbg!(&att_name);
         // }
@@ -1496,19 +1461,16 @@ pub async fn parse_explicit_attrs<'a>(
 
         if let Some(v) = att_value {
             if is_uda {
-                if let Some(uda_refno) = get_uda_refno(hash_val).await {
+                if let Some(uda_refno) = aios_core::get_uda_refno(hash_val).await {
                     //要加UDA:表达区分
                     attr_data_map.insert(format!("UDA:{uda_refno}"), v.into());
                 }
-            } else {
+            }else {
                 //覆盖可能在隐含属性里出现过的数据
                 attr_data_map.insert(att_name, v.into());
             }
         }
     }
-    // if refno.get_0() == 15198 && refno.get_1() == 55 {
-        // dbg!(&attr_data_map);
-    // }
     Ok((input, true))
 }
 

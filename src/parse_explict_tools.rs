@@ -3,7 +3,7 @@ use crate::BHashMap;
 use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use aios_core::pdms_types::DbAttributeType::*;
 use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
-use aios_core::tool::db_tool::{convert_to_hash, db1_dehash};
+use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, is_uda};
 use aios_core::tool::float_tool::f64_round_3;
 use aios_core::{AttrVal::*, RefU64};
 use dashmap::DashMap;
@@ -139,6 +139,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
     }
     // 表达式都是以0x0 0 0 1开头的
     let mut expression_data = &input[..];
+    let is_debug = refno == RefU64::from_two_nums(15194, 337);
     // 这是表达式数字的起始标志
     let mut result_stack = vec![];
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
@@ -175,6 +176,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             };
             // 表达式的值
             result_stack.push(value.to_string());
+
             expression_data = &expression_data[12..];
             // 表达式 值的结束位  这里是个结束位 结束位 00 00 00 00 00 00 00 06
             // 这里可能会出现没有结束位就结束的情况，所以加了一个长度判断
@@ -186,10 +188,27 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
         while expression_data.len() > 4 && &expression_data[..4] == &[0x0u8, 0x0, 0x0, 0x6A][..] {
             // 跳6A
             expression_data = &expression_data[4..];
-            let num = u32::from_be_bytes(expression_data[..4].try_into().unwrap());
-            let att_name = db1_dehash(u32::from_be_bytes(
-                expression_data[4..8].try_into().unwrap(),
-            ));
+            let hash_num = u32::from_be_bytes(expression_data[4..8].try_into().unwrap());
+            let att_name = if is_uda(hash_num as _){
+                let uda_name = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async move {
+                        if let Some(uda_name) = aios_core::get_uda_name(hash_num as _).await {
+                            // dbg!(hash_val, uda_refno);
+                            format!(":{uda_name}")
+                            //要加UDA:表达区分
+                        }else{
+                            db1_dehash(hash_num)
+                        }
+                    })
+                });
+                uda_name
+            }else{
+                db1_dehash(hash_num)
+            };
+            // let att_name = db1_dehash(hash_num);
+            if is_debug {
+                // dbg!((&att_name, hash_num));
+            }
             let flags = (
                 parse_to_i32(&expression_data[8..12]),
                 parse_to_i32(&expression_data[12..16]),
@@ -202,7 +221,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                     rpro_name.insert(0, ' ');
                 }
             }
-            let mut expression;
+            let expression;
             if flags == (-1, -1) {
                 let v = result_stack.pop().unwrap_or_default();
                 expression = format!("{att_name}[{v}]{rpro_name}");
