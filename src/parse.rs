@@ -1174,7 +1174,8 @@ pub async fn parse_explicit_attrs<'a>(
         //     }
         //     dbg!(&att_name);
         // }
-
+        // dbg!(&att_name);
+        // println!("hash={:#04X?}", hash_val);
         if check_is_expr(hash_val) {
             let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
             att_value = Some(StringType(value));

@@ -1,6 +1,6 @@
 use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string};
 use crate::BHashMap;
-use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
+use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32, parse_to_f64};
 use aios_core::pdms_types::DbAttributeType::*;
 use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, is_uda};
@@ -82,53 +82,69 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
+    
     //临时处理，后面需要总结规律
     if input.len() <= 4 * 6 {
-        dbg!(refno);
         return Err(nom::Err::Incomplete(nom::Needed::Unknown));
     }
+    
     let (_, flag) = be_i32(&input[4 * 5..4 * 6])?;
+    
     //string type
     if flag == 0x66 {
-        // dbg!(&expression_type);
         let (_, str_len) = be_i32(&input[4 * 6..4 * 7])?;
-        // dbg!(str_len);
         let (input, chars) = count(be_i32, str_len as usize)(&input[4 * 7..])?;
-        let mut string = String::new();
-        string.push('\'');
-        for c in chars {
-            string.push(c as u8 as _);
-        }
-        string.push('\'');
-        // dbg!(&string);
+        let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
         return Ok((input, (expression_type, string)));
     }
+    
     if expression_type == "PTCDI" || expression_type == "PTCD" {
         let (_, expression_length) = be_u16(&input[6..8])?;
+        
         // 显式属性的length后有8个byte没用的，直接跳过了
         let expression_data = &input[8..(expression_length * 4) as usize + 8];
         let input = &input[(expression_length * 4) as usize + 8..];
+        
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
-        let mut result: String = "".into();
-        match axis {
-            StringType(value) => {
-                result = value;
-            }
-            _ => {}
-        }
+        let result = match axis {
+            StringType(value) => value,
+            _ => "".to_string(),
+        };
+        
         Ok((input, (expression_type, result)))
     } else {
         let (_, expression_length) = be_u16(&input[6..8])?;
+        
         // 显式属性的length后有8个byte没用的，直接跳过了
         if (expression_length as usize * 4 + 8) > input.len() {
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
-        let mut expression_data = &input[16..(expression_length * 4) as usize + 8];
+        
+        dbg!(expression_length);
+        let expression_data = &input[16..(expression_length * 4) as usize + 8];
+        let flag1 = parse_to_i32(&input[8..12]);
+        let flag2 = parse_to_i32(&input[12..16]);
+        let flag3 = parse_to_i32(&expression_data[..4]);
         let input = &input[(expression_length * 4) as usize + 8..];
-        // 表达式都是以0x0 0 0 1开头的
-        let _expression_start = &expression_data[..4];
-        expression_data = &expression_data[4..];
-        let result = parse_expression_func(expression_data, refno)?.1;
+        
+        if flag1 == 2 && flag2 == 1 {
+            let axis = match flag3 {
+                1 => "X",
+                2 => "Y",
+                3 => "Z",
+                _ => "",
+            };
+            return Ok((input, (expression_type, axis.into())));
+        }
+        
+        let expr_data = &expression_data[4..];
+        
+        if flag2 == 0x28 && expr_data.len() == 2 * 4 {
+            let u32_value = parse_to_i32(&expr_data[..4]).abs() / 10;
+            return Ok((input, (expression_type, u32_value.to_string())));
+        }
+        
+        let result = parse_expression_func(expr_data, refno)?.1;
         Ok((input, (expression_type, result.into())))
     }
 }
