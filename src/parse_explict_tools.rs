@@ -119,8 +119,6 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
         if (expression_length as usize * 4 + 8) > input.len() {
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
-        
-        dbg!(expression_length);
         let expression_data = &input[16..(expression_length * 4) as usize + 8];
         let flag1 = parse_to_i32(&input[8..12]);
         let flag2 = parse_to_i32(&input[12..16]);
