@@ -435,24 +435,31 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         if cur_offset == 0 {
             cur_offset = (attr_info.offset & 0xFFFFF) as i32;
         }
-        if i >= 1 && is_f32 {
+        let mut step_w = 0;
+        if i >= 1 {
             let prev_attr_info = hash_type_info_map.get(&sorted_noun_hash[i - 1]).unwrap();
-            match prev_attr_info.att_type {
-                DbAttributeType::DOUBLE => {
-                    f32_neg_offset += 1;
+            if is_f32 {
+                match prev_attr_info.att_type {
+                    DbAttributeType::DOUBLE => {
+                        f32_neg_offset += 1;
+                    }
+                    DbAttributeType::DIRECTION
+                    | DbAttributeType::POSITION
+                    | DbAttributeType::ORIENTATION
+                    | DbAttributeType::Vec3Type => {
+                        f32_neg_offset += 3;
+                    }
+                    _ => {}
                 }
-                DbAttributeType::DIRECTION
-                | DbAttributeType::POSITION
-                | DbAttributeType::ORIENTATION
-                | DbAttributeType::Vec3Type => {
-                    f32_neg_offset += 3;
-                }
-                _ => {}
             }
+        }
+        if i < sorted_noun_hash.len() - 1 {
+            let next_attr_info = hash_type_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
+            step_w = (next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF);
         }
 
         if let Ok((_, att_val)) =
-            parse_implicit_attr_value(&implicit_data, &attr_info, is_f32, f32_neg_offset)
+            parse_implicit_attr_value(&implicit_data, &attr_info, is_f32, f32_neg_offset, step_w)
         {
             match &att_val {
                 RefU64Type(value) => {
@@ -928,6 +935,7 @@ pub fn parse_implicit_attr_value<'a>(
     attr_info: &'a AttrInfo,
     f32_flag: bool,
     f32_neg_offset: usize,
+    step_w: u32,  //dword 即 4字节数量
 ) -> IResult<&'a [u8], AttrVal> {
     let mut val = AttrVal::InvalidType;
     //是否是表达式
@@ -963,13 +971,9 @@ pub fn parse_implicit_attr_value<'a>(
                     val = AttrVal::IntegerType(r);
                 }
                 AttrVal::DoubleType(_) => {
-                    if f32_flag {
-                        if bytes.len() >= 4 {
-                            let d = parse_to_f32(&bytes[..4]) as f64;
-                            val = AttrVal::DoubleType(d as _);
-                        } else {
-                            //todo fix
-                        }
+                    if f32_flag || step_w == 1 {
+                        let d = parse_to_f32(&bytes[..4]) as f64;
+                        val = AttrVal::DoubleType(d as _);
                     } else {
                         if bytes.len() >= 8 {
                             let d = parse_to_f64(&bytes[..8]);
@@ -978,7 +982,9 @@ pub fn parse_implicit_attr_value<'a>(
                             } else {
                                 val = AttrVal::DoubleType(d);
                             }
-                        }else{
+                        } else {
+                            dbg!(step_w);
+                            dbg!(f32_flag);
                             dbg!(attr_info);
                         }
                     }
