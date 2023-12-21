@@ -457,7 +457,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
             let next_attr_info = hash_type_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
             step_w = (next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF);
         }else{
-            step_w = (origin_impl_len / 4 - (attr_info.offset & 0xFFFFF)) as u32;
+            step_w = origin_impl_len / 4 - (attr_info.offset as i32 & 0xFFFFF);
         }
 
         if let Ok((_, att_val)) =
