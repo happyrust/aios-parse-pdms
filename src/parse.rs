@@ -110,9 +110,9 @@ pub async fn parse_pdms_dir(
         if file_name.ends_with("sys") {
             if need_parsed_files.is_some()
                 && !need_parsed_files
-                    .as_ref()
-                    .unwrap()
-                    .contains(&file_name.to_string())
+                .as_ref()
+                .unwrap()
+                .contains(&file_name.to_string())
             {
                 continue;
             }
@@ -263,7 +263,7 @@ pub async fn parse_file_with_chunk(
             project,
             chunk_refnos,
         )
-        .await
+            .await
     }
 }
 
@@ -410,7 +410,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     let mut explicit_bytes_len = 0;
     let mut sorted_noun_hash = sort_offsets(&hash_type_info_map);
     let mut cur_offset: i32 = 0;
-    let mut is_double = true;
+    let mut is_f32 = false;
 
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
@@ -423,8 +423,10 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
             DbAttributeType::ELEMENT => 2,
             _ => 1,
         };
-        is_double = last_att_info.offset + step <= (origin_impl_len / 4) as u32;
+        is_f32 = last_att_info.offset + step > (origin_impl_len / 4) as u32;
     }
+    //如果发现是f32的数据，就需要重新算偏移
+    let mut f32_neg_offset = 0usize;
     for i in 0..sorted_noun_hash.len() {
         let noun_hash = sorted_noun_hash[i];
         let noun_name = db1_dehash(noun_hash as _);
@@ -433,65 +435,36 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         if cur_offset == 0 {
             cur_offset = (attr_info.offset & 0xFFFFF) as i32;
         }
-        let mut att_will_change = false;
-        if i != sorted_noun_hash.len() - 1 {
-            let next_attr_info = hash_type_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
-            att_will_change = next_attr_info.att_type != attr_info.att_type;
-            cur_len = ((next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF)) as i32;
-            match attr_info.att_type {
-                DbAttributeType::BOOL => {
-                    cur_len = 1;
+        if i >= 1 && is_f32 {
+            let prev_attr_info = hash_type_info_map.get(&sorted_noun_hash[i - 1]).unwrap();
+            match prev_attr_info.att_type {
+                DbAttributeType::DOUBLE => {
+                    f32_neg_offset += 1;
                 }
-                DbAttributeType::DOUBLE
-                | DbAttributeType::DIRECTION
+                DbAttributeType::DIRECTION
                 | DbAttributeType::POSITION
                 | DbAttributeType::ORIENTATION
                 | DbAttributeType::Vec3Type => {
-                    if attr_info.att_type != DbAttributeType::DOUBLE {
-                        let nums = u32::from_be_bytes(
-                            implicit_data[cur_offset as usize * 4..cur_offset as usize * 4 + 4]
-                                .try_into()
-                                .unwrap(),
-                        );
-                        if nums == 1 {
-                            cur_offset += 2;
-                        }
-                    }
-                    if !is_double {
-                        cur_len = (cur_len - 1) / 2 + 1;
+                    f32_neg_offset += 3;
+                }
+                _ => {}
+            }
+        }
+
+        if let Ok((_, att_val)) =
+            parse_implicit_attr_value(&implicit_data, &attr_info, is_f32, f32_neg_offset)
+        {
+            match &att_val {
+                RefU64Type(value) => {
+                    if attr_info.name.to_lowercase() != "owner" && value != &RefU64(0) {
+                        foreign_refnos.insert(attr_info.name.to_string(), *value);
                     }
                 }
                 _ => {}
-            };
-        } else {
-            cur_len = origin_impl_len / 4 - cur_offset; //最后的数据应该准确，数据才ok
-        }
-        if cur_len > 0 && (cur_offset + cur_len) <= (implicit_data.len() / 4) as i32 {
-            let part_bytes =
-                &implicit_data[cur_offset as usize * 4..(cur_offset + cur_len) as usize * 4];
-            if let Ok((_, (advance, att_val))) =
-                parse_implicit_attr_value(part_bytes, &implicit_data, &attr_info, is_double)
-            {
-                if advance == 0 {
-                    //nullref的处理
-                    if att_will_change {
-                        cur_offset += 1; //如果不是之前的类型了，就可以继续向前
-                    }
-                } else {
-                    cur_offset += advance as i32;
-                }
-                match &att_val {
-                    RefU64Type(value) => {
-                        if attr_info.name.to_lowercase() != "owner" && value != &RefU64(0) {
-                            foreign_refnos.insert(attr_info.name.to_string(), *value);
-                        }
-                    }
-                    _ => {}
-                }
-                // unset 是pdms数据中存在info文件里没有的offset数据，手动在info文件里面加的这个 unset 占位
-                if attr_info.name != "unset" {
-                    implicit_attmap.insert(attr_info.name.clone(), att_val.into());
-                }
+            }
+            // unset 是pdms数据中存在info文件里没有的offset数据，手动在info文件里面加的这个 unset 占位
+            if attr_info.name != "unset" {
+                implicit_attmap.insert(attr_info.name.clone(), att_val.into());
             }
         }
     }
@@ -509,7 +482,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
                 refno,
                 &mut foreign_refnos,
             )
-            .await;
+                .await;
         }
     }
     //添加遗漏的属性
@@ -521,7 +494,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         implicit_attmap,
         explicit_attmap,
     }
-    .refine(&cur_type_info_map);
+        .refine(&cur_type_info_map);
 
     Ok(EleData {
         refno,
@@ -727,15 +700,15 @@ pub async fn parse_db_with_chunk(
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
             if let Ok(EleData {
-                refno,
-                owner,
-                noun,
-                whole_attmap,
-                children,
-                version,
-                name,
-                foreign_refnos,
-            }) = parse_ele_data(&input[pos - 4..]).await
+                          refno,
+                          owner,
+                          noun,
+                          whole_attmap,
+                          children,
+                          version,
+                          name,
+                          foreign_refnos,
+                      }) = parse_ele_data(&input[pos - 4..]).await
             {
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
                 named_attmap.set_e3d_version(version as _);
@@ -896,15 +869,15 @@ pub async fn parse_db(
             let type_ele_map = type_ele_map.clone();
             let refno_info_map = refno_info_map.clone();
             if let Ok(EleData {
-                refno,
-                owner,
-                noun,
-                whole_attmap,
-                children,
-                version,
-                name,
-                foreign_refnos,
-            }) = parse_ele_data(&input[pos - 4..]).await
+                          refno,
+                          owner,
+                          noun,
+                          whole_attmap,
+                          children,
+                          version,
+                          name,
+                          foreign_refnos,
+                      }) = parse_ele_data(&input[pos - 4..]).await
             {
                 whole_attr_dashmap.insert(refno, whole_attmap.merge().into());
                 type_ele_map
@@ -948,18 +921,18 @@ const ATTS_CHUNK_COUNT: usize = 300;
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
 pub fn parse_implicit_attr_value<'a>(
-    input: &'a [u8],
     origin_bytes: &'a [u8],
     attr_info: &'a AttrInfo,
-    double_flag: bool,
-) -> IResult<&'a [u8], (usize, AttrVal)> {
+    f32_flag: bool,
+    f32_neg_offset: usize,
+) -> IResult<&'a [u8], AttrVal> {
     let mut val = AttrVal::InvalidType;
     //是否是表达式
     // dbg!(attr_info);
     let b_expr = check_is_expr(attr_info.hash);
-    let data_len = input.len();
-    let mut advance_offset = data_len / 4;
-    let offset = (attr_info.offset & 0xFFFF) as usize * 4;
+    let offset = ((attr_info.offset & 0xFFFF) as usize - f32_neg_offset) * 4;
+    // dbg!(f32_neg_offset);
+    // dbg!(offset);
     if offset > origin_bytes.len() {
         return Err(nom::Err::Error(nom::error::make_error(
             origin_bytes,
@@ -976,7 +949,6 @@ pub fn parse_implicit_attr_value<'a>(
             let (bytes, len) = be_u32(bytes)?;
             let (_, result) = count(be_i32, len as usize)(bytes)?;
             val = AttrVal::IntArrayType(result);
-            advance_offset = (len + 1) as _;
         } else if attr_info.hash == ATT_BANG {
             // println!("{:#4X?}", &bytes[..4]);
             let r = parse_to_i32(&bytes[..4]);
@@ -986,38 +958,22 @@ pub fn parse_implicit_attr_value<'a>(
                 AttrVal::IntegerType(_) => {
                     let (_, r) = be_i32(bytes)?;
                     val = AttrVal::IntegerType(r);
-                    advance_offset = 1;
                 }
                 AttrVal::DoubleType(_) => {
                     let mut is_f32 = false;
-                    if data_len >= 4 && data_len < 8 {
-                        //允许当作f32
-                        is_f32 = true
-                    } else if data_len >= 8 {
-                        if !double_flag {
-                            is_f32 = true;
-                        }
-                    }
-                    if is_f32 {
+                    if f32_flag {
                         if bytes.len() >= 4 {
                             let d = parse_to_f32(&bytes[..4]) as f64;
                             val = AttrVal::DoubleType(d as _);
-                            advance_offset = 1;
                         } else {
                             //todo fix
                         }
                     } else {
-                        if bytes.len() >= 8 {
-                            let d = parse_to_f64(&bytes[..8]);
-                            if d > f32::MAX as f64 {
-                                val = AttrVal::DoubleType(0.0);
-                                advance_offset = 2;
-                            } else {
-                                val = AttrVal::DoubleType(d);
-                                advance_offset = 2;
-                            }
+                        let d = parse_to_f64(&bytes[..8]);
+                        if d > f32::MAX as f64 {
+                            val = AttrVal::DoubleType(0.0);
                         } else {
-                            //todo fix
+                            val = AttrVal::DoubleType(d);
                         }
                     }
                 }
@@ -1027,25 +983,13 @@ pub fn parse_implicit_attr_value<'a>(
                     let (_, r) = be_u32(bytes)?;
                     let result = r >> o & 1;
                     val = AttrVal::BoolType(result == 1);
-                    advance_offset = 0;
                 }
                 AttrVal::StringType(_) => {
                     let (_, str_len) = be_i32(bytes)?;
                     let str_len = str_len as usize;
-                    if data_len == 4 && str_len != 0 {
-                        if &bytes[..2] == &[0, 0] || &bytes[..2] == &[0xFF, 0xFF] {
-                            let d = parse_to_i32(&bytes[..4]);
-                            val = AttrVal::IntegerType(d);
-                            advance_offset = 1;
-                        } else {
-                            let d = parse_to_f32(&bytes[..4]) as f64;
-                            val = AttrVal::DoubleType(d);
-                            advance_offset = 1; //按f32处理
-                        }
-                    } else if str_len < bytes.len() && bytes.len() >= 4 {
+                    if str_len < bytes.len() && bytes.len() >= 4 {
                         let (decode_string, _b_chi) = decode_chars_data(&bytes[4..str_len + 4]);
                         val = AttrVal::StringType(decode_string.into());
-                        advance_offset = str_len / 4 + 1;
                     } else {
                         val = AttrVal::StringType("".into());
                     }
@@ -1057,7 +1001,6 @@ pub fn parse_implicit_attr_value<'a>(
                     } else {
                         val = AttrVal::RefU64Type(RefU64::from_two_nums(ref_0, ref_1));
                     }
-                    advance_offset = 2;
                 }
                 AttrVal::WordType(_) => {
                     let (_, v) = be_i32(bytes)?;
@@ -1066,52 +1009,23 @@ pub fn parse_implicit_attr_value<'a>(
                     } else {
                         val = AttrVal::IntegerType(v);
                     }
-                    advance_offset = 1;
                 }
                 AttrVal::Vec3Type(_) => {
                     let mut data = [0f64; 3];
-                    advance_offset = 0;
                     let (l, cnt) = be_i32(bytes)?;
                     let tmp_len = l.len() / 4; //WORD个数
                     let mut is_f32 = false;
-                    if tmp_len >= 3 && cnt == 3 {
-                        if tmp_len < 3 * 2 {
-                            //长度不够double
-                            is_f32 = true;
-                        } else if !double_flag {
-                            //指定为f32
-                            is_f32 = true;
-                        }
-                        if !is_f32 {
-                            data = parse_to_f64_arr(l, 3).try_into().unwrap();
-                            advance_offset += 7;
-                        } else {
-                            data = parse_to_f32_arr(l, 3).try_into().unwrap();
-                            advance_offset += 4;
-                        }
+                    if is_f32 {
+                        data = parse_to_f32_arr(l, 3).try_into().unwrap();
+                    } else {
+                        data = parse_to_f64_arr(l, 3).try_into().unwrap();
                     }
                     val = AttrVal::Vec3Type(data);
                 }
                 AttrVal::DoubleArrayType(_) => {
                     let mut data = vec![];
-                    advance_offset = 0;
                     let (l, cnt) = be_i32(bytes)?;
-                    let mut is_f32 = false;
-                    // if array_len < 3 * 2 {
-                    //     //长度不够double
-                    //     is_f32 = true;
-                    // } else if !double_flag {
-                    //     //指定为f32
-                    //     is_f32 = true;
-                    // }
-                    // if !is_f32 {
                     data = parse_to_f32_arr(l, cnt as _);
-                    advance_offset += (1 + cnt as usize * 1);
-                    // }
-                    // else {
-                    //     data = parse_to_f32_arr(l);
-                    //     advance_offset += 4;
-                    // }
                     val = AttrVal::DoubleArrayType(data);
                 }
                 // DbAttributeType::DATETIME => {}
@@ -1119,7 +1033,7 @@ pub fn parse_implicit_attr_value<'a>(
             }
         }
     }
-    Ok((input, (advance_offset, val)))
+    Ok((origin_bytes, val))
 }
 
 ///获得uda 名称
@@ -1442,8 +1356,7 @@ pub async fn parse_explicit_attrs<'a>(
                                     let (_, typex) = be_u32(&tmp_input[..4])?;
                                     let typex = db1_dehash(typex);
                                     att_value = Some(StringType(typex.into()));
-                                } else {
-                                }
+                                } else {}
                             }
                             _ => {}
                         }
@@ -1466,7 +1379,7 @@ pub async fn parse_explicit_attrs<'a>(
                     //要加UDA:表达区分
                     attr_data_map.insert(format!("UDA:{uda_refno}"), v.into());
                 }
-            }else {
+            } else {
                 //覆盖可能在隐含属性里出现过的数据
                 attr_data_map.insert(att_name, v.into());
             }
@@ -2229,7 +2142,7 @@ fn get_refno_entry(
             be_i32, //len
             be_u64,
         ))(&input[0..12])
-        .ok()?;
+            .ok()?;
         let len = parse_to_u32(&input[0..4]);
         let refno = RefU64::from(&input[4..12]);
         let version = parse_to_u32(&input[32..36]);
@@ -2255,7 +2168,7 @@ fn get_refno_entry(
                                 &input[tmp_pos..end_pos]
                             );
                             if s.is_ok() {
-                                is_ok = (diff_len / 4) == (s.unwrap().1 .0.len() + 1);
+                                is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
                             }
                         }
                     }
@@ -2276,8 +2189,7 @@ fn get_refno_entry(
                     version,
                 },
             ));
-        } else {
-        }
+        } else {}
     }
     refno_entry
 }

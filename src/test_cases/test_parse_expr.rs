@@ -406,5 +406,22 @@ async fn test_parse_expression_PZAX() {
 }
 
 
+#[tokio::test]
+async fn test_has_float() {
+    let data_str = "
+    00 00 00 17 00 00 3B 59 00 00 6C 45 00 0C A7 8C
+    00 00 3B 59 00 00 3A 1E 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 3B 59 00 00 6C 44 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00
+";
+    let data = convert_str_to_bytes(data_str);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let map = ele_data.whole_attmap.merge();
+    dbg!(&map);
+    assert_eq!(map.get_foreign_refno("CATR").unwrap().to_string(), "15193_27716");
+}
+
 
 
