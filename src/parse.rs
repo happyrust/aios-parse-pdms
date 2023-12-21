@@ -460,6 +460,9 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
                         foreign_refnos.insert(attr_info.name.to_string(), *value);
                     }
                 }
+                InvalidType => {
+                    dbg!(&noun_name);
+                }
                 _ => {}
             }
             // unset 是pdms数据中存在info文件里没有的offset数据，手动在info文件里面加的这个 unset 占位
