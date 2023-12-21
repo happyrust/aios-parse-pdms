@@ -455,7 +455,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         }
         if i < sorted_noun_hash.len() - 1 {
             let next_attr_info = hash_type_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
-            step_w = (next_attr_info.offset & 0xFFFFF) - (attr_info.offset & 0xFFFFF);
+            step_w = (next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32;
         }else{
             step_w = origin_impl_len / 4 - (attr_info.offset as i32 & 0xFFFFF);
         }
@@ -937,7 +937,7 @@ pub fn parse_implicit_attr_value<'a>(
     attr_info: &'a AttrInfo,
     f32_flag: bool,
     f32_neg_offset: usize,
-    step_w: u32,  //dword 即 4字节数量
+    step_w: i32,  //dword 即 4字节数量
 ) -> IResult<&'a [u8], AttrVal> {
     let mut val = AttrVal::InvalidType;
     //是否是表达式
