@@ -988,8 +988,13 @@ pub fn parse_implicit_attr_value<'a>(
                     let (_, str_len) = be_i32(bytes)?;
                     let str_len = str_len as usize;
                     if str_len < bytes.len() && bytes.len() >= 4 {
-                        let (decode_string, _b_chi) = decode_chars_data(&bytes[4..str_len + 4]);
-                        val = AttrVal::StringType(decode_string.into());
+                        if str_len + 4 < bytes.len() {
+                            let (decode_string, _b_chi) = decode_chars_data(&bytes[4..str_len + 4]);
+                            val = AttrVal::StringType(decode_string.into());
+                        } else {
+                            // val = AttrVal::StringType("".into());
+                            dbg!(attr_info);
+                        }
                     } else {
                         val = AttrVal::StringType("".into());
                     }
