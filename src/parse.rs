@@ -963,7 +963,6 @@ pub fn parse_implicit_attr_value<'a>(
                     val = AttrVal::IntegerType(r);
                 }
                 AttrVal::DoubleType(_) => {
-                    let mut is_f32 = false;
                     if f32_flag {
                         if bytes.len() >= 4 {
                             let d = parse_to_f32(&bytes[..4]) as f64;
@@ -972,11 +971,15 @@ pub fn parse_implicit_attr_value<'a>(
                             //todo fix
                         }
                     } else {
-                        let d = parse_to_f64(&bytes[..8]);
-                        if d > f32::MAX as f64 {
-                            val = AttrVal::DoubleType(0.0);
-                        } else {
-                            val = AttrVal::DoubleType(d);
+                        if bytes.len() >= 8 {
+                            let d = parse_to_f64(&bytes[..8]);
+                            if d > f32::MAX as f64 {
+                                val = AttrVal::DoubleType(0.0);
+                            } else {
+                                val = AttrVal::DoubleType(d);
+                            }
+                        }else{
+                            dbg!(attr_info);
                         }
                     }
                 }
