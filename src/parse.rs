@@ -974,8 +974,15 @@ pub fn parse_implicit_attr_value<'a>(
                 }
                 AttrVal::DoubleType(_) => {
                     if f32_flag || step_w == 1 {
-                        let d = parse_to_f32(&bytes[..4]) as f64;
-                        val = AttrVal::DoubleType(d as _);
+                        if bytes.len() >= 4 {
+                            let d = parse_to_f32(&bytes[..4]) as f64;
+                            val = AttrVal::DoubleType(d as _);
+                        }else {
+                            dbg!(step_w);
+                            dbg!(f32_flag);
+                            dbg!(attr_info);
+                            println!("parse double 有问题的数据：{:#04X?}", origin_bytes);
+                        }
                     } else {
                         if bytes.len() >= 8 {
                             let d = parse_to_f64(&bytes[..8]);
