@@ -980,6 +980,7 @@ pub fn parse_implicit_attr_value<'a>(
                         }else {
                             dbg!(step_w);
                             dbg!(f32_flag);
+                            dbg!(f32_neg_offset);
                             dbg!(attr_info);
                             println!("parse double 有问题的数据：{:#04X?}", origin_bytes);
                         }
@@ -1008,7 +1009,17 @@ pub fn parse_implicit_attr_value<'a>(
                 AttrVal::StringType(_) => {
                     let (_, str_len) = be_i32(bytes)?;
                     let str_len = str_len as usize;
-                    if str_len < bytes.len() && bytes.len() >= 4 {
+                    //有些应该是没有分清类型的数据？
+                    if  step_w == 1 && str_len != 0 {
+                        if &bytes[..2] == &[0, 0] || &bytes[..2] == &[0xFF, 0xFF] {
+                            let d = parse_to_i32(&bytes[..4]);
+                            val = AttrVal::IntegerType(d);
+                        } else {
+                            let d = parse_to_f32(&bytes[..4]) as f64;
+                            val = AttrVal::DoubleType(d);
+                        }
+                        dbg!(attr_info);
+                    } else if str_len < bytes.len() && bytes.len() >= 4 {
                         if str_len + 4 < bytes.len() {
                             let (decode_string, _b_chi) = decode_chars_data(&bytes[4..str_len + 4]);
                             val = AttrVal::StringType(decode_string.into());
@@ -1036,22 +1047,36 @@ pub fn parse_implicit_attr_value<'a>(
                         val = AttrVal::IntegerType(v);
                     }
                 }
+                //todo need to find if exist invalid data
                 AttrVal::Vec3Type(_) => {
-                    let mut data = [0f64; 3];
+                    // let mut data = [0f64; 3];
                     let (l, cnt) = be_i32(bytes)?;
-                    let tmp_len = l.len() / 4; //WORD个数
-                    let mut is_f32 = false;
-                    if is_f32 {
-                        data = parse_to_f32_arr(l, 3).try_into().unwrap();
+                    let data_len = l.len() / 4; //WORD个数
+                    if f32_flag {
+                        if data_len == 3 {
+                            let data = parse_to_f32_arr(l, 3).try_into().unwrap();
+                            val = AttrVal::Vec3Type(data);
+                        }else{
+                            dbg!(step_w);
+                            dbg!(f32_flag);
+                            dbg!(attr_info);
+                        }
                     } else {
-                        data = parse_to_f64_arr(l, 3).try_into().unwrap();
+                        if data_len == 6 {
+                            let data = parse_to_f64_arr(l, 3).try_into().unwrap();
+                            val = AttrVal::Vec3Type(data);
+                        }else{
+                            dbg!(step_w);
+                            dbg!(f32_flag);
+                            dbg!(cnt);
+                            dbg!(attr_info);
+                        }
                     }
-                    val = AttrVal::Vec3Type(data);
+                    
                 }
                 AttrVal::DoubleArrayType(_) => {
-                    let mut data = vec![];
                     let (l, cnt) = be_i32(bytes)?;
-                    data = parse_to_f32_arr(l, cnt as _);
+                    let data = parse_to_f32_arr(l, cnt as _);
                     val = AttrVal::DoubleArrayType(data);
                 }
                 // DbAttributeType::DATETIME => {}
