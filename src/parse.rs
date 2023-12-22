@@ -1051,7 +1051,7 @@ pub fn parse_implicit_attr_value<'a>(
                     let (l, cnt) = be_i32(bytes)?;
                     let data_len = l.len() / 4; //WORD个数
                     if f32_flag {
-                        if data_len == 3 {
+                        if data_len >= 3 {
                             let data = parse_to_f32_arr(l, 3).try_into().unwrap();
                             val = AttrVal::Vec3Type(data);
                         }else{
@@ -1063,7 +1063,7 @@ pub fn parse_implicit_attr_value<'a>(
                             println!("parse vec3 有问题的数据：{:#04X?}", origin_bytes);
                         }
                     } else {
-                        if data_len == 6 {
+                        if data_len >= 6 {
                             let data = parse_to_f64_arr(l, 3).try_into().unwrap();
                             val = AttrVal::Vec3Type(data);
                         }else{
