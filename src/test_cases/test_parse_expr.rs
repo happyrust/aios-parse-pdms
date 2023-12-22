@@ -287,9 +287,6 @@ async fn test_parse_expression_pbof() {
     // dbg!(&map);
 }
 
-
-
-
 #[tokio::test]
 async fn test_parse_expression_pheig() {
     let data_str = "
@@ -336,7 +333,6 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let map = ele_data.whole_attmap.merge();
     dbg!(&map);
 }
-
 
 #[tokio::test]
 async fn test_parse_expression_PZAX() {
@@ -405,7 +401,6 @@ async fn test_parse_expression_PZAX() {
     dbg!(&map);
 }
 
-
 #[tokio::test]
 async fn test_has_float() {
     let data_str = "
@@ -420,8 +415,27 @@ async fn test_has_float() {
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = ele_data.whole_attmap.merge();
     dbg!(&map);
-    assert_eq!(map.get_foreign_refno("CATR").unwrap().to_string(), "15193_27716");
+    assert_eq!(
+        map.get_foreign_refno("CATR").unwrap().to_string(),
+        "15193_27716"
+    );
 }
 
-
-
+//有f32 的数据，需要处理 pos , ori, 还有 double 类型
+#[tokio::test]
+async fn test_f32_compatiable_extr() {
+    let data_str = "
+    00 00 00 1A 00 00 3B 63 00 00 11 DC 00 0D BF 68
+    00 00 3B 63 00 00 11 DB 00 00 02 63 00 04 40 01 
+    00 00 02 63 00 03 60 01 00 1B 80 02 00 00 00 03
+    44 13 39 9A 00 00 00 00 00 00 00 00 00 00 00 03 
+    42 B4 00 00 00 00 00 00 C2 B4 00 00 00 00 00 02 
+    00 00 00 03 00 00 00 05 00 00 00 01 44 93 39 9A
+    00 00 00 01 17 D7 6C FF
+";
+    let data = convert_str_to_bytes(data_str);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let map = ele_data.whole_attmap.merge();
+    dbg!(&map);
+    assert_eq!(map.get_f32_or_default("HEIG"), 1177.8);
+}
