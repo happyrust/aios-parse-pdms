@@ -1,6 +1,7 @@
 use crate::consts::*;
 use crate::parse_explict_tools::*;
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
+use aios_core::get_db_option;
 use aios_core::get_default_pdms_db_info;
 use aios_core::helper::*;
 use aios_core::pdms_types::*;
@@ -1121,8 +1122,12 @@ pub async fn parse_explicit_attrs<'a>(
     foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
-    // let is_debug = false;
-    let is_debug = refno == RefU64::from_two_nums(15203, 4572);
+    let mut is_debug = false;
+    if let Some(refnos) = &get_db_option().debug_root_refnos{
+        if refnos.contains(&refno.to_string()){
+            is_debug = true;
+        }
+    }
     while residual.len() >= 8 {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
@@ -1142,7 +1147,11 @@ pub async fn parse_explicit_attrs<'a>(
         // println!("hash={:#04X?}", hash_val);
         if check_is_expr(hash_val) {
             let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
-            att_value = Some(StringType(value));
+            if value.is_empty() {
+                att_value = None;
+            }else{
+                att_value = Some(StringType(value));
+            }
             if is_debug {
                 dbg!(&att_value);
             }
