@@ -1121,8 +1121,8 @@ pub async fn parse_explicit_attrs<'a>(
     foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
-    let is_debug = false;
-    // let is_debug = refno == RefU64::from_two_nums(15194, 337);
+    // let is_debug = false;
+    let is_debug = refno == RefU64::from_two_nums(15203, 4572);
     while residual.len() >= 8 {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
@@ -1135,17 +1135,17 @@ pub async fn parse_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        // if is_debug {
-        //     if att_name == "PBOR"{
-        //         println!("hash={:#04X?}", hash_val);
-        //     }
-        //     dbg!(&att_name);
-        // }
+        if is_debug {
+            dbg!(&att_name);
+        }
         // dbg!(&att_name);
         // println!("hash={:#04X?}", hash_val);
         if check_is_expr(hash_val) {
             let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
             att_value = Some(StringType(value));
+            if is_debug {
+                dbg!(&att_value);
+            }
             residual = input;
         } else {
             let (l, (explict_hash, attr_type_num, type_len)) = tuple((
