@@ -928,8 +928,6 @@ pub async fn parse_db(
     })
 }
 
-const ATTS_CHUNK_COUNT: usize = 300;
-
 /// 获取隐式属性, input为分段数据，已经限制了长度
 #[inline]
 pub fn parse_implicit_attr_value<'a>(
@@ -1058,8 +1056,11 @@ pub fn parse_implicit_attr_value<'a>(
                             val = AttrVal::Vec3Type(data);
                         }else{
                             dbg!(step_w);
+                            dbg!(data_len);
                             dbg!(f32_flag);
+                            dbg!(cnt);
                             dbg!(attr_info);
+                            println!("parse vec3 有问题的数据：{:#04X?}", origin_bytes);
                         }
                     } else {
                         if data_len == 6 {
@@ -1067,6 +1068,7 @@ pub fn parse_implicit_attr_value<'a>(
                             val = AttrVal::Vec3Type(data);
                         }else{
                             dbg!(step_w);
+                            dbg!(data_len);
                             dbg!(f32_flag);
                             dbg!(cnt);
                             dbg!(attr_info);
