@@ -11,7 +11,6 @@ use std::convert::TryInto;
 use std::time::Instant;
 use serde::Serializer;
 use log::LevelFilter;
-use simplelog::{CombinedLogger, WriteLogger};
 use aios_core::options::DbOption;
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
@@ -19,12 +18,6 @@ type AiosDbError = Result<(), Box<dyn std::error::Error>>;
 
 
 fn main() -> anyhow::Result<()> {
-    // CombinedLogger::init(
-    //     vec![
-    //         WriteLogger::new(LevelFilter::Debug, simplelog::Config::default(), std::fs::File::create("parse_pdms_db.log").unwrap()),
-    //     ]
-    // ).unwrap();
-
     use config::{Config, File};
     let s = Config::builder()
         .add_source(File::with_name("DbOption"))

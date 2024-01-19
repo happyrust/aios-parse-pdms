@@ -70,7 +70,6 @@ serde_derive = "1.0.137"
 phf = { version = "0.9", features = ["macros"] }
 clap = { version = "3.1.6", features = ["derive"] }
 log = "0.4.14"
-simplelog = "0.10.0"
 rayon = "1.5.2"
 tokio = { version = "1.18.2", features = ["full"] }
 serde_json = { version = "1.0" }
