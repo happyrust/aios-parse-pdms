@@ -12,6 +12,7 @@ use aios_core::types::db_info::PdmsDatabaseInfo;
 use aios_core::types::WholeAttMap;
 use aios_core::types::*;
 use aios_core::AttrVal::*;
+use aios_core::parse::*;
 use aios_core::SUL_DB;
 use anyhow::*;
 use cached::proc_macro::cached;
@@ -46,7 +47,9 @@ use std::time::Instant;
 use aios_core::petgraph::PetRefnoNode;
 use tokio::io::AsyncReadExt;
 
-const INDEX: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
+
+//00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02
+const REFNO_LEAF_INDEX_PAGE: [u8; 16] = [0x00u8, 0x00, 0x00, 0x05, 0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02];
 
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -343,6 +346,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
     let mut foreign_refnos = DashMap::new();
+    let data_len = input.len();
     let origin_impl_len = parse_to_i32(&input[0..4]) * 4; //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
     let refno: RefU64 = RefU64::from(&input[4..12]);
@@ -351,12 +355,12 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     let noun_name = db1_dehash(noun); //类型hash  12-16
     let db_info = get_default_pdms_db_info();
     let cur_type_info_map = db_info.named_attr_info_map.get(&noun_name).ok_or(anyhow!(
-        "type_hash {} not exist in attr_info_map",
-        db1_dehash(type_hash as _)
+        "{} not exist in attr_info_map",
+        &noun_name
     ))?;
     let hash_type_info_map = db_info.noun_attr_info_map.get(&type_hash).ok_or(anyhow!(
-        "type_hash {} not exist in attr_info_map",
-        db1_dehash(type_hash as _)
+        "{} not exist in attr_info_map",
+        &noun_name
     ))?;
     let owner = RefU64::from(&input[16..24]);
     let version = parse_to_u32(&input[24..28]);
@@ -368,6 +372,9 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
             actual_impl_len += 4;
             tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
         }
+    }
+    if actual_impl_len > data_len{
+        return Err(anyhow!("actual_impl_len > data_len"));
     }
     //隐藏属性得数据切片
     let implicit_data = &input[0..actual_impl_len];
@@ -391,6 +398,9 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     }
 
     let explicit_start = actual_impl_len + memb_bytes_len;
+    if explicit_start >= input.len() {
+        return Err(anyhow!("explicit_start >= input.len()"));
+    }
     let explicit_data = &input[explicit_start..];
     let maybe_refno = if membs_data.len() > 12 {
         Some(RefU64::from(&membs_data[4..12]))
@@ -2132,7 +2142,7 @@ fn process_type_hash<'a>(
 ///获取所有不同的 refno_0
 pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
     let mut refno_0_set = HashSet::new();
-    let mut pos_iter = rfind_iter(&input, &INDEX[..]);
+    let mut pos_iter = rfind_iter(&input, &REFNO_LEAF_INDEX_PAGE[..]);
     while let Some(i) = pos_iter.next() {
         let mut j = i + 0x6 * 4; //偏移6 dword
         let mut d = &input[j..j + 4];
@@ -2153,6 +2163,15 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
     Ok((input, value))
 }
 
+
+/// 获取文件的type和version, db number
+pub fn parse_db_basic_info(path: PathBuf)  -> (String, u32, u32) {
+    let mut file = File::open(&path).unwrap();
+    let mut buf = vec![0u8; 60];
+    file.read_exact(&mut buf).unwrap();
+    parse_file_basic_info(&buf)
+}
+
 /// 获取文件的type和version, db number
 pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
     let t = parse_to_u32(&input[32..36]);
@@ -2161,8 +2180,8 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
         file_type = db1_dehash(t);
     }
     let db_no = parse_to_u32(&input[8..12]);
-    let version = parse_to_u32(&input[40..44]);
-    (file_type, version, db_no)
+    let ses_pgno = parse_to_u32(&input[40..44]);
+    (file_type, ses_pgno, db_no)
 }
 
 //todo 需要完善情况
@@ -2392,16 +2411,22 @@ fn get_merged_data(input: &[u8], len: &mut usize, flag: u8) -> Vec<u8> {
     // if *len > input.len() {
     //     println!("{:#4X?}", input);
     // }
+    let bytes_len = input.len();
     let mut data = input[20..*len].to_vec();
-    if *len + 4 > input.len() {
+    if *len + 4 > bytes_len {
         return data;
     }
     let mut t = *len;
-    while t + 4 <= input.len() && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
+    while t + 4 <= bytes_len && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
         let seg_len = parse_to_u16(&input[t + 6..t + 8]) as usize * 4;
 
         let mut s = t + 16 + 8;
-        let next_seg = &input[s..t + seg_len + 4];
+        let end = (s + seg_len + 4).min(bytes_len);
+        if end <= s {
+            println!("{:#4X}..{:#4X} merged data出错", s, end);
+            break;
+        }
+        let next_seg = &input[s..end];
         data.extend_from_slice(next_seg);
         t += seg_len + 4;
     }
