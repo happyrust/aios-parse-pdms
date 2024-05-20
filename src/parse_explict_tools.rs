@@ -14,6 +14,7 @@ use nom::sequence::tuple;
 use nom::IResult;
 use std::fs::File;
 use std::io::BufReader;
+use log::error;
 use tokio::count;
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
@@ -102,8 +103,16 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
         let (_, expression_length) = be_u16(&input[6..8])?;
         
         // 显式属性的length后有8个byte没用的，直接跳过了
-        let expression_data = &input[8..(expression_length * 4) as usize + 8];
-        let input = &input[(expression_length * 4) as usize + 8..];
+        let end = (expression_length * 4) as usize + 8;
+
+        //暂时跳过这个问题，长度问题
+        if end > input.len() {
+            error!("{refno}: parse_expression_attr PTCDI or PTCD {end} > {} input.len()",  input.len());
+            error!("{:#4X?}", input);
+            return Err(nom::Err::Incomplete(nom::Needed::Unknown));
+        }
+        let expression_data = &input[8..end];
+        let input = &input[end..];
         
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
         let result = match axis {

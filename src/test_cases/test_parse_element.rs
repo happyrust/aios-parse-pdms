@@ -1,3 +1,4 @@
+use aios_core::get_default_pdms_db_info;
 use super::convert_str_to_bytes;
 use crate::parse::parse_ele_data;
 
@@ -351,27 +352,27 @@ async fn test_parse_members_has_07() {
 //     dbg!(&ele_data);
 // }
 //
-// #[test]
-// fn tets_17496_161418_udtype() {
-//     let data_str = "00 00 00 22 00 00 44 58 00 02 76 8A 00 09 C5 ED
-// 00 00 44 58 00 00 21 46 00 00 26 A0 00 0D A0 01
-// 00 00 00 00 00 00 00 00 20 01 C0 00 00 00 00 00
-// 00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
-// 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-// 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
-// 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-// 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-// 00 00 00 00 00 00 00 00 00 01 00 0C 00 00 44 58
-// 00 02 76 8A 00 00 00 00 00 00 00 00 00 CC 6B 3F
-// 38 00 00 02 00 00 00 01 2C 00 D4 9E 04 D8 52 B8
-// 0C 00 00 01 2C 00 D4 9E";
-//     let data = convert_str_to_bytes(data_str);
-//     let pdms_database_info = get_default_pdms_db_info();
-//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
-//     dbg!(&ele_data.whole_attmap);
-//     // let typex = ele_data.whole_attmap.explicit_attmap.get_typex().as_bytes();
-//     // println!("input={:#4X?}", typex);
-// }
+#[tokio::test]
+async fn tets_17496_161418_udtype() {
+    let data_str = "00 00 00 22 00 00 44 58 00 02 76 8A 00 09 C5 ED
+00 00 44 58 00 00 21 46 00 00 26 A0 00 0D A0 01
+00 00 00 00 00 00 00 00 20 01 C0 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 01 00 0C 00 00 44 58
+00 02 76 8A 00 00 00 00 00 00 00 00 00 CC 6B 3F
+38 00 00 02 00 00 00 01 2C 00 D4 9E 04 D8 52 B8
+0C 00 00 01 2C 00 D4 9E";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    dbg!(&ele_data.whole_attmap);
+    // let typex = ele_data.whole_attmap.explicit_attmap.get_typex().as_bytes();
+    // println!("input={:#4X?}", typex);
+}
 //
 // #[test]
 // fn test_17496_124126_ukey() {
