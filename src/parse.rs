@@ -49,7 +49,10 @@ use tokio::io::AsyncReadExt;
 
 
 //00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02
-const REFNO_LEAF_INDEX_PAGE: [u8; 16] = [0x00u8, 0x00, 0x00, 0x05, 0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02];
+// const REFNO_ALL_INDEX_PAGE: [u8; 11] = [0x00u8, 0x00, 0x00, 0x05, 0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00];
+const REFNO_ALL_INDEX_PAGE: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
+
+
 
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -297,6 +300,7 @@ pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
         if &membs_data[0..2] == [0x0, 0x2].as_slice() {
             memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
             let merged_data = get_merged_data(membs_data, &mut memb_bytes_len, 0x2);
+            // dbg!(merged_data.len());
             if let Ok((_, c)) = parse_attr_members(&merged_data) {
                 members = c.0;
             }
@@ -363,8 +367,16 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         &noun_name
     ))?;
     let owner = RefU64::from(&input[16..24]);
-    let version = parse_to_u32(&input[24..28]);
-    // println!("version: {:#4X}", version);
+    let mut pgno = parse_to_u32(&input[24..28]);
+    //这里需要判断是否为0
+    if pgno == 0 {
+        //出现了8个连续的0
+        // 00 00 00 20 00 00 44 58 00 04 1C 1B 00 0D BF 71
+        // 00 00 44 58 00 04 1C 18 00 00 00 00 00 00 00 00
+        // 00 00 85 CE
+        pgno = parse_to_u32(&input[32..36]);
+        // println!("version: {:#4X}", version);
+    }
     if actual_impl_len + 4 < input.len() {
         let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
 
@@ -515,7 +527,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         whole_attmap,
         children,
         name,
-        version,
+        version: pgno,
         foreign_refnos,
     })
 }
@@ -566,6 +578,7 @@ pub fn parse_db_basic_data(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
     );
+    dbg!(&world_refno);
 
     let mut root_refno = world_refno;
     let mut children_map = HashMap::new();
@@ -848,6 +861,7 @@ pub async fn parse_db(
         all_refnos.insert(refno);
         if refno_table_map.contains_key(&refno) {
             let entry = &*refno_table_map.get(&refno).unwrap();
+            dbg!(entry);
             let pos = entry.pos;
             //解析到members数据
             let membs = parse_ele_membs(&input[pos - 4..]);
@@ -2142,7 +2156,7 @@ fn process_type_hash<'a>(
 ///获取所有不同的 refno_0
 pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
     let mut refno_0_set = HashSet::new();
-    let mut pos_iter = rfind_iter(&input, &REFNO_LEAF_INDEX_PAGE[..]);
+    let mut pos_iter = rfind_iter(&input, &REFNO_ALL_INDEX_PAGE[..]);
     while let Some(i) = pos_iter.next() {
         let mut j = i + 0x6 * 4; //偏移6 dword
         let mut d = &input[j..j + 4];
@@ -2408,27 +2422,25 @@ pub fn gen_ref_type_pos_table_parallel(
 // 02 代表 members, 01 代表 显示属性
 //00 00 00 07 00 02(maybe 01) 00 xx  (REF0)  (REF1)  00 00 00 00  00 00 00 00
 fn get_merged_data(input: &[u8], len: &mut usize, flag: u8) -> Vec<u8> {
-    // if *len > input.len() {
-    //     println!("{:#4X?}", input);
-    // }
-    let bytes_len = input.len();
+    let input_len = input.len();
     let mut data = input[20..*len].to_vec();
-    if *len + 4 > bytes_len {
+    if *len + 4 > input_len {
         return data;
     }
     let mut t = *len;
-    while t + 4 <= bytes_len && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
-        let seg_len = parse_to_u16(&input[t + 6..t + 8]) as usize * 4;
-
-        let mut s = t + 16 + 8;
-        let end = (s + seg_len + 4).min(bytes_len);
+    while t + 4 <= input_len && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
+        let seg_bytes_len = parse_to_u16(&input[t + 6..t + 8]) as usize * 4;
+        //跳过6个byte
+        let mut s = t + 4 * 6;
+        let end = (t + seg_bytes_len + 4).min(input_len);
+        // println!("07 的membs范围： {:#4X}..{:#4X}", s, end);
         if end <= s {
             println!("{:#4X}..{:#4X} merged data出错", s, end);
             break;
         }
         let next_seg = &input[s..end];
         data.extend_from_slice(next_seg);
-        t += seg_len + 4;
+        t += seg_bytes_len + 4;
     }
     *len = t;
     data
