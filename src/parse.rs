@@ -2331,6 +2331,7 @@ pub fn gen_ref_type_pos_table(
             }
         }
     });
+    dbg!(&word_refno_hashset);
     let world_refno = word_refno_hashset.into_iter().next().unwrap_or_default();
     (refno_table, world_refno)
 }
