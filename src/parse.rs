@@ -482,6 +482,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
                     }
                 }
                 InvalidType => {
+                    dbg!(&refno);
                     dbg!(&noun_name);
                 }
                 _ => {}
@@ -505,8 +506,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
                 &mut explicit_attmap,
                 refno,
                 &mut foreign_refnos,
-            )
-                .await;
+            );
         }
     }
     //添加遗漏的属性
@@ -578,7 +578,6 @@ pub fn parse_db_basic_data(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
     );
-    dbg!(&world_refno);
 
     let mut root_refno = world_refno;
     let mut children_map = HashMap::new();
@@ -1022,12 +1021,9 @@ pub fn parse_implicit_attr_value<'a>(
                         }
                         // dbg!(attr_info);
                     } else if str_len < bytes.len() && bytes.len() >= 4 {
-                        if str_len + 4 < bytes.len() {
+                        if str_len + 4 <= bytes.len() {
                             let (decode_string, _b_chi) = decode_chars_data(&bytes[4..str_len + 4]);
                             val = AttrVal::StringType(decode_string.into());
-                        } else {
-                            // val = AttrVal::StringType("".into());
-                            // dbg!(attr_info);
                         }
                     } else {
                         val = AttrVal::StringType("".into());
@@ -2345,7 +2341,6 @@ pub fn gen_ref_type_pos_table(
             }
         }
     });
-    dbg!(&word_refno_hashset);
     let world_refno = word_refno_hashset.into_iter().next().unwrap_or_default();
     (refno_table, world_refno)
 }
