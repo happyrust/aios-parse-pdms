@@ -244,8 +244,6 @@ pub async fn parse_file(
 
 ///解析db文件
 pub async fn parse_file_with_chunk(
-    // path: &PathBuf,
-    // file: &File,
     db_basic_data: Arc<DbBasicData>,
     database_info: &Option<PdmsDatabaseInfo>,
     file_name: &str,
@@ -506,7 +504,7 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
                 &mut explicit_attmap,
                 refno,
                 &mut foreign_refnos,
-            );
+            ).await;
         }
     }
     //添加遗漏的属性
