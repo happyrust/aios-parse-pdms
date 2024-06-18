@@ -53,7 +53,6 @@ use tokio::io::AsyncReadExt;
 const REFNO_ALL_INDEX_PAGE: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
 
 
-
 ///一个pdms db的整体数据
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PdmsDbData {
@@ -373,17 +372,16 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         // 00 00 44 58 00 04 1C 18 00 00 00 00 00 00 00 00
         // 00 00 85 CE
         pgno = parse_to_u32(&input[32..36]);
-        // println!("version: {:#4X}", version);
     }
     if actual_impl_len + 4 < input.len() {
         let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
-
+        // dbg!(tmp_value);
         while tmp_value == 0 || tmp_value == 7 {
             actual_impl_len += 4;
             tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
         }
     }
-    if actual_impl_len > data_len{
+    if actual_impl_len > data_len {
         return Err(anyhow!("actual_impl_len > data_len"));
     }
     //隐藏属性得数据切片
@@ -492,21 +490,15 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         }
     }
 
-    let explicit_data = remove_007(explicit_data);
-    if maybe_refno.is_some() && maybe_refno.unwrap() == refno {
-        if explicit_data.len() > 4 && &explicit_data[0..2] == [0x0, 0x1].as_slice() {
-            explicit_bytes_len = parse_to_u16(&explicit_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(&explicit_data, &mut explicit_bytes_len, 0x1);
-            // warning: 显示属性不需要限制nouns，有可能版本不一样，nouns的组合不一样
-            let _ = parse_explicit_attrs(
-                &merged_data,
-                &cur_type_info_map,
-                &mut explicit_attmap,
-                refno,
-                &mut foreign_refnos,
-            ).await;
-        }
-    }
+    let explicit_data = collect_explict_data(explicit_data, refno);
+    let _ = parse_explicit_attrs(
+        &explicit_data,
+        &cur_type_info_map,
+        &mut explicit_attmap,
+        refno,
+        &mut foreign_refnos,
+    ).await;
+
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
     implicit_attmap.insert("TYPE".into(), NamedAttrValue::StringType(noun_name));
@@ -530,16 +522,73 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     })
 }
 
+// pub enum PdmsPage{
+//     INDEX_PAG = 0x00CC47DF,
+//
+// }
+
 //移除00 00 00 007，保留后面的数据
-pub fn remove_007(mut input: &[u8]) -> &[u8] {
-    while input.len() >= 4 {
-        let v = parse_to_i32(&input[..4]);
-        if v != 0 && v != 7 {
-            return input;
-        }
-        input = &input[4..];
+pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
+    let mut has_next = input.len() >= 4 * 3;
+    let mut bytes = vec![];
+    if !has_next {
+        return bytes;
     }
-    input
+    // let refno = RefU64::from(&input[4..12]);
+    while has_next {
+        //还可能遇到各种page，需要跳过，暂时假定只有遇到INDEX Page的情况
+        let v = parse_to_i32(&input[..4]);
+        match v {
+            7 => {
+                input = &input[4..];
+            }
+            5 => {
+                let page_type = parse_to_i32(&input[4..8]);
+                #[cfg(debug_assertions)]
+                println!("Found {refno} attr may be in page type {:#4X?}", page_type);
+                if page_type == 0xCC47DF && input.len() > 0x2C {
+                    //一直找到为0的为止
+                    input = &input[0x2C..];
+                    while parse_to_i32(&input[0..4]) != 0 {
+                        input = &input[4..];
+                        if input.len() < 4 {
+                            break;
+                        }
+                    }
+                    if input.len() > 4 {
+                        input = &input[4..];
+                    } else {
+                        break;
+                    }
+                    // println!("{:#4X?}", &input);
+                } else {
+                    break;
+                    // bytes.extend(input);
+                    // has_next = input.len() >= 4 * 3;
+                }
+            }
+            _ => {
+                let flag = parse_to_u16(&input[0..2]) as usize;
+                if flag != 1{
+                    break;
+                }
+                let len = parse_to_u16(&input[2..4]) as usize;
+                let maybe_refno = RefU64::from(&input[4..12]);
+                //必须要检查是否跟的是 refno
+                if len < 5 || len > input.len() || maybe_refno != refno {
+                    break;
+                }
+                // if bytes.is_empty(){
+                //     bytes.extend(&input[..len*4]);
+                // }else{
+                bytes.extend(&input[20..len * 4]);
+                // }
+                input = &input[len * 4..];
+                has_next = input.len() >= 4 * 3;
+            }
+        }
+    }
+    bytes
 }
 
 pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
@@ -559,7 +608,6 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
     }
     input
 }
-
 
 
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
@@ -1017,7 +1065,6 @@ pub fn parse_implicit_attr_value<'a>(
                             let d = parse_to_f32(&bytes[..4]) as f64;
                             val = AttrVal::DoubleType(d);
                         }
-                        // dbg!(attr_info);
                     } else if str_len < bytes.len() && bytes.len() >= 4 {
                         if str_len + 4 <= bytes.len() {
                             let (decode_string, _b_chi) = decode_chars_data(&bytes[4..str_len + 4]);
@@ -1083,6 +1130,8 @@ pub fn parse_implicit_attr_value<'a>(
             }
         }
     }
+    // #[cfg(debug_assertions)]
+    // dbg!(&val);
     Ok((origin_bytes, val))
 }
 
@@ -1124,7 +1173,7 @@ pub async fn parse_explicit_attrs<'a>(
             is_debug = true;
         }
     }
-    while residual.len() >= 8 {
+    while !residual.is_empty() {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
         let is_uda = is_uda(hash_val);
@@ -1139,7 +1188,10 @@ pub async fn parse_explicit_attrs<'a>(
         if is_debug {
             dbg!(&att_name);
         }
-        // dbg!(&att_name);
+
+        // if att_name == "DTIT" {
+        //     dbg!(&att_name);
+        // }
         // println!("hash={:#04X?}", hash_val);
         if check_is_expr(hash_val) {
             let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
@@ -2173,7 +2225,7 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
 
 
 /// 获取文件的type和version, db number
-pub fn parse_db_basic_info(path: PathBuf)  -> (String, u32, u32) {
+pub fn parse_db_basic_info(path: PathBuf) -> (String, u32, u32) {
     let mut file = File::open(&path).unwrap();
     let mut buf = vec![0u8; 60];
     file.read_exact(&mut buf).unwrap();
@@ -2310,7 +2362,6 @@ pub fn parse_pdms_project_name(input: &str) -> IResult<&str, &str> {
     let (_, name) = take_until("sys")(input)?;
     Ok((input, name))
 }
-
 
 
 pub const WORLD_NOUN: i32 = 0xBEB83;

@@ -15,7 +15,7 @@ mod test_parse_expr;
 // mod test_expression;
 // mod test_data_new;
 // mod test_nom;
-// mod test_chinese;
+mod test_chinese;
 // mod test_uda;
 mod test_parse_element;
 
