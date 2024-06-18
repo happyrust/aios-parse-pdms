@@ -37,8 +37,9 @@ FF FF FF CB 00 00 11 94 00 01 00 53 00 00 33 BC
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
-    dbg!(&map);
+    let map = &ele_data.whole_attmap.attmap;
+    // dbg!(map.get_as_string("PTDI"));
+    assert_eq!(map.get_as_string("PTDI"), Some("(DESP[1]/(2*COS(45)))".to_string()));
 }
 
 //15194/10446
@@ -282,9 +283,11 @@ async fn test_parse_expression_pbof() {
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
+    let map = &ele_data.whole_attmap.attmap;
     dbg!(map.get_as_string("PBOF"));
-    // dbg!(&map);
+
+    assert_eq!(map.get_as_string("PBOF").unwrap(),
+               "(((DESP[10]*SIN(ATAN((DESP[46]/DESP[2]))))+(((((DESP[6]-DESP[15])-DESP[17])-(DESP[46]/2))-((DESP[4]/2)*TAN(ATAN((DESP[46]/DESP[2])))))*COS(ATAN((DESP[46]/DESP[2])))))*TAN((ATAN((DESP[10]/((((DESP[6]-DESP[15])-DESP[17])-(DESP[46]/2))-((DESP[4]/2)*TAN(ATAN((DESP[46]/DESP[2])))))))-ATAN((DESP[46]/DESP[2])))))");
 }
 
 #[tokio::test]
@@ -330,12 +333,12 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
-    dbg!(&map);
+    let map = &ele_data.whole_attmap.attmap;
+    
 }
 
 #[tokio::test]
-async fn test_parse_expression_PZAX() {
+async fn test_parse_expression_PZ() {
     let data_str = "
     00 00 00 2B 00 00 3B 5A 00 00 03 6E 00 0A F7 1D
     00 00 3B 5A 00 00 03 6C 00 00 0F 95 00 3D A0 01
@@ -397,8 +400,10 @@ async fn test_parse_expression_PZAX() {
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
-    dbg!(&map);
+    let map = &ele_data.whole_attmap.attmap;
+    // dbg!(map);
+
+    assert_eq!(map.get_as_string("PZ").unwrap(), "DESP[6]");
 }
 
 #[tokio::test]
@@ -413,8 +418,8 @@ async fn test_has_float() {
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
-    dbg!(&map);
+    let map = &ele_data.whole_attmap.attmap;
+    
     assert_eq!(
         map.get_foreign_refno("CATR").unwrap().to_string(),
         "15193_27716"
@@ -435,7 +440,6 @@ async fn test_f32_compatiable_extr() {
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
-    dbg!(&map);
+    let map = &ele_data.whole_attmap.attmap;
     assert_eq!(map.get_f32_or_default("HEIG"), 1177.8);
 }

@@ -22,7 +22,7 @@ async fn test_parse_uda_elelist_0() {
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
+    let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
 }
 
@@ -50,7 +50,7 @@ async fn test_parse_uda_elelist_1() {
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
+    let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
 }
 

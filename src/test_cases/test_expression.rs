@@ -7,8 +7,8 @@ use dashmap::DashMap;
 use std::fs::File;
 use std::io::Write;
 
-#[test]
-fn test_gdp_15194_134() {
+#[tokio::test]
+async fn test_gdp_15194_134() {
     let data_str = "
 00 00 00 19 00 00 3B 5A 00 00 00 86 00 08 A1 E7
 00 00 3B 5A 00 00 00 85 00 00 01 D9 00 0C 80 01
@@ -32,9 +32,9 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
 00 00 00 44 00 00 00 56 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let mut result = "".to_string();
-    if let Some(r) = ele_data.whole_attmap.implicit_attmap.get_val("PPRO") {
+    if let Some(r) = ele_data.whole_attmap.attmap.get_val("PPRO") {
         match r {
             NamedAttrValue::StringType(v) => {
                 result = v.to_string();
@@ -45,8 +45,8 @@ FF F3 2D CC 1C 00 00 0C 00 00 00 0B 00 00 00 0B
     assert_eq!("FLNM OF CATR", result);
 }
 
-#[test]
-fn test_dbp_5194_136() {
+#[tokio::test]
+async fn test_dbp_5194_136() {
     let data_str = "
 00 00 00 19 00 00 3B 5A 00 00 00 88 00 08 A1 E7
 00 00 3B 5A 00 00 00 85 00 00 01 D9 00 1F 00 01
@@ -68,7 +68,7 @@ fn test_dbp_5194_136() {
 00 00 00 01 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let mut result = "".to_string();
     if let Some(r) = ele_data.whole_attmap.merge().get_val("PPRO") {
         match r {
@@ -81,8 +81,8 @@ fn test_dbp_5194_136() {
     assert_eq!("ATTRIB WDES[40]", result);
 }
 
-#[test]
-fn test_gdp_15194_223() {
+#[tokio::test]
+async fn test_gdp_15194_223() {
     let data_str = "
 00 00 00 21 00 00 3B 5A 00 00 00 DF 00 0F 56 3E
 00 00 3B 5A 00 00 00 DE 00 00 01 E5 00 20 80 01
@@ -110,7 +110,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let mut result = "".to_string();
     dbg!(ele_data.whole_attmap.merge());
     let pbor = ele_data
@@ -121,8 +121,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     assert_eq!("( ATTRIB DDES[2] + ATTRIB DDES[3] )", pbor.as_str());
 }
 
-#[test]
-fn test_gdp_15194_287() {
+#[tokio::test]
+async fn test_gdp_15194_287() {
     let data_str = "
 00 00 00 1D 00 00 3B 5A 00 00 01 15 00 0B 15 DB
 00 00 3B 5A 00 00 01 14 00 00 01 EC 00 2A 40 01
@@ -147,10 +147,10 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let mut result = "".to_string();
-    dbg!(&ele_data.whole_attmap.implicit_attmap);
-    if let Some(r) = ele_data.whole_attmap.implicit_attmap.get_val("PZLE") {
+    dbg!(&ele_data.whole_attmap.attmap);
+    if let Some(r) = ele_data.whole_attmap.attmap.get_val("PZLE") {
         match r {
             NamedAttrValue::StringType(v) => {
                 result = v.to_string();
@@ -161,8 +161,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     assert_eq!(":HXYS[2]", result);
 }
 
-#[test]
-fn test_gdp_15194_8039() {
+#[tokio::test]
+async fn test_gdp_15194_8039() {
     let data_str = "
 00 00 00 2E 00 00 3B 5A 00 00 1F 67 00 0F 7C 39
 00 00 3B 5A 00 00 1F 66 00 00 09 69 00 15 60 01
@@ -190,7 +190,7 @@ fn test_gdp_15194_8039() {
 00 00 00 00 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39i32) {
     //     //dbg!(map.value());
     // }
@@ -207,8 +207,8 @@ fn test_gdp_15194_8039() {
     assert_eq!("DESIGN PARAM 6", result);
 }
 
-#[test]
-fn test_gdp_15194_8204() {
+#[tokio::test]
+async fn test_gdp_15194_8204() {
     let data_str = "
 00 00 00 2E 00 00 3B 5A 00 00 20 0C 00 0F 7C 39
 00 00 3B 5A 00 00 1F DD 00 00 09 7F 00 31 80 01
@@ -277,7 +277,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 41 00 00 06 A5 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let mut result = "".to_string();
 
     assert_eq!(
@@ -298,8 +298,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     );
 }
 
-#[test]
-fn test_gdp_15194_5814() {
+#[tokio::test]
+async fn test_gdp_15194_5814() {
     let data_str = "
 00 00 00 27 00 00 3B 5A 00 00 16 B6 00 0B EE BF
 00 00 3B 5A 00 00 16 B5 00 00 08 3D 00 2C 60 01
@@ -346,7 +346,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
 00 00 00 06 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xBEEBFi32) {
     //     //dbg!(map.value());
     // }
@@ -363,8 +363,8 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
     assert_eq!("-1 * ATTRIB ANGL/8", result);
 }
 
-#[test]
-fn test_sample_23984_1066() {
+#[tokio::test]
+async fn test_sample_23984_1066() {
     let data_str = "
 00 00 00 27 00 00 5D B0 00 00 04 2A 00 0B EE BF
 00 00 5D B0 00 00 04 29 00 00 03 60 00 10 E0 01
@@ -387,12 +387,12 @@ FF F1 F3 AA 1C 00 00 1B 00 00 00 1A 00 00 00 1A
 00 00 03 25 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     //dbg!(ele_data);
 }
 
-#[test]
-fn test_sample_15213_499928_12_1() {
+#[tokio::test]
+async fn test_sample_15213_499928_12_1() {
     let data_str = "
 00 00 00 41 00 00 3B 6D 00 07 A0 D8 00 0D CC D4
 00 00 3B 6D 00 07 A0 D6 00 00 00 00 00 00 00 00
@@ -417,12 +417,12 @@ fn test_sample_15213_499928_12_1() {
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         //dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     //dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_gdb_13802_5652() {
+#[tokio::test]
+async fn test_gdb_13802_5652() {
     let data_str = "
 00 00 00 22 00 00 35 EA 00 00 16 14 00 0B FE 23
 00 00 35 EA 00 00 16 13 00 00 00 00 00 00 00 00
@@ -444,12 +444,12 @@ fn test_gdb_13802_5652() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_gdb_exp_attrib() {
+#[tokio::test]
+async fn test_gdb_exp_attrib() {
     let data_str = "
 00 00 00 2F 00 00 35 EA 00 00 2C 50 00 0C C7 29
 00 00 35 EA 00 00 2C 4F 00 00 17 CB 00 0C 20 01
@@ -496,12 +496,12 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_gdb_exp_f32() {
+#[tokio::test]
+async fn test_gdb_exp_f32() {
     let data_str = "
 00 00 00 22 00 00 35 E0 00 00 7C 16 00 0B FE 23
 00 00 35 E0 00 00 7C 04 00 00 16 12 00 2F 60 01
@@ -538,12 +538,12 @@ fn test_gdb_exp_f32() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_gdb_exp_f32_13792_31766() {
+#[tokio::test]
+async fn test_gdb_exp_f32_13792_31766() {
     let data_str = "
 00 00 00 22 00 00 35 E0 00 00 7C 06 00 0B FE 23
 00 00 35 E0 00 00 7C 04 00 00 16 0E 00 14 40 01
@@ -573,12 +573,12 @@ fn test_gdb_exp_f32_13792_31766() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_gdb_exp_f32_13792_31770() {
+#[tokio::test]
+async fn test_gdb_exp_f32_13792_31770() {
     let data_str = "
 00 00 00 22 00 00 35 E0 00 00 7C 1A 00 0B FE 23
 00 00 35 E0 00 00 7C 04 00 00 16 13 00 2F C0 01
@@ -615,12 +615,12 @@ fn test_gdb_exp_f32_13792_31770() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_gdb_exp_f32_13792_31779() {
+#[tokio::test]
+async fn test_gdb_exp_f32_13792_31779() {
     let data_str = "
 00 00 00 1B 00 00 35 E0 00 00 7C 23 00 0C D6 96
 00 00 35 E0 00 00 7C 04 00 00 16 15 00 36 40 01
@@ -641,12 +641,12 @@ fn test_gdb_exp_f32_13792_31779() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_gdb_exp_axis() {
+#[tokio::test]
+async fn test_gdb_exp_axis() {
     let data_str = "
 00 00 00 2C 00 00 55 E0 00 00 83 60 00 08 73 8B
 00 00 55 E0 00 00 83 5B 00 00 95 78 00 31 20 01
@@ -678,12 +678,12 @@ FF FF FF FC 00 00 00 00 00 00 00 06 00 00 03 24
 00 00 00 00 00 00 00 06 00 00 00 10 00 00 00 3D
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_15194_5572_sample() {
+#[tokio::test]
+async fn test_15194_5572_sample() {
     let data_str = "00 00 00 2E 00 00 3B 5A 00 00 15 C4 00 0F 7C 39
 00 00 3B 5A 00 00 15 C0 00 00 15 A1 00 15 00 01
 00 00 00 00 00 00 00 00 20 37 40 00 00 00 00 02
@@ -757,12 +757,12 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF7C39) {
         dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     println!("map={:?}", ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_15194_4752_sample() {
+#[tokio::test]
+async fn test_15194_4752_sample() {
     let data_str = "00 00 00 41 00 00 3B 5A 00 00 12 90 00 0D CC D4
 00 00 3B 5A 00 00 12 8F 00 00 14 A8 00 00 20 01
 00 00 14 A7 00 3E 60 01 20 47 C0 02 00 00 00 02
@@ -861,12 +861,12 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         // dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     println!("map={:?}", ele_data.whole_attmap.merge());
 }
 
-#[test]
-fn test_mas_15194_5453() {
+#[tokio::test]
+async fn test_mas_15194_5453() {
     let data_str = "00 00 00 22 00 00 3B 5A 00 00 15 4D 00 0B FE 2A
 00 00 3B 5A 00 00 15 46 00 00 15 4D 00 18 00 01
 00 00 00 00 00 00 00 00 20 0F 80 00 00 00 00 02
@@ -898,14 +898,14 @@ fn test_mas_15194_5453() {
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xDCCD4) {
         // dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
     println!("map={:?}", ele_data.whole_attmap.explicit_attmap);
 }
 
 /// PPRO dehash返回值错误 应为： ( :MDSSprWei OF CATR  )
-#[test]
-fn test_mas_23704_838729() {
+#[tokio::test]
+async fn test_mas_23704_838729() {
     let data_str = "00 00 00 19 00 00 5C 98 00 0C CC 49 00 08 A1 E7
 00 00 5C 98 00 0C CC 2E 00 00 2A 3E 00 26 80 01
 00 00 00 00 00 00 00 00 20 0A C0 00 00 0A 50 65
@@ -930,13 +930,13 @@ fn test_mas_23704_838729() {
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
         dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
     println!("map={:?}", ele_data.whole_attmap.explicit_attmap);
 }
 
-#[test]
-fn test_mas_15213_499889() {
+#[tokio::test]
+async fn test_mas_15213_499889() {
     let data_str = "00 00 00 41 00 00 3B 6D 00 07 A0 B1 00 0D CC D4
 00 00 3B 6D 00 07 A0 AF 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 02
@@ -957,12 +957,12 @@ fn test_mas_15213_499889() {
 00 0C D8 2B 00 00 3B 6D 00 07 A0 AF ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
 }
 
-#[test]
-fn test_mas_15213_499728() {
+#[tokio::test]
+async fn test_mas_15213_499728() {
     let data_str = "00 00 00 21 00 00 3B 6D 00 07 A0 10 00 0F 56 3E
 00 00 3B 6D 00 07 A0 0D 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 03
@@ -977,12 +977,12 @@ fn test_mas_15213_499728() {
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0xF563E) {
         dbg!(map.value());
     };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
 }
 
-#[test]
-fn test_mas_15213_499777() {
+#[tokio::test]
+async fn test_mas_15213_499777() {
     let data_str = "00 00 00 2B 00 00 3B 6D 00 07 A0 41 00 0A F7 1D
 00 00 3B 6D 00 07 A0 3D 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 05
@@ -997,16 +997,16 @@ FF FF FF D8 00 00 00 01 00 00 00 48 00 00 00 00
  00 00 3B 6D 00 07 A0 42 00 0A F7 1D";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PY") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PY") {
         let result = val.string_value();
         assert_eq!(result, "-1 TIMES  DESIGN PARAM 22".to_string());
     }
 }
 
-#[test]
-fn test_mas_15213_499886() {
+#[tokio::test]
+async fn test_mas_15213_499886() {
     let data_str = "00 00 00 41 00 00 3B 6D 00 07 A0 AE 00 0D CC D4
 00 00 3B 6D 00 07 A0 AB 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 02
@@ -1027,22 +1027,22 @@ fn test_mas_15213_499886() {
 00 0D CC D4";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PCTP") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PCTP") {
         let result = val.string_value();
         assert_eq!(
             result,
             "SUM DESIGN PARAM 3 TWICE DESIGN PARAM 15".to_string()
         );
     }
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PTDI") {
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PTDI") {
         let result = val.string_value();
         assert_eq!(result, " DESIGN PARAM 16".to_string());
     }
 }
 
-#[test]
-fn test_master_15194_4234() {
+#[tokio::test]
+async fn test_master_15194_4234() {
     let data_str = "00 00 00 2F 00 00 3B 5A 00 00 10 8A 00 08 73 8B
 00 00 3B 5A 00 00 10 81 00 00 13 FE 00 1A C0 01
 00 00 00 00 00 00 00 00 20 23 00 00 00 00 00 08
@@ -1093,8 +1093,8 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 3C 00 00 03 00 00 00 08 2F 46 4F 52 44 2D 50 38";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    // println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    // println!("map={:?}", ele_data.whole_attmap.attmap);
     // println!("map={:?}", ele_data.whole_attmap.explicit_attmap);
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("PTCD") {
         let result = val.string_value();
@@ -1105,8 +1105,8 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     }
 }
 
-#[test]
-fn test_sample_23984_1039_pdis() {
+#[tokio::test]
+async fn test_sample_23984_1039_pdis() {
     let data_str = "00 00 00 21 00 00 5D B0 00 00 04 0F 00 0F 56 3E
 00 00 5D B0 00 00 03 90 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 00
@@ -1118,16 +1118,16 @@ fn test_sample_23984_1039_pdis() {
 00 00 00 00 00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PDIS") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PDIS") {
         let result = val.string_value();
         println!("{}", &result);
         assert_eq!(result, "TANF DDRADIUS DDANGLE");
     }
 }
 
-#[test]
-fn test_sample_23984_1041_px() {
+#[tokio::test]
+async fn test_sample_23984_1041_px() {
     let data_str = "00 00 00 2F 00 00 5D B0 00 00 04 11 00 08 73 8B
 00 00 5D B0 00 00 03 90 00 00 01 44 00 06 00 01
 00 00 00 00 00 00 00 00 20 33 C0 00 00 00 00 00
@@ -1195,15 +1195,15 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 03 86 00 00 03 24 00 00 03 21 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         assert_eq!(
             result,
             "(PARA[2]+(PARA[4]/(2)*SIN((180*PARA[6])/((PI*(PARA[2]+PARA[4]))))))"
         );
     }
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PZ") {
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PZ") {
         let result = val.string_value();
         dbg!(&result);
         assert_eq!(
@@ -1213,8 +1213,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     }
 }
 
-#[test]
-fn test_sample_23984_1042_px() {
+#[tokio::test]
+async fn test_sample_23984_1042_px() {
     let data_str = "00 00 00 2F 00 00 5D B0 00 00 04 12 00 08 73 8B
 00 00 5D B0 00 00 03 90 00 00 01 39 00 0B C0 01
 00 00 00 00 00 00 00 00 20 09 80 00 00 00 00 00
@@ -1240,16 +1240,16 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 22 00 00 03 24 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         assert_eq!(result, "(PI*(PARA[2]+PARA[4]))");
     }
 }
 
 // 去掉部分括号
-#[test]
-fn test_mas_15213_421214() {
+#[tokio::test]
+async fn test_mas_15213_421214() {
     let data_str = "00 00 00 2F 00 00 3B 6D 00 06 6D 5E 00 08 73 8B
 00 00 3B 6D 00 06 6D 48 00 00 84 2B 00 22 40 01
 00 00 00 00 00 00 00 00 20 39 80 00 00 00 00 02
@@ -1323,13 +1323,13 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 06 A5 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
     println!("map={:?}", ele_data.whole_attmap.explicit_attmap);
 }
 
-#[test]
-fn take_off_uda() {
+#[tokio::test]
+async fn take_off_uda() {
     let pdms_database_info = get_default_pdms_db_info();
     let info_map = pdms_database_info.noun_attr_info_map.clone();
     let new_info_map = DashMap::new();
@@ -1356,8 +1356,8 @@ fn take_off_uda() {
     .unwrap();
 }
 
-#[test]
-fn test_mas_15193_22276_dpro() {
+#[tokio::test]
+async fn test_mas_15193_22276_dpro() {
     let data_str = "00 00 00 19 00 00 3B 59 00 00 57 04 00 08 A1 E7
 00 00 3B 59 00 00 39 C1 00 00 06 6B 00 1E 00 01
 00 00 00 00 00 00 00 00 20 0A 00 00 00 0A 50 56
@@ -1381,15 +1381,15 @@ fn test_mas_15193_22276_dpro() {
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
     //     dbg!(map.value());
     // };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("DPRO") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("DPRO") {
         let result = val.string_value();
         assert_eq!(result, "2000");
     }
 }
 
-#[test]
-fn test_master_15193_300_plax() {
+#[tokio::test]
+async fn test_master_15193_300_plax() {
     let data_str = "00 00 00 29 00 00 3B 59 00 00 01 2C 00 0C 6B 50
 00 00 3B 59 00 00 01 16 00 00 07 07 00 3F 20 01
 00 00 00 00 00 00 00 00 20 12 80 00 00 08 1D 79
@@ -1427,15 +1427,15 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     // if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
     //     dbg!(map.value());
     // };
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PLAX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PLAX") {
         let result = val.string_value();
         assert_eq!(result, "X -165 Y");
     }
 }
 
-#[test]
-fn test_15192_769321_px_e3d() {
+#[tokio::test]
+async fn test_15192_769321_px_e3d() {
     let data_str = "00 00 00 2F 00 00 33 BC 00 00 D1 31 00 08 73 8B
 00 00 33 BC 00 00 D1 19 00 00 0F 33 00 20 60 01
 00 00 00 00 00 00 00 00 20 CD C0 00 00 00 00 53
@@ -1660,20 +1660,20 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 00 02 00 00 00 01 00 00 00 03 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
     }
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PY") {
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PY") {
         let result = val.string_value();
         assert_eq!(result, "(((-((-0.5*PARA[1])+(PARA[1]+PARA[9])*TAN(ANGL/2)*SIN(ANGL)))/2+(-((PARA[1]/2+PARA[9])-PARA[9]*SIN((90-ANGL))))/2)+RPRO OUTB*((-((-0.5*PARA[1])+(PARA[1]+PARA[9])*TAN(ANGL/2)*SIN(ANGL)))/2-(-((PARA[1]/2+PARA[9])-PARA[9]*SIN((90-ANGL))))/2))");
     }
 }
 
-#[test]
-fn test_15192_769321_px_pdms() {
+#[tokio::test]
+async fn test_15192_769321_px_pdms() {
     let data_str = "00 00 00 2F 00 00 3B 58 00 0B BD 29 00 08 73 8B
 00 00 3B 58 00 0B B5 5F 00 00 EC EF 00 06 00 01
 00 00 00 00 00 00 00 00 20 D9 80 00 00 00 00 00
@@ -1908,20 +1908,20 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 25 00 00 03 23 00 00 03 24 00 00 03 22 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    println!("map={:?}", ele_data.whole_attmap.implicit_attmap);
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    println!("map={:?}", ele_data.whole_attmap.attmap);
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
     }
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PY") {
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PY") {
         let result = val.string_value();
         assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
     }
 }
 
-#[test]
-fn test_15194_317_ptax_pbore() {
+#[tokio::test]
+async fn test_15194_317_ptax_pbore() {
     let data_str = "
 00 00 00 21 00 00 3B 5A 00 00 01 3D 00 0F 56 3E
 00 00 3B 5A 00 00 01 3C 00 00 0F 22 00 1B A0 01
@@ -1964,8 +1964,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 2F 43 54 55 42 45 2D 50 41 31 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PBOR") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PBOR") {
         let result = val.string_value();
         assert_eq!(result, "LBOR OF PREV");
     }
@@ -1985,8 +1985,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 // 输入表达式 : (LBOR OF = 10/1701)
 // 计算后表达式 : (LBOR OF = 10/1701)
 // 期望的结果是：(LEAWID OF PREV +IPAR[1])
-#[test]
-fn test_expression_has_of_operator() {
+#[tokio::test]
+async fn test_expression_has_of_operator() {
     let data_str = "
     00 00 00 1D 00 00 3B 5A 00 00 00 FD 00 0B 15 DB
 00 00 3B 5A 00 00 00 FB 00 00 0F 16 00 3B 80 01
@@ -2023,15 +2023,15 @@ FF F6 3E A6 1C 00 00 1E 00 00 00 1D 00 00 00 1D
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PXLE") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PXLE") {
         let result = val.string_value();
         assert_eq!(result, "(LEAWID OF PREV +IPAR[1])");
     }
 }
 
-#[test]
-fn test_pcon_15194_2181_ptax() {
+#[tokio::test]
+async fn test_pcon_15194_2181_ptax() {
     let data_str = "00 00 00 21 00 00 3B 5A 00 00 08 85 00 0F 56 3E
 00 00 3B 5A 00 00 08 84 00 00 11 14 00 09 60 01
 00 00 00 00 00 00 00 00 20 30 40 00 00 00 00 01
@@ -2092,15 +2092,15 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 2F 52 54 54 48 52 45 2D 50 41 31 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PCON") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PCON") {
         let result = val.string_value();
         assert_eq!(result, "RECT");
     }
 }
 
-#[test]
-fn test_ptca_px_long_exp() {
+#[tokio::test]
+async fn test_ptca_px_long_exp() {
     let data_str = "00 00 00 2F 00 00 33 BC 00 00 D1 30 00 08 73 8B
 00 00 33 BC 00 00 D1 19 00 00 0F 31 00 31 80 01
 00 00 00 00 00 00 00 00 20 CD C0 00 00 00 00 54
@@ -2325,8 +2325,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 00 02 00 00 00 01 00 00 00 03 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         dbg!(&result);
     }
@@ -2335,8 +2335,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 // 正在处理元件库的模型，索引：0, 当前参考号：24383/83384, 剩余: 1
 // 输入表达式 : ((0.5*PARA[1]*TAN(/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)
 // 计算后表达式 : ((0.5*500*TAN(/2)+(500+2)*TAN(8/2)*COS(8))/2-((-(500/2+2)*TAN(8/2))+2*COS((90-8)))/2)
-#[test]
-fn test_loss_ANGL_long_exp() {
+#[tokio::test]
+async fn test_loss_ANGL_long_exp() {
     let data_str = "
 00 00 00 2F 00 00 33 BC 00 00 E8 DD 00 08 73 8B
 00 00 33 BC 00 00 E8 C5 00 00 14 26 00 0E 60 01
@@ -2562,8 +2562,8 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         // println!("{:?}", &result);
         assert_eq!(&result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))")
@@ -2574,8 +2574,8 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 //Pzlength ( 2 * MAT ( TRIM ( STR ( ATTRIB DESP[6 ] / 1 GT 50 * 1 ) ) , 'true' ) )
 
 // ( IFTRUE ( UNSET ( ATTRIB DESP[78 ] ) OR ATTRIB DESP[78 ] LT 1 , 1 , 360 / ATTRIB DESP[78 ] ) )
-#[test]
-fn test_15194_404_expr_all_angle() {
+#[tokio::test]
+async fn test_15194_404_expr_all_angle() {
     let data_str = "00 00 00 21 00 00 3B 5A 00 00 01 94 00 0F 56 3E
 00 00 3B 5A 00 00 01 93 00 00 0F 2F 00 37 60 01
 00 00 00 00 00 00 00 00 20 22 40 00 00 00 00 01
@@ -2624,7 +2624,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 41 31 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("ALLANG") {
         let result = val.string_value();
@@ -2633,8 +2633,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     }
 }
 
-#[test]
-fn test_cata_31896_10022_px_para1() {
+#[tokio::test]
+async fn test_cata_31896_10022_px_para1() {
     let data_str = "00 00 00 29 00 00 7C 98 00 00 27 26 00 09 DC C9
 00 00 7C 98 00 00 27 1C 00 02 12 57 00 27 C0 01
 00 00 00 00 00 00 00 00 20 12 80 00 00 00 00 04
@@ -2668,15 +2668,15 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         assert_eq!(&result, "(-0.5*PARA[1]+PARA[3])")
     }
 }
 
-#[test]
-fn test_13246_198158_paax() {
+#[tokio::test]
+async fn test_13246_198158_paax() {
     let data_str = "00 00 00 1B 00 00 33 BE 00 03 06 0E 00 0C D6 96
 00 00 33 BE 00 03 05 F0 00 00 29 9B 00 08 E0 01
 00 00 00 00 00 00 00 00 20 00 C0 00 00 00 00 02
@@ -2688,19 +2688,19 @@ fn test_13246_198158_paax() {
 00 0D 17 DA 0C 00 00 01 00 00 00 02";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PAAX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PAAX") {
         let result = val.string_value();
         assert_eq!(&result, "-P40");
     }
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PBAX") {
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PBAX") {
         let result = val.string_value();
         assert_eq!(&result, "P41");
     }
 }
 
-#[test]
-fn test_13246_198158_paax_2() {
+#[tokio::test]
+async fn test_13246_198158_paax_2() {
     let data_str = "00 00 00 1B 00 00 33 BE 00 03 06 0E 00 0C D6 96
 00 00 33 BE 00 03 05 F0 00 00 FE DE 00 03 80 01
 00 00 00 00 00 00 00 00 20 00 C0 00 00 00 00 02
@@ -2712,15 +2712,15 @@ fn test_13246_198158_paax_2() {
 00 0D 17 DA 0C 00 00 01 00 00 00 02";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    if let Some(val) = ele_data.whole_attmap.implicit_attmap.get_val("PAAX") {
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    if let Some(val) = ele_data.whole_attmap.attmap.get_val("PAAX") {
         let result = val.string_value();
         assert_eq!(&result, "-P1");
     }
 }
 
-#[test]
-fn test_13244_64416_ptcd() {
+#[tokio::test]
+async fn test_13244_64416_ptcd() {
     let data_str = "00 00 00 2F 00 00 33 BC 00 00 FB A0 00 08 73 8B
 00 00 33 BC 00 00 FB 85 00 00 18 52 00 13 00 01
 00 00 00 00 00 00 00 00 20 22 00 00 00 00 00 4B
@@ -2770,15 +2770,15 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 1C 00 00 03 00 00 00 02 00 00 00 01 00 00 00 03";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("PTCD") {
         let result = val.string_value();
         assert_eq!(&result, "TO Z ((PARA[10]/2)) ");
     }
 }
 
-#[test]
-fn test_24381_46973() {
+#[tokio::test]
+async fn test_24381_46973() {
     let data_str = "00 00 00 2B 00 00 5F 3D 00 00 B7 7D 00 09 77 E4
 00 00 5F 3D 00 00 B7 7C 00 00 21 75 00 05 80 01
 00 00 00 00 00 00 00 00 20 50 C0 00 00 00 00 03
@@ -2874,13 +2874,13 @@ C0 56 80 00 00 00 00 00 00 00 00 00 00 00 00 00
 28 00 00 02 00 00 00 03 30 30 31 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    dbg!(&ele_data.whole_attmap.attmap);
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
 
-#[test]
-fn test_hxysize_15194_277() {
+#[tokio::test]
+async fn test_hxysize_15194_277() {
     let data_str = "00 00 00 1D 00 00 3B 5A 00 00 01 15 00 0B 15 DB
 00 00 3B 5A 00 00 01 14 00 00 0F 1A 00 16 20 01
 00 00 00 00 00 00 00 00 20 0B C0 00 00 00 00 02
@@ -2904,6 +2904,6 @@ fn test_hxysize_15194_277() {
 49 00 00 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    dbg!(&ele_data.whole_attmap.attmap);
 }

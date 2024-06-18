@@ -109,7 +109,7 @@ async fn test_parse_members_has_07() {
     ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
+    let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
 }
 //
@@ -918,7 +918,7 @@ async fn test_has_wrong_angle() {
     // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    let map = ele_data.whole_attmap.merge();
+    let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
     assert_eq!(map.get_f32_or_default("ANGL"), 90.0);
 }
@@ -955,7 +955,7 @@ async fn test_parse_20493_348407() {
 61 6C 76 65";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    dbg!(&ele_data.whole_attmap.attmap);
 }
 
 #[tokio::test]
@@ -1142,7 +1142,9 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 ";
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    dbg!(&ele_data.whole_attmap.implicit_attmap);
+    // dbg!(&ele_data.whole_attmap.implicit_attmap);
+    assert_eq!(ele_data.whole_attmap.attmap.get_as_string("PY").unwrap(),
+               "((RPRO HEIG-PARA[26])-(0.5*SQRT((((PARA[2]+PARA[11])*(PARA[2]+PARA[11]))-(PARA[9]*PARA[9])))))");
 }
 
 

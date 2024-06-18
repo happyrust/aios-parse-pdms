@@ -406,16 +406,10 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     }
 
     let explicit_start = actual_impl_len + memb_bytes_len;
-    if explicit_start >= input.len() {
-        return Err(anyhow!("explicit_start >= input.len()"));
+    if explicit_start > input.len() {
+        return Err(anyhow!("explicit_start > input.len()"));
     }
     let explicit_data = &input[explicit_start..];
-    let maybe_refno = if membs_data.len() > 12 {
-        Some(RefU64::from(&membs_data[4..12]))
-    } else {
-        None
-    };
-    let mut explicit_bytes_len = 0;
     let mut sorted_noun_hash = sort_offsets(&hash_type_info_map);
     let mut cur_offset: i32 = 0;
     let mut is_f32 = false;
@@ -505,10 +499,9 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     implicit_attmap.insert("REFNO".into(), NamedAttrValue::RefU64Type(refno));
     let name = implicit_attmap.get_name_or_default();
     let whole_attmap = WholeAttMap {
-        implicit_attmap,
+        attmap: implicit_attmap,
         explicit_attmap,
-    }
-        .refine(&cur_type_info_map);
+    }.refine(&cur_type_info_map);
 
     Ok(EleData {
         refno,
