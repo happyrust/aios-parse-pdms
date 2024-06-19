@@ -4,8 +4,8 @@ use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::RefU64;
 use aios_core::tool::db_tool::{db1_dehash, read_attr_info_config_from_json};
 
-#[test]
-fn test_uda_dehash() {
+#[tokio::test]
+async fn test_uda_dehash() {
     let hash = db1_dehash(0x2902D6E0);
     assert_eq!(":CNPEspco".to_string(), hash);
     let hash = db1_dehash(0xE473396C);
@@ -19,8 +19,8 @@ fn test_uda_dehash() {
 // ams desi 24381/48631
 // 当前值  :4WO
 // 期望值  :3D_SJRY
-#[test]
-fn test_parse_uda_data_24381_48631() {
+#[tokio::test]
+async fn test_parse_uda_data_24381_48631() {
     let data_str = "
     00 00 00 29 00 00 5C 20 00 00 15 D4 00 08 F3 A6
 00 00 5C 20 00 00 15 D1 00 00 26 F5 00 05 40 01
@@ -46,15 +46,15 @@ fn test_parse_uda_data_24381_48631() {
     ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     for (key, value) in ele_data.whole_attmap.explicit_attmap.map {
         dbg!(&key);
         dbg!(&value);
     }
 }
 
-#[test]
-fn test_14194_4_udna() {
+#[tokio::test]
+async fn test_14194_4_udna() {
     let data_str = "00 00 00 1B 00 00 37 72 00 00 00 04 00 08 1F 4B
 00 00 37 72 00 00 00 03 00 00 00 4B 00 03 80 01
 00 00 00 00 00 00 00 00 20 14 40 00 29 02 D6 DA
@@ -86,14 +86,13 @@ fn test_14194_4_udna() {
 00 09 72 47";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
-    dbg!(&ele_data.whole_attmap.implicit_attmap);
-    dbg!(&ele_data.whole_attmap.explicit_attmap);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
 }
 
-#[test]
-fn test_13292_185_udna() {
-    let data_str = "00 00 00 1B 00 00 33 EC 00 00 00 B9 00 08 1F 4B
+#[tokio::test]
+async fn test_udna_1() {
+    let data_str = "
+00 00 00 1B 00 00 33 EC 00 00 00 B9 00 08 1F 4B
 00 00 33 EC 00 00 00 B8 00 00 00 46 00 35 C0 01
 00 00 00 00 00 00 00 00 20 05 C0 00 26 52 AB 9E
 00 00 00 08 45 2D 57 65 69 67 68 74 00 00 00 00
@@ -109,13 +108,13 @@ fn test_13292_185_udna() {
 1C 00 00 02 00 00 00 01 00 AC 03 06";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
 
 //15198/530
-#[test]
-fn test_13292_185_udna() {
+#[tokio::test]
+async fn test_13292_185_udna() {
     let data_str = "
     00 00 00 1B 00 00 3B 5E 00 00 02 12 00 08 1F 4B
 00 00 3B 5E 00 00 02 0D 00 00 00 13 00 00 20 01
@@ -141,7 +140,7 @@ fn test_13292_185_udna() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
 
