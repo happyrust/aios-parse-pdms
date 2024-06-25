@@ -367,10 +367,6 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     let mut pgno = parse_to_u32(&input[24..28]);
     //这里需要判断是否为0
     if pgno == 0 {
-        //出现了8个连续的0
-        // 00 00 00 20 00 00 44 58 00 04 1C 1B 00 0D BF 71
-        // 00 00 44 58 00 04 1C 18 00 00 00 00 00 00 00 00
-        // 00 00 85 CE
         pgno = parse_to_u32(&input[32..36]);
     }
     if actual_impl_len + 4 < input.len() {
@@ -515,10 +511,6 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
     })
 }
 
-// pub enum PdmsPage{
-//     INDEX_PAG = 0x00CC47DF,
-//
-// }
 
 //移除00 00 00 007，保留后面的数据
 pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
@@ -527,7 +519,6 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
     if !has_next {
         return bytes;
     }
-    // let refno = RefU64::from(&input[4..12]);
     while has_next {
         //还可能遇到各种page，需要跳过，暂时假定只有遇到INDEX Page的情况
         let v = parse_to_i32(&input[..4]);
@@ -553,11 +544,8 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
                     } else {
                         break;
                     }
-                    // println!("{:#4X?}", &input);
                 } else {
                     break;
-                    // bytes.extend(input);
-                    // has_next = input.len() >= 4 * 3;
                 }
             }
             _ => {
@@ -571,11 +559,7 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
                 if len < 5 || len > input.len() || maybe_refno != refno {
                     break;
                 }
-                // if bytes.is_empty(){
-                //     bytes.extend(&input[..len*4]);
-                // }else{
                 bytes.extend(&input[20..len * 4]);
-                // }
                 input = &input[len * 4..];
                 has_next = input.len() >= 4 * 3;
             }
@@ -631,12 +615,7 @@ pub fn parse_db_basic_data(
     let children = children_refnos
         .iter()
         .filter(|x| refno_table_map.contains_key(x))
-        .map(|&x| {
-            // (
-            x
-            // db1_dehash(refno_table_map.get(x).unwrap().noun_hash as _),
-            // )
-        })
+        .map(|&x| { x })
         .collect::<Vec<_>>();
 
     children_map.insert(refno, children);
@@ -660,12 +639,7 @@ pub fn parse_db_basic_data(
             let children = membs
                 .iter()
                 .filter(|x| refno_table_map.contains_key(x))
-                .map(|&x| {
-                    // (
-                    x
-                    // db1_dehash(refno_table_map.get(x).unwrap().noun_hash as _),
-                    // )
-                })
+                .map(|&x| { x })
                 .collect::<Vec<_>>();
             for memb in &membs {
                 if !all_refnos.contains(&memb) {
