@@ -90,7 +90,7 @@ pub async fn parse_pdms_dir(
     project: &str,
     config_path: Option<&str>,
     need_parsed_files: &Option<Vec<String>>,
-) -> anyhow::Result<DashMap<String, PdmsDbData>> {
+) -> Result<DashMap<String, PdmsDbData>> {
     let dir = PathBuf::from(dir);
     let mut pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?
@@ -128,7 +128,7 @@ pub async fn parse_pdms_dir(
             pdms_db_data
                 .total_attr_map
                 .iter()
-                .try_for_each::<_, anyhow::Result<()>>(|m| {
+                .try_for_each::<_, Result<()>>(|m| {
                     let map = m.value();
                     let num = map
                         .get_u32("NUMBDB")
@@ -202,8 +202,8 @@ pub fn parse_file_db_basic_data(
     database_info: &Option<PdmsDatabaseInfo>,
     file_name: &str,
     project: &str,
-) -> anyhow::Result<DbBasicData> {
-    let time_start = std::time::Instant::now();
+) -> Result<DbBasicData> {
+    let time_start = Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut buf)?;
@@ -224,8 +224,8 @@ pub async fn parse_file(
     database_info: &Option<PdmsDatabaseInfo>,
     file_name: &str,
     project: &str,
-) -> anyhow::Result<PdmsDbData> {
-    let time_start = std::time::Instant::now();
+) -> Result<PdmsDbData> {
+    let time_start = Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut buf).ok();
@@ -248,7 +248,7 @@ pub async fn parse_file_with_chunk(
     file_name: &str,
     project: &str,
     chunk_refnos: &[RefU64],
-) -> anyhow::Result<PdmsDbData> {
+) -> Result<PdmsDbData> {
     if database_info.is_none() {
         //使用默认的配置信息
         let db_info = get_default_pdms_db_info();
@@ -342,7 +342,7 @@ pub fn parse_ele_children(input: &[u8]) -> (RefU64, RefU64Vec) {
 
 ///解析单个Element Data数据
 #[inline]
-pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
+pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     let mut implicit_attmap = NamedAttrMap::default();
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
@@ -453,13 +453,13 @@ pub async fn parse_ele_data(input: &[u8]) -> anyhow::Result<EleData> {
         }
         if i < sorted_noun_hash.len() - 1 {
             let next_attr_info = hash_type_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
-            step_w = (next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32;
+            step_w = ((next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32);
         } else {
             step_w = origin_impl_len / 4 - (attr_info.offset as i32 & 0xFFFFF);
         }
-
+        let step = step_w.max(1) as usize;
         if let Ok((_, att_val)) =
-            parse_implicit_attr_value(&implicit_data, &attr_info, is_f32, f32_neg_offset, step_w)
+            parse_implicit_attr_value(&implicit_data, &attr_info, is_f32, f32_neg_offset, step)
         {
             match &att_val {
                 RefU64Type(value) => {
@@ -550,7 +550,7 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
             }
             _ => {
                 let flag = parse_to_u16(&input[0..2]) as usize;
-                if flag != 1{
+                if flag != 1 {
                     break;
                 }
                 let len = parse_to_u16(&input[2..4]) as usize;
@@ -593,7 +593,7 @@ pub fn parse_db_basic_data(
     database_info: &PdmsDatabaseInfo,
     file_name: &str,
     project: &str,
-) -> anyhow::Result<DbBasicData> {
+) -> Result<DbBasicData> {
     let mut gen_ref_time = Instant::now();
     let noun_attr_info_map = &database_info.named_attr_info_map;
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(&input, noun_attr_info_map);
@@ -673,7 +673,7 @@ pub async fn parse_db_with_chunk(
     file_name: &str,
     project: &str,
     chunk_refnos: &[RefU64],
-) -> anyhow::Result<PdmsDbData> {
+) -> Result<PdmsDbData> {
     let input = &db_basic_data.bytes;
     let type_ele_map = Arc::new(DashMap::new());
     let total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
@@ -794,14 +794,14 @@ pub async fn parse_db(
     database_info: &PdmsDatabaseInfo,
     file_name: &str,
     project: &str,
-) -> anyhow::Result<PdmsDbData> {
+) -> Result<PdmsDbData> {
     let mut type_ele_map = Arc::new(DashMap::new());
     let mut all_attr_map: Arc<DashMap<RefU64, AttrMap>> = Arc::new(DashMap::new());
     let mut total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
     // k : 参考号  v : dashmap -> k : 外键的类型  v: 外键的参考号
     let mut foreign_refnos_map: Arc<DashMap<RefU64, DashMap<String, RefU64>>> =
         Arc::new(DashMap::new());
-    let time_start = std::time::Instant::now();
+    let time_start = Instant::now();
     let mut field_no = 0;
 
     let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
@@ -951,15 +951,11 @@ pub fn parse_implicit_attr_value<'a>(
     attr_info: &'a AttrInfo,
     f32_flag: bool,
     f32_neg_offset: usize,
-    step_w: i32, //dword 即 4字节数量
+    step: usize, //dword 即 4字节数量
 ) -> IResult<&'a [u8], AttrVal> {
-    let mut val = AttrVal::InvalidType;
-    //是否是表达式
-    // dbg!(attr_info);
+    let mut val = InvalidType;
     let b_expr = check_is_expr(attr_info.hash);
     let offset = ((attr_info.offset & 0xFFFF) as usize - f32_neg_offset) * 4;
-    // dbg!(f32_neg_offset);
-    // dbg!(offset);
     if offset > origin_bytes.len() {
         return Err(nom::Err::Error(nom::error::make_error(
             origin_bytes,
@@ -968,31 +964,32 @@ pub fn parse_implicit_attr_value<'a>(
     }
     let bytes = &origin_bytes[offset..];
     if b_expr {
-        let (_, attr_val) = parse_to_expression(bytes, attr_info.default_val.clone())?;
+        //既然当作表达式，而且又在隐含属性里，这里需要把bytes的长度锁定
+        let (_, attr_val) = parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
         val = attr_val;
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
         if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS {
             let (bytes, len) = be_u32(bytes)?;
             let (_, result) = count(be_i32, len as usize)(bytes)?;
-            val = AttrVal::IntArrayType(result);
+            val = IntArrayType(result);
         } else if attr_info.hash == ATT_BANG {
             // println!("{:#4X?}", &bytes[..4]);
             let r = parse_to_i32(&bytes[..4]);
-            val = AttrVal::DoubleType((r as f64) / 100.0)
+            val = DoubleType((r as f64) / 100.0)
         } else {
             match attr_info.default_val {
-                AttrVal::IntegerType(_) => {
+                IntegerType(_) => {
                     let (_, r) = be_i32(bytes)?;
-                    val = AttrVal::IntegerType(r);
+                    val = IntegerType(r);
                 }
-                AttrVal::DoubleType(_) => {
-                    if f32_flag || step_w == 1 {
+                DoubleType(_) => {
+                    if f32_flag || step == 1 {
                         if bytes.len() >= 4 {
                             let d = parse_to_f32(&bytes[..4]) as f64;
-                            val = AttrVal::DoubleType(d as _);
+                            val = DoubleType(d as _);
                         } else {
-                            dbg!(step_w);
+                            dbg!(step);
                             dbg!(f32_flag);
                             dbg!(f32_neg_offset);
                             dbg!(attr_info);
@@ -1002,72 +999,72 @@ pub fn parse_implicit_attr_value<'a>(
                         if bytes.len() >= 8 {
                             let d = parse_to_f64(&bytes[..8]);
                             if d > f32::MAX as f64 {
-                                val = AttrVal::DoubleType(0.0);
+                                val = DoubleType(0.0);
                             } else {
-                                val = AttrVal::DoubleType(d);
+                                val = DoubleType(d);
                             }
                         } else {
-                            dbg!(step_w);
+                            dbg!(step);
                             dbg!(f32_flag);
                             dbg!(attr_info);
                         }
                     }
                 }
-                AttrVal::BoolType(_) => {
+                BoolType(_) => {
                     //直接在定位的byte上执行
                     let o = (attr_info.offset >> 0x14) as usize;
                     let (_, r) = be_u32(bytes)?;
                     let result = r >> o & 1;
-                    val = AttrVal::BoolType(result == 1);
+                    val = BoolType(result == 1);
                 }
-                AttrVal::StringType(_) => {
+                StringType(_) => {
                     let (_, str_len) = be_i32(bytes)?;
                     let str_len = str_len as usize;
                     //有些应该是没有分清类型的数据？
-                    if step_w == 1 && str_len != 0 {
+                    if step == 1 && str_len != 0 {
                         if &bytes[..2] == &[0, 0] || &bytes[..2] == &[0xFF, 0xFF] {
                             let d = parse_to_i32(&bytes[..4]);
-                            val = AttrVal::IntegerType(d);
+                            val = IntegerType(d);
                         } else {
                             let d = parse_to_f32(&bytes[..4]) as f64;
-                            val = AttrVal::DoubleType(d);
+                            val = DoubleType(d);
                         }
                     } else if str_len < bytes.len() && bytes.len() >= 4 {
                         if str_len + 4 <= bytes.len() {
                             let (decode_string, _b_chi) = decode_chars_data(&bytes[4..str_len + 4]);
-                            val = AttrVal::StringType(decode_string.into());
+                            val = StringType(decode_string.into());
                         }
                     } else {
-                        val = AttrVal::StringType("".into());
+                        val = StringType("".into());
                     }
                 }
-                AttrVal::ElementType(_) | AttrVal::RefU64Type(_) => {
+                ElementType(_) | RefU64Type(_) => {
                     let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(bytes)?;
                     if ref_0 == 0 {
-                        val = AttrVal::RefU64Type(Default::default());
+                        val = RefU64Type(Default::default());
                     } else {
-                        val = AttrVal::RefU64Type(RefU64::from_two_nums(ref_0, ref_1));
+                        val = RefU64Type(RefU64::from_two_nums(ref_0, ref_1));
                     }
                 }
-                AttrVal::WordType(_) => {
+                WordType(_) => {
                     let (_, v) = be_i32(bytes)?;
                     if v > 0x81BF1 {
-                        val = AttrVal::WordType(db1_dehash(v as u32).into());
+                        val = WordType(db1_dehash(v as u32).into());
                     } else {
-                        val = AttrVal::IntegerType(v);
+                        val = IntegerType(v);
                     }
                 }
                 //todo need to find if exist invalid data
-                AttrVal::Vec3Type(_) => {
+                Vec3Type(_) => {
                     // let mut data = [0f64; 3];
                     let (l, cnt) = be_i32(bytes)?;
                     let data_len = l.len() / 4; //WORD个数
                     if f32_flag {
                         if data_len >= 3 {
                             let data = parse_to_f32_arr(l, 3).try_into().unwrap();
-                            val = AttrVal::Vec3Type(data);
+                            val = Vec3Type(data);
                         } else {
-                            dbg!(step_w);
+                            dbg!(step);
                             dbg!(data_len);
                             dbg!(f32_flag);
                             dbg!(cnt);
@@ -1077,9 +1074,9 @@ pub fn parse_implicit_attr_value<'a>(
                     } else {
                         if data_len >= 6 {
                             let data = parse_to_f64_arr(l, 3).try_into().unwrap();
-                            val = AttrVal::Vec3Type(data);
+                            val = Vec3Type(data);
                         } else {
-                            dbg!(step_w);
+                            dbg!(step);
                             dbg!(data_len);
                             dbg!(f32_flag);
                             dbg!(cnt);
@@ -1087,10 +1084,10 @@ pub fn parse_implicit_attr_value<'a>(
                         }
                     }
                 }
-                AttrVal::DoubleArrayType(_) => {
+                DoubleArrayType(_) => {
                     let (l, cnt) = be_i32(bytes)?;
                     let data = parse_to_f32_arr(l, cnt as _);
-                    val = AttrVal::DoubleArrayType(data);
+                    val = DoubleArrayType(data);
                 }
                 // DbAttributeType::DATETIME => {}
                 _ => {}
@@ -1155,11 +1152,6 @@ pub async fn parse_explicit_attrs<'a>(
         if is_debug {
             dbg!(&att_name);
         }
-
-        // if att_name == "DTIT" {
-        //     dbg!(&att_name);
-        // }
-        // println!("hash={:#04X?}", hash_val);
         if check_is_expr(hash_val) {
             let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
             if value.is_empty() {
@@ -1199,7 +1191,7 @@ pub async fn parse_explicit_attrs<'a>(
                             if tmp_input.len() > 4 && 4 + len_a <= tmp_input.len() {
                                 let (decode_string, _b_chi) =
                                     decode_chars_data(&tmp_input[4..4 + len_a]);
-                                att_value = Some(AttrVal::StringType(decode_string.into()));
+                                att_value = Some(StringType(decode_string.into()));
                             } else {
                                 // println!("len_a={:#04X?}", len_a);
                                 // println!("error refno={:?}", refno);
@@ -1361,7 +1353,7 @@ pub async fn parse_explicit_attrs<'a>(
                                         decode_chars_data(&tmp_input[4..4 + len_a]);
                                     // let name_hash = string_lookup.add_str(decode_string.as_str());
                                     // att_value = Some(StringHashType(name_hash));
-                                    att_value = Some(AttrVal::StringType(decode_string.into()));
+                                    att_value = Some(StringType(decode_string.into()));
                                 } else {
                                     println!("len_a={:#04X?}", len_a);
                                     println!("error refno={:?}", refno);
@@ -1522,28 +1514,66 @@ pub fn round_f32(input: f32) -> f32 {
     (input * 100.0).round() / 100.0
 }
 
+#[inline]
+fn convert_int_to_axis_str(n: i32) -> &'static str {
+    match n {
+        1 => "X",
+        2 => "Y",
+        3 => "Z",
+        4 => "-X",
+        5 => "-Y",
+        6 => "-Z",
+        _ => ""
+    }
+}
+
+
 /// 特殊处理AXIS隐式属性
 pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], AttrVal> {
-    let (res_input, flag) = be_u32(input)?;
+    let (res_input, a) = be_i32(input)?;
+    let cnt = input.len() / 4;
+    if cnt == 1 {
+        let f = a as f32 / 100.0;
+        return Ok((input, StringType(f.to_string())));
+    }
+    // if cnt < 3 {
+    //     return Err(nom::Err::Incomplete(nom::Needed::Unknown));
+    // }
     let mut val = default;
-    // dbg!(flag);
-    if flag == 2 {
-        match &res_input[..8] {
-            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("X".into()),
-            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("Y".into()),
-            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => val = AttrVal::StringType("Z".into()),
-            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("-X".into()),
-            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("-Y".into()),
-            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x3] => val = AttrVal::StringType("-Z".into()),
+    if a == 2 {
+        let (res_b, b) = be_i32(res_input)?;
+        match b {
+            1 | 2 => {
+                let (_, c) = be_i32(res_b)?;
+                let str = convert_int_to_axis_str(c + (b - 1) * 3);
+                val = StringType(str.into())
+            }
 
-            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x0] => val = AttrVal::StringType("P0".into()),
-            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("P1".into()),
-            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("P2".into()),
-            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE8] => val = AttrVal::StringType("-P0".into()),
-            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE9] => val = AttrVal::StringType("-P1".into()),
-            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xEA] => val = AttrVal::StringType("-P2".into()),
+            3 => {
+                let (_, c) = be_i32(res_b)?;
+                let (flag, num) = if c >= 0xE8 {
+                    ("-", c - 0xE8)
+                } else {
+                    ("", c)
+                };
+                let str = format!("{flag}P{}", num.abs());
+                val = StringType(str.into())
+            }
+            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => val = StringType("X".into()),
+            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => val = StringType("Y".into()),
+            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => val = StringType("Z".into()),
+            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1] => val = StringType("-X".into()),
+            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x2] => val = StringType("-Y".into()),
+            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x3] => val = StringType("-Z".into()),
+            //
+            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x0] => val = StringType("P0".into()),
+            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x1] => val = StringType("P1".into()),
+            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x2] => val = StringType("P2".into()),
+            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE8] => val = StringType("-P0".into()),
+            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE9] => val = StringType("-P1".into()),
+            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xEA] => val = StringType("-P2".into()),
 
-            &_ => {
+            _ => {
                 match &res_input[..3] {
                     &[0xFF, 0xFF, 0xFF] => {
                         let (_, radius) = be_i32(&res_input[4..8])?;
@@ -1625,7 +1655,7 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                             }
                             &_ => {}
                         }
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &_ => {}
                 }
@@ -1634,168 +1664,168 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                     &[0x0, 0x0, 0x0, 0x3] => {
                         // let (_, value) = be_u8(&tmp_input[7..8])?;
                         let (_, value) = be_u32(&res_input[4..8])?;
-                        val = AttrVal::StringType(format!("P{}", value).into());
+                        val = StringType(format!("P{}", value).into());
                         if value > 1000 {
                             let value = value - 1000;
-                            val = AttrVal::StringType(format!("-P{}", value).into());
+                            val = StringType(format!("-P{}", value).into());
                         }
                     }
                     &[0x0, 0x0, 0x0, 0xC] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0xD] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0xE] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} -X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0xF] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} -Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x10] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("X {} -Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x15] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x17] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x18] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} -X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x19] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} -Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x1A] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Y {} -Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x1F] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x20] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         // dbg!(&value);
                         let result = format!("Z {} Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x22] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} -X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x23] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} -Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x24] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("Z {} -Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x29] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} -X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2A] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2B] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2D] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} -Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x2E] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-X {} -Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x33] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x34] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x35] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x36] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} -X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x38] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Y {} -Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x3D] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x3E] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x3F] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} Z", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x40] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} -X", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     &[0x0, 0x0, 0x0, 0x41] => {
                         let value = get_expression_angle_or_param(&res_input[4..8])?.1;
                         let result = format!("-Z {} -Y", value);
-                        val = AttrVal::StringType(result.into());
+                        val = StringType(result.into());
                     }
                     _ => {}
                 }
             }
         }
-    } else if flag == 4 {
+    } else if a == 4 {
         let mut val_string = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
         match &res_input[..2] {
@@ -1982,9 +2012,9 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
 
 /// 特殊处理AXIS显式属性
 pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&[u8], AttrVal> {
-    let mut result = AttrVal::StringType("".into());
+    let mut result = StringType("".into());
     if input.len() < 20 {
-        let (_, val) = parse_to_expression(input, AttrVal::StringType("".to_owned()))?;
+        let (_, val) = parse_to_expression(input, StringType("".to_owned()))?;
         result = val;
     } else {
         // 检测是否以 1A 1A 05 02 17 开头
@@ -1998,7 +2028,7 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
                     first_data = format!("AXIS {}", first_data);
                 }
                 let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
-                result = AttrVal::StringType((format!("{}{}", first_data, second)));
+                result = StringType((format!("{}{}", first_data, second)));
             }
             // 0x17 开头代表是 X () Y () Z 这种类型
             [0x2, 0x17] => {
@@ -2008,12 +2038,12 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
                 }
                 let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno)?;
                 let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
-                result = AttrVal::StringType((format!("{}{}{}", first_data, second_data, third)));
+                result = StringType((format!("{}{}{}", first_data, second_data, third)));
             }
             [0x2, 0x34] => {
                 let func = match_direction_attribute_to_string(parse_to_u32(&tmp_input[4..8]));
                 let (_tmp_input, mut first_data) = parse_xyz_data(&tmp_input[8..], refno)?;
-                result = AttrVal::StringType((format!("{} {}", func, first_data)));
+                result = StringType((format!("{} {}", func, first_data)));
             }
             _ => match &tmp_input[..8] {
                 &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => result = StringType("X".into()),
@@ -2093,7 +2123,7 @@ pub fn is_cata_noun(bytes: &[u8]) -> bool {
 }
 
 ///保存 noun_hash->refno  map
-pub fn save_type_hash_file(dir: &str, out_name: &str) -> anyhow::Result<()> {
+pub fn save_type_hash_file(dir: &str, out_name: &str) -> Result<()> {
     let mut unique_hash_refno_map = DashMap::new();
     let mut path_buf = fs::read_dir(dir)?
         .into_iter()
