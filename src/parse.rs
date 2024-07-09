@@ -1530,50 +1530,34 @@ fn convert_int_to_axis_str(n: i32) -> &'static str {
 
 /// 特殊处理AXIS隐式属性
 pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], AttrVal> {
-    let (res_input, a) = be_i32(input)?;
+    let (res_input, flag) = be_i32(input)?;
     let cnt = input.len() / 4;
     if cnt == 1 {
-        let f = a as f32 / 100.0;
+        let f = flag as f32 / 100.0;
         return Ok((input, StringType(f.to_string())));
     }
     // if cnt < 3 {
     //     return Err(nom::Err::Incomplete(nom::Needed::Unknown));
     // }
     let mut val = default;
-    if a == 2 {
-        let (res_b, b) = be_i32(res_input)?;
-        match b {
-            1 | 2 => {
-                let (_, c) = be_i32(res_b)?;
-                let str = convert_int_to_axis_str(c + (b - 1) * 3);
-                val = StringType(str.into())
-            }
+    // dbg!(flag);
+    if flag == 2 {
+        match &res_input[..8] {
+            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("X".into()),
+            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("Y".into()),
+            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => val = AttrVal::StringType("Z".into()),
+            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("-X".into()),
+            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("-Y".into()),
+            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x3] => val = AttrVal::StringType("-Z".into()),
 
-            3 => {
-                let (_, c) = be_i32(res_b)?;
-                let (flag, num) = if c >= 0xE8 {
-                    ("-", c - 0xE8)
-                } else {
-                    ("", c)
-                };
-                let str = format!("{flag}P{}", num.abs());
-                val = StringType(str.into())
-            }
-            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => val = StringType("X".into()),
-            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => val = StringType("Y".into()),
-            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => val = StringType("Z".into()),
-            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1] => val = StringType("-X".into()),
-            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x2] => val = StringType("-Y".into()),
-            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x3] => val = StringType("-Z".into()),
-            //
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x0] => val = StringType("P0".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x1] => val = StringType("P1".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x2] => val = StringType("P2".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE8] => val = StringType("-P0".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE9] => val = StringType("-P1".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xEA] => val = StringType("-P2".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x0] => val = AttrVal::StringType("P0".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("P1".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("P2".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE8] => val = AttrVal::StringType("-P0".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE9] => val = AttrVal::StringType("-P1".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xEA] => val = AttrVal::StringType("-P2".into()),
 
-            _ => {
+            &_ => {
                 match &res_input[..3] {
                     &[0xFF, 0xFF, 0xFF] => {
                         let (_, radius) = be_i32(&res_input[4..8])?;
@@ -1825,7 +1809,7 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                 }
             }
         }
-    } else if a == 4 {
+    } else if flag == 4 {
         let mut val_string = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
         match &res_input[..2] {
@@ -2240,6 +2224,7 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
     let ses_pgno = parse_to_u32(&input[40..44]);
     (file_type, ses_pgno, db_no)
 }
+
 
 //todo 需要完善情况
 ///获得参考号对应的Entry
