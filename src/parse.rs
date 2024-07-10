@@ -45,6 +45,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use aios_core::petgraph::PetRefnoNode;
+use pretty_hex::simple_hex;
 use tokio::io::AsyncReadExt;
 
 
@@ -429,14 +430,14 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         let noun_hash = sorted_noun_hash[i];
         let noun_name = db1_dehash(noun_hash as _);
         let attr_info = cur_type_info_map.get(&noun_name).unwrap();
-        let mut cur_len: i32 = 0;
         if cur_offset == 0 {
             cur_offset = (attr_info.offset & 0xFFFFF) as i32;
         }
         let mut step_w = 0;
         if i >= 1 {
             let prev_attr_info = hash_type_info_map.get(&sorted_noun_hash[i - 1]).unwrap();
-            if is_f32 {
+            let b_expr = check_is_expr(prev_attr_info.hash);
+            if is_f32 && !b_expr {
                 match prev_attr_info.att_type {
                     DbAttributeType::DOUBLE => {
                         f32_neg_offset += 1;
@@ -597,6 +598,12 @@ pub fn parse_db_basic_data(
     let mut gen_ref_time = Instant::now();
     let noun_attr_info_map = &database_info.named_attr_info_map;
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(&input, noun_attr_info_map);
+    // {
+    //     let test_refno: RefU64 = "13802_1954".into();
+    //     if let Some(entry) = refno_table_map.get(&test_refno){
+    //         dbg!(entry.value());
+    //     }
+    // }
     println!(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
@@ -955,7 +962,11 @@ pub fn parse_implicit_attr_value<'a>(
 ) -> IResult<&'a [u8], AttrVal> {
     let mut val = InvalidType;
     let b_expr = check_is_expr(attr_info.hash);
+    // dbg!(attr_info);
     let offset = ((attr_info.offset & 0xFFFF) as usize - f32_neg_offset) * 4;
+    // if attr_info.name.as_str() == "BANG" || attr_info.name.as_str() == "DRNS"{
+    //     dbg!(offset);
+    // }
     if offset > origin_bytes.len() {
         return Err(nom::Err::Error(nom::error::make_error(
             origin_bytes,
@@ -963,6 +974,7 @@ pub fn parse_implicit_attr_value<'a>(
         )));
     }
     let bytes = &origin_bytes[offset..];
+    // println!("{}", pretty_hex::pretty_hex(&bytes));
     if b_expr {
         //既然当作表达式，而且又在隐含属性里，这里需要把bytes的长度锁定
         let (_, attr_val) = parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
@@ -973,11 +985,7 @@ pub fn parse_implicit_attr_value<'a>(
             let (bytes, len) = be_u32(bytes)?;
             let (_, result) = count(be_i32, len as usize)(bytes)?;
             val = IntArrayType(result);
-        } else if attr_info.hash == ATT_BANG {
-            // println!("{:#4X?}", &bytes[..4]);
-            let r = parse_to_i32(&bytes[..4]);
-            val = DoubleType((r as f64) / 100.0)
-        } else {
+        }  else {
             match attr_info.default_val {
                 IntegerType(_) => {
                     let (_, r) = be_i32(bytes)?;
@@ -1149,9 +1157,9 @@ pub async fn parse_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        if is_debug {
-            dbg!(&att_name);
-        }
+        // if is_debug {
+        //     dbg!(&att_name);
+        // }
         if check_is_expr(hash_val) {
             let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
             if value.is_empty() {

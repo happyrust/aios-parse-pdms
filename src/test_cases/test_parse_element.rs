@@ -923,6 +923,29 @@ async fn test_has_wrong_angle() {
     assert_eq!(map.get_f32_or_default("ANGL"), 90.0);
 }
 
+
+
+#[tokio::test]
+async fn test_has_wrong_scom() {
+    let data_str = "
+00 00 00 12 00 00 35 EA 00 00 07 A2 00 0C 2E 93
+00 00 35 EA 00 00 07 90 00 00 00 A0 00 29 C0 01
+00 00 00 00 00 00 00 00 00 03 80 00 00 09 A4 5D
+00 00 35 EA 00 00 07 B6 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 01 00 13 00 00 35 EA
+00 00 07 A2 00 00 00 00 00 00 00 00 00 09 C1 8E
+3C 00 00 07 00 00 00 15 2F 41 53 4D 45 5F 42 33
+36 2E 31 30 2F 41 31 2F 54 59 41 53 51 00 00 00
+00 08 9C 41 18 00 00 03 00 00 00 02 43 AF 00 00
+43 B1 CC CD
+";
+    // 2C 00 D5 76
+    let data = convert_str_to_bytes(data_str);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let map = &ele_data.whole_attmap.attmap;
+    dbg!(&map);
+}
+
 #[tokio::test]
 async fn test_parse_20493_348407() {
     let data_str = "00 00 00 0F 00 00 50 0D 00 05 50 F7 00 09 D3 E1

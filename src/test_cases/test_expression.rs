@@ -2962,3 +2962,37 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     // dbg!(&ele_data.whole_attmap.attmap);
     assert_eq!(ele_data.whole_attmap.attmap.get_val("PAXI").unwrap().string_value(), "-P4");
 }
+
+#[tokio::test]
+async fn test_parse_SPRE() {
+    let data_str = "
+00 00 00 35 00 00 40 03 00 01 3F CC 0A AD 58 D2
+00 00 40 03 00 01 3F 8A 00 00 35 D9 00 3C 00 01
+00 00 00 00 00 00 00 00 00 05 80 00 00 0B D8 F3
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03
+3F 20 EE C5 BF 47 16 F0 00 00 00 00 00 00 00 03
+3F 47 07 E8 3F 21 01 5C 00 00 00 00 00 00 00 03
+46 9E 3C 00 42 98 00 00 46 AB 17 FF 00 00 00 03
+46 9A A8 00 C5 85 E0 02 46 AB 17 FF 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 08 1C 1A
+00 08 1C 1A 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 3B 59 00 00 6C 45 00 00 00 01
+5F 61 67 78 00 01 00 1B 00 00 40 03 00 01 3F CC
+00 00 00 00 00 00 00 00 00 09 C1 8E 3C 00 00 05
+00 00 00 0D 2F 4E 57 2D 56 28 33 32 32 29 2D 31
+38 00 00 00 00 09 39 40 28 00 00 05 00 00 00 0F
+74 20 30 2E 33 39 34 35 35 39 45 58 2B 30 39 00
+00 0D 20 C7 18 00 00 03 00 00 00 02 43 16 00 00
+44 16 00 00 00 0B DC 2E 0C 00 00 01 00 08 1C 1A
+
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    dbg!(&ele_data.whole_attmap.attmap);
+    // assert_eq!(ele_data.whole_attmap.attmap.get_val("PAXI").unwrap().string_value(), "-P4");
+}
+
+
