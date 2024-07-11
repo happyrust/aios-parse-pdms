@@ -1161,7 +1161,8 @@ pub async fn parse_explicit_attrs<'a>(
         //     dbg!(&att_name);
         // }
         if check_is_expr(hash_val) {
-            let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
+            let (input, (_, value)) = parse_expression_attr(residual, refno)?;
+            // dbg!(&value);
             if value.is_empty() {
                 att_value = None;
             } else {
@@ -2010,32 +2011,42 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
         result = val;
     } else {
         // 检测是否以 1A 1A 05 02 17 开头
-        let (tmp_input, (a, b, c, d, e)) = tuple((be_u32, be_u32, be_u32, be_u32, be_u32))(input)?;
+        let (mut tmp_input, (a, b, c, d, e)) = tuple((be_u32, be_u32, be_u32, be_u32, be_u32))(input)?;
         match [d, e] {
             // 0x16 开头就是 X () Y ... 两个坐标的类型
             // 0x2 0x16 后面第一个就是 X Y Z 这三种坐标
             [0x2, 0x16] => {
-                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno, false)?;
                 if first_data.starts_with("-") {
                     first_data = format!("AXIS {}", first_data);
                 }
-                let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+                let second = match_axis(parse_to_u32(&tmp_input[..4]));
                 result = StringType((format!("{}{}", first_data, second)));
             }
             // 0x17 开头代表是 X () Y () Z 这种类型
             [0x2, 0x17] => {
-                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno, false)?;
                 if first_data.starts_with("-") {
                     first_data = format!("AXIS {}", first_data);
                 }
-                let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno)?;
-                let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+                let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno, false)?;
+                let third = match_axis(parse_to_u32(&tmp_input[..4]));
                 result = StringType((format!("{}{}{}", first_data, second_data, third)));
             }
             [0x2, 0x34] => {
-                let func = match_direction_attribute_to_string(parse_to_u32(&tmp_input[4..8]));
-                let (_tmp_input, mut first_data) = parse_xyz_data(&tmp_input[8..], refno)?;
-                result = StringType((format!("{} {}", func, first_data)));
+                if let Some((func, count)) = match_to_dir(parse_to_u32(&tmp_input[4..8])){
+                    let mut v = func.to_string();
+                    v.push_str(" ");
+                    let mut axis_data = &tmp_input[8..];
+                    for i in 0..count{
+                        let (residual, mut coord) = parse_xyz_data(axis_data, refno, true)?;
+                        // dbg!(&coord);
+                        v.push_str(&coord);
+                        axis_data = residual;
+                    }
+                    // dbg!(&v);
+                    result = StringType(v);
+                }
             }
             _ => match &tmp_input[..8] {
                 &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => result = StringType("X".into()),
@@ -2052,16 +2063,18 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
 }
 
 /// match ptcdirection 的方法
-pub fn match_direction_attribute_to_string(key: u32) -> String {
+pub fn match_to_dir(key: u32) -> Option<(&'static str, usize)> {
     match key {
-        0x1F => "TO".to_string(),
-        _ => "".to_string(),
+        0x1F => Some(("TO", 1)),
+        0x20 => Some(("TO", 2)),
+        0x21 => Some(("TO", 3)),
+        _ => None,
     }
 }
 
 /// match AXIS显式属性对应的值
 #[inline]
-pub fn match_explicit_attribute_to_string(key: u32) -> String {
+pub fn match_axis(key: u32) -> String {
     match key {
         0xB => "X".to_string(),
         0xC => "-X".to_string(),
