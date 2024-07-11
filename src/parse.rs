@@ -977,8 +977,22 @@ pub fn parse_implicit_attr_value<'a>(
     // println!("{}", pretty_hex::pretty_hex(&bytes));
     if b_expr {
         //既然当作表达式，而且又在隐含属性里，这里需要把bytes的长度锁定
-        let (_, attr_val) = parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
-        val = attr_val;
+        let (_, string_val) = parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
+        val = string_val.clone();
+        match attr_info.default_val {
+            IntegerType(_) => {
+                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<i32>(){
+                    val = IntegerType(v);
+                }
+            }
+            DoubleType(_) => {
+                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<f64>(){
+                    val = DoubleType(v);
+                }
+            }
+            _ => {
+            }
+        }
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
         if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS {
