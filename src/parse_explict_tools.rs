@@ -129,9 +129,10 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
         let end = (expression_length * 4) as usize + 8;
+        //todo 需要检查
         if end <= 16{
-            dbg!("Found expression length less than 16 bytes, skipping...{refno}");
-            println!("Debug expression data {:#4X?}", &input[16..]);
+            // dbg!("Found expression length less than 16 bytes, skipping...{refno}");
+            // println!("Debug expression data {:#4X?}", &input[16..]);
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
         let expression_data = &input[16..(expression_length * 4) as usize + 8];
