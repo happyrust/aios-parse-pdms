@@ -75,8 +75,6 @@ pub struct PdmsDbData {
     pub db_no: u32,
     ///数据文件的field no
     pub field_no: u32,
-    /// 所有参考号对应的外键类型和外键参考号
-    pub foreign_refnos_map: DashMap<RefU64, DashMap<String, RefU64>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -275,8 +273,6 @@ pub struct EleData {
     pub children: RefU64Vec,
     pub name: String,
     pub version: u32,
-    // 参考号的引用 catr等 k : 外键类型  v ：引用的参考号
-    pub foreign_refnos: DashMap<String, RefU64>,
 }
 
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
@@ -347,7 +343,6 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     let mut implicit_attmap = NamedAttrMap::default();
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
-    let mut foreign_refnos = DashMap::new();
     let data_len = input.len();
     let origin_impl_len = parse_to_i32(&input[0..4]) * 4; //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
@@ -414,15 +409,17 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = hash_type_info_map.get(&last_key).unwrap();
-        let step = match last_att_info.att_type {
+        let last_step = match last_att_info.att_type {
             DbAttributeType::DIRECTION
             | DbAttributeType::POSITION
             | DbAttributeType::ORIENTATION
             | DbAttributeType::Vec3Type => 3 * 2,
             DbAttributeType::ELEMENT => 2,
+            //填的最小的数量，最少有两个数据
+            DbAttributeType::INTVEC | DbAttributeType::FLOATVEC | DbAttributeType::DOUBLEVEC => 2,
             _ => 1,
         };
-        is_f32 = last_att_info.offset + step > (origin_impl_len / 4) as u32;
+        is_f32 = last_att_info.offset + last_step > (origin_impl_len / 4) as u32;
     }
     //如果发现是f32的数据，就需要重新算偏移
     let mut f32_neg_offset = 0usize;
@@ -464,8 +461,8 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         {
             match &att_val {
                 RefU64Type(value) => {
-                    if attr_info.name.to_lowercase() != "owner" && value != &RefU64(0) {
-                        foreign_refnos.insert(attr_info.name.to_string(), *value);
+                    if attr_info.name.to_lowercase() != "owner" && value.get_0() != 0 {
+                        // foreign_refnos.insert(attr_info.name.to_string(), *value);
                     }
                 }
                 InvalidType => {
@@ -487,7 +484,7 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         &cur_type_info_map,
         &mut explicit_attmap,
         refno,
-        &mut foreign_refnos,
+        // &mut foreign_refnos,
     ).await;
 
     //添加遗漏的属性
@@ -508,7 +505,7 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         children,
         name,
         version: pgno,
-        foreign_refnos,
+        // foreign_refnos,
     })
 }
 
@@ -684,9 +681,6 @@ pub async fn parse_db_with_chunk(
     let input = &db_basic_data.bytes;
     let type_ele_map = Arc::new(DashMap::new());
     let total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
-    // k : 参考号  v : dashmap -> k : 外键的类型  v: 外键的参考号
-    let foreign_refnos_map: Arc<DashMap<RefU64, DashMap<String, RefU64>>> =
-        Arc::new(DashMap::new());
     let time_start = tokio::time::Instant::now();
     let mut field_no = 0;
 
@@ -720,7 +714,7 @@ pub async fn parse_db_with_chunk(
         children,
         version,
         name,
-        foreign_refnos,
+        // foreign_refnos,
     } = parse_ele_data(&input[entry.pos - 4..])
         .await
         .unwrap_or_default();
@@ -732,7 +726,7 @@ pub async fn parse_db_with_chunk(
         .entry(noun)
         .or_insert(HashSet::default())
         .insert(refno);
-    foreign_refnos_map.insert(refno, foreign_refnos);
+    // foreign_refnos_map.insert(refno, foreign_refnos);
     let ref_0 = refno.get_0();
     refno_info_map
         .entry(ref_0)
@@ -758,7 +752,6 @@ pub async fn parse_db_with_chunk(
                           children,
                           version,
                           name,
-                          foreign_refnos,
                       }) = parse_ele_data(&input[pos - 4..]).await
             {
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
@@ -768,7 +761,6 @@ pub async fn parse_db_with_chunk(
                     .entry(noun)
                     .or_insert(HashSet::default())
                     .insert(refno);
-                foreign_refnos_map.insert(refno, foreign_refnos);
             }
         }
     }
@@ -791,7 +783,6 @@ pub async fn parse_db_with_chunk(
         db_name: Default::default(),
         db_no,
         field_no,
-        foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
 }
 
@@ -849,7 +840,6 @@ pub async fn parse_db(
         children,
         version,
         name,
-        foreign_refnos,
     } = parse_ele_data(&input[entry.pos - 4..])
         .await
         .unwrap_or_default();
@@ -859,7 +849,6 @@ pub async fn parse_db(
         .entry(noun)
         .or_insert(HashSet::default())
         .insert(refno);
-    foreign_refnos_map.insert(refno, foreign_refnos);
     let ref_0 = refno.get_0();
     refno_info_map
         .entry(ref_0)
@@ -916,7 +905,6 @@ pub async fn parse_db(
                           children,
                           version,
                           name,
-                          foreign_refnos,
                       }) = parse_ele_data(&input[pos - 4..]).await
             {
                 whole_attr_dashmap.insert(refno, whole_attmap.merge().into());
@@ -924,7 +912,6 @@ pub async fn parse_db(
                     .entry(noun)
                     .or_insert(HashSet::default())
                     .insert(refno);
-                foreign_refnos_map.insert(refno, foreign_refnos);
             }
         }
     }
@@ -947,7 +934,6 @@ pub async fn parse_db(
         db_name: Default::default(),
         db_no,
         field_no,
-        foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
 }
 
@@ -1150,7 +1136,7 @@ pub async fn parse_explicit_attrs<'a>(
     attr_info_map: &DashMap<String, AttrInfo>,
     attr_data_map: &mut NamedAttrMap,
     refno: RefU64,
-    foreign_refnos: &mut DashMap<String, RefU64>,
+    // foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
     let mut is_debug = false;
@@ -1306,9 +1292,6 @@ pub async fn parse_explicit_attrs<'a>(
                         ElementType(_) => {
                             let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
                             let refno = RefU64::from_two_nums(ref_0, ref_1);
-                            if *refno != 0 {
-                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
-                            }
                             att_value = Some(RefU64Type(refno));
                         }
                         WordType(_) => {
@@ -1326,9 +1309,6 @@ pub async fn parse_explicit_attrs<'a>(
                         RefU64Type(_) => {
                             let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
                             let refno = RefU64::from_two_nums(ref_0, ref_1);
-                            if *refno != 0 {
-                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
-                            }
                             att_value = Some(RefU64Type(refno));
                         }
                         StringHashType(_) => {}
@@ -1386,7 +1366,6 @@ pub async fn parse_explicit_attrs<'a>(
                             DbAttributeType::ELEMENT => {
                                 let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
                                 let refno = RefU64::from_two_nums(ref_0, ref_1);
-                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
                                 att_value = Some(RefU64Type(refno));
                             }
                             DbAttributeType::WORD => {

@@ -926,6 +926,23 @@ async fn test_has_wrong_angle() {
 
 
 #[tokio::test]
+async fn test_parse_zdist() {
+    let data_str = "
+00 00 00 11 00 00 20 01 00 00 B5 82 12 A0 87 21
+00 00 20 01 00 00 B5 81 00 00 00 00 00 00 00 00
+00 00 14 DE 00 02 40 01 00 00 00 02 00 00 00 00
+46 5C B1 9A 00 00 00 00 00 00 00 02 00 00 00 00
+00 00 00 0A 00 02 00 07 00 00 20 01 00 00 B5 82
+00 00 00 00 00 00 00 00 00 00 20 01 00 00 B5 83
+";
+    // 2C 00 D5 76
+    let data = convert_str_to_bytes(data_str);
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let map = &ele_data.whole_attmap.attmap;
+    dbg!(&map);
+}
+
+#[tokio::test]
 async fn test_has_wrong_scom() {
     let data_str = "
 00 00 00 12 00 00 35 EA 00 00 07 A2 00 0C 2E 93
