@@ -45,6 +45,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use aios_core::petgraph::PetRefnoNode;
+use pretty_hex::simple_hex;
 use tokio::io::AsyncReadExt;
 
 
@@ -74,8 +75,6 @@ pub struct PdmsDbData {
     pub db_no: u32,
     ///数据文件的field no
     pub field_no: u32,
-    /// 所有参考号对应的外键类型和外键参考号
-    pub foreign_refnos_map: DashMap<RefU64, DashMap<String, RefU64>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -274,8 +273,6 @@ pub struct EleData {
     pub children: RefU64Vec,
     pub name: String,
     pub version: u32,
-    // 参考号的引用 catr等 k : 外键类型  v ：引用的参考号
-    pub foreign_refnos: DashMap<String, RefU64>,
 }
 
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
@@ -346,7 +343,6 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     let mut implicit_attmap = NamedAttrMap::default();
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
-    let mut foreign_refnos = DashMap::new();
     let data_len = input.len();
     let origin_impl_len = parse_to_i32(&input[0..4]) * 4; //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
@@ -413,15 +409,17 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
         let last_att_info = hash_type_info_map.get(&last_key).unwrap();
-        let step = match last_att_info.att_type {
+        let last_step = match last_att_info.att_type {
             DbAttributeType::DIRECTION
             | DbAttributeType::POSITION
             | DbAttributeType::ORIENTATION
             | DbAttributeType::Vec3Type => 3 * 2,
             DbAttributeType::ELEMENT => 2,
+            //填的最小的数量，最少有两个数据
+            DbAttributeType::INTVEC | DbAttributeType::FLOATVEC | DbAttributeType::DOUBLEVEC => 2,
             _ => 1,
         };
-        is_f32 = last_att_info.offset + step > (origin_impl_len / 4) as u32;
+        is_f32 = last_att_info.offset + last_step > (origin_impl_len / 4) as u32;
     }
     //如果发现是f32的数据，就需要重新算偏移
     let mut f32_neg_offset = 0usize;
@@ -429,14 +427,14 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         let noun_hash = sorted_noun_hash[i];
         let noun_name = db1_dehash(noun_hash as _);
         let attr_info = cur_type_info_map.get(&noun_name).unwrap();
-        let mut cur_len: i32 = 0;
         if cur_offset == 0 {
             cur_offset = (attr_info.offset & 0xFFFFF) as i32;
         }
         let mut step_w = 0;
         if i >= 1 {
             let prev_attr_info = hash_type_info_map.get(&sorted_noun_hash[i - 1]).unwrap();
-            if is_f32 {
+            let b_expr = check_is_expr(prev_attr_info.hash);
+            if is_f32 && !b_expr {
                 match prev_attr_info.att_type {
                     DbAttributeType::DOUBLE => {
                         f32_neg_offset += 1;
@@ -463,8 +461,8 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         {
             match &att_val {
                 RefU64Type(value) => {
-                    if attr_info.name.to_lowercase() != "owner" && value != &RefU64(0) {
-                        foreign_refnos.insert(attr_info.name.to_string(), *value);
+                    if attr_info.name.to_lowercase() != "owner" && value.get_0() != 0 {
+                        // foreign_refnos.insert(attr_info.name.to_string(), *value);
                     }
                 }
                 InvalidType => {
@@ -486,7 +484,7 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         &cur_type_info_map,
         &mut explicit_attmap,
         refno,
-        &mut foreign_refnos,
+        // &mut foreign_refnos,
     ).await;
 
     //添加遗漏的属性
@@ -507,7 +505,7 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         children,
         name,
         version: pgno,
-        foreign_refnos,
+        // foreign_refnos,
     })
 }
 
@@ -597,6 +595,12 @@ pub fn parse_db_basic_data(
     let mut gen_ref_time = Instant::now();
     let noun_attr_info_map = &database_info.named_attr_info_map;
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(&input, noun_attr_info_map);
+    // {
+    //     let test_refno: RefU64 = "13802_1954".into();
+    //     if let Some(entry) = refno_table_map.get(&test_refno){
+    //         dbg!(entry.value());
+    //     }
+    // }
     println!(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
@@ -677,9 +681,6 @@ pub async fn parse_db_with_chunk(
     let input = &db_basic_data.bytes;
     let type_ele_map = Arc::new(DashMap::new());
     let total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
-    // k : 参考号  v : dashmap -> k : 外键的类型  v: 外键的参考号
-    let foreign_refnos_map: Arc<DashMap<RefU64, DashMap<String, RefU64>>> =
-        Arc::new(DashMap::new());
     let time_start = tokio::time::Instant::now();
     let mut field_no = 0;
 
@@ -713,7 +714,7 @@ pub async fn parse_db_with_chunk(
         children,
         version,
         name,
-        foreign_refnos,
+        // foreign_refnos,
     } = parse_ele_data(&input[entry.pos - 4..])
         .await
         .unwrap_or_default();
@@ -725,7 +726,7 @@ pub async fn parse_db_with_chunk(
         .entry(noun)
         .or_insert(HashSet::default())
         .insert(refno);
-    foreign_refnos_map.insert(refno, foreign_refnos);
+    // foreign_refnos_map.insert(refno, foreign_refnos);
     let ref_0 = refno.get_0();
     refno_info_map
         .entry(ref_0)
@@ -751,7 +752,6 @@ pub async fn parse_db_with_chunk(
                           children,
                           version,
                           name,
-                          foreign_refnos,
                       }) = parse_ele_data(&input[pos - 4..]).await
             {
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
@@ -761,7 +761,6 @@ pub async fn parse_db_with_chunk(
                     .entry(noun)
                     .or_insert(HashSet::default())
                     .insert(refno);
-                foreign_refnos_map.insert(refno, foreign_refnos);
             }
         }
     }
@@ -784,7 +783,6 @@ pub async fn parse_db_with_chunk(
         db_name: Default::default(),
         db_no,
         field_no,
-        foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
 }
 
@@ -842,7 +840,6 @@ pub async fn parse_db(
         children,
         version,
         name,
-        foreign_refnos,
     } = parse_ele_data(&input[entry.pos - 4..])
         .await
         .unwrap_or_default();
@@ -852,7 +849,6 @@ pub async fn parse_db(
         .entry(noun)
         .or_insert(HashSet::default())
         .insert(refno);
-    foreign_refnos_map.insert(refno, foreign_refnos);
     let ref_0 = refno.get_0();
     refno_info_map
         .entry(ref_0)
@@ -909,7 +905,6 @@ pub async fn parse_db(
                           children,
                           version,
                           name,
-                          foreign_refnos,
                       }) = parse_ele_data(&input[pos - 4..]).await
             {
                 whole_attr_dashmap.insert(refno, whole_attmap.merge().into());
@@ -917,7 +912,6 @@ pub async fn parse_db(
                     .entry(noun)
                     .or_insert(HashSet::default())
                     .insert(refno);
-                foreign_refnos_map.insert(refno, foreign_refnos);
             }
         }
     }
@@ -940,7 +934,6 @@ pub async fn parse_db(
         db_name: Default::default(),
         db_no,
         field_no,
-        foreign_refnos_map: Arc::try_unwrap(foreign_refnos_map).unwrap(),
     })
 }
 
@@ -955,7 +948,11 @@ pub fn parse_implicit_attr_value<'a>(
 ) -> IResult<&'a [u8], AttrVal> {
     let mut val = InvalidType;
     let b_expr = check_is_expr(attr_info.hash);
+    // dbg!(attr_info);
     let offset = ((attr_info.offset & 0xFFFF) as usize - f32_neg_offset) * 4;
+    // if attr_info.name.as_str() == "BANG" || attr_info.name.as_str() == "DRNS"{
+    //     dbg!(offset);
+    // }
     if offset > origin_bytes.len() {
         return Err(nom::Err::Error(nom::error::make_error(
             origin_bytes,
@@ -963,21 +960,32 @@ pub fn parse_implicit_attr_value<'a>(
         )));
     }
     let bytes = &origin_bytes[offset..];
+    // println!("{}", pretty_hex::pretty_hex(&bytes));
     if b_expr {
         //既然当作表达式，而且又在隐含属性里，这里需要把bytes的长度锁定
-        let (_, attr_val) = parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
-        val = attr_val;
+        let (_, string_val) = parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
+        val = string_val.clone();
+        match attr_info.default_val {
+            IntegerType(_) => {
+                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<i32>(){
+                    val = IntegerType(v);
+                }
+            }
+            DoubleType(_) => {
+                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<f64>(){
+                    val = DoubleType(v);
+                }
+            }
+            _ => {
+            }
+        }
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
         if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS {
             let (bytes, len) = be_u32(bytes)?;
             let (_, result) = count(be_i32, len as usize)(bytes)?;
             val = IntArrayType(result);
-        } else if attr_info.hash == ATT_BANG {
-            // println!("{:#4X?}", &bytes[..4]);
-            let r = parse_to_i32(&bytes[..4]);
-            val = DoubleType((r as f64) / 100.0)
-        } else {
+        }  else {
             match attr_info.default_val {
                 IntegerType(_) => {
                     let (_, r) = be_i32(bytes)?;
@@ -1128,7 +1136,7 @@ pub async fn parse_explicit_attrs<'a>(
     attr_info_map: &DashMap<String, AttrInfo>,
     attr_data_map: &mut NamedAttrMap,
     refno: RefU64,
-    foreign_refnos: &mut DashMap<String, RefU64>,
+    // foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
     let mut is_debug = false;
@@ -1149,11 +1157,12 @@ pub async fn parse_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        if is_debug {
-            dbg!(&att_name);
-        }
+        // if is_debug {
+        //     dbg!(&att_name);
+        // }
         if check_is_expr(hash_val) {
-            let (input, (_expression_type, value)) = parse_expression_attr(residual, refno)?;
+            let (input, (_, value)) = parse_expression_attr(residual, refno)?;
+            // dbg!(&value);
             if value.is_empty() {
                 att_value = None;
             } else {
@@ -1283,9 +1292,6 @@ pub async fn parse_explicit_attrs<'a>(
                         ElementType(_) => {
                             let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
                             let refno = RefU64::from_two_nums(ref_0, ref_1);
-                            if *refno != 0 {
-                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
-                            }
                             att_value = Some(RefU64Type(refno));
                         }
                         WordType(_) => {
@@ -1303,9 +1309,6 @@ pub async fn parse_explicit_attrs<'a>(
                         RefU64Type(_) => {
                             let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
                             let refno = RefU64::from_two_nums(ref_0, ref_1);
-                            if *refno != 0 {
-                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
-                            }
                             att_value = Some(RefU64Type(refno));
                         }
                         StringHashType(_) => {}
@@ -1363,7 +1366,6 @@ pub async fn parse_explicit_attrs<'a>(
                             DbAttributeType::ELEMENT => {
                                 let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
                                 let refno = RefU64::from_two_nums(ref_0, ref_1);
-                                foreign_refnos.insert(db1_dehash(explict_hash as u32), refno);
                                 att_value = Some(RefU64Type(refno));
                             }
                             DbAttributeType::WORD => {
@@ -1530,50 +1532,34 @@ fn convert_int_to_axis_str(n: i32) -> &'static str {
 
 /// 特殊处理AXIS隐式属性
 pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], AttrVal> {
-    let (res_input, a) = be_i32(input)?;
+    let (res_input, flag) = be_i32(input)?;
     let cnt = input.len() / 4;
     if cnt == 1 {
-        let f = a as f32 / 100.0;
+        let f = flag as f32 / 100.0;
         return Ok((input, StringType(f.to_string())));
     }
     // if cnt < 3 {
     //     return Err(nom::Err::Incomplete(nom::Needed::Unknown));
     // }
     let mut val = default;
-    if a == 2 {
-        let (res_b, b) = be_i32(res_input)?;
-        match b {
-            1 | 2 => {
-                let (_, c) = be_i32(res_b)?;
-                let str = convert_int_to_axis_str(c + (b - 1) * 3);
-                val = StringType(str.into())
-            }
+    // dbg!(flag);
+    if flag == 2 {
+        match &res_input[..8] {
+            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("X".into()),
+            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("Y".into()),
+            &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => val = AttrVal::StringType("Z".into()),
+            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("-X".into()),
+            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("-Y".into()),
+            &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x3] => val = AttrVal::StringType("-Z".into()),
 
-            3 => {
-                let (_, c) = be_i32(res_b)?;
-                let (flag, num) = if c >= 0xE8 {
-                    ("-", c - 0xE8)
-                } else {
-                    ("", c)
-                };
-                let str = format!("{flag}P{}", num.abs());
-                val = StringType(str.into())
-            }
-            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1] => val = StringType("X".into()),
-            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2] => val = StringType("Y".into()),
-            // &[0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x3] => val = StringType("Z".into()),
-            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1] => val = StringType("-X".into()),
-            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x2] => val = StringType("-Y".into()),
-            // &[0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x3] => val = StringType("-Z".into()),
-            //
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x0] => val = StringType("P0".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x1] => val = StringType("P1".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x2] => val = StringType("P2".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE8] => val = StringType("-P0".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE9] => val = StringType("-P1".into()),
-            // &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xEA] => val = StringType("-P2".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x0] => val = AttrVal::StringType("P0".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x1] => val = AttrVal::StringType("P1".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x2] => val = AttrVal::StringType("P2".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE8] => val = AttrVal::StringType("-P0".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xE9] => val = AttrVal::StringType("-P1".into()),
+            &[0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x3, 0xEA] => val = AttrVal::StringType("-P2".into()),
 
-            _ => {
+            &_ => {
                 match &res_input[..3] {
                     &[0xFF, 0xFF, 0xFF] => {
                         let (_, radius) = be_i32(&res_input[4..8])?;
@@ -1825,7 +1811,7 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                 }
             }
         }
-    } else if a == 4 {
+    } else if flag == 4 {
         let mut val_string = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
         match &res_input[..2] {
@@ -2018,32 +2004,42 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
         result = val;
     } else {
         // 检测是否以 1A 1A 05 02 17 开头
-        let (tmp_input, (a, b, c, d, e)) = tuple((be_u32, be_u32, be_u32, be_u32, be_u32))(input)?;
+        let (mut tmp_input, (a, b, c, d, e)) = tuple((be_u32, be_u32, be_u32, be_u32, be_u32))(input)?;
         match [d, e] {
             // 0x16 开头就是 X () Y ... 两个坐标的类型
             // 0x2 0x16 后面第一个就是 X Y Z 这三种坐标
             [0x2, 0x16] => {
-                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno, false)?;
                 if first_data.starts_with("-") {
                     first_data = format!("AXIS {}", first_data);
                 }
-                let second = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+                let second = match_axis(parse_to_u32(&tmp_input[..4]));
                 result = StringType((format!("{}{}", first_data, second)));
             }
             // 0x17 开头代表是 X () Y () Z 这种类型
             [0x2, 0x17] => {
-                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno)?;
+                let (tmp_input, mut first_data) = parse_xyz_data(tmp_input, refno, false)?;
                 if first_data.starts_with("-") {
                     first_data = format!("AXIS {}", first_data);
                 }
-                let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno)?;
-                let third = match_explicit_attribute_to_string(parse_to_u32(&tmp_input[..4]));
+                let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno, false)?;
+                let third = match_axis(parse_to_u32(&tmp_input[..4]));
                 result = StringType((format!("{}{}{}", first_data, second_data, third)));
             }
             [0x2, 0x34] => {
-                let func = match_direction_attribute_to_string(parse_to_u32(&tmp_input[4..8]));
-                let (_tmp_input, mut first_data) = parse_xyz_data(&tmp_input[8..], refno)?;
-                result = StringType((format!("{} {}", func, first_data)));
+                if let Some((func, count)) = match_to_dir(parse_to_u32(&tmp_input[4..8])){
+                    let mut v = func.to_string();
+                    v.push_str(" ");
+                    let mut axis_data = &tmp_input[8..];
+                    for i in 0..count{
+                        let (residual, mut coord) = parse_xyz_data(axis_data, refno, true)?;
+                        // dbg!(&coord);
+                        v.push_str(&coord);
+                        axis_data = residual;
+                    }
+                    // dbg!(&v);
+                    result = StringType(v);
+                }
             }
             _ => match &tmp_input[..8] {
                 &[0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0, 0x3D] => result = StringType("X".into()),
@@ -2060,16 +2056,18 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
 }
 
 /// match ptcdirection 的方法
-pub fn match_direction_attribute_to_string(key: u32) -> String {
+pub fn match_to_dir(key: u32) -> Option<(&'static str, usize)> {
     match key {
-        0x1F => "TO".to_string(),
-        _ => "".to_string(),
+        0x1F => Some(("TO", 1)),
+        0x20 => Some(("TO", 2)),
+        0x21 => Some(("TO", 3)),
+        _ => None,
     }
 }
 
 /// match AXIS显式属性对应的值
 #[inline]
-pub fn match_explicit_attribute_to_string(key: u32) -> String {
+pub fn match_axis(key: u32) -> String {
     match key {
         0xB => "X".to_string(),
         0xC => "-X".to_string(),
@@ -2240,6 +2238,7 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
     let ses_pgno = parse_to_u32(&input[40..44]);
     (file_type, ses_pgno, db_no)
 }
+
 
 //todo 需要完善情况
 ///获得参考号对应的Entry
