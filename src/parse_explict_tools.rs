@@ -1,4 +1,4 @@
-use crate::parse::{convert_to_explicit_axis_string, match_explicit_attribute_to_string};
+use crate::parse::{convert_to_explicit_axis_string, match_axis};
 use crate::BHashMap;
 use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32, parse_to_f64};
 use aios_core::pdms_types::DbAttributeType::*;
@@ -14,7 +14,9 @@ use nom::sequence::tuple;
 use nom::IResult;
 use std::fs::File;
 use std::io::BufReader;
+use aios_core::bin_data::convert_str_to_bytes;
 use log::error;
+use pretty_hex::pretty_hex;
 use tokio::count;
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
@@ -169,7 +171,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
     }
     // 表达式都是以0x0 0 0 1开头的
     let mut expression_data = &input[..];
-    let is_debug = refno == RefU64::from_two_nums(15194, 337);
+    // let is_debug = refno == RefU64::from_two_nums(15194, 337);
     // 这是表达式数字的起始标志
     let mut result_stack = vec![];
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
@@ -198,7 +200,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             let value = if num_flag == 0i16 {
                 parse_explicit_num_00(&expression_data[..12])?.1
             } else if num_flag == 0x4000i16 {
-                parse_explicit_num_40(&expression_data[..12])?.1
+                parse_explicit_f64_40(&expression_data[..12])?.1
             } else if num_flag == -1i16 {
                 parse_explicit_num_ff(&expression_data[..12])?.1
             } else {
@@ -236,9 +238,9 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                 db1_dehash(hash_num)
             };
             // let att_name = db1_dehash(hash_num);
-            if is_debug {
-                // dbg!((&att_name, hash_num));
-            }
+            // if is_debug {
+            //     // dbg!((&att_name, hash_num));
+            // }
             let flags = (
                 parse_to_i32(&expression_data[8..12]),
                 parse_to_i32(&expression_data[12..16]),
@@ -423,13 +425,19 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
 }
 
 /// 返回 X () Y () Z 表达式 的 其中一个 坐标 + data 例如： X ()
-pub fn parse_xyz_data(input: &[u8], refno: RefU64) -> IResult<&[u8], String> {
-    let coordinate = match_explicit_attribute_to_string(parse_to_u32(&input[..4]));
+pub fn parse_xyz_data(input: &[u8], refno: RefU64, convert: bool) -> IResult<&[u8], String> {
+    // println!("input bytes: {}", pretty_hex(&input));
+    let axis = match_axis(parse_to_u32(&input[..4]));
     let data_len = parse_to_u32(&input[4..8]) as usize;
     let data = parse_expression_func(&input[12..(data_len + 1) * 4], refno)?.1;
+    let result = if convert && axis.starts_with("-") {
+        format!("{} (NEG ( {} )) ", &axis[1..], data)
+    } else{
+        format!("{} ( {} ) ", axis, data)
+    };
     Ok((
         &input[data_len * 4 + 4..],
-        format!("{} ({}) ", coordinate, data),
+        result
     ))
 }
 
@@ -457,12 +465,13 @@ pub fn parse_explicit_num_00(data: &[u8]) -> IResult<&[u8], f64> {
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种
-pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
+pub fn parse_explicit_f64_40(data: &[u8]) -> IResult<&[u8], f64> {
     let mut dst_data = data[..8].to_vec();
     let dst_first =
         (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
     dst_data[0] = dst_first;
     dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
+    // println!("data={:?}", pretty_hex(&dst_data));
     let value = if data[0] == 0x40 {
         let value = f64::from_be_bytes(dst_data.try_into().unwrap());
         -value
@@ -471,6 +480,14 @@ pub fn parse_explicit_num_40(data: &[u8]) -> IResult<&[u8], f64> {
     };
     let value = f64_round_3(value);
     Ok((data, value))
+}
+
+#[test]
+fn parse_axis_f32() {
+    let data_str = "40 14 00 00 00 00 00 00 40 00 04 03";
+    let bytes = convert_str_to_bytes(data_str);
+    let (_, value) = parse_explicit_f64_40(&bytes).unwrap();
+    dbg!(value);
 }
 
 pub fn parse_expression_const(input: &[u8]) -> String {
@@ -484,7 +501,7 @@ pub fn parse_expression_const(input: &[u8]) -> String {
 fn test_parse_explicit_num_40() {
     // let data = [0x40u8, 0x06, 0x80, 0x0, 0x0, 0, 0, 0, 0x40, 0, 4, 4];
     let data = [0x0u8, 0x06, 0x80, 0x0, 0x0, 0, 0, 0, 0x40, 0, 4, 4];
-    let data = parse_explicit_num_40(&data[..]).unwrap().1;
+    let data = parse_explicit_f64_40(&data[..]).unwrap().1;
     println!("data={:?}", data);
 }
 
