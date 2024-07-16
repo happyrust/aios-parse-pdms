@@ -70,12 +70,13 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
         // 2800 这个应该是个引用，数据给的是一个参考号 ，但是e3d没有这个属性值 ，但是他的类型不难看出是string   类型: 2C F2 AE D3
         0x3C00 | 0x2800 => Some(STRING),
         0x1800 => Some(DOUBLEVEC),
-        0x1C00 | 0x2000 => Some(INTVEC),
+        0x1C00 => Some(INTVEC),
         0x4000 | 0x1000 => Some(ELEMENT),
         0x0C00 => Some(INTEGER),
         0x1400 => Some(BOOL),
         0x0800 => Some(DOUBLE),
         0x3800 => Some(TYPEX),
+        0x2000 => Some(RefU64Vec),
         0x0000 => None,
         _ => None,
     }

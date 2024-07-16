@@ -486,6 +486,7 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         refno,
         // &mut foreign_refnos,
     ).await;
+    dbg!(&explicit_attmap);
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
     implicit_attmap.insert("TYPE".into(), NamedAttrValue::StringType(noun_name));
@@ -1427,6 +1428,18 @@ pub async fn parse_explicit_attrs<'a>(
                                     // let typex = db1_dehash(typex);
                                     att_value = Some(IntegerType(typex as _));
                                 } else {}
+                            }
+                            DbAttributeType::RefU64Vec => {
+                                let (tmp_input, len) = be_u32(tmp_input)?;
+                                let len = len as usize;
+                                let mut tmp_input = tmp_input;
+                                let mut data = vec![];
+                                for _ in 0..len {
+                                    let (remain_input, val) = be_u64(tmp_input)?;
+                                    data.push(RefU64(val));
+                                    tmp_input = remain_input;
+                                }
+                                att_value = Some(RefU64Array(RefU64Vec(data)));
                             }
                             _ => {}
                         }
