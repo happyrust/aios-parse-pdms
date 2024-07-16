@@ -486,7 +486,6 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         refno,
         // &mut foreign_refnos,
     ).await;
-
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
     implicit_attmap.insert("TYPE".into(), NamedAttrValue::StringType(noun_name));
