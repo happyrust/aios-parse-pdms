@@ -1,3 +1,4 @@
+use aios_core::init_test_surreal;
 use super::convert_str_to_bytes;
 use crate::parse::parse_ele_data;
 
@@ -118,7 +119,8 @@ async fn test_24381_177401_NphsAsr() {
 49 30 31 38 32 2D 31 4C 52 31 2D 30 31 53 00 00
 26 52 AB A6 20 00 00 05 00 00 00 02 00 00 5F 3D
 00 02 B8 44 00 00 5F 3D 00 02 B8 50";
+    init_test_surreal().await;
     let data = convert_str_to_bytes(data_str);
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    dbg!(&ele_data.whole_attmap.explicit_attmap);
+    dbg!(&ele_data.whole_attmap);
 }
