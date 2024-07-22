@@ -275,6 +275,13 @@ pub struct EleData {
     pub version: u32,
 }
 
+impl EleData {
+    #[inline]
+    pub fn att_map(&self) -> &NamedAttrMap{
+        self.whole_attmap.att_map()
+    }
+}
+
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
 pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
     let mut members = vec![];
@@ -344,7 +351,12 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
     let data_len = input.len();
-    let origin_impl_len = parse_to_i32(&input[0..4]) * 4; //隐含数据长度  0-4
+    let impl_len = try_parse_to_i32(&input[0..4])?; //隐含数据长度  0-4
+    if impl_len < 0 || impl_len > data_len as i32 {
+        dbg!(impl_len);
+        return Err(anyhow!("impl_len < 0 || impl_len > data_len"));
+    }
+    let origin_impl_len = impl_len * 4;
     let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
     let refno: RefU64 = RefU64::from(&input[4..12]);
     let type_hash = parse_to_i32(&input[12..16]);
@@ -486,7 +498,7 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         refno,
         // &mut foreign_refnos,
     ).await;
-    dbg!(&explicit_attmap);
+    // dbg!(&explicit_attmap);
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
     implicit_attmap.insert("TYPE".into(), NamedAttrValue::StringType(noun_name));
