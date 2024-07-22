@@ -272,7 +272,6 @@ pub struct EleData {
     pub whole_attmap: WholeAttMap,
     pub children: RefU64Vec,
     pub name: String,
-    pub version: u32,
 }
 
 impl EleData {
@@ -372,11 +371,6 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         &noun_name
     ))?;
     let owner = RefU64::from(&input[16..24]);
-    let mut pgno = parse_to_u32(&input[24..28]);
-    //这里需要判断是否为0
-    if pgno == 0 {
-        pgno = parse_to_u32(&input[32..36]);
-    }
     if actual_impl_len + 4 < input.len() {
         let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
         // dbg!(tmp_value);
@@ -516,8 +510,6 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         whole_attmap,
         children,
         name,
-        version: pgno,
-        // foreign_refnos,
     })
 }
 
@@ -692,8 +684,7 @@ pub async fn parse_db_with_chunk(
 ) -> Result<PdmsDbData> {
     let input = &db_basic_data.bytes;
     let type_ele_map = Arc::new(DashMap::new());
-    let total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
-    let time_start = tokio::time::Instant::now();
+    let total_att_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
     let mut field_no = 0;
 
     let (db_type, file_version, db_no) = parse_file_basic_info(input);
@@ -710,7 +701,6 @@ pub async fn parse_db_with_chunk(
             .unwrap_or_default();
     }
 
-    let noun_attr_info_map = &database_info.named_attr_info_map;
     let root_refno = db_basic_data.world_refno;
     let refno_info_map = Arc::new(DashMap::new());
     let children_map = HashMap::new();
@@ -724,7 +714,6 @@ pub async fn parse_db_with_chunk(
         noun,
         whole_attmap,
         children,
-        version,
         name,
         // foreign_refnos,
     } = parse_ele_data(&input[entry.pos - 4..])
@@ -732,43 +721,32 @@ pub async fn parse_db_with_chunk(
         .unwrap_or_default();
 
     let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
-    named_attmap.set_e3d_version(version as _);
-    total_attr_map.insert(refno, named_attmap);
+    total_att_map.insert(refno, named_attmap);
     type_ele_map
         .entry(noun)
         .or_insert(HashSet::default())
         .insert(refno);
-    // foreign_refnos_map.insert(refno, foreign_refnos);
     let ref_0 = refno.get_0();
     refno_info_map
         .entry(ref_0)
         .or_insert(RefnoInfo { ref_0, db_no });
 
-    // let mut memb_time = Instant::now();
-    // println!("Chunk refnos count: {}", chunk_refnos.len());
-    let noun_attr_info_map = Arc::new(database_info.named_attr_info_map.clone());
-    // let mut eles_time = Instant::now();
-    // println!("Begin parse attributes");
-    // chunk_refnos.iter().for_each(|refno| {
     for refno in chunk_refnos.iter() {
         if let Some(entry) = db_basic_data.refno_table_map.get(refno) {
             let pos = entry.pos;
-            let total_attrmap_clone = total_attr_map.clone();
+            let total_attmap_clone = total_att_map.clone();
             let type_ele_map = type_ele_map.clone();
-            let refno_info_map = refno_info_map.clone();
             if let Ok(EleData {
                           refno,
-                          owner,
                           noun,
                           whole_attmap,
-                          children,
-                          version,
-                          name,
+                          ..
                       }) = parse_ele_data(&input[pos - 4..]).await
             {
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
-                named_attmap.set_e3d_version(version as _);
-                total_attrmap_clone.insert(refno, named_attmap);
+                //页数就是所在的位置除以0x800
+                named_attmap.set_pgno((pos / 0x800) as _ );
+                total_attmap_clone.insert(refno, named_attmap);
                 type_ele_map
                     .entry(noun)
                     .or_insert(HashSet::default())
@@ -776,18 +754,10 @@ pub async fn parse_db_with_chunk(
             }
         }
     }
-    // println!("解析属性所耗时间: {:?} ms", eles_time.elapsed().as_millis());
-    // println!("带有外键属性的参考号个数为 {}", foreign_refnos_map.len());
-    // println!("DB {} attrs count: {}", file_name, total_attr_map.len());
-    // println!(
-    //     "解析db: {} 所耗时间: {:?}ms",
-    //     file_name,
-    //     time_start.elapsed().as_millis()
-    // );
 
     Ok(PdmsDbData {
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
-        total_attr_map: Arc::try_unwrap(total_attr_map).unwrap(),
+        total_attr_map: Arc::try_unwrap(total_att_map).unwrap(),
         children_map,
         filename: file_name.into(),
         version: file_version,
@@ -806,12 +776,7 @@ pub async fn parse_db(
     project: &str,
 ) -> Result<PdmsDbData> {
     let mut type_ele_map = Arc::new(DashMap::new());
-    let mut all_attr_map: Arc<DashMap<RefU64, AttrMap>> = Arc::new(DashMap::new());
     let mut total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
-    // k : 参考号  v : dashmap -> k : 外键的类型  v: 外键的参考号
-    let mut foreign_refnos_map: Arc<DashMap<RefU64, DashMap<String, RefU64>>> =
-        Arc::new(DashMap::new());
-    let time_start = Instant::now();
     let mut field_no = 0;
 
     let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
@@ -850,7 +815,6 @@ pub async fn parse_db(
         noun,
         whole_attmap,
         children,
-        version,
         name,
     } = parse_ele_data(&input[entry.pos - 4..])
         .await
@@ -915,7 +879,6 @@ pub async fn parse_db(
                           noun,
                           whole_attmap,
                           children,
-                          version,
                           name,
                       }) = parse_ele_data(&input[pos - 4..]).await
             {
@@ -979,17 +942,16 @@ pub fn parse_implicit_attr_value<'a>(
         val = string_val.clone();
         match attr_info.default_val {
             IntegerType(_) => {
-                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<i32>(){
+                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<i32>() {
                     val = IntegerType(v);
                 }
             }
             DoubleType(_) => {
-                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<f64>(){
+                if let AttrVal::StringType(s) = string_val && let Ok(v) = s.parse::<f64>() {
                     val = DoubleType(v);
                 }
             }
-            _ => {
-            }
+            _ => {}
         }
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
@@ -997,7 +959,7 @@ pub fn parse_implicit_attr_value<'a>(
             let (bytes, len) = be_u32(bytes)?;
             let (_, result) = count(be_i32, len as usize)(bytes)?;
             val = IntArrayType(result);
-        }  else {
+        } else {
             match attr_info.default_val {
                 IntegerType(_) => {
                     let (_, r) = be_i32(bytes)?;
@@ -2051,11 +2013,11 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
                 result = StringType((format!("{}{}{}", first_data, second_data, third)));
             }
             [0x2, 0x34] => {
-                if let Some((func, count)) = match_to_dir(parse_to_u32(&tmp_input[4..8])){
+                if let Some((func, count)) = match_to_dir(parse_to_u32(&tmp_input[4..8])) {
                     let mut v = func.to_string();
                     v.push_str(" ");
                     let mut axis_data = &tmp_input[8..];
-                    for i in 0..count{
+                    for i in 0..count {
                         let (residual, mut coord) = parse_xyz_data(axis_data, refno, true)?;
                         // dbg!(&coord);
                         v.push_str(&coord);
@@ -2284,7 +2246,6 @@ fn get_refno_entry(
             .ok()?;
         let len = parse_to_u32(&input[0..4]);
         let refno = RefU64::from(&input[4..12]);
-        let version = parse_to_u32(&input[32..36]);
 
         if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
@@ -2323,9 +2284,8 @@ fn get_refno_entry(
             refno_entry = Some((
                 refno,
                 EleDataEntry {
-                    pos: offset as usize,
+                    pos: offset,
                     noun_hash,
-                    version,
                 },
             ));
         } else {}
@@ -2461,7 +2421,7 @@ pub fn gen_ref_type_pos_table_parallel(
                             }
                             if refno_table.contains_key(&refno_entry.0) {
                                 let d = &*refno_table.get(&refno_entry.0).unwrap();
-                                if d.version < refno_entry.1.version {
+                                if d.pos < refno_entry.1.pos {
                                     refno_table.insert(refno_entry.0, refno_entry.1);
                                 }
                             } else {
