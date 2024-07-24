@@ -343,10 +343,11 @@ pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
     let data_len = input.len();
-    let origin_impl_len = parse_to_i32(&input[0..4]) * 4; //隐含数据长度  0-4
+    let o_len = try_parse_to_i32(&input[0..4])?;
+    let origin_impl_len = o_len * 4; //隐含数据长度  0-4
     let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
     let refno: RefU64 = RefU64::from(&input[4..12]);
-    let type_hash = parse_to_i32(&input[12..16]);
+    let type_hash = try_parse_to_i32(&input[12..16])?;
     let noun = type_hash as u32;
     let noun_name = db1_dehash(noun); //类型hash  12-16
     let db_info = get_default_pdms_db_info();
