@@ -45,7 +45,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use aios_core::petgraph::PetRefnoNode;
-use pretty_hex::simple_hex;
+use pretty_hex::{pretty_hex, simple_hex};
 use tokio::io::AsyncReadExt;
 
 
@@ -338,7 +338,7 @@ pub fn parse_ele_children(input: &[u8]) -> (RefU64, RefU64Vec) {
 
 ///解析单个Element Data数据
 #[inline]
-pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
+pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
     let mut implicit_attmap = NamedAttrMap::default();
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
@@ -359,6 +359,14 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         &noun_name
     ))?;
     let owner = RefU64::from(&input[16..24]);
+    //如果传入的pgno 没有，则使用默认数据里的，数据里如果真没有，那就是 pgno未知
+    if pgno == 0 {
+        pgno = parse_to_u32(&input[24..28]) as _;
+        //这里需要判断是否为0
+        if pgno == 0 {
+            pgno = parse_to_u32(&input[32..36]) as _;
+        }
+    }
     if actual_impl_len + 4 < input.len() {
         let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
         // dbg!(tmp_value);
@@ -486,10 +494,11 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     implicit_attmap.insert("TYPE".into(), NamedAttrValue::StringType(noun_name));
     implicit_attmap.insert("REFNO".into(), NamedAttrValue::RefU64Type(refno));
     let name = implicit_attmap.get_name_or_default();
-    let whole_attmap = WholeAttMap {
+    let mut whole_attmap = WholeAttMap {
         attmap: implicit_attmap,
         explicit_attmap,
     }.refine(&cur_type_info_map);
+    whole_attmap.att_map_mut().set_pgno(pgno as i32);
 
     Ok(EleData {
         refno,
@@ -704,7 +713,7 @@ pub async fn parse_db_with_chunk(
         children,
         name,
         // foreign_refnos,
-    } = parse_ele_data(&input[entry.pos - 4..])
+    } = parse_ele_data(&input[entry.pos - 4..], entry.pos / 0x800)
         .await
         .unwrap_or_default();
 
@@ -729,11 +738,10 @@ pub async fn parse_db_with_chunk(
                           noun,
                           whole_attmap,
                           ..
-                      }) = parse_ele_data(&input[pos - 4..]).await
+                      }) = parse_ele_data(&input[pos - 4..], pos / 0x800).await
             {
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
                 //页数就是所在的位置除以0x800
-                named_attmap.set_pgno((pos / 0x800) as _ );
                 total_attmap_clone.insert(refno, named_attmap);
                 type_ele_map
                     .entry(noun)
@@ -804,7 +812,7 @@ pub async fn parse_db(
         whole_attmap,
         children,
         name,
-    } = parse_ele_data(&input[entry.pos - 4..])
+    } = parse_ele_data(&input[entry.pos - 4..], entry.pos / 0x800)
         .await
         .unwrap_or_default();
 
@@ -868,7 +876,7 @@ pub async fn parse_db(
                           whole_attmap,
                           children,
                           name,
-                      }) = parse_ele_data(&input[pos - 4..]).await
+                      }) = parse_ele_data(&input[pos - 4..], pos / 0x800).await
             {
                 whole_attr_dashmap.insert(refno, whole_attmap.merge().into());
                 type_ele_map
@@ -925,6 +933,7 @@ pub fn parse_implicit_attr_value<'a>(
     let bytes = &origin_bytes[offset..];
     // println!("{}", pretty_hex::pretty_hex(&bytes));
     if b_expr {
+        // dbg!(attr_info);
         //既然当作表达式，而且又在隐含属性里，这里需要把bytes的长度锁定
         let (_, string_val) = parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
         val = string_val.clone();
@@ -1111,8 +1120,6 @@ pub async fn parse_explicit_attrs<'a>(
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
         let is_uda = is_uda(hash_val);
-        //UDA 需要单独处理
-        // - 的处理
         let att_name = if is_uda {
             //UDA 单独处理
             "_UDAS".into()
@@ -1123,6 +1130,7 @@ pub async fn parse_explicit_attrs<'a>(
         //     dbg!(&att_name);
         // }
         if check_is_expr(hash_val) {
+            // dbg!(&att_name);
             let (input, (_, value)) = parse_expression_attr(residual, refno)?;
             // dbg!(&value);
             if value.is_empty() {
@@ -1421,7 +1429,7 @@ pub async fn parse_explicit_attrs<'a>(
     Ok((input, true))
 }
 
-fn get_param_type_with_i32(input: i32) -> String {
+fn parse_param_with_index(input: i32) -> String {
     let mut val = String::new();
     if input >= 50 && input < 0x65 {
         let value = input - 50;
@@ -1445,8 +1453,7 @@ fn get_param_type_with_i32(input: i32) -> String {
             _ => {}
         }
     } else if input <= 0xFFFFFFFFu32 as i32 {
-        let value = match_angle_or_return_number(input);
-        val = value.to_string();
+        val = match_angle_or_return_number(input);
     } else {
         val = format!("PARAM {}", input);
     }
@@ -1774,18 +1781,18 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
             }
         }
     } else if flag == 4 {
-        let mut val_string = String::new();
+        let mut param1 = String::new();
         // 目前的推论是 0x28代表符号部分 ，0x1代表数字部分
         match &res_input[..2] {
             &[0x0, 0x0] => {
                 let (_, times) = be_i16(&res_input[2..4])?;
                 let times = times_keep_f32_three_decimal_place(times as i32);
                 if times == 1.0 {
-                    val_string = "PARAM".to_string();
+                    param1 = "PARAM".to_string();
                 } else if times == 0.0 {
-                    val_string = "".to_string();
+                    param1 = "".to_string();
                 } else {
-                    val_string = format!("{} TIMES PARAM", times);
+                    param1 = format!("{} TIMES PARAM", times);
                 }
             }
             &[0xFF, 0xFF] => {
@@ -1793,11 +1800,11 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                 if times > 0xFFFFu16 as i16 {
                     let mut times = ((0xFFFFu16 as i16) as f32 - times as f32 - 1.0) / 40.0f32;
                     times = (times * 100.0_f32).round() / 100.0;
-                    val_string = format!("{} TIMES PARAM", times);
+                    param1 = format!("{} TIMES PARAM", times);
                 } else {
                     let mut times = (times as f32 - (0xFFFFu16 as i16) as f32 - 1.0) / 40.0f32;
                     times = (times * 100.0_f32).round() / 100.0;
-                    val_string = format!("{} TIMES PARAM", times);
+                    param1 = format!("{} TIMES PARAM", times);
                 }
             }
             _ => {}
@@ -1807,33 +1814,33 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                 let (_, value) = be_i32(&res_input[8..12])?;
                 if value >= 50 && value < 0x65 {
                     let value = value - 50;
-                    val_string = val_string.replace("PARAM", ""); // 防止出现两个para
-                    val_string = format!("{} DESIGN PARAM {}", val_string, value);
+                    param1 = param1.replace("PARAM", ""); // 防止出现两个para
+                    param1 = format!("{} DESIGN PARAM {}", param1, value);
                 } else if value >= 500 && value < 0x3E9 {
                     let value = value - 500;
                     if value < 50 {
-                        val_string = format!("TWICE PARAM {}", value);
+                        param1 = format!("TWICE PARAM {}", value);
                     } else {
                         let value = value - 100;
-                        val_string = format!("TWICE IPARAM {}", value);
+                        param1 = format!("TWICE IPARAM {}", value);
                     }
                 } else if value >= 0x65 && value < 0x3E9 {
                     // PARAM 数值大于 0x65 就是 IPARAM
                     let value = value - 0x64;
-                    val_string = format!("IPARAM {}", value);
+                    param1 = format!("IPARAM {}", value);
                 } else if value >= 0x3E9 {
                     let value = value - 0x3E8;
                     if value >= 0x65 {
                         let value = value - 0x64;
-                        val_string = format!("- IPARAM {}", value);
+                        param1 = format!("- IPARAM {}", value);
                     } else {
-                        val_string = format!("- {} {}", val_string, value);
+                        param1 = format!("- {} {}", param1, value);
                     }
                 } else if value <= 0xFFFFFFFFu32 as i32 {
                     let (_, t) = be_i32(&res_input[..4])?;
                     // times是除以0x28的倍数
                     if t == 0x28 {
-                        val_string = match_angle_or_return_number(parse_to_i32(&res_input[8..12]));
+                        param1 = match_angle_or_return_number(parse_to_i32(&res_input[8..12]));
                     } else {
                         let mut value = "".to_string();
                         let v = t as f32 / 40.0;
@@ -1845,10 +1852,10 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                                 value = (-v as f32 / 10.0).to_string();
                             }
                         }
-                        val_string = format!("{} TIMES {}", times, value);
+                        param1 = format!("{} TIMES {}", times, value);
                     }
                 } else {
-                    val_string = format!("{} {}", val_string, value);
+                    param1 = format!("{} {}", param1, value);
                 }
             }
             &[0x0, 0x0, 0x0, 0x2] => {
@@ -1857,10 +1864,10 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                     let value = value - 1000;
                     match &res_input[12..16] {
                         &[0xFF, 0xFF, 0xFF, 0xFB] => {
-                            val_string = format!("TANF - {} {} DDHEIGHT", val_string, value);
+                            param1 = format!("TANF - {} {} DDHEIGHT", param1, value);
                         }
                         &[0xFF, 0xFF, 0xFF, 0xFC] => {
-                            val_string = format!("TANF - {} {} DDANGLE", val_string, value);
+                            param1 = format!("TANF - {} {} DDANGLE", param1, value);
                         }
                         _ => {}
                     }
@@ -1869,20 +1876,20 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                     if angle != "" {
                         match &res_input[12..16] {
                             &[0xFF, 0xFF, 0xFF, 0xFB] => {
-                                val_string = format!("TANF {} DDHEIGHT", angle);
+                                param1 = format!("TANF {} DDHEIGHT", angle);
                             }
                             &[0xFF, 0xFF, 0xFF, 0xFC] => {
-                                val_string = format!("TANF {} DDANGLE", angle);
+                                param1 = format!("TANF {} DDANGLE", angle);
                             }
                             _ => {}
                         }
                     } else {
                         match &res_input[12..16] {
                             &[0xFF, 0xFF, 0xFF, 0xFB] => {
-                                val_string = format!("TANF {} {} DDHEIGHT", val_string, value);
+                                param1 = format!("TANF {} {} DDHEIGHT", param1, value);
                             }
                             &[0xFF, 0xFF, 0xFF, 0xFC] => {
-                                val_string = format!("TANF {} {} DDANGLE", val_string, value);
+                                param1 = format!("TANF {} {} DDANGLE", param1, value);
                             }
                             _ => {}
                         }
@@ -1893,12 +1900,12 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                 let (_, times) = be_i32(&res_input[..4])?;
                 let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
-                val_string = get_param_type_with_i32(value1);
-                let result = get_param_type_with_i32(value2);
+                param1 = parse_param_with_index(value1);
+                let result = parse_param_with_index(value2);
                 if times != 1.0 {
-                    val_string = format!("{} TIMES DIFFERENCE {} {}", times, val_string, result);
+                    param1 = format!("{} TIMES DIFFERENCE {} {}", times, param1, result);
                 } else {
-                    val_string = format!("DIFFERENCE {} {}", val_string, result);
+                    param1 = format!("DIFFERENCE {} {}", param1, result);
                 }
             }
 
@@ -1907,12 +1914,12 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                 let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
 
-                val_string = get_param_type_with_i32(value1);
-                let result = get_param_type_with_i32(value2);
+                param1 = parse_param_with_index(value1);
+                let param2 = parse_param_with_index(value2);
                 if times != 1.0 {
-                    val_string = format!("{} TIMES SUM {} {}", times, val_string, result);
+                    param1 = format!("{} TIMES SUM {} {}", times, param1, param2);
                 } else {
-                    val_string = format!("SUM {} {}", val_string, result);
+                    param1 = format!("SUM {} {}", param1, param2);
                 }
             }
             //代表是WORD
@@ -1920,30 +1927,30 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
                 let (_, n0) = be_u32(&res_input[8..12])?;
                 let (_, n1) = be_u32(&res_input[12..16])?;
                 let hash: u32 = format!("{n0}{n1}").parse().unwrap_or_default();
-                val_string = db1_dehash(hash);
+                param1 = db1_dehash(hash);
             }
             &[0x0, 0x0, 0x0, 0x8] => {
                 let (_, times) = be_i32(&res_input[..4])?;
                 let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
-                val_string = get_param_type_with_i32(value1);
-                let result = get_param_type_with_i32(value2);
+                param1 = parse_param_with_index(value1);
+                let result = parse_param_with_index(value2);
                 if times != 1.0 {
-                    val_string = format!("{} TIMES SUM {} {}", times, val_string, result);
+                    param1 = format!("{} TIMES SUM {} {}", times, param1, result);
                 } else {
-                    val_string = format!("MULT {} {}", val_string, result);
+                    param1 = format!("MULT {} {}", param1, result);
                 }
             }
             &[0x0, 0x0, 0x0, 0x9] => {
                 let (_, times) = be_i32(&res_input[..4])?;
                 let times = times_keep_f32_three_decimal_place(times);
                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
-                val_string = get_param_type_with_i32(value1);
-                let result = get_param_type_with_i32(value2);
+                param1 = parse_param_with_index(value1);
+                let result = parse_param_with_index(value2);
                 if times != 1.0 {
-                    val_string = format!("{} TIMES SUM {} {}", times, val_string, result);
+                    param1 = format!("{} TIMES SUM {} {}", times, param1, result);
                 } else {
-                    val_string = format!("DIV {} {}", val_string, result);
+                    param1 = format!("DIV {} {}", param1, result);
                 }
             }
 
@@ -1951,9 +1958,9 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
         }
         if res_input.len() > 24 {
             let value = get_implicit_angle_expression(&res_input[16..20]);
-            val_string = format!("{} {}", val_string, value);
+            param1 = format!("{} {}", param1, value);
         }
-        return Ok((input, StringType(val_string.into())));
+        return Ok((input, StringType(param1.into())));
     }
     Ok((input, val))
 }
@@ -1961,6 +1968,8 @@ pub fn parse_to_expression(input: &[u8], default: AttrVal) -> IResult<&[u8], Att
 /// 特殊处理AXIS显式属性
 pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&[u8], AttrVal> {
     let mut result = StringType("".into());
+    #[cfg(debug_parse_expr)]
+    println!("explicit axis: {}", pretty_hex(&input));
     if input.len() < 20 {
         let (_, val) = parse_to_expression(input, StringType("".to_owned()))?;
         result = val;
@@ -1987,6 +1996,13 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
                 let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno, false)?;
                 let third = match_axis(parse_to_u32(&tmp_input[..4]));
                 result = StringType((format!("{}{}{}", first_data, second_data, third)));
+            }
+            [0x2, 0x22] => {
+                let (_, (a, b, c, d)) = tuple((be_u32, be_u32, be_u32, be_u32))(tmp_input)?;
+                // dbg!((a, b, c, d));
+                if a == 0x52 && b == 0x3 && c == 0x7{
+                    result = StringType((format!("PP {}", d)));
+                }
             }
             [0x2, 0x34] => {
                 if let Some((func, count)) = match_to_dir(parse_to_u32(&tmp_input[4..8])) {
@@ -2175,7 +2191,7 @@ pub fn get_total_refno_0s(input: &[u8]) -> HashSet<&[u8]> {
 pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
     let mut value = get_implicit_angle_expression(input);
     if value == "".to_string() {
-        value = get_param_type_with_i32(parse_to_i32(input));
+        value = parse_param_with_index(parse_to_i32(input));
     }
     Ok((input, value))
 }

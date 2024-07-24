@@ -21,7 +21,7 @@ async fn test_parse_uda_elelist_0() {
     00 0B C6 1B 1C 00 00 02 00 00 00 01 00 0C 55 1C
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
 }
@@ -49,7 +49,7 @@ async fn test_parse_uda_elelist_1() {
 
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
 }
@@ -81,6 +81,6 @@ async fn test_13292_185_udna() {
 50 69 70 65 20 66 61 62 72 69 63 61 74 69 6F 6E
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
