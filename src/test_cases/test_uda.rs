@@ -46,7 +46,7 @@ async fn test_parse_uda_data_24381_48631() {
     ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     for (key, value) in ele_data.whole_attmap.explicit_attmap.map {
         dbg!(&key);
         dbg!(&value);
@@ -86,7 +86,7 @@ async fn test_14194_4_udna() {
 00 09 72 47";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
 }
 
 #[tokio::test]
@@ -108,7 +108,7 @@ async fn test_udna_1() {
 1C 00 00 02 00 00 00 01 00 AC 03 06";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
 
@@ -140,7 +140,7 @@ async fn test_13292_185_udna() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
 

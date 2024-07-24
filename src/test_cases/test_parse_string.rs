@@ -24,7 +24,7 @@ async fn test_ams_pcon() {
 00 00 06 41 00 00 06 A5 00 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     dbg!(&ele_data);
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PCON") {
         let result = val.string_value();
