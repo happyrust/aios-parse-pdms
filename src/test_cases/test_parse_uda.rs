@@ -122,6 +122,6 @@ async fn test_24381_177401_NphsAsr() {
 00 02 B8 44 00 00 5F 3D 00 02 B8 50";
     init_test_surreal().await;
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     dbg!(&ele_data.whole_attmap);
 }

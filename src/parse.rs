@@ -279,6 +279,10 @@ impl EleData {
     pub fn att_map(&self) -> &NamedAttrMap{
         self.whole_attmap.att_map()
     }
+    #[inline]
+    pub fn att_map_mut(&mut self) -> &mut NamedAttrMap{
+        self.whole_attmap.att_map_mut()
+    }
 }
 
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号

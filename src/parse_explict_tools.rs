@@ -38,12 +38,12 @@ const ATT_PTCDI: i32 = 0x95A34;
 lazy_static! {
     pub static ref MATH_OPERATORS_MAP: BHashMap<i32, &'static str> = {
         let mut s = BHashMap::new();
-        s.insert(0x191,"{}EQ{}");
-        s.insert(0x259, "{}GT{}");
+        s.insert(0x191,"{} EQ {}");
+        s.insert(0x259, "{} GT {}");
         // 通过该 000 文件的二进制数据 25A 也是 GT ， 不知道是不是这两个数字都代表 GT ，下同
-        s.insert(0x25B, "{}LT{}");
-        s.insert(0x25D, "{}GE{}");
-        s.insert(0x25F, "{}LE{}");
+        s.insert(0x25B, "{} LT {}");
+        s.insert(0x25D, "{} GE {}");
+        s.insert(0x25F, "{} LE {}");
         s.insert(0x321, "(-{})");
         s.insert(0x322, "({}+{})");
         s.insert(0x323, "({}-{})");
@@ -433,7 +433,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                         let value1 = result_stack.pop().unwrap_or_default();
                         let value2 = result_stack.pop().unwrap_or_default();
                         let value3 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("IFTRUE({},{},{})", value3, value2, value1);
+                        symbol = format!("IFTRUE ( {} , {} , {} )", value3, value2, value1);
                     }
                 }
 
