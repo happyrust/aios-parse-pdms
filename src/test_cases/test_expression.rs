@@ -1,4 +1,4 @@
-use crate::parse::parse_ele_data;
+use crate::parse::{parse_ele_data, parse_explicit_attrs};
 use crate::test_cases::convert_str_to_bytes;
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::PdmsDatabaseInfo;
@@ -6,6 +6,8 @@ use aios_core::types::*;
 use dashmap::DashMap;
 use std::fs::File;
 use std::io::Write;
+use std::str::FromStr;
+use crate::parse_explict_tools::parse_expression_attr;
 
 #[tokio::test]
 async fn test_gdp_15194_134() {
@@ -2995,4 +2997,86 @@ async fn test_parse_SPRE() {
     // assert_eq!(ele_data.whole_attmap.attmap.get_val("PAXI").unwrap().string_value(), "-P4");
 }
 
+#[tokio::test]
+async fn test_parse_15192_254675_iftrue() {
+    let data_str = "FF F7 7D 0F 1C 00 00 51
+00 00 00 50 00 00 00 50 00 00 00 01 00 00 00 65
+00 00 00 06 00 1C 00 00 00 00 00 00 40 00 04 01
+00 00 00 00 00 00 00 00 00 00 00 6A 00 00 00 02
+00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00
+00 00 00 00 00 00 02 5B 00 00 00 65 00 00 00 06
+00 1C 00 00 00 00 00 00 40 00 04 03 00 00 00 00
+00 00 00 00 00 00 00 6A 00 00 00 02 00 0D 20 C7
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 00 65 00 00 00 06 00 00 00 00
+00 00 00 00 40 00 04 00 00 00 00 00 00 00 00 00
+00 00 03 25 00 00 00 65 00 00 00 06 40 10 00 00
+00 00 00 00 40 00 03 FF 00 00 00 00 00 00 00 00
+00 00 00 65 00 00 00 06 00 1C 00 00 00 00 00 00
+40 00 04 03 00 00 00 00 00 00 00 00 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 24
+00 00 00 65 00 00 00 06 00 00 00 00 00 00 00 00
+40 00 04 00 00 00 00 00 00 00 00 00 00 00 03 25
+00 00 07 1E ";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( IFTRUE ( ATTRIB DESP[7 ] LT 0 , ATTRIB DESP[28 ] / 2 , -1 * ATTRIB DESP[28 ] / 2 ) )
+    assert_eq!(ele_data.1,"IFTRUE(DESP[7]LT0,(DESP[28]/2),((-1*DESP[28])/2))".to_string());
+}
 
+#[tokio::test]
+async fn test_parse_15192_254676_trim() {
+    let data_str = "FF F7 7D 0F 1C 00 00 43 00 00 00 42 00 00 00 42
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 00 00
+00 00 00 00 40 00 04 00 00 00 00 00 00 00 00 00
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 14 00 00 00 00 00 00
+40 00 04 03 00 00 00 00 00 00 00 00 00 00 03 22
+00 00 00 65 00 00 00 06 00 0E 00 00 00 00 00 00
+40 00 04 02 00 00 00 00 00 00 00 00 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 09 00 00 00 00 00 00 40 00 04 04
+00 00 00 00 00 00 00 00 00 00 00 65 00 00 00 06
+00 10 00 00 00 00 00 00 40 00 03 FF 00 00 00 00
+00 00 00 00 00 00 03 24 00 00 02 59 00 00 05 82
+00 00 05 22 00 00 00 76 00 00 00 04 00 00 00 74
+00 00 00 72 00 00 00 75 00 00 00 65 00 00 05 1C
+00 00 03 24";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( TRIM ( STR ( ATTRIB DESP[15 ] GT 50 * 1 ) ) , 'true' ) )
+    assert_eq!(ele_data.1,"((DESP[2]+20)*MAT(TRIM(STR(DESP[15]GT(50*1))),'true'))".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15192_254676_trim_str() {
+    let data_str = "FF F7 7D 0F 1C 00 00 36 00 00 00 35 00 00 00 35
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 00 00
+00 00 00 00 40 00 04 00 00 00 00 00 00 00 00 00
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 14 00 00 00 00 00 00
+40 00 04 03 00 00 00 00 00 00 00 00 00 00 03 22
+00 00 00 65 00 00 00 06 00 0E 00 00 00 00 00 00
+40 00 04 02 00 00 00 00 00 00 00 00 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 05 7A
+00 00 00 76 00 00 00 08 00 00 00 74 00 00 00 72
+00 00 00 75 00 00 00 65 00 00 00 66 00 00 00 64
+00 00 00 73 00 00 00 61 00 00 05 1C 00 00 03 24
+";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"((DESP[2]+20)*MAT(DESP[15],'truefdsa'))".to_string());
+    // dbg!(&ele_data.1);
+}

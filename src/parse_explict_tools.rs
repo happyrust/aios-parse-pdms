@@ -38,6 +38,12 @@ const ATT_PTCDI: i32 = 0x95A34;
 lazy_static! {
     pub static ref MATH_OPERATORS_MAP: BHashMap<i32, &'static str> = {
         let mut s = BHashMap::new();
+        s.insert(0x191,"{}EQ{}");
+        s.insert(0x259, "{}GT{}");
+        // 通过该 000 文件的二进制数据 25A 也是 GT ， 不知道是不是这两个数字都代表 GT ，下同
+        s.insert(0x25B, "{}LT{}");
+        s.insert(0x25D, "{}GE{}");
+        s.insert(0x25F, "{}LE{}");
         s.insert(0x321, "(-{})");
         s.insert(0x322, "({}+{})");
         s.insert(0x323, "({}-{})");
@@ -57,6 +63,9 @@ lazy_static! {
         s.insert(0x3ED, "INT({})");
         s.insert(0x3EE, "NINT({})");
         s.insert(0x3EF, "ABS({})");
+        s.insert(0x51C,"MAT({},'{}')");
+        s.insert(0x522, "TRIM({})");
+        s.insert(0x582, "STR({})");
         // s.insert(0x3F0, "MAX ({},{})");   //特殊处理
         // s.insert(0x3F1, "MIN ({},{})");
         s
@@ -86,14 +95,14 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
-    
+
     //临时处理，后面需要总结规律
     if input.len() <= 4 * 6 {
         return Err(nom::Err::Incomplete(nom::Needed::Unknown));
     }
-    
+
     let (_, flag) = be_i32(&input[4 * 5..4 * 6])?;
-    
+
     //string type
     if flag == 0x66 {
         let (_, str_len) = be_i32(&input[4 * 6..4 * 7])?;
@@ -101,10 +110,10 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
         let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
         return Ok((input, (expression_type, string)));
     }
-    
+
     if expression_type == "PTCDI" || expression_type == "PTCD" {
         let (_, expression_length) = be_u16(&input[6..8])?;
-        
+
         // 显式属性的length后有8个byte没用的，直接跳过了
         let end = (expression_length * 4) as usize + 8;
 
@@ -116,24 +125,24 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
         }
         let expression_data = &input[8..end];
         let input = &input[end..];
-        
+
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
         let result = match axis {
             StringType(value) => value,
             _ => "".to_string(),
         };
-        
+
         Ok((input, (expression_type, result)))
     } else {
         let (_, expression_length) = be_u16(&input[6..8])?;
-        
+
         // 显式属性的length后有8个byte没用的，直接跳过了
         if (expression_length as usize * 4 + 8) > input.len() {
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
         let end = (expression_length * 4) as usize + 8;
         //todo 需要检查
-        if end <= 16{
+        if end <= 16 {
             // dbg!("Found expression length less than 16 bytes, skipping...{refno}");
             // println!("Debug expression data {:#4X?}", &input[16..]);
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
@@ -143,7 +152,7 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
         let flag2 = parse_to_i32(&input[12..16]);
         let flag3 = parse_to_i32(&expression_data[..4]);
         let input = &input[(expression_length * 4) as usize + 8..];
-        
+
         if flag1 == 2 && flag2 == 1 {
             let axis = match flag3 {
                 1 => "X",
@@ -153,14 +162,14 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
             };
             return Ok((input, (expression_type, axis.into())));
         }
-        
+
         let expr_data = &expression_data[4..];
-        
+
         if flag2 == 0x28 && expr_data.len() == 2 * 4 {
             let u32_value = parse_to_i32(&expr_data[..4]).abs() / 10;
             return Ok((input, (expression_type, u32_value.to_string())));
         }
-        
+
         let result = parse_expression_func(expr_data, refno)?.1;
         Ok((input, (expression_type, result.into())))
     }
@@ -180,10 +189,10 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
     let mut number_flag = check_val1 == 0x65;
     while expression_data.len() >= 8
         && (number_flag
-            || check_val1 == 0x6A
-            || check_val2 == 3
-            || &expression_data[..3] == &[0x0, 0x0, 0x3]
-            || check_val2 == 0x65)
+        || check_val1 == 0x6A
+        || check_val2 == 3
+        || &expression_data[..3] == &[0x0, 0x0, 0x3]
+        || check_val2 == 0x65)
     {
         let expression_const = parse_expression_const(&expression_data[..4]);
         if expression_const != "" {
@@ -222,20 +231,20 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             // 跳6A
             expression_data = &expression_data[4..];
             let hash_num = u32::from_be_bytes(expression_data[4..8].try_into().unwrap());
-            let att_name = if is_uda(hash_num as _){
+            let att_name = if is_uda(hash_num as _) {
                 let uda_name = tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(async move {
                         if let Some(uda_name) = aios_core::get_uda_name(hash_num as _).await {
                             // dbg!(hash_val, uda_refno);
                             format!(":{uda_name}")
                             //要加UDA:表达区分
-                        }else{
+                        } else {
                             db1_dehash(hash_num)
                         }
                     })
                 });
                 uda_name
-            }else{
+            } else {
                 db1_dehash(hash_num)
             };
             // let att_name = db1_dehash(hash_num);
@@ -326,7 +335,6 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             && &expression_data[..4] != &[0x0, 0x0, 0x0, 0x2]
         {
             let mut symbol = String::new();
-
             let op_key = parse_to_i32(&expression_data[..4]);
             if MATH_OPERATORS_MAP.contains_key(&op_key) {
                 let op_str = MATH_OPERATORS_MAP[&op_key];
@@ -340,7 +348,40 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                     result_stack.drain(len - cnt..);
                 }
             }
+            // println!("{:#4X?}",&expression_data[..4]);
             match &expression_data[..4] {
+                &[0x0, 0x0, 0x0, 0x3] => {
+                    if expression_data.len() >= 8
+                        && &expression_data[4..8] == &[0x0, 0x0, 0x6, 0xA5]
+                    {
+                        if result_stack.len() > 1 {
+                            let value1 = result_stack.pop().unwrap_or_default();
+                            let value2 = result_stack.pop().unwrap_or_default();
+                            symbol = format!("{} OF = {}", value2, value1);
+                        }
+                    }
+                }
+                &[0, 0, 0, 0x6F] => {
+                    symbol = "PI".to_string();
+                }
+                // 字符串
+                &[0x0, 0x0, 0x0, 0x76] => {
+                    if expression_data.len() > 4 {
+                        // 第一个是字符串的长度
+                        let len = parse_to_u32(&expression_data[4..8]);
+                        let mut chars = vec![];
+                        if expression_data.len() >= (len * 4 + 4) as usize {
+                            for i in 0..len {
+                                let start = (8 + i * 4) as usize;
+                                let c = parse_to_u32(&expression_data[start..start + 4]) as u8;
+                                chars.push(c);
+                            }
+                        }
+                        let end = (4 + len * 4) as usize;
+                        expression_data = &expression_data[end..];
+                        symbol = String::from_utf8_lossy(&chars).to_string();
+                    }
+                }
                 &[0x0, 0x0, 0x3, 0xF0] => {
                     if result_stack.len() > 1 {
                         let value1 = result_stack.pop().unwrap_or_default();
@@ -387,20 +428,15 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                         symbol = format!("MIN ({})", max_array);
                     }
                 }
-                &[0x0, 0x0, 0x0, 0x3] => {
-                    if expression_data.len() >= 8
-                        && &expression_data[4..8] == &[0x0, 0x0, 0x6, 0xA5]
-                    {
-                        if result_stack.len() > 1 {
-                            let value1 = result_stack.pop().unwrap_or_default();
-                            let value2 = result_stack.pop().unwrap_or_default();
-                            symbol = format!("{} OF = {}", value2, value1);
-                        }
+                &[0x0, 0x0, 0x7, 0x1E] => {
+                    if result_stack.len() > 2 {
+                        let value1 = result_stack.pop().unwrap_or_default();
+                        let value2 = result_stack.pop().unwrap_or_default();
+                        let value3 = result_stack.pop().unwrap_or_default();
+                        symbol = format!("IFTRUE({},{},{})", value3, value2, value1);
                     }
                 }
-                &[0, 0, 0, 0x6F] => {
-                    symbol = "PI".to_string();
-                }
+
                 _ => {}
             }
             if symbol != "" {
@@ -433,7 +469,7 @@ pub fn parse_xyz_data(input: &[u8], refno: RefU64, convert: bool) -> IResult<&[u
     let data = parse_expression_func(&input[12..(data_len + 1) * 4], refno)?.1;
     let result = if convert && axis.starts_with("-") {
         format!("{} (NEG ( {} )) ", &axis[1..], data)
-    } else{
+    } else {
         format!("{} ( {} ) ", axis, data)
     };
     Ok((
