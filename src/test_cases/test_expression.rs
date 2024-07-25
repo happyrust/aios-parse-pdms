@@ -3023,7 +3023,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let refno = RefU64::from_str("15192/254675").unwrap();
     let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
     // ( IFTRUE ( ATTRIB DESP[7 ] LT 0 , ATTRIB DESP[28 ] / 2 , -1 * ATTRIB DESP[28 ] / 2 ) )
-    assert_eq!(ele_data.1,"IFTRUE(DESP[7]LT0,(DESP[28]/2),((-1*DESP[28])/2))".to_string());
+    assert_eq!(ele_data.1,"IFTRUE ( DESP[7] LT 0 , (DESP[28]/2) , ((-1*DESP[28])/2) )".to_string());
 }
 
 #[tokio::test]

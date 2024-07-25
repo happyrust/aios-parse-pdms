@@ -198,7 +198,6 @@ pub async fn parse_pdms_dir(
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_file_db_basic_data(
     path: &PathBuf,
-    database_info: &Option<PdmsDatabaseInfo>,
     file_name: &str,
     project: &str,
 ) -> Result<DbBasicData> {
@@ -208,13 +207,9 @@ pub fn parse_file_db_basic_data(
     file.read_to_end(&mut buf)?;
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
-    if database_info.is_none() {
-        //使用默认的配置信息
-        let db_info = get_default_pdms_db_info();
-        parse_db_basic_data(buf, &db_info, file_name, project)
-    } else {
-        parse_db_basic_data(buf, database_info.as_ref().unwrap(), file_name, project)
-    }
+    //使用默认的配置信息
+    let mut basic_data = parse_db_basic_data(buf, file_name, project)?;
+    Ok(basic_data)
 }
 
 ///解析db文件
@@ -241,27 +236,16 @@ pub async fn parse_file(
 }
 
 ///解析db文件
+#[inline]
 pub async fn parse_file_with_chunk(
     db_basic_data: Arc<DbBasicData>,
-    database_info: &Option<PdmsDatabaseInfo>,
     file_name: &str,
     project: &str,
     chunk_refnos: &[RefU64],
+    ses_range_map: &BTreeMap<i32, Range<u32>>
 ) -> Result<PdmsDbData> {
-    if database_info.is_none() {
-        //使用默认的配置信息
-        let db_info = get_default_pdms_db_info();
-        parse_db_with_chunk(db_basic_data, &db_info, file_name, project, chunk_refnos).await
-    } else {
-        parse_db_with_chunk(
-            db_basic_data,
-            database_info.as_ref().unwrap(),
-            file_name,
-            project,
-            chunk_refnos,
-        )
-            .await
-    }
+    //使用默认的配置信息
+    parse_db_with_chunk(db_basic_data, file_name, project, chunk_refnos, ses_range_map).await
 }
 
 #[derive(Debug, Clone, Default)]
@@ -276,11 +260,11 @@ pub struct EleData {
 
 impl EleData {
     #[inline]
-    pub fn att_map(&self) -> &NamedAttrMap{
+    pub fn att_map(&self) -> &NamedAttrMap {
         self.whole_attmap.att_map()
     }
     #[inline]
-    pub fn att_map_mut(&mut self) -> &mut NamedAttrMap{
+    pub fn att_map_mut(&mut self) -> &mut NamedAttrMap {
         self.whole_attmap.att_map_mut()
     }
 }
@@ -605,19 +589,12 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_db_basic_data(
     input: Vec<u8>,
-    database_info: &PdmsDatabaseInfo,
     file_name: &str,
     project: &str,
 ) -> Result<DbBasicData> {
     let mut gen_ref_time = Instant::now();
-    let noun_attr_info_map = &database_info.named_attr_info_map;
-    let (refno_table_map, world_refno) = gen_ref_type_pos_table(&input, noun_attr_info_map);
-    // {
-    //     let test_refno: RefU64 = "13802_1954".into();
-    //     if let Some(entry) = refno_table_map.get(&test_refno){
-    //         dbg!(entry.value());
-    //     }
-    // }
+    let (refno_table_map, world_refno) =
+        gen_ref_type_pos_table(&input);
     println!(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
@@ -687,13 +664,23 @@ pub fn parse_db_basic_data(
     })
 }
 
+#[inline]
+fn get_sesno(ses_range_map: &BTreeMap<i32, Range<u32>>, pgno: u32) -> Option<i32>{
+    for (sesno, range) in ses_range_map{
+        if range.contains(&pgno){
+            return Some(*sesno);
+        }
+    }
+    None
+}
+
 ///解析db文件，因为有可能db文件会很大，所以需要做一个分段运行的策略
 pub async fn parse_db_with_chunk(
     db_basic_data: Arc<DbBasicData>,
-    database_info: &PdmsDatabaseInfo,
     file_name: &str,
     project: &str,
     chunk_refnos: &[RefU64],
+    ses_range_map: &BTreeMap<i32, Range<u32>>
 ) -> Result<PdmsDbData> {
     let input = &db_basic_data.bytes;
     let type_ele_map = Arc::new(DashMap::new());
@@ -721,6 +708,8 @@ pub async fn parse_db_with_chunk(
         .get(&root_refno)
         .ok_or(anyhow!("Not found refno in entry"))?;
 
+    let mut pgno = entry.pos / 0x800;
+    let mut sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
     let EleData {
         refno,
         owner,
@@ -729,11 +718,12 @@ pub async fn parse_db_with_chunk(
         children,
         name,
         // foreign_refnos,
-    } = parse_ele_data(&input[entry.pos - 4..], entry.pos / 0x800)
+    } = parse_ele_data(&input[entry.pos - 4..], pgno)
         .await
         .unwrap_or_default();
-
     let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
+    named_attmap.set_sesno(sesno as _);
+
     total_att_map.insert(refno, named_attmap);
     type_ele_map
         .entry(noun)
@@ -749,14 +739,17 @@ pub async fn parse_db_with_chunk(
             let pos = entry.pos;
             let total_attmap_clone = total_att_map.clone();
             let type_ele_map = type_ele_map.clone();
+            pgno = entry.pos / 0x800;
             if let Ok(EleData {
                           refno,
                           noun,
                           whole_attmap,
                           ..
-                      }) = parse_ele_data(&input[pos - 4..], pos / 0x800).await
+                      }) = parse_ele_data(&input[pos - 4..], pgno).await
             {
+                sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
+                named_attmap.set_sesno(sesno as _);
                 //页数就是所在的位置除以0x800
                 total_attmap_clone.insert(refno, named_attmap);
                 type_ele_map
@@ -807,8 +800,7 @@ pub async fn parse_db(
     }
 
     let mut gen_ref_time = Instant::now();
-    let noun_attr_info_map = &database_info.named_attr_info_map;
-    let (refno_table_map, world_refno) = gen_ref_type_pos_table(input, noun_attr_info_map);
+    let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
     println!(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
@@ -2028,7 +2020,7 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
             [0x2, 0x22] => {
                 let (_, (a, b, c, d)) = tuple((be_u32, be_u32, be_u32, be_u32))(tmp_input)?;
                 // dbg!((a, b, c, d));
-                if a == 0x52 && b == 0x3 && c == 0x7{
+                if a == 0x52 && b == 0x3 && c == 0x7 {
                     result = StringType((format!("PP {}", d)));
                 }
             }
@@ -2189,7 +2181,7 @@ fn process_type_hash<'a>(
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
-            if let Some(refno_entry) = get_refno_entry(input, p, &noun_map.named_attr_info_map) {
+            if let Some(refno_entry) = get_refno_entry(input, p) {
                 type_hash
                     .entry(refno_entry.1.noun_hash)
                     .or_insert((refno_entry.0, file_name.clone()));
@@ -2246,13 +2238,11 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
 }
 
 
-//todo 需要完善情况
 ///获得参考号对应的Entry
 #[inline]
 fn get_refno_entry(
     input: &[u8],
     offset: usize,
-    noun_attr_info_map: &DashMap<String, DashMap<String, AttrInfo>>,
 ) -> Option<(RefU64, EleDataEntry)> {
     let input = &input[offset - 4..];
     let noun_hash = parse_to_i32(&input[12..16]);
@@ -2368,7 +2358,6 @@ pub const WORLD_NOUN: i32 = 0xBEB83;
 
 pub fn gen_ref_type_pos_table(
     input: &[u8],
-    noun_attr_info_map: &DashMap<String, DashMap<String, AttrInfo>>,
 ) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let refno_0_set = get_total_refno_0s(input);
     let mut refno_table = DashMap::new();
@@ -2381,7 +2370,7 @@ pub fn gen_ref_type_pos_table(
             if !(t[0] == 0 && t[1] == 0 && t[2] == 0 && t[3] >= 0x8) {
                 continue;
             }
-            if let Some((refno, entry)) = get_refno_entry(input, p, noun_attr_info_map) {
+            if let Some((refno, entry)) = get_refno_entry(input, p) {
                 //判断是否是World
                 if entry.noun_hash == WORLD_NOUN {
                     word_refno_hashset.insert(refno);
@@ -2433,7 +2422,7 @@ pub fn gen_ref_type_pos_table_parallel(
                             continue;
                         }
                         if let Some(refno_entry) =
-                            get_refno_entry(data, p - start, noun_attr_info_map)
+                            get_refno_entry(data, p - start)
                         {
                             //判断是否是World
                             if refno_entry.1.noun_hash == 0xBEB83 {
