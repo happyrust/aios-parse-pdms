@@ -99,7 +99,6 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
-
     //临时处理，后面需要总结规律
     if input.len() <= 4 * 6 {
         return Err(nom::Err::Incomplete(nom::Needed::Unknown));

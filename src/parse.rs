@@ -477,8 +477,8 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
             }
         }
     }
-
     let explicit_data = collect_explict_data(explicit_data, refno);
+
     let _ = parse_explicit_attrs(
         &explicit_data,
         &cur_type_info_map,
