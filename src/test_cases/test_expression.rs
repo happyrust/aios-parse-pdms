@@ -80,7 +80,7 @@ async fn test_dbp_5194_136() {
             _ => {}
         }
     }
-    assert_eq!("ATTRIB WDES[40]", result);
+    assert_eq!("WDES[40]", result);
 }
 
 #[tokio::test]
@@ -114,13 +114,12 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let mut result = "".to_string();
-    dbg!(ele_data.whole_attmap.merge());
     let pbor = ele_data
         .whole_attmap
         .merge()
         .get_as_string("PBOR")
         .unwrap_or_default();
-    assert_eq!("( ATTRIB DDES[2] + ATTRIB DDES[3] )", pbor.as_str());
+    assert_eq!("(DDES[2]+DDES[3])", pbor.as_str());
 }
 
 #[tokio::test]
@@ -206,7 +205,7 @@ async fn test_gdp_15194_8039() {
             _ => {}
         }
     }
-    assert_eq!("DESIGN PARAM 6", result);
+    assert_eq!(" DESIGN PARAM 6", result);
 }
 
 #[tokio::test]
@@ -283,19 +282,19 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let mut result = "".to_string();
 
     assert_eq!(
-        "( ATTRIB DESP[6] - ATTRIB DESP[25]/2 )",
+        "(DESP[6]-(DESP[25]/2))",
         ele_data.whole_attmap.merge().get_as_string("PZ").unwrap()
     );
     assert_eq!(
-        "( ( ATTRIB DESP[4] + ATTRIB DESP[26] ) + ATTRIB DESP[26] )",
+        "((DESP[4]+DESP[26])+DESP[26])",
         ele_data.whole_attmap.merge().get_as_string("PXLE").unwrap()
     );
     assert_eq!(
-        "( ( ATTRIB DESP[5] + ATTRIB DESP[26] ) + ATTRIB DESP[26] )",
+        "((DESP[5]+DESP[26])+DESP[26])",
         ele_data.whole_attmap.merge().get_as_string("PYLE").unwrap()
     );
     assert_eq!(
-        "ATTRIB DESP[25]",
+        "DESP[25]",
         ele_data.whole_attmap.merge().get_as_string("PZLE").unwrap()
     );
 }
@@ -362,7 +361,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
             _ => {}
         }
     }
-    assert_eq!("-1 * ATTRIB ANGL/8", result);
+    assert_eq!("((-1*ANGL)/8)", result);
 }
 
 #[tokio::test]
@@ -930,7 +929,6 @@ async fn test_mas_23704_838729() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
-        dbg!(map.value());
     };
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     println!("map={:?}", ele_data.whole_attmap.attmap);
@@ -1202,15 +1200,15 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
         let result = val.string_value();
         assert_eq!(
             result,
-            "(PARA[2]+(PARA[4]/(2)*SIN((180*PARA[6])/((PI*(PARA[2]+PARA[4]))))))"
+            "(PARA[2]+((PARA[4]/2)*SIN(((180*PARA[6])/(PI*(PARA[2]+PARA[4]))))))"
         );
     }
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PZ") {
         let result = val.string_value();
-        dbg!(&result);
+        // dbg!(&result);
         assert_eq!(
             result,
-            "(-((PARA[2]+PARA[4])/(2)*COS((180*PARA[6])/((PI*(PARA[2]+PARA[4]))))))"
+            "(-(((PARA[2]+PARA[4])/2)*COS(((180*PARA[6])/(PI*(PARA[2]+PARA[4]))))))"
         );
     }
 }
@@ -1663,14 +1661,13 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    println!("map={:?}", ele_data.whole_attmap.attmap);
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
+        assert_eq!(result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PY") {
         let result = val.string_value();
-        assert_eq!(result, "(((-((-0.5*PARA[1])+(PARA[1]+PARA[9])*TAN(ANGL/2)*SIN(ANGL)))/2+(-((PARA[1]/2+PARA[9])-PARA[9]*SIN((90-ANGL))))/2)+RPRO OUTB*((-((-0.5*PARA[1])+(PARA[1]+PARA[9])*TAN(ANGL/2)*SIN(ANGL)))/2-(-((PARA[1]/2+PARA[9])-PARA[9]*SIN((90-ANGL))))/2))");
+        assert_eq!(result, "((((-((-(0.5*PARA[1]))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*SIN(ANGL))))/2)+((-(((PARA[1]/2)+PARA[9])-(PARA[9]*SIN((90-ANGL)))))/2))+(RPRO OUTB*(((-((-(0.5*PARA[1]))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*SIN(ANGL))))/2)-((-(((PARA[1]/2)+PARA[9])-(PARA[9]*SIN((90-ANGL)))))/2))))");
     }
 }
 
@@ -1911,14 +1908,14 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    println!("map={:?}", ele_data.whole_attmap.attmap);
+    // println!("map={:?}", ele_data.whole_attmap.attmap);
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
+        assert_eq!(result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PY") {
         let result = val.string_value();
-        assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
+        assert_eq!(result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
 }
 
@@ -2330,7 +2327,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        dbg!(&result);
+        assert_eq!(result,"((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))-(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
 }
 
@@ -2568,7 +2565,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         // println!("{:?}", &result);
-        assert_eq!(&result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))")
+        assert_eq!(&result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))")
     }
 }
 
@@ -2627,11 +2624,11 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
-    dbg!(&ele_data.whole_attmap.explicit_attmap);
+    // dbg!(&ele_data.whole_attmap.explicit_attmap);
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("ALLANG") {
         let result = val.string_value();
-        println!("{:?}", &result);
-        assert_eq!(&result, "")
+        // println!("{:?}", &result);
+        assert_eq!(&result, "IFTRUE(DESP[78]LT1,1,(360/DESP[78]))")
     }
 }
 
@@ -2673,7 +2670,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        assert_eq!(&result, "(-0.5*PARA[1]+PARA[3])")
+        assert_eq!(&result, "((-0.5*PARA[1])+PARA[3])")
     }
 }
 
@@ -2775,7 +2772,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("PTCD") {
         let result = val.string_value();
-        assert_eq!(&result, "TO Z ((PARA[10]/2)) ");
+        assert_eq!(&result, "TO Z ( (PARA[10]/2) ) ");
     }
 }
 
