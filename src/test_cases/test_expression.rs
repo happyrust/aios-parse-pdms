@@ -3080,3 +3080,43 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     assert_eq!(ele_data.1,"((DESP[2]+20)*MAT(DESP[15],'truefdsa'))".to_string());
     // dbg!(&ele_data.1);
 }
+
+#[tokio::test]
+async fn test_parse_15192_254676_len() {
+    let data_str = "FF F7 7D 0F 1C 00 00 09 00 00 00 08 00 00 00 08
+00 00 00 01 00 00 00 76 00 00 00 03 00 00 00 61
+00 00 00 62 00 00 00 63 00 00 05 15";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"LEN('abc')".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15192_254676_occur() {
+    let data_str = "FF F7 7D 0F 1C 00 00 0B 00 00 00 0A 00 00 00 0A
+00 00 00 01 00 00 00 76 00 00 00 02 00 00 00 61
+00 00 00 61 00 00 00 76 00 00 00 01 00 00 00 61
+00 00 05 29";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"OCCUR('aa','a')".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15192_254676_real() {
+    let data_str = "FF F7 7D 0F 1C 00 00 09 00 00 00 08 00 00 00 08
+00 00 00 01 00 00 00 76 00 00 00 03 00 00 00 31
+00 00 00 35 00 00 00 36 00 00 05 79";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"REAL('156')".to_string());
+    // dbg!(&ele_data.1);
+}
