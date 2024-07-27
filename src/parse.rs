@@ -527,7 +527,7 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
             }
             5 => {
                 let page_type = parse_to_i32(&input[4..8]);
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "debug_parse")]
                 println!("Found {refno} attr may be in page type {:#4X?}", page_type);
                 if page_type == 0xCC47DF && input.len() > 0x2C {
                     //一直找到为0的为止
@@ -2462,7 +2462,7 @@ fn get_merged_data(input: &[u8], len: &mut usize, flag: u8) -> Vec<u8> {
         return data;
     }
     let mut t = *len;
-    while t + 4 <= input_len && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
+    while t + 6 <= input_len && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
         let seg_bytes_len = parse_to_u16(&input[t + 6..t + 8]) as usize * 4;
         //跳过6个byte
         let mut s = t + 4 * 6;

@@ -8,6 +8,7 @@ edition = "2021"
 default = ["compression"] #"compression"
 compression = []
 web = []                  #compile for just web usage, now it is too heavy now
+debug_parse = []
 
 [dependencies]
 memchr = "2.7.2"
