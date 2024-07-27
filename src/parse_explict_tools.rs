@@ -39,6 +39,7 @@ lazy_static! {
     pub static ref MATH_OPERATORS_MAP: BHashMap<i32, &'static str> = {
         let mut s = BHashMap::new();
         s.insert(0x191,"{} EQ {}");
+        s.insert(0x1F5,"{}NEQ{}");
         s.insert(0x259, "{} GT {}");
         // 通过该 000 文件的二进制数据 25A 也是 GT ， 不知道是不是这两个数字都代表 GT ，下同
         s.insert(0x25B, "{} LT {}");
@@ -63,8 +64,11 @@ lazy_static! {
         s.insert(0x3ED, "INT({})");
         s.insert(0x3EE, "NINT({})");
         s.insert(0x3EF, "ABS({})");
+        s.insert(0x515,"LEN('{}')");
         s.insert(0x51C,"MAT({},'{}')");
         s.insert(0x522, "TRIM({})");
+        s.insert(0x529, "OCCUR('{}','{}')");
+        s.insert(0x579, "REAL('{}')");
         s.insert(0x582, "STR({})");
         // s.insert(0x3F0, "MAX ({},{})");   //特殊处理
         // s.insert(0x3F1, "MIN ({},{})");
@@ -95,7 +99,6 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
 pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
     let hash_val = &input[..4];
     let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
-
     //临时处理，后面需要总结规律
     if input.len() <= 4 * 6 {
         return Err(nom::Err::Incomplete(nom::Needed::Unknown));
@@ -187,12 +190,14 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
     let mut check_val2 = parse_to_i32(&expression_data[4..8]);
     let mut number_flag = check_val1 == 0x65;
+    // 0x76 就是以字符串的标志
     while expression_data.len() >= 8
         && (number_flag
         || check_val1 == 0x6A
         || check_val2 == 3
         || &expression_data[..3] == &[0x0, 0x0, 0x3]
-        || check_val2 == 0x65)
+        || check_val2 == 0x65
+        || check_val1 == 0x76)
     {
         let expression_const = parse_expression_const(&expression_data[..4]);
         if expression_const != "" {

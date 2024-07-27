@@ -80,7 +80,7 @@ async fn test_dbp_5194_136() {
             _ => {}
         }
     }
-    assert_eq!("ATTRIB WDES[40]", result);
+    assert_eq!("WDES[40]", result);
 }
 
 #[tokio::test]
@@ -114,13 +114,12 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     let mut result = "".to_string();
-    dbg!(ele_data.whole_attmap.merge());
     let pbor = ele_data
         .whole_attmap
         .merge()
         .get_as_string("PBOR")
         .unwrap_or_default();
-    assert_eq!("( ATTRIB DDES[2] + ATTRIB DDES[3] )", pbor.as_str());
+    assert_eq!("(DDES[2]+DDES[3])", pbor.as_str());
 }
 
 #[tokio::test]
@@ -206,7 +205,7 @@ async fn test_gdp_15194_8039() {
             _ => {}
         }
     }
-    assert_eq!("DESIGN PARAM 6", result);
+    assert_eq!(" DESIGN PARAM 6", result);
 }
 
 #[tokio::test]
@@ -281,19 +280,19 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
 
     assert_eq!(
-        "( ATTRIB DESP[6] - ATTRIB DESP[25]/2 )",
+        "(DESP[6]-(DESP[25]/2))",
         ele_data.whole_attmap.merge().get_as_string("PZ").unwrap()
     );
     assert_eq!(
-        "( ( ATTRIB DESP[4] + ATTRIB DESP[26] ) + ATTRIB DESP[26] )",
+        "((DESP[4]+DESP[26])+DESP[26])",
         ele_data.whole_attmap.merge().get_as_string("PXLE").unwrap()
     );
     assert_eq!(
-        "( ( ATTRIB DESP[5] + ATTRIB DESP[26] ) + ATTRIB DESP[26] )",
+        "((DESP[5]+DESP[26])+DESP[26])",
         ele_data.whole_attmap.merge().get_as_string("PYLE").unwrap()
     );
     assert_eq!(
-        "ATTRIB DESP[25]",
+        "DESP[25]",
         ele_data.whole_attmap.merge().get_as_string("PZLE").unwrap()
     );
 }
@@ -360,7 +359,7 @@ FF FF C0 00 00 00 00 00 00 00 00 01 00 00 00 00
             _ => {}
         }
     }
-    assert_eq!("-1 * ATTRIB ANGL/8", result);
+    assert_eq!("((-1*ANGL)/8)", result);
 }
 
 #[tokio::test]
@@ -928,7 +927,6 @@ async fn test_mas_23704_838729() {
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
     if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
-        dbg!(map.value());
     };
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     println!("map={:?}", ele_data.whole_attmap.attmap);
@@ -1200,15 +1198,15 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
         let result = val.string_value();
         assert_eq!(
             result,
-            "(PARA[2]+(PARA[4]/(2)*SIN((180*PARA[6])/((PI*(PARA[2]+PARA[4]))))))"
+            "(PARA[2]+((PARA[4]/2)*SIN(((180*PARA[6])/(PI*(PARA[2]+PARA[4]))))))"
         );
     }
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PZ") {
         let result = val.string_value();
-        dbg!(&result);
+        // dbg!(&result);
         assert_eq!(
             result,
-            "(-((PARA[2]+PARA[4])/(2)*COS((180*PARA[6])/((PI*(PARA[2]+PARA[4]))))))"
+            "(-(((PARA[2]+PARA[4])/2)*COS(((180*PARA[6])/(PI*(PARA[2]+PARA[4]))))))"
         );
     }
 }
@@ -1664,11 +1662,11 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     println!("map={:?}", ele_data.whole_attmap.attmap);
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
+        assert_eq!(result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PY") {
         let result = val.string_value();
-        assert_eq!(result, "(((-((-0.5*PARA[1])+(PARA[1]+PARA[9])*TAN(ANGL/2)*SIN(ANGL)))/2+(-((PARA[1]/2+PARA[9])-PARA[9]*SIN((90-ANGL))))/2)+RPRO OUTB*((-((-0.5*PARA[1])+(PARA[1]+PARA[9])*TAN(ANGL/2)*SIN(ANGL)))/2-(-((PARA[1]/2+PARA[9])-PARA[9]*SIN((90-ANGL))))/2))");
+        assert_eq!(result, "((((-((-(0.5*PARA[1]))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*SIN(ANGL))))/2)+((-(((PARA[1]/2)+PARA[9])-(PARA[9]*SIN((90-ANGL)))))/2))+(RPRO OUTB*(((-((-(0.5*PARA[1]))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*SIN(ANGL))))/2)-((-(((PARA[1]/2)+PARA[9])-(PARA[9]*SIN((90-ANGL)))))/2))))");
     }
 }
 
@@ -1912,11 +1910,11 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     println!("map={:?}", ele_data.whole_attmap.attmap);
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
+        assert_eq!(result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PY") {
         let result = val.string_value();
-        assert_eq!(result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))");
+        assert_eq!(result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
 }
 
@@ -2328,7 +2326,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        dbg!(&result);
+        assert_eq!(result,"((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))-(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
 }
 
@@ -2566,7 +2564,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
         // println!("{:?}", &result);
-        assert_eq!(&result, "(((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2+((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2)+RPRO OUTB*((0.5*PARA[1]*TAN(ANGL/2)+(PARA[1]+PARA[9])*TAN(ANGL/2)*COS(ANGL))/2-((-(PARA[1]/2+PARA[9])*TAN(ANGL/2))+PARA[9]*COS((90-ANGL)))/2))")
+        assert_eq!(&result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))+(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))")
     }
 }
 
@@ -2628,8 +2626,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     dbg!(&ele_data.whole_attmap.explicit_attmap);
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("ALLANG") {
         let result = val.string_value();
-        println!("{:?}", &result);
-        assert_eq!(&result, "")
+        // println!("{:?}", &result);
+        assert_eq!(&result, "IFTRUE(DESP[78]LT1,1,(360/DESP[78]))")
     }
 }
 
@@ -2671,7 +2669,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        assert_eq!(&result, "(-0.5*PARA[1]+PARA[3])")
+        assert_eq!(&result, "((-0.5*PARA[1])+PARA[3])")
     }
 }
 
@@ -2773,7 +2771,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("PTCD") {
         let result = val.string_value();
-        assert_eq!(&result, "TO Z ((PARA[10]/2)) ");
+        assert_eq!(&result, "TO Z ( (PARA[10]/2) ) ");
     }
 }
 
@@ -3076,5 +3074,236 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
     // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
     assert_eq!(ele_data.1,"((DESP[2]+20)*MAT(DESP[15],'truefdsa'))".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15192_254676_len() {
+    let data_str = "FF F7 7D 0F 1C 00 00 09 00 00 00 08 00 00 00 08
+00 00 00 01 00 00 00 76 00 00 00 03 00 00 00 61
+00 00 00 62 00 00 00 63 00 00 05 15";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"LEN('abc')".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15192_254676_occur() {
+    let data_str = "FF F7 7D 0F 1C 00 00 0B 00 00 00 0A 00 00 00 0A
+00 00 00 01 00 00 00 76 00 00 00 02 00 00 00 61
+00 00 00 61 00 00 00 76 00 00 00 01 00 00 00 61
+00 00 05 29";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"OCCUR('aa','a')".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15192_254676_real() {
+    let data_str = "FF F7 7D 0F 1C 00 00 09 00 00 00 08 00 00 00 08
+00 00 00 01 00 00 00 76 00 00 00 03 00 00 00 31
+00 00 00 35 00 00 00 36 00 00 05 79";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"REAL('156')".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15194_4752() {
+    let data_str = "
+00 00 00 41 00 00 3B 5A 00 00 12 90 00 0D CC D4
+00 00 3B 5A 00 00 12 8F 00 00 14 CE 00 00 20 01
+00 00 14 CD 00 3E 60 01 20 67 40 02 00 00 00 02
+00 00 00 02 00 00 00 06 00 00 00 0A 00 00 00 0F
+00 00 00 02 00 00 00 03 00 00 00 0A 00 00 00 02
+00 00 00 01 00 00 00 02 00 00 00 02 00 00 00 03
+00 00 00 05 00 00 00 04 00 00 00 00 00 00 00 01
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 02 00 07 00 00 3B 5A 00 00 12 90
+00 00 00 00 00 00 00 00 00 00 3B 5A 00 00 12 91
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 07 00 01 01 A2
+00 00 3B 5A 00 00 12 90 00 00 00 00 00 00 00 00
+FF F2 DC A5 1C 00 00 32 00 00 00 31 00 00 00 31
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 52 00
+00 00 00 00 00 00 00 06 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+FF F2 DC 8A 1C 00 00 32 00 00 00 31 00 00 00 31
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 54 00
+00 00 00 00 00 00 00 06 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+FF F1 DC 5B 1C 00 00 32 00 00 00 31 00 00 00 31
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 52 00
+00 00 00 00 00 00 00 06 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+FF F1 DC 40 1C 00 00 32 00 00 00 31 00 00 00 31
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 54 00
+00 00 00 00 00 00 00 06 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+FF F5 22 84 1C 00 00 51 00 00 00 50 00 00 00 50
+00 00 00 01 00 00 00 65 00 00 00 06 00 13 00 00
+00 00 00 00 40 00 04 05 00 00 00 00 00 00 00 00
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 00 00 00 00 00 00
+40 00 00 00 00 00 00 00 00 00 00 00 00 00 02 5B
+00 00 00 65 00 00 00 06 00 1C 00 00 00 00 00 00
+40 00 04 03 00 00 00 00 00 00 00 00 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 00 00 00 00 00 00 00 40 00 04 00
+00 00 00 00 00 00 00 00 00 00 03 25 00 00 00 65
+00 00 00 06 40 10 00 00 00 00 00 00 40 00 03 FF
+00 00 00 00 00 00 00 00 00 00 00 65 00 00 00 06
+00 1C 00 00 00 00 00 00 40 00 04 03 00 00 00 00
+00 00 00 00 00 00 00 6A 00 00 00 02 00 0D 20 C7
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 03 24 00 00 00 65 00 00 00 06
+00 00 00 00 00 00 00 00 40 00 04 00 00 00 00 00
+00 00 00 00 00 00 03 25 00 00 07 1E FF F5 24 6A
+1C 00 00 71 00 00 00 70 00 00 00 70 00 00 00 01
+00 00 00 65 00 00 00 06 00 13 00 00 00 00 00 00
+40 00 04 05 00 00 00 00 00 00 00 00 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 00 00 00 00 00 00 00 40 00 00 00
+00 00 00 00 00 00 00 00 00 00 02 5B 00 00 00 65
+00 00 00 06 00 1C 00 00 00 00 00 00 40 00 04 03
+00 00 00 00 00 00 00 00 00 00 00 6A 00 00 00 02
+00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 65 00 00 00 06
+00 00 00 00 00 00 00 00 40 00 04 00 00 00 00 00
+00 00 00 00 00 00 03 25 00 00 00 65 00 00 00 06
+00 1D 00 00 00 00 00 00 40 00 04 03 00 00 00 00
+00 00 00 00 00 00 00 6A 00 00 00 02 00 0D 20 C7
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 03 23 00 00 00 65 00 00 00 06
+40 10 00 00 00 00 00 00 40 00 03 FF 00 00 00 00
+00 00 00 00 00 00 00 65 00 00 00 06 00 1C 00 00
+00 00 00 00 40 00 04 03 00 00 00 00 00 00 00 00
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 03 24 00 00 00 65 00 00 00 06 00 00 00 00
+00 00 00 00 40 00 04 00 00 00 00 00 00 00 00 00
+00 00 03 25 00 00 00 65 00 00 00 06 00 1D 00 00
+00 00 00 00 40 00 04 03 00 00 00 00 00 00 00 00
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 03 22 00 00 07 1E 00 09 C1 8E 3C 00 00 05
+00 00 00 0D 2F 52 53 54 49 46 2D 57 45 42 4F 55
+54 00 00 00
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    dbg!(&ele_data.whole_attmap.attmap);
+    // assert_eq!(ele_data.whole_attmap.attmap.get_val("PAXI").unwrap().string_value(), "-P4");
+}
+
+#[tokio::test]
+async fn test_parse_15194_4752_ptdi() {
+    let data_str = "FF F5 22 84 1C 00 00 51 00 00 00 50 00 00 00 50
+00 00 00 01 00 00 00 65 00 00 00 06 00 13 00 00
+00 00 00 00 40 00 04 05 00 00 00 00 00 00 00 00
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 00 00 00 00 00 00
+40 00 00 00 00 00 00 00 00 00 00 00 00 00 02 5B
+00 00 00 65 00 00 00 06 00 1C 00 00 00 00 00 00
+40 00 04 03 00 00 00 00 00 00 00 00 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 00 65
+00 00 00 06 00 00 00 00 00 00 00 00 40 00 04 00
+00 00 00 00 00 00 00 00 00 00 03 25 00 00 00 65
+00 00 00 06 40 10 00 00 00 00 00 00 40 00 03 FF
+00 00 00 00 00 00 00 00 00 00 00 65 00 00 00 06
+00 1C 00 00 00 00 00 00 40 00 04 03 00 00 00 00
+00 00 00 00 00 00 00 6A 00 00 00 02 00 0D 20 C7
+FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
+00 00 06 A5 00 00 03 24 00 00 00 65 00 00 00 06
+00 00 00 00 00 00 00 00 40 00 04 00 00 00 00 00
+00 00 00 00 00 00 03 25 00 00 07 1E
+";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"IFTRUE(DESP[76]LT0,(DESP[28]/2),((-1*DESP[28])/2))".to_string());
+    // dbg!(&ele_data.1);
+}
+
+#[tokio::test]
+async fn test_parse_15194_4752_pbtp() {
+    let data_str = "FF F2 DC A5 1C 00 00 32 00 00 00 31 00 00 00 31
+00 00 00 01 00 00 00 65 00 00 00 06 00 00 52 00
+00 00 00 00 00 00 00 06 00 00 00 00 00 00 00 06
+00 00 00 6A 00 00 00 02 00 0D 20 C7 FF FF FF FF
+FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22
+00 00 00 65 00 00 00 06 00 00 6C 00 00 00 00 00
+00 00 00 05 00 00 00 00 00 00 00 06 00 00 00 6A
+00 00 00 02 00 0D 20 C7 FF FF FF FF FF FF FF FF
+00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22";
+    let data = convert_str_to_bytes(data_str);
+    let refno = RefU64::from_str("15192/254675").unwrap();
+    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
+    assert_eq!(ele_data.1,"((DESP[41]+DESP[27])+DESP[27])".to_string());
     // dbg!(&ele_data.1);
 }
