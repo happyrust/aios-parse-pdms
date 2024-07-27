@@ -522,7 +522,7 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
         //还可能遇到各种page，需要跳过，暂时假定只有遇到INDEX Page的情况
         let v = parse_to_i32(&input[..4]);
         match v {
-            7 => {
+            0 | 7 => {
                 input = &input[4..];
             }
             5 => {
@@ -876,14 +876,11 @@ pub async fn parse_db(
             let pos = entry.pos;
             let whole_attr_dashmap = total_attr_map.clone();
             let type_ele_map = type_ele_map.clone();
-            let refno_info_map = refno_info_map.clone();
             if let Ok(EleData {
                           refno,
-                          owner,
                           noun,
                           whole_attmap,
-                          children,
-                          name,
+                          ..
                       }) = parse_ele_data(&input[pos - 4..], pos / 0x800).await
             {
                 whole_attr_dashmap.insert(refno, whole_attmap.merge().into());

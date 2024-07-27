@@ -39,37 +39,37 @@ lazy_static! {
     pub static ref MATH_OPERATORS_MAP: BHashMap<i32, &'static str> = {
         let mut s = BHashMap::new();
         s.insert(0x191,"{} EQ {}");
-        s.insert(0x1F5,"{}NEQ{}");
+        s.insert(0x1F5,"{} NEQ {}");
         s.insert(0x259, "{} GT {}");
         // 通过该 000 文件的二进制数据 25A 也是 GT ， 不知道是不是这两个数字都代表 GT ，下同
         s.insert(0x25B, "{} LT {}");
         s.insert(0x25D, "{} GE {}");
         s.insert(0x25F, "{} LE {}");
-        s.insert(0x321, "(-{})");
-        s.insert(0x322, "({}+{})");
-        s.insert(0x323, "({}-{})");
-        s.insert(0x324, "({}*{})");
-        s.insert(0x325, "({}/{})");
-        s.insert(0x3E9, "SQRT({})");
-        s.insert(0x385, "SIN({})");
-        s.insert(0x386, "COS({})");
-        s.insert(0x387, "TAN({})");
-        s.insert(0x388, "ASIN({})");
-        s.insert(0x389, "ACOS({})");
-        s.insert(0x38A, "ATAN({})");
-        s.insert(0x38B, "ATANT({},{})");
-        s.insert(0x3EA, "POW({},{})");
-        s.insert(0x3EB, "LOG({})");
-        s.insert(0x3EC, "ALOG({})");
-        s.insert(0x3ED, "INT({})");
-        s.insert(0x3EE, "NINT({})");
-        s.insert(0x3EF, "ABS({})");
-        s.insert(0x515,"LEN('{}')");
-        s.insert(0x51C,"MAT({},'{}')");
-        s.insert(0x522, "TRIM({})");
-        s.insert(0x529, "OCCUR('{}','{}')");
-        s.insert(0x579, "REAL('{}')");
-        s.insert(0x582, "STR({})");
+        s.insert(0x321, "( -{} )");
+s.insert(0x322, "( {} + {} )");
+s.insert(0x323, "( {} - {} )");
+s.insert(0x324, "{} * {}");
+s.insert(0x325, "{} / {}");
+s.insert(0x3E9, "SQRT( {} )");
+s.insert(0x385, "SIN( {} )");
+s.insert(0x386, "COS( {} )");
+s.insert(0x387, "TAN( {} )");
+s.insert(0x388, "ASIN( {} )");
+s.insert(0x389, "ACOS( {} )");
+s.insert(0x38A, "ATAN( {} )");
+s.insert(0x38B, "ATANT( {}, {} )");
+s.insert(0x3EA, "POW( {}, {} )");
+s.insert(0x3EB, "LOG( {} )");
+s.insert(0x3EC, "ALOG( {} )");
+s.insert(0x3ED, "INT( {} )");
+s.insert(0x3EE, "NINT( {} )");
+s.insert(0x3EF, "ABS( {} )");
+s.insert(0x515, "LEN( '{}' )");
+s.insert(0x51C, "MAT( {}, '{}' )");
+s.insert(0x522, "TRIM( {} )");
+s.insert(0x529, "OCCUR( '{}', '{}' )");
+s.insert(0x579, "REAL( '{}' )");
+s.insert(0x582, "STR( {} )");
         // s.insert(0x3F0, "MAX ({},{})");   //特殊处理
         // s.insert(0x3F1, "MIN ({},{})");
         s
@@ -184,7 +184,6 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
     }
     // 表达式都是以0x0 0 0 1开头的
     let mut expression_data = &input[..];
-    // let is_debug = refno == RefU64::from_two_nums(15194, 337);
     // 这是表达式数字的起始标志
     let mut result_stack = vec![];
     let mut check_val1 = parse_to_i32(&expression_data[..4]);
@@ -252,6 +251,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             } else {
                 db1_dehash(hash_num)
             };
+            let att_name = format!("ATTRIB {att_name}");
             // let att_name = db1_dehash(hash_num);
             // if is_debug {
             //     // dbg!((&att_name, hash_num));
@@ -271,14 +271,14 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             let expression;
             if flags == (-1, -1) {
                 let v = result_stack.pop().unwrap_or_default();
-                expression = format!("{att_name}[{v}]{rpro_name}");
+                expression = format!("{att_name}[{v} ]{rpro_name}");
             } else {
                 let num = flags.1;
                 if s_value == 0 {
                     if num == 1 && &att_name != "PARA" {
                         expression = format!("{att_name}");
                     } else {
-                        expression = format!("{att_name}[{num}]");
+                        expression = format!("{att_name}[{num} ]");
                     }
                 } else {
                     expression = format!("{att_name}{rpro_name}");
@@ -295,7 +295,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                     let expression = get_expression_of_func(&expression_input[..4]);
                     if expression != "".to_string() {
                         let func = result_stack.pop().unwrap_or_default();
-                        let result = format!("{} OF {} ", func, expression);
+                        let result = format!(" ( {} OF {} ) ", func, expression);
                         result_stack.push(result);
                         if expression_input.len() < 20 {
                             // OF 后面可能还有其他表达式
@@ -310,15 +310,14 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                         // 1701 是 0x 06 A5 代表表达式的结束
                         let expression = get_expression_of_func(&expression_input[..4]);
                         let func = result_stack.pop().unwrap_or_default();
-                        let result = format!("{} OF {} ", func, expression);
+                        let result = format!(" ( {} OF {} ) ", func, expression);
                         result_stack.push(result);
                         //func后面有3个word的数据不知道是干什么的
                         expression_input = &expression_input[16..];
                     } else {
-                        let refno = format!("{}/{}", refno0, refno1);
+                        let refno = format!(" {} / {} ", refno0, refno1);
                         let func = result_stack.pop().unwrap_or_default();
-                        let result = format!("({} OF = {})", func, refno);
-                        // result_stack.push(result);
+                        let result = format!(" ( {} OF = {} ) ", func, refno);
                         return Ok((input, result.into()));
                     }
                 }
@@ -362,7 +361,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                         if result_stack.len() > 1 {
                             let value1 = result_stack.pop().unwrap_or_default();
                             let value2 = result_stack.pop().unwrap_or_default();
-                            symbol = format!("{} OF = {}", value2, value1);
+                            symbol = format!(" ( {} OF = {} ) ", value2, value1);
                         }
                     }
                 }
@@ -407,7 +406,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
                         }
-                        symbol = format!("MAX ({})", max_array);
+                        symbol = format!(" ( MAX ({}) ) ", max_array);
                     }
                 }
                 &[0x0, 0x0, 0x3, 0xF1] => {
@@ -430,7 +429,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                             max_array = format!("{},{}", max_array, value);
                             expression_data = &expression_data[32..];
                         }
-                        symbol = format!("MIN ({})", max_array);
+                        symbol = format!(" ( MIN ( {} ) ) ", max_array);
                     }
                 }
                 &[0x0, 0x0, 0x7, 0x1E] => {
@@ -438,7 +437,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                         let value1 = result_stack.pop().unwrap_or_default();
                         let value2 = result_stack.pop().unwrap_or_default();
                         let value3 = result_stack.pop().unwrap_or_default();
-                        symbol = format!("IFTRUE ( {} , {} , {} )", value3, value2, value1);
+                        symbol = format!(" ( IFTRUE ( {} , {} , {} ) ) ", value3, value2, value1);
                     }
                 }
 

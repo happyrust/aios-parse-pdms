@@ -926,8 +926,7 @@ async fn test_mas_23704_838729() {
 45 49 47 00";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {
-    };
+    if let Some(map) = pdms_database_info.noun_attr_info_map.get(&0x8A1E7) {};
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     println!("map={:?}", ele_data.whole_attmap.attmap);
     println!("map={:?}", ele_data.whole_attmap.explicit_attmap);
@@ -1351,7 +1350,7 @@ async fn take_off_uda() {
             .unwrap_or_default()
             .as_bytes(),
     )
-    .unwrap();
+        .unwrap();
 }
 
 #[tokio::test]
@@ -2326,7 +2325,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PX") {
         let result = val.string_value();
-        assert_eq!(result,"((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))-(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
+        assert_eq!(result, "((((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)+(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))-(RPRO OUTB*(((((0.5*PARA[1])*TAN((ANGL/2)))+(((PARA[1]+PARA[9])*TAN((ANGL/2)))*COS(ANGL)))/2)-(((-(((PARA[1]/2)+PARA[9])*TAN((ANGL/2))))+(PARA[9]*COS((90-ANGL))))/2))))");
     }
 }
 
@@ -3019,9 +3018,9 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 00 00 07 1E ";
     let data = convert_str_to_bytes(data_str);
     let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
     // ( IFTRUE ( ATTRIB DESP[7 ] LT 0 , ATTRIB DESP[28 ] / 2 , -1 * ATTRIB DESP[28 ] / 2 ) )
-    assert_eq!(ele_data.1,"IFTRUE ( DESP[7] LT 0 , (DESP[28]/2) , ((-1*DESP[28])/2) )".to_string());
+    assert_eq!(ele_data.1, "IFTRUE ( DESP[7] LT 0 , (DESP[28]/2) , ((-1*DESP[28])/2) )".to_string());
 }
 
 #[tokio::test]
@@ -3046,9 +3045,8 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 24";
     let data = convert_str_to_bytes(data_str);
     let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
-    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( TRIM ( STR ( ATTRIB DESP[15 ] GT 50 * 1 ) ) , 'true' ) )
-    assert_eq!(ele_data.1,"((DESP[2]+20)*MAT(TRIM(STR(DESP[15]GT(50*1))),'true'))".to_string());
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
+    assert_eq!(ele_data.1, "( DESP[2] + 20 ) * MAT( TRIM( STR( DESP[15] GT  50 * 1  ) ), 'true' )".to_string());
     // dbg!(&ele_data.1);
 }
 
@@ -3071,9 +3069,9 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 ";
     let data = convert_str_to_bytes(data_str);
     let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
     // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
-    assert_eq!(ele_data.1,"((DESP[2]+20)*MAT(DESP[15],'truefdsa'))".to_string());
+    assert_eq!(ele_data.1, "( DESP[2] + 20 ) * MAT( DESP[15], 'truefdsa' )".to_string());
     // dbg!(&ele_data.1);
 }
 
@@ -3083,10 +3081,9 @@ async fn test_parse_15192_254676_len() {
 00 00 00 01 00 00 00 76 00 00 00 03 00 00 00 61
 00 00 00 62 00 00 00 63 00 00 05 15";
     let data = convert_str_to_bytes(data_str);
-    let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
-    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
-    assert_eq!(ele_data.1,"LEN('abc')".to_string());
+    let refno = RefU64::from_str("15192_254676").unwrap();
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
+    assert_eq!(ele_data.1, "LEN( 'abc' )".to_string());
     // dbg!(&ele_data.1);
 }
 
@@ -3097,11 +3094,9 @@ async fn test_parse_15192_254676_occur() {
 00 00 00 61 00 00 00 76 00 00 00 01 00 00 00 61
 00 00 05 29";
     let data = convert_str_to_bytes(data_str);
-    let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
-    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
-    assert_eq!(ele_data.1,"OCCUR('aa','a')".to_string());
-    // dbg!(&ele_data.1);
+    let refno = RefU64::from_str("15192_254676").unwrap();
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
+    assert_eq!(ele_data.1, "OCCUR( 'aa', 'a' )".to_string());
 }
 
 #[tokio::test]
@@ -3111,12 +3106,20 @@ async fn test_parse_15192_254676_real() {
 00 00 00 35 00 00 00 36 00 00 05 79";
     let data = convert_str_to_bytes(data_str);
     let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
     // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
-    assert_eq!(ele_data.1,"REAL('156')".to_string());
+    assert_eq!(ele_data.1, "REAL('156')".to_string());
     // dbg!(&ele_data.1);
 }
 
+
+// 00 02 00 07 00 00 3B 5A 00 00 12 90 00 00 00 00
+// 00 00 00 00 00 00 3B 5A 00 00 12 91 00 00 00 00
+// 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+// 00 00 00 00 00 00 00 07 00 01 01 A2 00 00 3B 5A
+// 00 00 12 90
+//这里members后面出现了 00 等，因为后面的属性不够写了，所以相当于
+//新开了页，所以后面的属性都是0
 #[tokio::test]
 async fn test_parse_15194_4752() {
     let data_str = "
@@ -3248,7 +3251,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     dbg!(&ele_data.whole_attmap.attmap);
     // assert_eq!(ele_data.whole_attmap.attmap.get_val("PAXI").unwrap().string_value(), "-P4");
 }
@@ -3279,10 +3282,8 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 ";
     let data = convert_str_to_bytes(data_str);
     let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
-    // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
-    assert_eq!(ele_data.1,"IFTRUE(DESP[76]LT0,(DESP[28]/2),((-1*DESP[28])/2))".to_string());
-    // dbg!(&ele_data.1);
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
+    assert_eq!(ele_data.1, " ( IFTRUE ( ATTRIB DESP[76 ] LT 0 , ATTRIB DESP[28 ] / 2 , -1 * ATTRIB DESP[28 ] / 2 ) )".to_string());
 }
 
 #[tokio::test]
@@ -3302,8 +3303,8 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 00 00 00 00 06 41 00 00 06 A5 00 00 03 22";
     let data = convert_str_to_bytes(data_str);
     let refno = RefU64::from_str("15192/254675").unwrap();
-    let (_,ele_data) = parse_expression_attr(data.as_slice(),refno).unwrap();
+    let (_, ele_data) = parse_expression_attr(data.as_slice(), refno).unwrap();
     // ( ( ATTRIB DESP[2 ] + 20 ) * MAT ( STR ( ATTRIB DESP[15 ] ) , 'truefdsa' ) )
-    assert_eq!(ele_data.1,"((DESP[41]+DESP[27])+DESP[27])".to_string());
+    assert_eq!(ele_data.1, "( ( DESP[41] + DESP[27] ) + DESP[27] )".to_string());
     // dbg!(&ele_data.1);
 }
