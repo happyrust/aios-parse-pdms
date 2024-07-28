@@ -251,7 +251,7 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             } else {
                 db1_dehash(hash_num)
             };
-            let att_name = format!("ATTRIB {att_name}");
+            let new_att_name = format!("ATTRIB {att_name}");
             // let att_name = db1_dehash(hash_num);
             // if is_debug {
             //     // dbg!((&att_name, hash_num));
@@ -271,17 +271,17 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
             let expression;
             if flags == (-1, -1) {
                 let v = result_stack.pop().unwrap_or_default();
-                expression = format!("{att_name}[{v} ]{rpro_name}");
+                expression = format!("{new_att_name}[{v} ]{rpro_name}");
             } else {
                 let num = flags.1;
                 if s_value == 0 {
                     if num == 1 && &att_name != "PARA" {
-                        expression = format!("{att_name}");
+                        expression = format!("{new_att_name}");
                     } else {
-                        expression = format!("{att_name}[{num} ]");
+                        expression = format!("{new_att_name}[{num} ]");
                     }
                 } else {
-                    expression = format!("{att_name}{rpro_name}");
+                    expression = format!("{new_att_name}{rpro_name}");
                 }
             }
             result_stack.push(expression);

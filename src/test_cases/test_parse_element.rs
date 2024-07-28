@@ -1332,7 +1332,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
     let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
     // dbg!(&ele_data.whole_attmap.implicit_attmap);
     assert_eq!(ele_data.whole_attmap.attmap.get_as_string("PY").unwrap(),
-               "((RPRO HEIG-PARA[26])-(0.5*SQRT((((PARA[2]+PARA[11])*(PARA[2]+PARA[11]))-(PARA[9]*PARA[9])))))");
+               "( ( ATTRIB RPRO HEIG - ATTRIB PARA[26 ] ) - 0.5 * SQRT( ( ( ATTRIB PARA[2 ] + ATTRIB PARA[11 ] ) * ( ATTRIB PARA[2 ] + ATTRIB PARA[11 ] ) - ATTRIB PARA[9 ] * ATTRIB PARA[9 ] ) ) )");
 }
 
 
