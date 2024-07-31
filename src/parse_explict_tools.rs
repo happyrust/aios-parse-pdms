@@ -48,8 +48,8 @@ lazy_static! {
         s.insert(0x321, "( -{} )");
 s.insert(0x322, "( {} + {} )");
 s.insert(0x323, "( {} - {} )");
-s.insert(0x324, "{} * {}");
-s.insert(0x325, "{} / {}");
+s.insert(0x324, "( {} * {} )");
+s.insert(0x325, "( {} / {} )");
 s.insert(0x3E9, "SQRT( {} )");
 s.insert(0x385, "SIN( {} )");
 s.insert(0x386, "COS( {} )");

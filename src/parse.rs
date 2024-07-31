@@ -340,7 +340,8 @@ pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
     let data_len = input.len();
     let impl_len = try_parse_to_i32(&input[0..4])?; //隐含数据长度  0-4
     if impl_len < 0 || impl_len > data_len as i32 {
-        dbg!(impl_len);
+        println!("发现数据错误长度: {}，原始数据长度: {}, 当前位置前一行数据: {}",
+                 simple_hex(&impl_len), simple_hex(&data_len), pretty_hex(&input[0..32]));
         return Err(anyhow!("impl_len < 0 || impl_len > data_len"));
     }
     let origin_impl_len = impl_len * 4;
@@ -756,6 +757,8 @@ pub async fn parse_db_with_chunk(
                     .entry(noun)
                     .or_insert(HashSet::default())
                     .insert(refno);
+            }else{
+                println!("parse ele data failed: {:?}, loc: {}", refno, simple_hex(&pos));
             }
         }
     }
@@ -2235,6 +2238,8 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
 }
 
 
+
+
 ///获得参考号对应的Entry
 #[inline]
 fn get_refno_entry(
@@ -2295,7 +2300,7 @@ fn get_refno_entry(
                     noun_hash,
                 },
             ));
-        } else {}
+        }
     }
     refno_entry
 }
