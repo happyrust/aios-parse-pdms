@@ -339,12 +339,12 @@ pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
     let mut children = RefU64Vec::default();
     let data_len = input.len();
     let impl_len = try_parse_to_i32(&input[0..4])?; //隐含数据长度  0-4
-    if impl_len < 0 || impl_len > data_len as i32 {
-        println!("发现数据错误长度: {}，原始数据长度: {}, 当前位置前一行数据: {}",
-                 simple_hex(&impl_len), simple_hex(&data_len), pretty_hex(&input[0..32]));
+    if impl_len < 0 || (impl_len as usize) > data_len {
+        println!("发现数据错误长度: {:#4X}，原始数据长度: {:#4X}, 当前位置前一行数据: {}",
+                 impl_len, data_len, pretty_hex(&&input[0..32]));
         return Err(anyhow!("impl_len < 0 || impl_len > data_len"));
     }
-    let origin_impl_len = impl_len * 4;
+    let origin_impl_len = impl_len as i32 * 4;
     let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
     let refno: RefU64 = RefU64::from(&input[4..12]);
     let type_hash = try_parse_to_i32(&input[12..16])?;
@@ -519,7 +519,7 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
     if !has_next {
         return bytes;
     }
-    while has_next {
+    while has_next && input.len() > 4{
         //还可能遇到各种page，需要跳过，暂时假定只有遇到INDEX Page的情况
         let v = parse_to_i32(&input[..4]);
         match v {
@@ -687,6 +687,7 @@ pub async fn parse_db_with_chunk(
     let type_ele_map = Arc::new(DashMap::new());
     let total_att_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
     let mut field_no = 0;
+    let test_refno = get_db_option().get_test_refno();
 
     let (db_type, file_version, db_no) = parse_file_basic_info(input);
     let db_no_str = db_no.to_string();
@@ -713,12 +714,9 @@ pub async fn parse_db_with_chunk(
     let mut sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
     let EleData {
         refno,
-        owner,
         noun,
         whole_attmap,
-        children,
-        name,
-        // foreign_refnos,
+        ..
     } = parse_ele_data(&input[entry.pos - 4..], pgno)
         .await
         .unwrap_or_default();
@@ -736,6 +734,7 @@ pub async fn parse_db_with_chunk(
         .or_insert(RefnoInfo { ref_0, db_no });
 
     for refno in chunk_refnos.iter() {
+        let mut is_debug = test_refno.is_some() && test_refno == Some(*refno);
         if let Some(entry) = db_basic_data.refno_table_map.get(refno) {
             let pos = entry.pos;
             let total_attmap_clone = total_att_map.clone();
@@ -758,7 +757,13 @@ pub async fn parse_db_with_chunk(
                     .or_insert(HashSet::default())
                     .insert(refno);
             }else{
-                println!("parse ele data failed: {:?}, loc: {}", refno, simple_hex(&pos));
+                #[cfg(feature = "default_parse")]
+                {
+                    println!("parse ele data failed: {:?}, loc: {:#4X}", refno, pos);
+                }
+                if is_debug{
+                    println!("parse ele data failed: {:?}, loc: {:#4X}", refno, pos);
+                }
             }
         }
     }
@@ -1118,12 +1123,8 @@ pub async fn parse_explicit_attrs<'a>(
     // foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
-    let mut is_debug = false;
-    if let Some(refnos) = &get_db_option().debug_root_refnos {
-        if refnos.contains(&refno.to_string()) {
-            is_debug = true;
-        }
-    }
+    let test_refno = get_db_option().get_test_refno();
+    let mut is_debug = test_refno == Some(refno);
     while !residual.is_empty() {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
@@ -2237,7 +2238,7 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
     (file_type, ses_pgno, db_no)
 }
 
-
+//直接使用session的会话，读取所有的EleDataEntry, 靠这个搜索出来的不
 
 
 ///获得参考号对应的Entry
@@ -2258,19 +2259,27 @@ fn get_refno_entry(
             .ok()?;
         let len = parse_to_u32(&input[0..4]);
         let refno = RefU64::from(&input[4..12]);
-
+        let test_refno = get_db_option().get_test_refno();
+        let is_debug = test_refno == Some(refno);
         if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
             let found_0_7 = memmem::find(
                 &input[tmp_pos..tmp_pos + 20],
                 &[0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7],
             );
+            if is_debug{
+                dbg!(found_0_7);
+            }
+
             if found_0_7.is_some() {
                 //允许一定范围去查找
                 if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 20], &input[4..12]) {
                     let end_pos = (next_pos + 12); //隐含属性实际结束点
                     if end_pos >= tmp_pos + 4 {
                         let diff_len = end_pos - tmp_pos - 4;
+                        if is_debug{
+                            dbg!(diff_len);
+                        }
                         is_ok = diff_len == 0;
                         if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
                             let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(
@@ -2279,6 +2288,9 @@ fn get_refno_entry(
                             )(
                                 &input[tmp_pos..end_pos]
                             );
+                            if is_debug{
+                                dbg!(&s);
+                            }
                             if s.is_ok() {
                                 is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
                             }
