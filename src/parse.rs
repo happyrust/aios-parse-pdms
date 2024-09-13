@@ -340,8 +340,8 @@ pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
     let data_len = input.len();
     let impl_len = try_parse_to_i32(&input[0..4])?; //隐含数据长度  0-4
     if impl_len < 0 || (impl_len as usize) > data_len {
-        println!("发现数据错误长度: {:#4X}，原始数据长度: {:#4X}, 当前位置前一行数据: {}",
-                 impl_len, data_len, pretty_hex(&&input[0..32]));
+        // println!("发现数据错误长度: {:#4X}，原始数据长度: {:#4X}, 当前位置前一行数据: {}",
+        //          impl_len, data_len, pretty_hex(&&input[0..32]));
         return Err(anyhow!("impl_len < 0 || impl_len > data_len"));
     }
     let origin_impl_len = impl_len as i32 * 4;
@@ -559,6 +559,10 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
                 if len < 5 || len > input.len() || maybe_refno != refno {
                     break;
                 }
+                if len * 4 > input.len() {
+                    bytes.extend(&input[20..]);
+                    break;
+                }
                 bytes.extend(&input[20..len * 4]);
                 input = &input[len * 4..];
                 has_next = input.len() >= 4 * 3;
@@ -687,7 +691,7 @@ pub async fn parse_db_with_chunk(
     let type_ele_map = Arc::new(DashMap::new());
     let total_att_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
     let mut field_no = 0;
-    let test_refno = get_db_option().get_test_refno();
+    let test_refno = get_db_option().get_test_refno().map(|x| x.into());
 
     let (db_type, file_version, db_no) = parse_file_basic_info(input);
     let db_no_str = db_no.to_string();
@@ -1123,7 +1127,7 @@ pub async fn parse_explicit_attrs<'a>(
     // foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
-    let test_refno = get_db_option().get_test_refno();
+    let test_refno = get_db_option().get_test_refno().map(|x| x.refno());
     let mut is_debug = test_refno == Some(refno);
     while !residual.is_empty() {
         let mut att_value = None;
@@ -2259,7 +2263,7 @@ fn get_refno_entry(
             .ok()?;
         let len = parse_to_u32(&input[0..4]);
         let refno = RefU64::from(&input[4..12]);
-        let test_refno = get_db_option().get_test_refno();
+        let test_refno = get_db_option().get_test_refno().map(|x| x.refno());
         let is_debug = test_refno == Some(refno);
         if len != 0 && (len & 0xFFFF000 == 0) {
             let tmp_pos = len as usize * 4; //隐含属性理论结束点
@@ -2471,10 +2475,13 @@ pub fn gen_ref_type_pos_table_parallel(
 //00 00 00 07 00 02(maybe 01) 00 xx  (REF0)  (REF1)  00 00 00 00  00 00 00 00
 fn get_merged_data(input: &[u8], len: &mut usize, flag: u8) -> Vec<u8> {
     let input_len = input.len();
-    let mut data = input[20..*len].to_vec();
-    if *len + 4 > input_len {
-        return data;
+    if *len + 4 >= input_len {
+        return input[20..].to_vec();
     }
+    let mut data = input[20..*len].to_vec();
+    // if *len + 4 > input_len {
+    //     return data;
+    // }
     let mut t = *len;
     while t + 6 <= input_len && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
         let seg_bytes_len = parse_to_u16(&input[t + 6..t + 8]) as usize * 4;
