@@ -266,13 +266,30 @@ pub struct EleData {
 }
 
 impl EleData {
+
     #[inline]
     pub fn att_map(&self) -> &NamedAttrMap {
         self.whole_attmap.att_map()
     }
+
     #[inline]
     pub fn att_map_mut(&mut self) -> &mut NamedAttrMap {
         self.whole_attmap.att_map_mut()
+    }
+
+    #[inline]
+    pub fn refno_enum(&self) -> RefnoEnum {
+        self.att_map().ses_refno().into()
+    }
+
+    #[inline]
+    pub fn refno(&self) -> RefU64 {
+        self.att_map().latest_refno()
+    }
+
+    #[inline]
+    pub fn latest_refno_enum(&self) -> RefnoEnum {
+        self.att_map().latest_refno().into()
     }
 }
 
