@@ -14,7 +14,7 @@ debug_parse = []
 memchr = "2.7.2"
 nom = "7.1.3"
 #nom-derive = "0.10.0"
-itertools = "0.12.1"
+itertools = "0.13.0"
 bincode = "1.3.3"
 regex = "1.5.4"
 futures = "0.3.19"
@@ -38,13 +38,13 @@ rayon = "1.10.0"
 tokio = { version = "1.37.0", features = ["full"] }
 serde_json = { version = "1.0" }
 lazy_static = "1.4.0"
-cached = { version = "0.49.3", default-features = false, features = ["proc_macro"] }
-dashmap = { version = "5.5.3", features = ["serde"] }
+cached = { version = "0.54.0", default-features = false, features = ["proc_macro"] }
+dashmap = { version = "6.1.0", features = ["serde"] }
 hex = "0.4.3"
 flate2 = "1.0.24"
 
 id_tree = { version = "1.8.0", features = ["serde_support"] }
-smol_str = { version = "0.2.0", features = ["serde"] }
+smol_str = { version = "0.3.2", features = ["serde"] }
 #rand = "*"
 anyhow = "1.0"
 thiserror = "*"

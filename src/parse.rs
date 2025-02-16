@@ -63,8 +63,8 @@ pub struct PdmsDbData {
     pub children_map: HashMap<RefU64, RefU64Vec>,
     ///数据文件名
     pub filename: String,
-    ///数据文件的版本号
-    pub version: u32,
+    ///数据文件的ses pgno
+    pub ses_pgno: u32,
     ///数据文件的db type（DESI、CATA、SYS等等）
     pub db_type: String,
     /// 数据文件的db 名称（SYS里用的名称）
@@ -266,7 +266,6 @@ pub struct EleData {
 }
 
 impl EleData {
-
     #[inline]
     pub fn att_map(&self) -> &NamedAttrMap {
         self.whole_attmap.att_map()
@@ -678,10 +677,14 @@ pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Re
     );
     println!("All refnos count: {}", all_refnos.len());
 
-    let (db_type, file_version, db_no) = parse_file_basic_info(&input);
+    let DbBasicInfo {
+        db_type,
+        ses_pgno,
+        db_no,
+    } = parse_file_basic_info(&input);
 
     Ok(DbBasicData {
-        version: file_version,
+        ses_pgno,
         bytes: input,
         world_refno,
         refno_table_map,
@@ -702,7 +705,7 @@ fn get_sesno(ses_range_map: &BTreeMap<i32, Range<u32>>, pgno: u32) -> Option<i32
 ///解析db文件，因为有可能db文件会很大，所以需要做一个分段运行的策略
 pub async fn parse_db_with_chunk(
     db_basic_data: Arc<DbBasicData>,
-    file_name: &str,
+    filename: &str,
     project: &str,
     chunk_refnos: &[RefU64],
     ses_range_map: &BTreeMap<i32, Range<u32>>,
@@ -714,16 +717,20 @@ pub async fn parse_db_with_chunk(
     let mut field_no = 0;
     let test_refno = get_db_option().get_test_refno().map(|x| x.into());
 
-    let (db_type, file_version, db_no) = parse_file_basic_info(input);
+    let DbBasicInfo {
+        db_type,
+        ses_pgno,
+        db_no,
+    } = parse_file_basic_info(input);
     let db_no_str = db_no.to_string();
-    if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
+    if db_type.as_str() != "SYST" && !filename.contains(&db_no_str) {
         let _chars_len = db_no_str.len();
-        let l = file_name.len();
-        let end = file_name.chars().position(|x| x == '_').unwrap_or(l);
+        let l = filename.len();
+        let end = filename.chars().position(|x| x == '_').unwrap_or(l);
         if end < project.len() {
             return Err(anyhow!("Not a valid db file"));
         }
-        field_no = file_name[project.len()..end]
+        field_no = filename[project.len()..end]
             .parse::<u32>()
             .unwrap_or_default();
     }
@@ -802,8 +809,8 @@ pub async fn parse_db_with_chunk(
         type_ele_map: Arc::try_unwrap(type_ele_map).unwrap(),
         total_attr_map: Arc::try_unwrap(total_att_map).unwrap(),
         children_map,
-        filename: file_name.into(),
-        version: file_version,
+        filename: filename.into(),
+        ses_pgno,
         db_type,
         db_name: Default::default(),
         db_no,
@@ -822,8 +829,12 @@ pub async fn parse_db(
     let mut total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
     let mut field_no = 0;
 
-    let (db_type, file_version, mut db_no) = parse_file_basic_info(input);
-    dbg!(&(db_type.as_str(), file_version, db_no, file_name));
+    let DbBasicInfo {
+        db_type,
+        ses_pgno,
+        mut db_no,
+    } = parse_file_basic_info(input);
+    dbg!(&(db_type.as_str(), ses_pgno, db_no, file_name));
     let db_no_str = db_no.to_string();
     if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
         let _chars_len = db_no_str.len();
@@ -943,7 +954,7 @@ pub async fn parse_db(
         total_attr_map: Arc::try_unwrap(total_attr_map).unwrap(),
         children_map,
         filename: file_name.into(),
-        version: file_version,
+        ses_pgno,
         db_type,
         db_name: Default::default(),
         db_no,
@@ -1155,7 +1166,6 @@ pub async fn parse_explicit_attrs<'a>(
     attr_info_map: &DashMap<String, AttrInfo>,
     attr_data_map: &mut NamedAttrMap,
     refno: RefU64,
-    // foreign_refnos: &mut DashMap<String, RefU64>,
 ) -> IResult<&'a [u8], bool> {
     let mut residual = input;
     let test_refno = get_db_option().get_test_refno().map(|x| x.refno());
@@ -1170,9 +1180,11 @@ pub async fn parse_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        // if is_debug {
-        //     dbg!(&att_name);
-        // }
+        if is_debug {
+            if is_uda {
+                dbg!(&att_name);
+            }
+        }
         if check_is_expr(hash_val) {
             // dbg!(&att_name);
             let (input, (_, value)) = parse_expression_attr(residual, refno)?;
@@ -1473,7 +1485,14 @@ pub async fn parse_explicit_attrs<'a>(
 
         if let Some(v) = att_value {
             if is_uda {
+                // if is_debug {
+                //     dbg!(hash_val);
+                // }
                 if let Some(uda_refno) = aios_core::get_uda_refno(hash_val).await {
+                    // if is_debug {
+                    //     dbg!(uda_refno);
+                    //     dbg!(&v);
+                    // }
                     //要加UDA:表达区分
                     attr_data_map.insert(format!("UDA:{uda_refno}"), v.into());
                 }
@@ -2253,16 +2272,23 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
     Ok((input, value))
 }
 
-/// 获取文件的type和version, db number
-pub fn parse_db_basic_info(path: PathBuf) -> (String, u32, u32) {
+#[derive(Debug, Default)]
+pub struct DbBasicInfo {
+    pub db_type: String,
+    pub ses_pgno: u32,
+    pub db_no: u32,
+}
+
+/// 获取文件的type和ses_pgno, db number
+pub fn parse_db_basic_info(path: PathBuf) -> DbBasicInfo {
     let mut file = File::open(&path).unwrap();
     let mut buf = vec![0u8; 60];
     file.read_exact(&mut buf).unwrap();
     parse_file_basic_info(&buf)
 }
 
-/// 获取文件的type和version, db number
-pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
+/// 获取文件的type和ses_pgno, db number
+pub fn parse_file_basic_info(input: &[u8]) -> DbBasicInfo {
     let t = parse_to_u32(&input[32..36]);
     let mut file_type = "".to_string();
     if t >= 0x81BF1 {
@@ -2270,7 +2296,11 @@ pub fn parse_file_basic_info(input: &[u8]) -> (String, u32, u32) {
     }
     let db_no = parse_to_u32(&input[8..12]);
     let ses_pgno = parse_to_u32(&input[40..44]);
-    (file_type, ses_pgno, db_no)
+    DbBasicInfo {
+        db_type: file_type,
+        ses_pgno,
+        db_no,
+    }
 }
 
 //直接使用session的会话，读取所有的EleDataEntry, 靠这个搜索出来的不
