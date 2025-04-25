@@ -1,6 +1,6 @@
 use aios_core::get_default_pdms_db_info;
 use super::convert_str_to_bytes;
-use crate::parse::parse_ele_data;
+use crate::parse::{parse_ele_data, parse_raw_ele_data};
 
 //00 00 00 07
 #[tokio::test]
@@ -108,8 +108,8 @@ async fn test_parse_members_has_07() {
 0C 00 00 01 00 00 00 02
     ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
-    let map = &ele_data.whole_attmap.attmap;
+    let ele_data = parse_raw_ele_data(data.as_slice()).unwrap();
+    let map = &ele_data.whole_attmap;
     dbg!(&map);
 }
 //
@@ -155,7 +155,7 @@ async fn test_parse_members_has_07() {
 //
 //     ";
 //     let data = convert_str_to_bytes(data_str);
-//     let d = parse_ele_data(data.as_slice(), 0);
+//     let d = parse_ele_data(data.as_slice());
 //     dbg!(d);
 // }
 //
@@ -332,7 +332,7 @@ async fn test_parse_members_has_07() {
 //
 //     ";
 //     let data = convert_str_to_bytes(data_str);
-//     let d = parse_ele_data(data.as_slice(), 0);
+//     let d = parse_ele_data(data.as_slice());
 //     dbg!(d);
 // }
 //
@@ -348,7 +348,7 @@ async fn test_parse_members_has_07() {
 // 2F 74 65 73 74 5F 73 75 70 70 6F 00";
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 // }
 //
@@ -368,7 +368,7 @@ async fn tets_17496_161418_udtype() {
 0C 00 00 01 2C 00 D4 9E";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap);
     // let typex = ele_data.whole_attmap.explicit_attmap.get_typex().as_bytes();
     // println!("input={:#4X?}", typex);
@@ -404,7 +404,7 @@ async fn tets_17496_161418_udtype() {
 // 00 CC 6B 3F 38 00 00 02 00 00 00 01 00 0E 57 9A";
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     for map in ele_data.whole_attmap.explicit_attmap.map {
 //         println!("key = {:?} : value = {:?}", map.0, map.1);
 //     }
@@ -420,7 +420,7 @@ async fn tets_17496_161418_udtype() {
 // 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 0E 57 9A";
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     for map in ele_data.whole_attmap.implicit_attmap.map {
 //         println!("key = {:?} : value = {:?}", map.0, map.1);
 //     }
@@ -471,7 +471,7 @@ async fn tets_17496_161418_udtype() {
 //     dbg!(explicit_nouns.len());
 //     let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
 //     dbg!(test_noun.value());
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     // for map in ele_data.whole_attmap.implicit_attmap.map {
 //     //     // println!("key = {:?} : value = {:?}",map.0,map.1);
 //     // }
@@ -531,7 +531,7 @@ async fn tets_17496_161418_udtype() {
 //     dbg!(explicit_nouns.len());
 //     let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
 //     dbg!(test_noun.value());
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     // for map in ele_data.whole_attmap.implicit_attmap.map {
 //     //     // println!("key = {:?} : value = {:?}",map.0,map.1);
 //     // }
@@ -585,7 +585,7 @@ async fn tets_17496_161418_udtype() {
 //     dbg!(explicit_nouns.len());
 //     let test_noun = explicit_nouns.get(&db1_hash_i32("NAPP")).unwrap();
 //     dbg!(test_noun.value());
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     // for map in ele_data.whole_attmap.implicit_attmap.map {
 //     //     // println!("key = {:?} : value = {:?}",map.0,map.1);
 //     // }
@@ -620,7 +620,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     // dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -668,7 +668,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -695,7 +695,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -723,7 +723,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -762,7 +762,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -791,7 +791,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -831,7 +831,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -890,7 +890,7 @@ async fn tets_17496_161418_udtype() {
 //     let data = convert_str_to_bytes(data_str);
 //     let pdms_database_info = get_default_pdms_db_info();
 //     let explicit_nouns = pdms_database_info.get_all_explicit_nouns();
-//     let ele_data = parse_ele_data(data.as_slice(), 0).unwrap();
+//     let ele_data = parse_ele_data(data.as_slice()).unwrap();
 //     dbg!(&ele_data);
 //     let att_map = ele_data.whole_attmap.merge();
 //     dbg!(&att_map);
@@ -917,7 +917,7 @@ async fn test_has_wrong_angle() {
 ";
     // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
     assert_eq!(map.get_f32_or_default("ANGL"), 90.0);
@@ -937,7 +937,7 @@ async fn test_parse_zdist() {
 ";
     // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
 }
@@ -958,7 +958,7 @@ async fn test_has_wrong_scom() {
 ";
     // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
 }
@@ -986,7 +986,7 @@ async fn test_has_pp_axis_param() {
 ";
     // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
     assert_eq!(map.get_as_string("PTCD").unwrap().as_str(), "PP 1");
@@ -1036,7 +1036,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 ";
     // 2C 00 D5 76
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(&map);
     // assert_eq!(map.get_as_string("PTCD").unwrap().as_str(), "PP 1");
@@ -1073,7 +1073,7 @@ async fn test_parse_20493_348407() {
 72 75 6D 65 6E 74 20 43 6F 6E 74 72 6F 6C 20 56
 61 6C 76 65";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap.attmap);
 }
 
@@ -1141,7 +1141,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 00 47
     ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap);
     // assert_eq!(ele_data.whole_attmap.attmap.get_as_string("PTCD").unwrap(), "TO X (NEG ( 20 )) Z ( 65 )");
 }
@@ -1329,7 +1329,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 00 00 03 23 00 00 03 E9 00 00 03 24 00 00 03 23
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     // dbg!(&ele_data.whole_attmap.implicit_attmap);
     assert_eq!(ele_data.whole_attmap.attmap.get_as_string("PY").unwrap(),
                "( ( ATTRIB RPRO HEIG - ATTRIB PARA[26 ] ) - 0.5 * SQRT( ( ( ATTRIB PARA[2 ] + ATTRIB PARA[11 ] ) * ( ATTRIB PARA[2 ] + ATTRIB PARA[11 ] ) - ATTRIB PARA[9 ] * ATTRIB PARA[9 ] ) ) )");
@@ -1341,7 +1341,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 async fn test_parse_has_07() {
     let data_str = include_str!("../../test-files/属性有07打断.txt");
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap.attmap);
 }
 

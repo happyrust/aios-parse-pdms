@@ -37,6 +37,7 @@ use phf::phf_map;
 use pretty_hex::{pretty_hex, simple_hex};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rayon::prelude::IntoParallelIterator;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs;
@@ -47,6 +48,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
+
+
 
 //00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02
 // const REFNO_ALL_INDEX_PAGE: [u8; 11] = [0x00u8, 0x00, 0x00, 0x05, 0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00];
@@ -272,6 +275,17 @@ impl EleData {
     }
 
     #[inline]
+    pub fn explicit_attmap(&self) -> &NamedAttrMap {
+        self.whole_attmap.explicit_attmap()
+    }
+
+    #[inline] 
+    pub fn uda_atts(&self) -> &Vec<ExplicitAttr> {
+        self.whole_attmap.uda_atts()
+    }
+
+
+    #[inline]
     pub fn att_map_mut(&mut self) -> &mut NamedAttrMap {
         self.whole_attmap.att_map_mut()
     }
@@ -354,17 +368,14 @@ pub fn parse_ele_children(input: &[u8]) -> (RefU64, RefU64Vec) {
     (refno.into(), RefU64Vec::default())
 }
 
-///解析单个Element Data数据
-#[inline]
-pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
+/// 解析元素的基础数据（同步函数，不进行异步操作）
+pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
     let mut implicit_attmap = NamedAttrMap::default();
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
     let data_len = input.len();
     let impl_len = try_parse_to_i32(&input[0..4])?; //隐含数据长度  0-4
     if impl_len < 0 || (impl_len as usize) > data_len {
-        // println!("发现数据错误长度: {:#4X}，原始数据长度: {:#4X}, 当前位置前一行数据: {}",
-        //          impl_len, data_len, pretty_hex(&&input[0..32]));
         return Err(anyhow!("impl_len < 0 || impl_len > data_len"));
     }
     let origin_impl_len = impl_len as i32 * 4;
@@ -383,17 +394,8 @@ pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
         .get(&type_hash)
         .ok_or(anyhow!("{} not exist in attr_info_map", &noun_name))?;
     let owner = RefU64::from(&input[16..24]);
-    //如果传入的pgno 没有，则使用默认数据里的，数据里如果真没有，那就是 pgno未知
-    // if pgno == 0 {
-    //     pgno = parse_to_u32(&input[24..28]) as _;
-    //     //这里需要判断是否为0
-    //     if pgno == 0 {
-    //         pgno = parse_to_u32(&input[32..36]) as _;
-    //     }
-    // }
     if actual_impl_len + 4 < input.len() {
         let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
-        // dbg!(tmp_value);
         while tmp_value == 0 || tmp_value == 7 {
             actual_impl_len += 4;
             tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
@@ -428,13 +430,13 @@ pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
         return Err(anyhow!("explicit_start > input.len()"));
     }
     let explicit_data = &input[explicit_start..];
-    let mut sorted_noun_hash = sort_offsets(&hash_type_info_map);
+    let sorted_noun_hash = sort_offsets(&hash_type_info_map);
     let mut cur_offset: i32 = 0;
     let mut is_f32 = false;
 
     if sorted_noun_hash.len() > 0 {
         let last_key = sorted_noun_hash.last().unwrap();
-        let last_att_info = hash_type_info_map.get(&last_key).unwrap();
+        let last_att_info = hash_type_info_map.get(last_key).unwrap();
         let last_step = match last_att_info.att_type {
             DbAttributeType::DIRECTION
             | DbAttributeType::POSITION
@@ -504,37 +506,80 @@ pub async fn parse_ele_data(input: &[u8], mut pgno: usize) -> Result<EleData> {
             }
         }
     }
-    let explicit_data = collect_explict_data(explicit_data, refno);
+    let final_explicit_data = collect_explict_data(explicit_data, refno);
 
-    let _ = parse_explicit_attrs(
-        &explicit_data,
-        &cur_type_info_map,
-        &mut explicit_attmap,
-        refno,
-        // &mut foreign_refnos,
-    )
-    .await;
-    // dbg!(&explicit_attmap);
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
     implicit_attmap.insert("TYPE".into(), NamedAttrValue::StringType(noun_name));
     implicit_attmap.insert("REFNO".into(), NamedAttrValue::RefU64Type(refno));
     let name = implicit_attmap.get_name_or_default();
-    let mut whole_attmap = WholeAttMap {
-        attmap: implicit_attmap,
-        explicit_attmap,
-    }
-    .refine(&cur_type_info_map);
-    // whole_attmap.att_map_mut().set_pgno(pgno as i32);
 
-    Ok(EleData {
+    let (_, explicit_attrs) = parse_raw_explicit_attrs(
+        &final_explicit_data,
+        &cur_type_info_map,
+        refno,
+    ).map_err(|e| e.to_owned())?;
+    
+    // 将ExplicitAttr分成UDA属性和普通显式属性
+    let mut uda_atts = Vec::new();
+    for attr in explicit_attrs {
+        if attr.is_uda {
+            uda_atts.push(attr);
+        } else {
+            explicit_attmap.insert(attr.name, attr.value.into());
+        }
+    }
+    
+    // 创建基础 EleData，包含UDA属性列表
+    let ele_data = EleData {
         refno,
         owner,
         noun,
-        whole_attmap,
+        whole_attmap: WholeAttMap {
+            attmap: implicit_attmap,
+            explicit_attmap,
+            uda_atts,
+        },
         children,
         name,
-    })
+    };
+    
+    Ok(ele_data)
+}
+
+/// 解析元素数据，包含异步处理
+pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
+    // 使用同步函数解析基础数据
+    let mut ele_data = parse_raw_ele_data(input)?;
+    
+    // 获取需要的信息用于异步调用
+    let refno = ele_data.refno;
+    let noun_name = db1_dehash(ele_data.noun);
+    let db_info = get_default_pdms_db_info();
+    let cur_type_info_map = db_info
+        .named_attr_info_map
+        .get(&noun_name)
+        .ok_or(anyhow!("{} not exist in attr_info_map", &noun_name))?;
+
+    // 解析显式属性
+    // let explicit_data = collect_explict_data(&input, refno);
+    // let (_, explicit_attrs) = parse_raw_explicit_attrs(
+    //     &explicit_data,
+    //     &cur_type_info_map,
+    //     refno,
+    // )?;
+    
+    // 异步处理显式属性
+    let explicit_attmap = &mut ele_data.whole_attmap.explicit_attmap;
+    
+    // 如果存在UDA属性，进行异步处理
+    if !ele_data.whole_attmap.uda_atts.is_empty() {
+        let _ = process_explicit_attrs(std::mem::take(&mut ele_data.whole_attmap.uda_atts), explicit_attmap).await;
+    }
+    // 精炼属性
+    ele_data.whole_attmap = ele_data.whole_attmap.refine(&cur_type_info_map);
+    
+    Ok(ele_data)
 }
 
 //移除00 00 00 007，保留后面的数据
@@ -636,7 +681,7 @@ pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Re
     };
     let children = children_refnos
         .iter()
-        .filter(|x| refno_table_map.contains_key(x))
+        .filter(|&x| refno_table_map.contains_key(x))
         .map(|&x| x)
         .collect::<Vec<_>>();
 
@@ -660,7 +705,7 @@ pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Re
             let membs = parse_ele_membs(&d);
             let children = membs
                 .iter()
-                .filter(|x| refno_table_map.contains_key(x))
+                .filter(|&x| refno_table_map.contains_key(x))
                 .map(|&x| x)
                 .collect::<Vec<_>>();
             for memb in &membs {
@@ -753,7 +798,7 @@ pub async fn parse_db_with_chunk(
             noun,
             whole_attmap,
             ..
-        } = parse_ele_data(&input[entry.pos - 4..], pgno)
+        } = parse_ele_data(&input[entry.pos - 4..])
             .await
             .unwrap_or_default();
         let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
@@ -783,7 +828,7 @@ pub async fn parse_db_with_chunk(
                 noun,
                 whole_attmap,
                 ..
-            }) = parse_ele_data(&input[pos - 4..], pgno).await
+            }) = parse_ele_data(&input[pos - 4..]).await
             {
                 let sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
@@ -869,7 +914,7 @@ pub async fn parse_db(
         whole_attmap,
         children,
         name,
-    } = parse_ele_data(&input[entry.pos - 4..], entry.pos / 0x800)
+    } = parse_ele_data(&input[entry.pos - 4..])
         .await
         .unwrap_or_default();
 
@@ -930,7 +975,7 @@ pub async fn parse_db(
                 noun,
                 whole_attmap,
                 ..
-            }) = parse_ele_data(&input[pos - 4..], pos / 0x800).await
+            }) = parse_ele_data(&input[pos - 4..]).await
             {
                 whole_attr_dashmap.insert(refno, whole_attmap.merge().into());
                 type_ele_map
@@ -1160,16 +1205,42 @@ async fn get_uda_short_name(hash: i32) -> Option<String> {
     })
 }
 
+
+
+
 /// 获取已知显式属性
-pub async fn parse_explicit_attrs<'a>(
+pub async fn process_explicit_attrs(
+    uda_attrs: Vec<ExplicitAttr>,
+    attr_data_map: &mut NamedAttrMap,
+) -> anyhow::Result<()> {
+    // 处理解析结果，包括UDA的异步处理
+    for attr in uda_attrs {
+        if attr.is_uda {
+            // UDA 异步处理
+            if let Some(uda_refno) = aios_core::get_uda_refno(attr.hash_val).await {
+                //要加UDA:表达区分
+                attr_data_map.insert(format!("UDA:{uda_refno}"), attr.value.into());
+            }
+        } else {
+            //覆盖可能在隐含属性里出现过的数据
+            attr_data_map.insert(attr.name.clone(), attr.value.into());
+        }
+    }
+    
+    Ok(())
+}
+
+/// 获取已知显式属性的原始数据解析（不包含UDA异步处理）
+pub fn parse_raw_explicit_attrs<'a>(
     input: &'a [u8],
     attr_info_map: &DashMap<String, AttrInfo>,
-    attr_data_map: &mut NamedAttrMap,
     refno: RefU64,
-) -> IResult<&'a [u8], bool> {
+) -> IResult<&'a [u8], Vec<ExplicitAttr>> {
     let mut residual = input;
     let test_refno = get_db_option().get_test_refno().map(|x| x.refno());
     let mut is_debug = test_refno == Some(refno);
+    let mut attr_values = Vec::new();
+    
     while !residual.is_empty() {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
@@ -1476,33 +1547,19 @@ pub async fn parse_explicit_attrs<'a>(
                 break;
             }
         }
-        // println!("{:#4X?}", &residual[..]);
-        // if is_debug
-        // {
-        //     dbg!(&att_value);
-        //     dbg!(is_uda);
-        // }
 
+        // 如果解析出属性值，添加到结果中，并保存原始hash_val
         if let Some(v) = att_value {
-            if is_uda {
-                // if is_debug {
-                //     dbg!(hash_val);
-                // }
-                if let Some(uda_refno) = aios_core::get_uda_refno(hash_val).await {
-                    // if is_debug {
-                    //     dbg!(uda_refno);
-                    //     dbg!(&v);
-                    // }
-                    //要加UDA:表达区分
-                    attr_data_map.insert(format!("UDA:{uda_refno}"), v.into());
-                }
-            } else {
-                //覆盖可能在隐含属性里出现过的数据
-                attr_data_map.insert(att_name, v.into());
-            }
+            attr_values.push(ExplicitAttr {
+                name: att_name,
+                value: v.into(),
+                is_uda,
+                hash_val,
+            });
         }
     }
-    Ok((input, true))
+    
+    Ok((residual, attr_values))
 }
 
 fn parse_param_with_index(input: i32) -> String {

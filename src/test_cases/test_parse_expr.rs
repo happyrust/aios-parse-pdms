@@ -36,7 +36,7 @@ FF FF FF CB 00 00 11 94 00 01 00 53 00 00 33 BC
 00 00 03 21
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     // dbg!(map.get_as_string("PTDI"));
     assert_eq!(map.get_as_string("PTDI"), Some("(DESP[1]/(2*COS(45)))".to_string()));
@@ -282,7 +282,7 @@ async fn test_parse_expression_pbof() {
     
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     dbg!(map.get_as_string("PBOF"));
 
@@ -332,7 +332,7 @@ FF FF FF FF 00 00 00 00 00 00 06 41 00 00 06 A5
 52 41 2D 50 41 31 00 00 
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     
 }
@@ -399,7 +399,7 @@ async fn test_parse_expression_PZ() {
     
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     // dbg!(map);
 
@@ -417,7 +417,7 @@ async fn test_has_float() {
     00 00 00 00 00 00 00 00 00 00 00 00
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     
     assert_eq!(
@@ -439,7 +439,7 @@ async fn test_f32_compatiable_extr() {
     00 00 00 01 17 D7 6C FF
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     assert_eq!(map.get_f32_or_default("HEIG"), 1177.8);
 }
@@ -477,7 +477,7 @@ FF FF FB 9B 00 00 00 00 00 01 00 4A 00 00 5A 9E
 00 00 00 00 00 00 03 87 00 00 03 24 00 00 03 21
 ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     // assert_eq!(map.get_f32_or_default("HEIG"), 1177.8);
     dbg!(map);

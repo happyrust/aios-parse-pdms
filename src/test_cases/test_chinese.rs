@@ -32,7 +32,7 @@ FF FF FF FF FF FF FF FF 00 00 00 00 00 00 06 41
 6D 36 20 26 57 31 31 02 20 26 00 00
  ";
     let data = convert_str_to_bytes(data_str);
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("DTIT") {
         let result = val.string_value();
         dbg!(&result);
@@ -61,7 +61,7 @@ async fn test_znp_17500_5192_description() {
 38 00 00 02 00 00 00 01 00 0E A0 01 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("DESC") {
         let result = val.string_value();
         assert_eq!(result, "综合技术廊道");
@@ -86,7 +86,7 @@ async fn test_znp_9309_2_description() {
 ";
     let data = convert_str_to_bytes(data_str);
     let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice(), 0).await.unwrap();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     if let Some(val) = ele_data.whole_attmap.explicit_attmap.get_val("DESC") {
         let result = val.string_value();
         assert_eq!(result, "电气厂房(廊道区)");
