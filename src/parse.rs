@@ -279,9 +279,19 @@ impl EleData {
         self.whole_attmap.explicit_attmap()
     }
 
+    #[inline]
+    pub fn explicit_attmap_mut(&mut self) -> &mut NamedAttrMap {
+        self.whole_attmap.explicit_attmap_mut()
+    }
+
     #[inline] 
     pub fn uda_atts(&self) -> &Vec<ExplicitAttr> {
         self.whole_attmap.uda_atts()
+    }
+
+    #[inline]
+    pub fn uda_atts_mut(&mut self) -> &mut Vec<ExplicitAttr> {
+        self.whole_attmap.uda_atts_mut()
     }
 
 
