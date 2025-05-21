@@ -41,7 +41,6 @@ lazy_static = "1.4.0"
 cached = { version = "0.54.0", default-features = false, features = ["proc_macro"] }
 dashmap = { version = "=7.0.0-rc2", features = ["serde"] }
 hex = "0.4.3"
-flate2 = "1.0.24"
 
 id_tree = { version = "1.8.0", features = ["serde_support"] }
 smol_str = { version = "0.3.2", features = ["serde"] }

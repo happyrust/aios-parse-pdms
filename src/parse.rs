@@ -344,6 +344,15 @@ pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
     members
 }
 
+/// 解析元素的子元素
+/// 
+/// # 参数
+/// * `input` - 输入的字节数组切片
+/// 
+/// # 返回值
+/// * `(RefU64, RefU64Vec)` - 返回一个元组,包含:
+///   - 当前元素的引用号(RefU64)
+///   - 子元素引用号的向量(RefU64Vec)
 #[inline]
 pub fn parse_ele_children(input: &[u8]) -> (RefU64, RefU64Vec) {
     let mut children = RefU64Vec::default();
