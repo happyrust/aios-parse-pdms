@@ -20,3 +20,4 @@ mod test_uda;
 mod test_parse_element;
 
 mod test_parse_string;
+mod binary_data_parser_test;

@@ -526,6 +526,7 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
         }
     }
     let final_explicit_data = collect_explict_data(explicit_data, refno);
+    
 
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
@@ -533,11 +534,17 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
     implicit_attmap.insert("REFNO".into(), NamedAttrValue::RefU64Type(refno));
     let name = implicit_attmap.get_name_or_default();
 
-    let (_, explicit_attrs) = parse_raw_explicit_attrs(
+    let explicit_attrs = match parse_raw_explicit_attrs(
         &final_explicit_data,
         &cur_type_info_map,
         refno,
-    ).map_err(|e| e.to_owned())?;
+    ) {
+        Ok(result) => result.1,
+        Err(e) => {
+            println!("解析显式属性失败: {:?}, refno={:?}", e, refno);
+            Vec::new()
+        }
+    };
     
     // 将ExplicitAttr分成UDA属性和普通显式属性
     let mut uda_atts = Vec::new();
@@ -1263,6 +1270,9 @@ pub fn parse_raw_explicit_attrs<'a>(
     while !residual.is_empty() {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
+        if hash_val == 0 {
+            break;
+        }
         let is_uda = is_uda(hash_val);
         let att_name = if is_uda {
             //UDA 单独处理
@@ -1270,6 +1280,7 @@ pub fn parse_raw_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
+        // println!("hex value is {:#4X?}, att name is {}", &residual[..4], &att_name);
         if is_debug {
             if is_uda {
                 dbg!(&att_name);
@@ -1277,22 +1288,34 @@ pub fn parse_raw_explicit_attrs<'a>(
         }
         if check_is_expr(hash_val) {
             // dbg!(&att_name);
-            let (input, (_, value)) = parse_expression_attr(residual, refno)?;
-            // dbg!(&value);
-            if value.is_empty() {
-                att_value = None;
-            } else {
-                att_value = Some(StringType(value));
+            match parse_expression_attr(residual, refno) {
+                Ok((input, (_, value))) => {
+                    if value.is_empty() {
+                        att_value = None;
+                    } else {
+                        att_value = Some(StringType(value));
+                    }
+                    if is_debug {
+                        dbg!(&att_value);
+                    }
+                    residual = input;
+                }
+                Err(e) => {
+                    println!("解析表达式属性退出: {:?}, {:#4X?}", &att_name, &residual[..]);
+                    break;
+                }
             }
-            if is_debug {
-                dbg!(&att_value);
-            }
-            residual = input;
         } else {
-            let (l, (explict_hash, attr_type_num, type_len)) = tuple((
-                be_i32, be_u16, //属性的类型
+            let (l, (explict_hash, attr_type_num, type_len)) = match tuple((
+                be_i32::<_, nom::error::Error<_>>, be_u16, //属性的类型
                 be_u16, //属性的长度
-            ))(&residual[..])?;
+            ))(&residual[..]) {
+                Ok(result) => result,
+                Err(e) => {
+                    println!("解析显式属性退出: {:?}, {:#4X?}", &att_name, &residual[..]);
+                    break;
+                }
+            };
             let type_len = type_len as usize;
             if type_len * 4 <= l.len() {
                 residual = &l[type_len * 4..];
