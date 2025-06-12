@@ -95,30 +95,63 @@ pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
     }
 }
 
-/// 解析表达式
-pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
-    let hash_val = &input[..4];
-    let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
+/// 解析轴向表达式   
+/// 轴向表达式处理总长度0x （4 * 4）= 16 字节： 1C 00 00 03 00 00 00 02 00 00 00 01 00 00 00 02
+/// input[0..4]: 1C 00 00 03 => 标识轴向表达式
+/// input[4..8]: 00 00 00 02 => 正负轴的表达式类型
+/// input[8..12]: 00 00 00 01 => 正负标志（1为正，2为负）
+/// input[12..16]: 00 00 00 02 => 轴索引（1=X, 2=Y, 3=Z）
+pub fn parse_axis_expression(input: &[u8], expression_type: String) -> IResult<&[u8], (String, String)> {
+    if input.len() < 16 {
+        return Err(nom::Err::Incomplete(nom::Needed::Unknown));
+    }
+    
+    // 解析正负标志 (input[8..12])
+    let positive_flag = parse_to_i32(&input[8..12]);
+    // 解析轴索引 (input[12..16])
+    let axis_index = parse_to_i32(&input[12..16]);
+    
+    let axis = match axis_index {
+        1 => "X",
+        2 => "Y", 
+        3 => "Z",
+        _ => "UNKNOWN",
+    };
+    
+    let axis_result = if positive_flag == 1 {
+        axis.to_string()
+    } else if positive_flag == 2 {
+        format!("-{}", axis)
+    } else {
+        axis.to_string()
+    };
+    
+    let remaining = &input[16..];
+    Ok((remaining, (expression_type, axis_result)))
+}
+
+/// 解析其他类型的表达式（原有逻辑）
+pub fn parse_other_expression(input: &[u8], expression_type: String, refno: RefU64) -> IResult<&[u8], (String, String)> {
     //临时处理，后面需要总结规律
-    if input.len() <= 4 * 6 {
+    if input.len() <= 4 * 5 {
         return Err(nom::Err::Incomplete(nom::Needed::Unknown));
     }
 
-    let (_, flag) = be_i32(&input[4 * 5..4 * 6])?;
+    let (_, flag) = be_i32(&input[4 * 4..4 * 5])?;
 
     //string type
     if flag == 0x66 {
-        let (_, str_len) = be_i32(&input[4 * 6..4 * 7])?;
-        let (input, chars) = count(be_i32, str_len as usize)(&input[4 * 7..])?;
+        let (_, str_len) = be_i32(&input[4 * 5..4 * 6])?;
+        let (input, chars) = count(be_i32, str_len as usize)(&input[4 * 6..])?;
         let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
         return Ok((input, (expression_type, string)));
     }
 
     if expression_type == "PTCDI" || expression_type == "PTCD" {
-        let (_, expression_length) = be_u16(&input[6..8])?;
+        let (_, expression_length) = be_u16(&input[2..4])?;
 
-        // 显式属性的length后有8个byte没用的，直接跳过了
-        let end = (expression_length * 4) as usize + 8;
+        // 显式属性的length后有4个byte没用的，直接跳过了
+        let end = (expression_length * 4) as usize + 4;
 
         //暂时跳过这个问题，长度问题
         if end > input.len() {
@@ -126,7 +159,7 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
             error!("{:#4X?}", input);
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
-        let expression_data = &input[8..end];
+        let expression_data = &input[4..end];
         let input = &input[end..];
 
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
@@ -137,24 +170,24 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
 
         Ok((input, (expression_type, result)))
     } else {
-        let (_, expression_length) = be_u16(&input[6..8])?;
+        let (_, expression_length) = be_u16(&input[2..4])?;
 
-        // 显式属性的length后有8个byte没用的，直接跳过了
-        if (expression_length as usize * 4 + 8) > input.len() {
+        // 显式属性的length后有4个byte没用的，直接跳过了
+        if (expression_length as usize * 4 + 4) > input.len() {
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
-        let end = (expression_length * 4) as usize + 8;
+        let end = (expression_length * 4) as usize + 4;
         //todo 需要检查
-        if end <= 16 {
-            // dbg!("Found expression length less than 16 bytes, skipping...{refno}");
-            // println!("Debug expression data {:#4X?}", &input[16..]);
+        if end <= 12 {
+            // dbg!("Found expression length less than 12 bytes, skipping...{refno}");
+            // println!("Debug expression data {:#4X?}", &input[12..]);
             return Err(nom::Err::Incomplete(nom::Needed::Unknown));
         }
-        let expression_data = &input[16..(expression_length * 4) as usize + 8];
-        let flag1 = parse_to_i32(&input[8..12]);
-        let flag2 = parse_to_i32(&input[12..16]);
+        let expression_data = &input[12..(expression_length * 4) as usize + 4];
+        let flag1 = parse_to_i32(&input[4..8]);
+        let flag2 = parse_to_i32(&input[8..12]);
         let flag3 = parse_to_i32(&expression_data[..4]);
-        let input = &input[(expression_length * 4) as usize + 8..];
+        let input = &input[(expression_length * 4) as usize + 4..];
 
         if flag1 == 2 && flag2 == 1 {
             let axis = match flag3 {
@@ -175,6 +208,40 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
 
         let result = parse_expression_func(expr_data, refno)?.1;
         Ok((input, (expression_type, result.into())))
+    }
+}
+
+/// 判断是否为轴向表达式
+fn is_axis_expression(input: &[u8]) -> bool {
+    // 检查是否有足够的数据
+    if input.len() < 16 {
+        return false;
+    }
+    
+    // 检查轴向表达式的特征
+    // 根据注释，轴向表达式有特定的格式
+    // input[0..4]: 1C 00 00 03 标识轴向表达式
+    let identifier = parse_to_i32(&input[0..4]);
+    if identifier != 0x1C000003u32 as i32 {
+        return false;
+    }
+    
+    // 检查轴索引是否有效 (input[12..16])
+    let axis_index = parse_to_i32(&input[12..16]);
+    axis_index >= 1 && axis_index <= 3
+}
+
+/// 解析表达式
+pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
+    let hash_val = &input[..4];
+    let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
+    let input = &input[4..];
+    
+    // 根据表达式类型和数据特征分发到不同的处理函数
+    if is_axis_expression(input) {
+        parse_axis_expression(input, expression_type)
+    } else {
+        parse_other_expression(input, expression_type, refno)
     }
 }
 
@@ -637,4 +704,226 @@ fn read_deseralize_file() {
     let database_info: DashMap<String, Vec<(String, String)>> =
         serde_json::from_reader(reader).unwrap();
     println!("value={:?}", database_info);
+}
+
+/// 使用nom解析器风格重构的表达式解析函数
+/// 
+/// 解析PDMS数据库中的表达式属性，支持轴向表达式和其他类型表达式
+/// 
+/// # 参数
+/// * `input` - 输入的字节数组，包含完整的表达式数据
+/// * `refno` - 对象引用号，用于调试和错误报告
+/// 
+/// # 返回值
+/// * `IResult<&[u8], (String, String)>` - nom解析结果，包含剩余的字节和解析出的(表达式类型, 表达式值)元组
+/// 
+/// # 数据格式
+/// * input[0..4]: hash值，用于确定表达式类型
+/// * input[4..]: 表达式具体数据，根据类型不同而变化
+/// 
+/// # 支持的表达式类型
+/// * 轴向表达式 - 格式固定为16字节，表示X/Y/Z轴的正负方向
+/// * PTCDI/PTCD表达式 - 点云相关的表达式
+/// * 其他表达式 - 包括数学运算、函数调用等复杂表达式
+pub fn parse_expression_attr_nom(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
+    let (input, hash_val) = nom::bytes::complete::take(4usize)(input)?;
+    let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
+    
+    // 判断是否为轴向表达式
+    if is_axis_expression_nom(input)? {
+        parse_axis_expression_nom(input, expression_type)
+    } else {
+        parse_other_expression_nom(input, expression_type, refno)
+    }
+}
+
+/// nom风格的轴向表达式判断函数
+/// 
+/// 检查输入数据是否符合轴向表达式的特征格式
+/// 
+/// # 参数
+/// * `input` - 去掉hash值后的输入字节数组
+/// 
+/// # 返回值
+/// * `Result<bool, nom::Err<nom::error::Error<&[u8]>>>` - 解析结果，true表示是轴向表达式
+/// 
+/// # 轴向表达式特征
+/// * 数据长度至少16字节
+/// * input[0..4]: 标识符必须为 0x1C000003
+/// * input[12..16]: 轴索引必须在1-3范围内（1=X, 2=Y, 3=Z）
+fn is_axis_expression_nom(input: &[u8]) -> Result<bool, nom::Err<nom::error::Error<&[u8]>>> {
+    if input.len() < 16 {
+        return Ok(false);
+    }
+    
+    let (_, identifier) = be_i32(input)?;
+    if identifier != 0x1C000003u32 as i32 {
+        return Ok(false);
+    }
+    
+    let (_, axis_index) = be_i32(&input[12..16])?;
+    Ok(axis_index >= 1 && axis_index <= 3)
+}
+
+/// nom风格的轴向表达式解析函数
+/// 
+/// 解析轴向表达式，总长度为16字节的固定格式数据
+/// 
+/// # 参数
+/// * `input` - 去掉hash值后的输入字节数组，必须至少16字节
+/// * `expression_type` - 已解析出的表达式类型名称
+/// 
+/// # 返回值
+/// * `IResult<&[u8], (String, String)>` - nom解析结果，包含剩余字节和(表达式类型, 轴向结果)
+/// 
+/// # 轴向表达式格式（16字节）
+/// * input[0..4]: 1C 00 00 03 => 标识轴向表达式 
+/// * input[4..8]: 00 00 00 02 => 正负轴的表达式类型
+/// * input[8..12]: 00 00 00 01 => 正负标志（1为正，2为负）
+/// * input[12..16]: 00 00 00 02 => 轴索引（1=X, 2=Y, 3=Z）
+/// 
+/// # 示例
+/// * 输入: 1C 00 00 03 00 00 00 02 00 00 00 01 00 00 00 02
+/// * 输出: ("轴向表达式", "Y") - 表示Y轴正方向
+pub fn parse_axis_expression_nom(input: &[u8], expression_type: String) -> IResult<&[u8], (String, String)> {
+    let (input, _identifier) = be_i32(input)?; // input[0..4]: 1C 00 00 03
+    let (input, _expr_type) = be_i32(input)?;  // input[4..8]: 00 00 00 02
+    let (input, positive_flag) = be_i32(input)?; // input[8..12]: 正负标志
+    let (input, axis_index) = be_i32(input)?;    // input[12..16]: 轴索引
+    
+    let axis = match axis_index {
+        1 => "X",
+        2 => "Y", 
+        3 => "Z",
+        _ => "UNKNOWN",
+    };
+    
+    let axis_result = if positive_flag == 1 {
+        axis.to_string()
+    } else if positive_flag == 2 {
+        format!("-{}", axis)
+    } else {
+        axis.to_string()
+    };
+    
+    Ok((input, (expression_type, axis_result)))
+}
+
+/// nom风格的其他类型表达式解析函数
+/// 
+/// 处理除轴向表达式外的所有其他表达式类型，包括字符串、数学运算、函数调用等
+/// 
+/// # 参数
+/// * `input` - 去掉hash值后的输入字节数组
+/// * `expression_type` - 已解析出的表达式类型名称
+/// * `refno` - 对象引用号，用于错误报告和调试
+/// 
+/// # 返回值
+/// * `IResult<&[u8], (String, String)>` - nom解析结果，包含剩余字节和(表达式类型, 表达式结果)
+/// 
+/// # 支持的表达式类型
+/// 
+/// ## 字符串类型 (flag == 0x66)
+/// * 包含字符串长度和字符数据
+/// * 格式: [16字节头部] [长度] [字符数组]
+/// 
+/// ## PTCDI/PTCD类型
+/// * 点云相关的轴向数据表达式
+/// * input[2..4]: 表达式长度(u16)
+/// * input[4..]: 跳过4字节后为表达式数据
+/// 
+/// ## 通用表达式类型
+/// * input[2..4]: 表达式长度(u16)
+/// * input[4..8]: flag1 - 控制标志
+/// * input[8..12]: flag2 - 控制标志  
+/// * input[12..]: 跳过4字节后为表达式数据
+/// * 支持轴向快速模式 (flag1==2 && flag2==1)
+/// * 支持数值模式 (flag2==0x28)
+/// * 支持复杂表达式解析
+/// 
+/// # 错误处理
+/// * 数据长度不足时返回 `nom::Err::Incomplete`
+/// * 解析错误时记录详细错误信息
+pub fn parse_other_expression_nom(input: &[u8], expression_type: String, refno: RefU64) -> IResult<&[u8], (String, String)> {
+    // 检查最小长度
+    if input.len() <= 4 * 5 {
+        return Err(nom::Err::Incomplete(nom::Needed::Size(std::num::NonZero::new(4 * 5).unwrap())));
+    }
+
+    let (temp_input, _) = nom::bytes::complete::take(4usize * 4)(input)?; // 跳过前16字节
+    let (_, flag) = be_i32(temp_input)?;
+
+    // 重新使用原始input
+
+    //string type
+    if flag == 0x66 {
+        let (input, _) = nom::bytes::complete::take(4usize * 5)(input)?;
+        let (input, str_len) = be_i32(input)?;
+        let (input, chars) = count(be_i32, str_len as usize)(input)?;
+        let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
+        return Ok((input, (expression_type, string)));
+    }
+
+    if expression_type == "PTCDI" || expression_type == "PTCD" {
+        let (input, _) = nom::bytes::complete::take(2usize)(input)?; // 跳过前2字节
+        let (input, expression_length) = be_u16(input)?;
+        let (input, _) = nom::bytes::complete::take(4usize)(input)?; // 跳过4字节
+
+        // 显式属性的length后有数据
+        let data_size = (expression_length * 4) as usize;
+        if data_size > input.len() {
+            error!("{refno}: parse_expression_attr PTCDI or PTCD {data_size} > {} input.len()", input.len());
+            error!("{:#4X?}", input);
+            return Err(nom::Err::Incomplete(nom::Needed::Size(std::num::NonZero::new(data_size).unwrap())));
+        }
+        
+        let (input, expression_data) = nom::bytes::complete::take(data_size)(input)?;
+
+        let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
+        let result = match axis {
+            StringType(value) => value,
+            _ => "".to_string(),
+        };
+
+        Ok((input, (expression_type, result)))
+    } else {
+        let (remaining_input, _) = nom::bytes::complete::take(2usize)(input)?; // 跳过前2字节
+        let (remaining_input, expression_length) = be_u16(remaining_input)?;
+        let (remaining_input, flag1) = be_i32(remaining_input)?; // input[4..8]
+        let (remaining_input, flag2) = be_i32(remaining_input)?; // input[8..12]
+        let (remaining_input, _) = nom::bytes::complete::take(4usize)(remaining_input)?; // 跳过4字节
+
+        // 检查表达式数据长度
+        let data_size = (expression_length * 4) as usize;
+        if data_size + 4 > remaining_input.len() {
+            return Err(nom::Err::Incomplete(nom::Needed::Size(std::num::NonZero::new(data_size + 4).unwrap())));
+        }
+        
+        if data_size <= 8 {
+            return Err(nom::Err::Incomplete(nom::Needed::Size(std::num::NonZero::new(data_size + 4).unwrap())));
+        }
+
+        let (final_input, expression_data) = nom::bytes::complete::take(data_size)(remaining_input)?;
+        let (_, flag3) = be_i32(expression_data)?;
+
+        if flag1 == 2 && flag2 == 1 {
+            let axis = match flag3 {
+                1 => "X",
+                2 => "Y",
+                3 => "Z",
+                _ => "",
+            };
+            return Ok((final_input, (expression_type, axis.into())));
+        }
+
+        let expr_data = &expression_data[4..];
+
+        if flag2 == 0x28 && expr_data.len() == 2 * 4 {
+            let u32_value = parse_to_i32(&expr_data[..4]).abs() / 10;
+            return Ok((final_input, (expression_type, u32_value.to_string())));
+        }
+
+        let result = parse_expression_func(expr_data, refno)?.1;
+        Ok((final_input, (expression_type, result.into())))
+    }
 }
