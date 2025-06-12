@@ -1,4 +1,5 @@
-use crate::parse::parse_raw_ele_data;
+use aios_core::{get_default_pdms_db_info, NamedAttrValue};
+use crate::parse::{parse_ele_data, parse_raw_ele_data};
 use crate::test_cases::convert_str_to_bytes;
 
 #[tokio::test]
@@ -98,4 +99,47 @@ fn test_parse_specific_segments(data: &[u8]) {
             println!();
         }
     }
+}
+
+
+#[tokio::test]
+async fn test_new_case_00_00_00_2f() {
+    let data_str = "
+00 00 00 19 00 00 5C 98 00 19 37 BC 00 A6 DF DD 00 00 5C 98
+00 19 37 BA 00 00 02 21 00 0E 80 01 00 00 00 00
+00 00 00 00 20 0B 00 00 00 00 00 02 00 00 00 04
+00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00
+00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 01 00 31 00 00 5C 98 00 19 37 BC 00 00 00 00
+00 00 00 00 10 C6 95 E8 1C 00 00 0A 00 00 00 09
+00 00 00 09 00 00 00 05 00 00 00 01 00 00 00 22
+00 00 00 51 00 00 00 04 00 00 00 02 00 00 00 00
+00 00 00 07 00 09 5A 34 1C 00 00 19 00 00 00 18
+00 00 00 18 00 00 00 05 00 00 00 02 00 00 00 16
+00 00 00 0B 00 00 00 11 00 00 00 01 00 00 00 65
+00 00 00 06 00 10 00 00 00 00 00 00 40 00 04 01
+00 00 00 00 00 00 00 00 00 00 00 6A 00 00 00 02
+00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
+00 00 06 41 00 00 06 A5 00 00 00 0F 00 00 00 3D
+00 58 52 59 1C 00 00 03 00 00 00 02 00 00 00 01
+00 00 00 02
+";
+    let data = convert_str_to_bytes(data_str);
+    let pdms_database_info = get_default_pdms_db_info();
+    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let mut result = "".to_string();
+    let merged = ele_data.whole_attmap.merge();
+    if let Some(r) = merged.get_val("PZAXI") {
+        dbg!(r);
+        match r {
+            NamedAttrValue::StringType(v) => {
+                result = v.to_string();
+            }
+            _ => {}
+        }
+    }
+    // 您可以根据期望的结果调整断言
+    // assert_eq!("期望值", result);
+    dbg!(&merged);
 }

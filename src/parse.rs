@@ -49,8 +49,6 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
 
-
-
 //00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02
 // const REFNO_ALL_INDEX_PAGE: [u8; 11] = [0x00u8, 0x00, 0x00, 0x05, 0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00];
 const REFNO_ALL_INDEX_PAGE: [u8; 8] = [0x0u8, 0xCC, 0x47, 0xDF, 0x0, 0x0, 0x0, 0x0];
@@ -284,7 +282,7 @@ impl EleData {
         self.whole_attmap.explicit_attmap_mut()
     }
 
-    #[inline] 
+    #[inline]
     pub fn uda_atts(&self) -> &Vec<ExplicitAttr> {
         self.whole_attmap.uda_atts()
     }
@@ -293,7 +291,6 @@ impl EleData {
     pub fn uda_atts_mut(&mut self) -> &mut Vec<ExplicitAttr> {
         self.whole_attmap.uda_atts_mut()
     }
-
 
     #[inline]
     pub fn att_map_mut(&mut self) -> &mut NamedAttrMap {
@@ -345,10 +342,10 @@ pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
 }
 
 /// 解析元素的子元素
-/// 
+///
 /// # 参数
 /// * `input` - 输入的字节数组切片
-/// 
+///
 /// # 返回值
 /// * `(RefU64, RefU64Vec)` - 返回一个元组,包含:
 ///   - 当前元素的引用号(RefU64)
@@ -526,7 +523,6 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
         }
     }
     let final_explicit_data = collect_explict_data(explicit_data, refno);
-    
 
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
@@ -534,18 +530,15 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
     implicit_attmap.insert("REFNO".into(), NamedAttrValue::RefU64Type(refno));
     let name = implicit_attmap.get_name_or_default();
 
-    let explicit_attrs = match parse_raw_explicit_attrs(
-        &final_explicit_data,
-        &cur_type_info_map,
-        refno,
-    ) {
-        Ok(result) => result.1,
-        Err(e) => {
-            println!("解析显式属性失败: {:?}, refno={:?}", e, refno);
-            Vec::new()
-        }
-    };
-    
+    let explicit_attrs =
+        match parse_raw_explicit_attrs(&final_explicit_data, &cur_type_info_map, refno) {
+            Ok(result) => result.1,
+            Err(e) => {
+                println!("解析显式属性失败: {:?}, refno={:?}", e, refno);
+                Vec::new()
+            }
+        };
+
     // 将ExplicitAttr分成UDA属性和普通显式属性
     let mut uda_atts = Vec::new();
     for attr in explicit_attrs {
@@ -555,7 +548,7 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
             explicit_attmap.insert(attr.name, attr.value.into());
         }
     }
-    
+
     // 创建基础 EleData，包含UDA属性列表
     let ele_data = EleData {
         refno,
@@ -569,7 +562,7 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
         children,
         name,
     };
-    
+
     Ok(ele_data)
 }
 
@@ -577,7 +570,7 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
 pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     // 使用同步函数解析基础数据
     let mut ele_data = parse_raw_ele_data(input)?;
-    
+
     // 获取需要的信息用于异步调用
     let refno = ele_data.refno;
     let noun_name = db1_dehash(ele_data.noun);
@@ -588,23 +581,20 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
         .ok_or(anyhow!("{} not exist in attr_info_map", &noun_name))?;
 
     // 解析显式属性
-    // let explicit_data = collect_explict_data(&input, refno);
-    // let (_, explicit_attrs) = parse_raw_explicit_attrs(
-    //     &explicit_data,
-    //     &cur_type_info_map,
-    //     refno,
-    // )?;
-    
     // 异步处理显式属性
     let explicit_attmap = &mut ele_data.whole_attmap.explicit_attmap;
-    
+
     // 如果存在UDA属性，进行异步处理
     if !ele_data.whole_attmap.uda_atts.is_empty() {
-        let _ = process_explicit_attrs(std::mem::take(&mut ele_data.whole_attmap.uda_atts), explicit_attmap).await;
+        let _ = process_explicit_attrs(
+            std::mem::take(&mut ele_data.whole_attmap.uda_atts),
+            explicit_attmap,
+        )
+        .await;
     }
     // 精炼属性
     ele_data.whole_attmap = ele_data.whole_attmap.refine(&cur_type_info_map);
-    
+
     Ok(ele_data)
 }
 
@@ -1231,9 +1221,6 @@ async fn get_uda_short_name(hash: i32) -> Option<String> {
     })
 }
 
-
-
-
 /// 获取已知显式属性
 pub async fn process_explicit_attrs(
     uda_attrs: Vec<ExplicitAttr>,
@@ -1252,7 +1239,7 @@ pub async fn process_explicit_attrs(
             attr_data_map.insert(attr.name.clone(), attr.value.into());
         }
     }
-    
+
     Ok(())
 }
 
@@ -1266,7 +1253,7 @@ pub fn parse_raw_explicit_attrs<'a>(
     let test_refno = get_db_option().get_test_refno().map(|x| x.refno());
     let mut is_debug = test_refno == Some(refno);
     let mut attr_values = Vec::new();
-    
+
     while !residual.is_empty() {
         let mut att_value = None;
         let hash_val = convert_to_hash(&residual[..4]);
@@ -1280,7 +1267,7 @@ pub fn parse_raw_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        // println!("hex value is {:#4X?}, att name is {}", &residual[..4], &att_name);
+        println!("hex value is {:#4X?}, att name is {}", &residual[..4], &att_name);
         if is_debug {
             if is_uda {
                 dbg!(&att_name);
@@ -1301,18 +1288,30 @@ pub fn parse_raw_explicit_attrs<'a>(
                     residual = input;
                 }
                 Err(e) => {
-                    println!("解析表达式属性退出: {:?}, {:#4X?}", &att_name, &residual[..]);
+                    println!(
+                        "解析{} 表达式属性退出: {:?}, {:#4X?}",
+                        refno.to_e3d_id(),
+                        &att_name,
+                        &residual[..]
+                    );
                     break;
                 }
             }
         } else {
             let (l, (explict_hash, attr_type_num, type_len)) = match tuple((
-                be_i32::<_, nom::error::Error<_>>, be_u16, //属性的类型
+                be_i32::<_, nom::error::Error<_>>,
+                be_u16, //属性的类型
                 be_u16, //属性的长度
-            ))(&residual[..]) {
+            ))(&residual[..])
+            {
                 Ok(result) => result,
                 Err(e) => {
-                    println!("解析显式属性退出: {:?}, {:#4X?}", &att_name, &residual[..]);
+                    println!(
+                        "解析{} 显式属性退出: {:?}, {:#4X?}",
+                        refno.to_e3d_id(),
+                        &att_name,
+                        &residual[..]
+                    );
                     break;
                 }
             };
@@ -1600,7 +1599,7 @@ pub fn parse_raw_explicit_attrs<'a>(
             });
         }
     }
-    
+
     Ok((residual, attr_values))
 }
 
