@@ -1267,7 +1267,7 @@ pub fn parse_raw_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
-        println!("hex value is {:#4X?}, att name is {}", &residual[..4], &att_name);
+        // println!("hex value is {:#4X?}, att name is {}", &residual[..4], &att_name);
         if is_debug {
             if is_uda {
                 dbg!(&att_name);
