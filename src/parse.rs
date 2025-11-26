@@ -103,7 +103,7 @@ pub async fn parse_pdms_dir(
     if config_path.is_some() {
         if let Ok(mut file) = File::open(config_path.unwrap()) {
             let mut attr_buf: Vec<u8> = Vec::new();
-            file.read_to_end(&mut attr_buf);
+            file.read_to_end(&mut attr_buf).context("read database_info config")?;
             database_info = bincode::deserialize(&attr_buf).ok();
         }
     }
@@ -221,7 +221,7 @@ pub async fn parse_file(
     let time_start = Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buf).ok();
+    file.read_to_end(&mut buf).context("read db file")?;
     let input = &buf[..];
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
@@ -244,9 +244,32 @@ pub async fn parse_file_with_chunk(
     ses_range_map: &BTreeMap<i32, Range<u32>>,
     ignore_world_refno: bool,
 ) -> Result<PdmsDbData> {
-    //使用默认的配置信息
-    parse_db_with_chunk(
+    let db_info = get_default_pdms_db_info();
+    parse_db_with_chunk_with_info(
         db_basic_data,
+        &db_info,
+        file_name,
+        project,
+        chunk_refnos,
+        ses_range_map,
+        ignore_world_refno,
+    )
+    .await
+}
+
+/// 解析db文件的chidlren部分，得到参考号和对应的类型集合（显式指定数据库信息）
+pub async fn parse_file_with_chunk_with_info(
+    db_basic_data: Arc<DbBasicData>,
+    database_info: &PdmsDatabaseInfo,
+    file_name: &str,
+    project: &str,
+    chunk_refnos: &[RefU64],
+    ses_range_map: &BTreeMap<i32, Range<u32>>,
+    ignore_world_refno: bool,
+) -> Result<PdmsDbData> {
+    parse_db_with_chunk_with_info(
+        db_basic_data,
+        database_info,
         file_name,
         project,
         chunk_refnos,
@@ -385,7 +408,10 @@ pub fn parse_ele_children(input: &[u8]) -> (RefU64, RefU64Vec) {
 }
 
 /// 解析元素的基础数据（同步函数，不进行异步操作）
-pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
+pub fn parse_raw_ele_data_with_info(
+    input: &[u8],
+    database_info: &PdmsDatabaseInfo,
+) -> Result<EleData> {
     let mut implicit_attmap = NamedAttrMap::default();
     let mut explicit_attmap = NamedAttrMap::default();
     let mut children = RefU64Vec::default();
@@ -400,12 +426,11 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
     let type_hash = try_parse_to_i32(&input[12..16])?;
     let noun = type_hash as u32;
     let noun_name = db1_dehash(noun); //类型hash  12-16
-    let db_info = get_default_pdms_db_info();
-    let cur_type_info_map = db_info
+    let cur_type_info_map = database_info
         .named_attr_info_map
         .get(&noun_name)
         .ok_or(anyhow!("{} not exist in attr_info_map", &noun_name))?;
-    let hash_type_info_map = db_info
+    let hash_type_info_map = database_info
         .noun_attr_info_map
         .get(&type_hash)
         .ok_or(anyhow!("{} not exist in attr_info_map", &noun_name))?;
@@ -566,16 +591,24 @@ pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
     Ok(ele_data)
 }
 
+/// 解析元素的基础数据（使用默认数据库配置）
+pub fn parse_raw_ele_data(input: &[u8]) -> Result<EleData> {
+    let db_info = get_default_pdms_db_info();
+    parse_raw_ele_data_with_info(input, &db_info)
+}
+
 /// 解析元素数据，包含异步处理
-pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
+pub async fn parse_ele_data_with_info(
+    input: &[u8],
+    database_info: &PdmsDatabaseInfo,
+) -> Result<EleData> {
     // 使用同步函数解析基础数据
-    let mut ele_data = parse_raw_ele_data(input)?;
+    let mut ele_data = parse_raw_ele_data_with_info(input, database_info)?;
 
     // 获取需要的信息用于异步调用
     let refno = ele_data.refno;
     let noun_name = db1_dehash(ele_data.noun);
-    let db_info = get_default_pdms_db_info();
-    let cur_type_info_map = db_info
+    let cur_type_info_map = database_info
         .named_attr_info_map
         .get(&noun_name)
         .ok_or(anyhow!("{} not exist in attr_info_map", &noun_name))?;
@@ -596,6 +629,12 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
     ele_data.whole_attmap = ele_data.whole_attmap.refine(&cur_type_info_map);
 
     Ok(ele_data)
+}
+
+/// 解析元素数据，包含异步处理（使用默认数据库配置）
+pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
+    let db_info = get_default_pdms_db_info();
+    parse_ele_data_with_info(input, &db_info).await
 }
 
 //移除00 00 00 007，保留后面的数据
@@ -772,6 +811,29 @@ pub async fn parse_db_with_chunk(
     ses_range_map: &BTreeMap<i32, Range<u32>>,
     ignore_world_refno: bool,
 ) -> Result<PdmsDbData> {
+    let db_info = get_default_pdms_db_info();
+    parse_db_with_chunk_with_info(
+        db_basic_data,
+        &db_info,
+        filename,
+        project,
+        chunk_refnos,
+        ses_range_map,
+        ignore_world_refno,
+    )
+    .await
+}
+
+///解析db文件，因为有可能db文件会很大，所以需要做一个分段运行的策略（显式指定数据库信息）
+pub async fn parse_db_with_chunk_with_info(
+    db_basic_data: Arc<DbBasicData>,
+    database_info: &PdmsDatabaseInfo,
+    filename: &str,
+    project: &str,
+    chunk_refnos: &[RefU64],
+    ses_range_map: &BTreeMap<i32, Range<u32>>,
+    ignore_world_refno: bool,
+) -> Result<PdmsDbData> {
     let input = &db_basic_data.bytes;
     let type_ele_map = Arc::new(DashMap::new());
     let total_att_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
@@ -797,8 +859,20 @@ pub async fn parse_db_with_chunk(
     }
 
     let root_refno = db_basic_data.world_refno;
-    let refno_info_map = Arc::new(DashMap::new());
-    let children_map = HashMap::new();
+    let _refno_info_map = Arc::new(DashMap::new());
+    let mut children_map: HashMap<RefU64, RefU64Vec> = db_basic_data
+        .children_map
+        .iter()
+        .map(|(k, v)| (*k, RefU64Vec(v.clone())))
+        .collect();
+    // 只保留当前分块相关的 children，避免超大 children_map 占用
+    if !chunk_refnos.is_empty() {
+        let keep_set: HashSet<RefU64> = chunk_refnos.iter().cloned().collect();
+        children_map.retain(|k, _| keep_set.contains(k) || (!ignore_world_refno && *k == root_refno));
+        for (_, v) in children_map.iter_mut() {
+            v.retain(|child| keep_set.contains(child) || (!ignore_world_refno && *child == root_refno));
+        }
+    }
     //如果忽略world_refno，则不解析world_refno的数据
     // dbg!(&ignore_world_refno);
     if !ignore_world_refno {
@@ -814,7 +888,7 @@ pub async fn parse_db_with_chunk(
             noun,
             whole_attmap,
             ..
-        } = parse_ele_data(&input[entry.pos - 4..])
+        } = parse_ele_data_with_info(&input[entry.pos - 4..], database_info)
             .await
             .unwrap_or_default();
         let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
@@ -827,7 +901,7 @@ pub async fn parse_db_with_chunk(
             .or_insert(HashSet::default())
             .insert(refno);
         let ref_0 = refno.get_0();
-        refno_info_map
+        _refno_info_map
             .entry(ref_0)
             .or_insert(RefnoInfo { ref_0, db_no });
     }
@@ -844,7 +918,7 @@ pub async fn parse_db_with_chunk(
                 noun,
                 whole_attmap,
                 ..
-            }) = parse_ele_data(&input[pos - 4..]).await
+            }) = parse_ele_data_with_info(&input[pos - 4..], database_info).await
             {
                 let sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
@@ -930,7 +1004,7 @@ pub async fn parse_db(
         whole_attmap,
         children,
         name,
-    } = parse_ele_data(&input[entry.pos - 4..])
+    } = parse_ele_data_with_info(&input[entry.pos - 4..], database_info)
         .await
         .unwrap_or_default();
 
@@ -976,8 +1050,7 @@ pub async fn parse_db(
         memb_time.elapsed().as_millis()
     );
     println!("All refnos count: {}", all_refnos.len());
-    let noun_attr_info_map = Arc::new(database_info.named_attr_info_map.clone());
-    let mut eles_time = Instant::now();
+    let _eles_time = Instant::now();
     println!("Begin parse attributes");
     // all_refnos.iter().for_each(|refno| {
     for refno in all_refnos {
@@ -991,7 +1064,7 @@ pub async fn parse_db(
                 noun,
                 whole_attmap,
                 ..
-            }) = parse_ele_data(&input[pos - 4..]).await
+            }) = parse_ele_data_with_info(&input[pos - 4..], database_info).await
             {
                 whole_attr_dashmap.insert(refno, whole_attmap.merge().into());
                 type_ele_map
@@ -2277,43 +2350,64 @@ pub fn save_type_hash_file(dir: &str, out_name: &str) -> Result<()> {
     let mut unique_hash_refno_map = DashMap::new();
     let mut path_buf = fs::read_dir(dir)?
         .into_iter()
-        .map(|entry| {
-            let entry = entry.unwrap();
-            entry.path()
-        })
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|p| is_pdms_db_file(p))
         .collect::<Vec<PathBuf>>();
     path_buf.sort_by(|a, b| {
         fs::metadata(b)
-            .unwrap()
-            .len()
-            .partial_cmp(&fs::metadata(a).unwrap().len())
-            .unwrap()
+            .map(|m| m.len())
+            .unwrap_or_default()
+            .partial_cmp(&fs::metadata(a).map(|m| m.len()).unwrap_or_default())
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     for path in path_buf {
-        //dbg!(&path);
-        let mut file = File::open(&path).unwrap();
+        let meta = fs::metadata(&path)?;
+        if meta.len() < 36 {
+            println!("skip short file (len < 36): {:?}", path);
+            continue;
+        }
+        let mut file = File::open(&path).context(format!("open db file {:?}", path))?;
         let mut buf = vec![0u8; 36];
-        file.read_exact(&mut buf)?;
+        if let Err(e) = file.read_exact(&mut buf) {
+            println!("skip unreadable file {:?}, err: {}", path, e);
+            continue;
+        }
         let _input = &buf[32..36];
         let start = Instant::now();
         println!("path={:?}", path);
         let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf)?;
+        file.read_to_end(&mut buf).context("read db body")?;
         let time = start.elapsed();
         println!("read {:?} finished in {:?}", path, time);
         process_type_hash(&buf[..], &mut unique_hash_refno_map, &path);
         println!("noun_hash_refnos len = {:?}", unique_hash_refno_map.len());
-        let encode = bincode::serialize(&unique_hash_refno_map).unwrap();
+        let encode = bincode::serialize(&unique_hash_refno_map)?;
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .open(out_name)
-            .unwrap();
+            .context(format!("open output file {}", out_name))?;
         file.write(&encode)?;
     }
     Ok(())
+}
+
+/// 简单判定是否为 PDMS/E3D 数据文件，避免解析非目标文件
+fn is_pdms_db_file(path: &Path) -> bool {
+    // 跳过常见的非 db 扩展名
+    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+        let ext = ext.to_ascii_lowercase();
+        if matches!(ext.as_str(), "com" | "mis" | "txt" | "log" | "json" | "rs") {
+            return false;
+        }
+        if matches!(ext.as_str(), "db" | "sys" | "mdb" | "pdms") {
+            return true;
+        }
+    }
+    // 无扩展名：只要文件足够大（后续再按长度过滤）
+    true
 }
 
 ///处理type_hash对应的refno位置信息
