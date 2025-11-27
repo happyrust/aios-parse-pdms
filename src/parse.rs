@@ -93,10 +93,8 @@ pub async fn parse_pdms_dir(
     let mut pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?
         .into_iter()
-        .map(|entry| {
-            let entry = entry.unwrap();
-            entry.path()
-        })
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|p| is_pdms_db_file(p) && has_valid_db_header(p))
         .collect::<Vec<PathBuf>>();
     let mut database_info = None;
 
@@ -200,6 +198,9 @@ pub fn parse_file_db_basic_data(
     file_name: &str,
     project: &str,
 ) -> Result<DbBasicData> {
+    if !is_pdms_db_file(path) || !has_valid_db_header(path) {
+        return Err(anyhow!("skip non-db file: {:?}", path));
+    }
     let time_start = Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
@@ -218,6 +219,9 @@ pub async fn parse_file(
     file_name: &str,
     project: &str,
 ) -> Result<PdmsDbData> {
+    if !is_pdms_db_file(path) {
+        return Err(anyhow!("skip non-db file: {:?}", path));
+    }
     let time_start = Instant::now();
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
@@ -1005,8 +1009,7 @@ pub async fn parse_db(
         children,
         name,
     } = parse_ele_data_with_info(&input[entry.pos - 4..], database_info)
-        .await
-        .unwrap_or_default();
+        .await?;
 
     total_attr_map.insert(refno, whole_attmap.merge().into());
     type_ele_map
@@ -2406,8 +2409,28 @@ fn is_pdms_db_file(path: &Path) -> bool {
             return true;
         }
     }
-    // 无扩展名：只要文件足够大（后续再按长度过滤）
+    // 无扩展名：只要文件足够大（后续再按长度/头部过滤）
     true
+}
+
+/// 检查文件头是否包含 PDMS/E3D DbType 标识
+fn has_valid_db_header(path: &Path) -> bool {
+    if let Ok(mut file) = File::open(path) {
+        let mut header = [0u8; 64];
+        if let Ok(len) = file.read(&mut header) {
+            if len >= 36 {
+                // 偏移 32..36 是 db type hash（参考现有解析逻辑）
+                let db_type_hash = parse_to_i32(&header[32..36]);
+                let db_type = db1_dehash(db_type_hash as u32).to_ascii_uppercase();
+                // 已知类型字符串判定
+                const DB_TYPES: [&str; 5] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
+                if DB_TYPES.contains(&db_type.as_str()) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 ///处理type_hash对应的refno位置信息
