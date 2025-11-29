@@ -1,0 +1,1568 @@
+   Compiling parse_pdms_db v3.0.0 (/Volumes/DPC/work/plant-code/aios-parse-pdms)
+warning: the feature `generic_const_exprs` is incomplete and may not be safe to use and/or cause compiler crashes
+ --> src/lib.rs:8:12
+  |
+8 | #![feature(generic_const_exprs)]
+  |            ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: see issue #76560 <https://github.com/rust-lang/rust/issues/76560> for more information
+  = note: `#[warn(incomplete_features)]` on by default
+
+warning: the feature `core_intrinsics` is internal to the compiler or standard library
+ --> src/lib.rs:4:12
+  |
+4 | #![feature(core_intrinsics)]
+  |            ^^^^^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: unused `#[macro_use]` import
+  --> src/lib.rs:10:1
+   |
+10 | #[macro_use]
+   | ^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused `#[macro_use]` import
+  --> src/lib.rs:25:1
+   |
+25 | #[macro_use]
+   | ^^^^^^^^^^^^
+
+warning: unused `#[macro_use]` import
+  --> src/lib.rs:28:1
+   |
+28 | #[macro_use]
+   | ^^^^^^^^^^^^
+
+warning: unused `#[macro_use]` import
+  --> src/lib.rs:32:1
+   |
+32 | #[macro_use]
+   | ^^^^^^^^^^^^
+
+warning: unused import: `aios_core::tool::db_tool::db1_hash`
+  --> src/lib.rs:35:5
+   |
+35 | use aios_core::tool::db_tool::db1_hash;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `futures::stream::TryStreamExt`
+  --> src/lib.rs:36:5
+   |
+36 | use futures::stream::TryStreamExt;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashSet`
+  --> src/lib.rs:37:5
+   |
+37 | use std::collections::HashSet;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::error::Error`
+  --> src/lib.rs:38:5
+   |
+38 | use std::error::Error;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::time::Instant`
+  --> src/lib.rs:39:5
+   |
+39 | use std::time::Instant;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `NAME_HASH` and `TYPE_HASH`
+ --> src/parse.rs:4:39
+  |
+4 | use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
+  |                                       ^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `aios_core::parse::*`
+ --> src/parse.rs:9:5
+  |
+9 | use aios_core::parse::*;
+  |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::petgraph::PetRefnoNode`
+  --> src/parse.rs:11:5
+   |
+11 | use aios_core::petgraph::PetRefnoNode;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `cached::proc_macro::cached`
+  --> src/parse.rs:19:5
+   |
+19 | use cached::proc_macro::cached;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `nom::branch::alt`
+  --> src/parse.rs:28:5
+   |
+28 | use nom::branch::alt;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `many0`
+  --> src/parse.rs:32:25
+   |
+32 | use nom::multi::{count, many0, many_till};
+   |                         ^^^^^
+
+warning: unused imports: `pretty_hex` and `simple_hex`
+  --> src/parse.rs:37:18
+   |
+37 | use pretty_hex::{pretty_hex, simple_hex};
+   |                  ^^^^^^^^^^  ^^^^^^^^^^
+
+warning: unused import: `Seek`
+  --> src/parse.rs:45:21
+   |
+45 | use std::io::{Read, Seek, Write};
+   |                     ^^^^
+
+warning: unused import: `Deref`
+  --> src/parse.rs:46:16
+   |
+46 | use std::ops::{Deref, Range};
+   |                ^^^^^
+
+warning: unnecessary parentheses around assigned value
+   --> src/parse.rs:573:17
+    |
+573 |                 ((next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32);
+    |                 ^                                                                              ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+573 -                 ((next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32);
+573 +                 (next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32 ;
+    |
+
+warning: unexpected `cfg` condition name: `debug_parse_expr`
+    --> src/parse.rs:2267:11
+     |
+2267 |     #[cfg(debug_parse_expr)]
+     |           ^^^^^^^^^^^^^^^^
+     |
+     = help: expected names are: `docsrs`, `feature`, and `test` and 31 more
+     = help: consider using a Cargo feature instead
+     = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+              [lints.rust]
+              unexpected_cfgs = { level = "warn", check-cfg = ['cfg(debug_parse_expr)'] }
+     = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(debug_parse_expr)");` to the top of the `build.rs`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unnecessary parentheses around function argument
+    --> src/parse.rs:2285:37
+     |
+2285 |                 result = StringType((format!("{}{}", first_data, second)));
+     |                                     ^                                   ^
+     |
+help: remove these parentheses
+     |
+2285 -                 result = StringType((format!("{}{}", first_data, second)));
+2285 +                 result = StringType(format!("{}{}", first_data, second) );
+     |
+
+warning: unnecessary parentheses around function argument
+    --> src/parse.rs:2295:37
+     |
+2295 |                 result = StringType((format!("{}{}{}", first_data, second_data, third)));
+     |                                     ^                                                 ^
+     |
+help: remove these parentheses
+     |
+2295 -                 result = StringType((format!("{}{}{}", first_data, second_data, third)));
+2295 +                 result = StringType(format!("{}{}{}", first_data, second_data, third) );
+     |
+
+warning: unnecessary parentheses around function argument
+    --> src/parse.rs:2301:41
+     |
+2301 |                     result = StringType((format!("PP {}", d)));
+     |                                         ^                   ^
+     |
+help: remove these parentheses
+     |
+2301 -                     result = StringType((format!("PP {}", d)));
+2301 +                     result = StringType(format!("PP {}", d) );
+     |
+
+warning: unnecessary parentheses around assigned value
+    --> src/parse.rs:2678:35
+     |
+2678 |                     let end_pos = (next_pos + 12); //隐含属性实际结束点
+     |                                   ^             ^
+     |
+help: remove these parentheses
+     |
+2678 -                     let end_pos = (next_pos + 12); //隐含属性实际结束点
+2678 +                     let end_pos = next_pos + 12 ; //隐含属性实际结束点
+     |
+
+warning: unused import: `parse_to_f64`
+ --> src/parse_explict_tools.rs:3:81
+  |
+3 | use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32, parse_to_f64};
+  |                                                                                 ^^^^^^^^^^^^
+
+warning: unused import: `RefI32Tuple`
+ --> src/parse_explict_tools.rs:5:46
+  |
+5 | use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
+  |                                              ^^^^^^^^^^^
+
+warning: unused import: `dashmap::DashMap`
+ --> src/parse_explict_tools.rs:9:5
+  |
+9 | use dashmap::DashMap;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `be_u8`
+  --> src/parse_explict_tools.rs:12:61
+   |
+12 | use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u8};
+   |                                                             ^^^^^
+
+warning: unused import: `std::fs::File`
+  --> src/parse_explict_tools.rs:15:5
+   |
+15 | use std::fs::File;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `std::io::BufReader`
+  --> src/parse_explict_tools.rs:16:5
+   |
+16 | use std::io::BufReader;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::bin_data::convert_str_to_bytes`
+  --> src/parse_explict_tools.rs:17:5
+   |
+17 | use aios_core::bin_data::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `pretty_hex::pretty_hex`
+  --> src/parse_explict_tools.rs:19:5
+   |
+19 | use pretty_hex::pretty_hex;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::count`
+  --> src/parse_explict_tools.rs:20:5
+   |
+20 | use tokio::count;
+   |     ^^^^^^^^^^^^
+
+warning: unused import: `std::io::Read`
+  --> src/test_cases/mod.rs:1:5
+   |
+ 1 | use std::io::Read;
+   |     ^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/lib.rs:48:1
+   |
+48 | pub mod test_cases;
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::init_test_surreal`
+  --> src/test_cases/test_parse_uda.rs:1:5
+   |
+ 1 | use aios_core::init_test_surreal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:11:1
+   |
+11 | mod test_parse_uda;
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::convert_str_to_bytes`
+  --> src/test_cases/test_parse_uda.rs:2:5
+   |
+ 2 | use super::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:11:1
+   |
+11 | mod test_parse_uda;
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_ele_data`
+  --> src/test_cases/test_parse_uda.rs:3:5
+   |
+ 3 | use crate::parse::parse_ele_data;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:11:1
+   |
+11 | mod test_parse_uda;
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::convert_str_to_bytes`
+  --> src/test_cases/test_parse_expr.rs:1:5
+   |
+ 1 | use super::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:13:1
+   |
+13 | mod test_parse_expr;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_ele_data`
+  --> src/test_cases/test_parse_expr.rs:2:5
+   |
+ 2 | use crate::parse::parse_ele_data;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:13:1
+   |
+13 | mod test_parse_expr;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `parse_ele_data` and `process_explicit_attrs`
+  --> src/test_cases/test_expression.rs:1:20
+   |
+ 1 | use crate::parse::{parse_ele_data, process_explicit_attrs};
+   |                    ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::test_cases::convert_str_to_bytes`
+  --> src/test_cases/test_expression.rs:2:5
+   |
+ 2 | use crate::test_cases::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::get_default_pdms_db_info`
+  --> src/test_cases/test_expression.rs:3:5
+   |
+ 3 | use aios_core::get_default_pdms_db_info;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::pdms_types::PdmsDatabaseInfo`
+  --> src/test_cases/test_expression.rs:4:5
+   |
+ 4 | use aios_core::pdms_types::PdmsDatabaseInfo;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::types::*`
+  --> src/test_cases/test_expression.rs:5:5
+   |
+ 5 | use aios_core::types::*;
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dashmap::DashMap`
+  --> src/test_cases/test_expression.rs:6:5
+   |
+ 6 | use dashmap::DashMap;
+   |     ^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::fs::File`
+  --> src/test_cases/test_expression.rs:7:5
+   |
+ 7 | use std::fs::File;
+   |     ^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::io::Write`
+  --> src/test_cases/test_expression.rs:8:5
+   |
+ 8 | use std::io::Write;
+   |     ^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::str::FromStr`
+  --> src/test_cases/test_expression.rs:9:5
+   |
+ 9 | use std::str::FromStr;
+   |     ^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse_explict_tools::parse_expression_attr`
+  --> src/test_cases/test_expression.rs:10:5
+   |
+10 | use crate::parse_explict_tools::parse_expression_attr;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:15:1
+   |
+15 | mod test_expression;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_ele_data`
+  --> src/test_cases/test_data_new.rs:1:5
+   |
+ 1 | use crate::parse::parse_ele_data;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:16:1
+   |
+16 | mod test_data_new;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::test_cases::convert_str_to_bytes`
+  --> src/test_cases/test_data_new.rs:2:5
+   |
+ 2 | use crate::test_cases::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:16:1
+   |
+16 | mod test_data_new;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::pdms_types::NounHash`
+  --> src/test_cases/test_data_new.rs:3:5
+   |
+ 3 | use aios_core::pdms_types::NounHash;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:16:1
+   |
+16 | mod test_data_new;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `db1_dehash`, `db1_hash`, `read_attr_info_config_from_bin`, and `read_attr_info_config_from_json`
+  --> src/test_cases/test_data_new.rs:5:5
+   |
+ 5 |     db1_dehash, db1_hash, read_attr_info_config_from_bin, read_attr_info_config_from_json,
+   |     ^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:16:1
+   |
+16 | mod test_data_new;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `PdmsDatabaseInfo` and `get_default_pdms_db_info`
+  --> src/test_cases/test_data_new.rs:7:17
+   |
+ 7 | use aios_core::{get_default_pdms_db_info, PdmsDatabaseInfo};
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:16:1
+   |
+16 | mod test_data_new;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::fs::File`
+  --> src/test_cases/test_data_new.rs:8:5
+   |
+ 8 | use std::fs::File;
+   |     ^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:16:1
+   |
+16 | mod test_data_new;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::io::Write`
+  --> src/test_cases/test_data_new.rs:9:5
+   |
+ 9 | use std::io::Write;
+   |     ^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:16:1
+   |
+16 | mod test_data_new;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `take_till` and `take_until`
+  --> src/test_cases/test_nom.rs:2:33
+   |
+ 2 | use nom::bytes::complete::{tag, take_till, take_until};
+   |                                 ^^^^^^^^^  ^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:17:1
+   |
+17 | mod test_nom;
+   | ^^^^^^^^^^^^^
+
+warning: unused imports: `not`, `recognize`, `value`, and `verify`
+  --> src/test_cases/test_nom.rs:3:28
+   |
+ 3 | use nom::combinator::{map, not, recognize, value, verify};
+   |                            ^^^  ^^^^^^^^^  ^^^^^  ^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:17:1
+   |
+17 | mod test_nom;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `nom::sequence::preceded`
+  --> src/test_cases/test_nom.rs:6:5
+   |
+ 6 | use nom::sequence::preceded;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:17:1
+   |
+17 | mod test_nom;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::tool::db_tool::db1_dehash`
+  --> src/test_cases/test_nom.rs:7:5
+   |
+ 7 | use aios_core::tool::db_tool::db1_dehash;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:17:1
+   |
+17 | mod test_nom;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `crate::test_cases::convert_str_to_bytes`
+  --> src/test_cases/test_nom.rs:8:5
+   |
+ 8 | use crate::test_cases::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:17:1
+   |
+17 | mod test_nom;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_ele_data`
+  --> src/test_cases/test_chinese.rs:1:5
+   |
+ 1 | use crate::parse::parse_ele_data;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:18:1
+   |
+18 | mod test_chinese;
+   | ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::test_cases::convert_str_to_bytes`
+  --> src/test_cases/test_chinese.rs:2:5
+   |
+ 2 | use crate::test_cases::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:18:1
+   |
+18 | mod test_chinese;
+   | ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::get_default_pdms_db_info`
+  --> src/test_cases/test_chinese.rs:3:5
+   |
+ 3 | use aios_core::get_default_pdms_db_info;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:18:1
+   |
+18 | mod test_chinese;
+   | ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::types::*`
+  --> src/test_cases/test_chinese.rs:4:5
+   |
+ 4 | use aios_core::types::*;
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:18:1
+   |
+18 | mod test_chinese;
+   | ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_ele_data`
+  --> src/test_cases/test_uda.rs:1:5
+   |
+ 1 | use crate::parse::parse_ele_data;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:19:1
+   |
+19 | mod test_uda;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `crate::test_cases::convert_str_to_bytes`
+  --> src/test_cases/test_uda.rs:2:5
+   |
+ 2 | use crate::test_cases::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:19:1
+   |
+19 | mod test_uda;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::get_default_pdms_db_info`
+  --> src/test_cases/test_uda.rs:3:5
+   |
+ 3 | use aios_core::get_default_pdms_db_info;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:19:1
+   |
+19 | mod test_uda;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::pdms_types::RefU64`
+  --> src/test_cases/test_uda.rs:4:5
+   |
+ 4 | use aios_core::pdms_types::RefU64;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:19:1
+   |
+19 | mod test_uda;
+   | ^^^^^^^^^^^^^
+
+warning: unused imports: `db1_dehash` and `read_attr_info_config_from_json`
+  --> src/test_cases/test_uda.rs:5:32
+   |
+ 5 | use aios_core::tool::db_tool::{db1_dehash, read_attr_info_config_from_json};
+   |                                ^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:19:1
+   |
+19 | mod test_uda;
+   | ^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::get_default_pdms_db_info`
+  --> src/test_cases/test_parse_element.rs:1:5
+   |
+ 1 | use aios_core::get_default_pdms_db_info;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:20:1
+   |
+20 | mod test_parse_element;
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `parse_ele_data`
+  --> src/test_cases/test_parse_element.rs:3:20
+   |
+ 3 | use crate::parse::{parse_ele_data, parse_raw_ele_data};
+   |                    ^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:20:1
+   |
+20 | mod test_parse_element;
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::path::PathBuf`
+  --> src/test_cases/test_parse_ams.rs:1:5
+   |
+ 1 | use std::path::PathBuf;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:21:1
+   |
+21 | mod test_parse_ams;
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_file`
+  --> src/test_cases/test_parse_ams.rs:3:5
+   |
+ 3 | use crate::parse::parse_file;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:21:1
+   |
+21 | mod test_parse_ams;
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_ele_children`
+  --> src/test_cases/test_parse_children.rs:1:5
+   |
+ 1 | use crate::parse::parse_ele_children;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:22:1
+   |
+22 | mod test_parse_children;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::RefU64Vec`
+  --> src/test_cases/test_parse_children.rs:2:5
+   |
+ 2 | use aios_core::RefU64Vec;
+   |     ^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:22:1
+   |
+22 | mod test_parse_children;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::parse::parse_ele_data`
+  --> src/test_cases/test_parse_string.rs:1:5
+   |
+ 1 | use crate::parse::parse_ele_data;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:24:1
+   |
+24 | mod test_parse_string;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::test_cases::convert_str_to_bytes`
+  --> src/test_cases/test_parse_string.rs:2:5
+   |
+ 2 | use crate::test_cases::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:24:1
+   |
+24 | mod test_parse_string;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `aios_core::get_default_pdms_db_info`
+  --> src/test_cases/test_parse_string.rs:3:5
+   |
+ 3 | use aios_core::get_default_pdms_db_info;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:24:1
+   |
+24 | mod test_parse_string;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `db1_dehash`, `db1_hash`, and `read_attr_info_config_from_json`
+  --> src/test_cases/test_parse_string.rs:4:32
+   |
+ 4 | use aios_core::tool::db_tool::{db1_dehash, db1_hash, read_attr_info_config_from_json};
+   |                                ^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:24:1
+   |
+24 | mod test_parse_string;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `NamedAttrValue` and `get_default_pdms_db_info`
+  --> src/test_cases/binary_data_parser_test.rs:1:17
+   |
+ 1 | use aios_core::{get_default_pdms_db_info, NamedAttrValue};
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:25:1
+   |
+25 | mod binary_data_parser_test;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `parse_ele_data` and `parse_raw_ele_data`
+  --> src/test_cases/binary_data_parser_test.rs:2:20
+   |
+ 2 | use crate::parse::{parse_ele_data, parse_raw_ele_data};
+   |                    ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:25:1
+   |
+25 | mod binary_data_parser_test;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::test_cases::convert_str_to_bytes`
+  --> src/test_cases/binary_data_parser_test.rs:3:5
+   |
+ 3 | use crate::test_cases::convert_str_to_bytes;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+  --> src/test_cases/mod.rs:25:1
+   |
+25 | mod binary_data_parser_test;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: the feature `associated_type_bounds` has been stable since 1.79.0 and no longer requires an attribute to enable
+ --> src/lib.rs:5:12
+  |
+5 | #![feature(associated_type_bounds)]
+  |            ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(stable_features)]` on by default
+
+warning: the feature `let_chains` has been stable since 1.88.0 and no longer requires an attribute to enable
+ --> src/lib.rs:6:12
+  |
+6 | #![feature(let_chains)]
+  |            ^^^^^^^^^^
+
+warning: the feature `async_closure` has been stable since 1.85.0 and no longer requires an attribute to enable
+ --> src/lib.rs:7:12
+  |
+7 | #![feature(async_closure)]
+  |            ^^^^^^^^^^^^^
+
+warning: the feature `exclusive_range_pattern` has been stable since 1.80.0 and no longer requires an attribute to enable
+ --> src/lib.rs:9:12
+  |
+9 | #![feature(exclusive_range_pattern)]
+  |            ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: the feature `array_methods` has been stable since 1.77.0 and no longer requires an attribute to enable
+ --> src/lib.rs:2:12
+  |
+2 | #![feature(array_methods)]
+  |            ^^^^^^^^^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+  --> src/parse.rs:34:20
+   |
+34 | use nom::sequence::tuple;
+   |                    ^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+   --> src/parse.rs:346:9
+    |
+346 |     map(tuple((be_u32, be_u32)), |(a, b)| RefU64::from_two_nums(a, b))(input)
+    |         ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+   --> src/parse.rs:378:34
+    |
+378 |     let (_, (flag, len_words)) = tuple((be_u16, be_u16))(input)?;
+    |                                  ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:1262:47
+     |
+1262 |                     let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(bytes)?;
+     |                                               ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:1422:70
+     |
+1422 |             let (l, (explict_hash, attr_type_num, type_len)) = match tuple((
+     |                                                                      ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:1552:55
+     |
+1552 | ...                   let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
+     |                                                 ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:1569:55
+     |
+1569 | ...                   let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
+     |                                                 ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:1626:59
+     |
+1626 | ...                   let (_, (ref_0, ref_1)) = tuple((be_u32, be_u32))(tmp_input)?;
+     |                                                 ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:1775:33
+     |
+1775 |     let (_, (owner0, owner1)) = tuple((be_i32, be_i32))(input)?;
+     |                                 ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:2198:45
+     |
+2198 |                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
+     |                                             ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:2211:45
+     |
+2211 |                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
+     |                                             ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:2231:45
+     |
+2231 |                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
+     |                                             ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:2243:45
+     |
+2243 |                 let (_, (value1, value2)) = tuple((be_i32, be_i32))(&res_input[8..16])?;
+     |                                             ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:2275:13
+     |
+2275 |             tuple((be_u32, be_u32, be_u32, be_u32, be_u32))(input)?;
+     |             ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:2298:41
+     |
+2298 |                 let (_, (a, b, c, d)) = tuple((be_u32, be_u32, be_u32, be_u32))(tmp_input)?;
+     |                                         ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+    --> src/parse.rs:2656:33
+     |
+2656 |         let (_, (len, refno)) = tuple::<_, _, nom::error::Error<&[u8]>, _>((
+     |                                 ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+  --> src/parse_explict_tools.rs:13:20
+   |
+13 | use nom::sequence::tuple;
+   |                    ^^^^^
+
+warning: use of deprecated function `nom::sequence::tuple`: `Parser` is directly implemented for tuples
+   --> src/parse_explict_tools.rs:374:25
+    |
+374 |                         tuple((be_i32, be_i32))(&expression_input[..])?;
+    |                         ^^^^^
+
+warning: variable does not need to be mutable
+  --> src/parse.rs:93:9
+   |
+93 |     let mut pdms_project_data_map = DashMap::new();
+   |         ----^^^^^^^^^^^^^^^^^^^^^
+   |         |
+   |         help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:109:9
+    |
+109 |     let mut pdms_db_name_map = DashMap::new(); //file_name->db_name
+    |         ----^^^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:933:13
+    |
+933 |         let mut pgno = entry.pos / 0x800;
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:934:13
+    |
+934 |         let mut sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:959:13
+    |
+959 |         let mut is_debug = test_refno.is_some() && test_refno == Some(*source_refno);
+    |             ----^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:1012:9
+     |
+1012 |     let mut type_ele_map = Arc::new(DashMap::new());
+     |         ----^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:1013:9
+     |
+1013 |     let mut total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
+     |         ----^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:1019:9
+     |
+1019 |         mut db_no,
+     |         ----^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:1035:9
+     |
+1035 |     let mut gen_ref_time = Instant::now();
+     |         ----^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:1042:9
+     |
+1042 |     let mut root_refno = world_refno;
+     |         ----^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:1043:9
+     |
+1043 |     let mut refno_info_map = Arc::new(DashMap::new());
+     |         ----^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+error[E0618]: expected function, found `impl Parser<_, Output = aios_core::RefU64, Error = _>`
+   --> src/parse.rs:346:5
+    |
+346 |     map(tuple((be_u32, be_u32)), |(a, b)| RefU64::from_two_nums(a, b))(input)
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-------
+    |     |
+    |     call expression requires function
+
+error[E0618]: expected function, found `impl Parser<_, Output = Vec<<... as Parser<_>>::Output>, Error = ...>`
+    --> src/parse.rs:1198:31
+     |
+1198 |             let (_, result) = count(be_i32, len as usize)(bytes)?;
+     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^-------
+     |                               |
+     |                               call expression requires function
+     |
+     = note: the full name for the type has been written to '/Volumes/DPC/work/plant-code/aios-parse-pdms/target/debug/deps/parse_pdms_db-84902fca6877f09e.long-type-8673217842139873029.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0618]: expected function, found `impl Parser<_, Output = Vec<<... as Parser<_>>::Output>, Error = ...>`
+    --> src/parse.rs:1768:28
+     |
+1768 |     let (residual, vals) = count(be_u64, cnt)(input)?;
+     |                            ^^^^^^^^^^^^^^^^^^-------
+     |                            |
+     |                            call expression requires function
+     |
+     = note: the full name for the type has been written to '/Volumes/DPC/work/plant-code/aios-parse-pdms/target/debug/deps/parse_pdms_db-84902fca6877f09e.long-type-1468446147979208508.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0282]: type annotations needed
+    --> src/parse.rs:1769:29
+     |
+1769 |     let members = RefU64Vec(vals.into_iter().map(RefU64).collect());
+     |                             ^^^^ cannot infer type
+
+error[E0618]: expected function, found `impl Parser<_, Output = (Vec<...>, ...), Error = _>`
+    --> src/parse.rs:2686:70
+     |
+2686 |    ...                   let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(
+     |   ________________________________________________________________^
+     |  |________________________________________________________________|
+2687 | || ...                       verify(be_i32, |&x| x == 0),
+2688 | || ...                       verify(be_i32, |&x| x == 7),
+2689 | || ...                   )(
+     | ||                       ^- help: consider using a semicolon here to finish the statement: `;`
+     | ||_______________________|
+     | |
+2690 | |  ...                       &input[tmp_pos..end_pos]
+2691 | |  ...                   );
+     | |________________________- call expression requires function
+     |
+     = note: the full name for the type has been written to '/Volumes/DPC/work/plant-code/aios-parse-pdms/target/debug/deps/parse_pdms_db-84902fca6877f09e.long-type-1951552781734324287.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0618]: expected function, found `impl Parser<_, Output = Vec<<... as Parser<_>>::Output>, Error = ...>`
+   --> src/parse_explict_tools.rs:145:30
+    |
+145 |         let (input, chars) = count(be_i32, str_len as usize)(&input[4 * 6..])?;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------------
+    |                              |
+    |                              call expression requires function
+    |
+    = note: the full name for the type has been written to '/Volumes/DPC/work/plant-code/aios-parse-pdms/target/debug/deps/parse_pdms_db-84902fca6877f09e.long-type-16711112432579206149.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+error[E0282]: type annotations needed
+   --> src/parse_explict_tools.rs:146:38
+    |
+146 |         let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
+    |                                      ^^^^^ cannot infer type
+
+error[E0618]: expected function, found `impl Parser<_, Output = Vec<<... as Parser<_>>::Output>, Error = ...>`
+   --> src/parse_explict_tools.rs:862:30
+    |
+862 |         let (input, chars) = count(be_i32, str_len as usize)(input)?;
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-------
+    |                              |
+    |                              call expression requires function
+    |
+    = note: the full name for the type has been written to '/Volumes/DPC/work/plant-code/aios-parse-pdms/target/debug/deps/parse_pdms_db-84902fca6877f09e.long-type-1373067971318627739.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+error[E0282]: type annotations needed
+   --> src/parse_explict_tools.rs:863:38
+    |
+863 |         let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
+    |                                      ^^^^^ cannot infer type
+
+error[E0277]: the trait bound `[{integer}; 4]: Input` is not satisfied
+  --> src/test_cases/test_nom.rs:12:39
+   |
+12 |     many_till(map(be_i32, |x| x), tag([0x0, 0x0, 0x0, 0x7]))(s)
+   |                                   --- ^^^^^^^^^^^^^^^^^^^^ the trait `Input` is not implemented for `[{integer}; 4]`
+   |                                   |
+   |                                   required by a bound introduced by this call
+   |
+note: there are multiple different versions of crate `nom` in the dependency graph
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/traits.rs:24:1
+   |
+24 | pub trait Input: Clone + Sized {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the required trait
+   |
+  ::: src/error_types.rs:2:5
+   |
+ 2 | use nom::error::{ErrorKind};
+   |     --- one version of crate `nom` used here, as a direct dependency of the current crate
+   |
+  ::: src/lib.rs:35:5
+   |
+35 | use aios_core::tool::db_tool::db1_hash;
+   |     --------- one version of crate `nom` used here, as a dependency of crate `config`
+   |
+  ::: /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-7.1.3/src/error.rs:16:1
+   |
+16 | pub trait ParseError<I>: Sized {
+   | ------------------------------ this is the found trait
+   = help: you can use `cargo tree` to explore your dependency tree
+note: required by a bound in `nom::bytes::complete::tag`
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/bytes/complete.rs:35:6
+   |
+32 | pub fn tag<T, I, Error: ParseError<I>>(tag: T) -> impl Fn(I) -> IResult<I, I, Error>
+   |        --- required by a bound in this function
+...
+35 |   T: Input + Clone,
+   |      ^^^^^ required by this bound in `tag`
+
+error[E0277]: the trait bound `[{integer}; 4]: Input` is not satisfied
+  --> src/test_cases/test_nom.rs:12:35
+   |
+12 |     many_till(map(be_i32, |x| x), tag([0x0, 0x0, 0x0, 0x7]))(s)
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Input` is not implemented for `[{integer}; 4]`
+   |
+note: there are multiple different versions of crate `nom` in the dependency graph
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/traits.rs:24:1
+   |
+24 | pub trait Input: Clone + Sized {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the required trait
+   |
+  ::: src/error_types.rs:2:5
+   |
+ 2 | use nom::error::{ErrorKind};
+   |     --- one version of crate `nom` used here, as a direct dependency of the current crate
+   |
+  ::: src/lib.rs:35:5
+   |
+35 | use aios_core::tool::db_tool::db1_hash;
+   |     --------- one version of crate `nom` used here, as a dependency of crate `config`
+   |
+  ::: /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-7.1.3/src/error.rs:16:1
+   |
+16 | pub trait ParseError<I>: Sized {
+   | ------------------------------ this is the found trait
+   = help: you can use `cargo tree` to explore your dependency tree
+note: required by a bound in `nom::bytes::complete::tag`
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/bytes/complete.rs:35:6
+   |
+32 | pub fn tag<T, I, Error: ParseError<I>>(tag: T) -> impl Fn(I) -> IResult<I, I, Error>
+   |        --- required by a bound in this function
+...
+35 |   T: Input + Clone,
+   |      ^^^^^ required by this bound in `tag`
+
+error[E0277]: the trait bound `[{integer}; 4]: Input` is not satisfied
+  --> src/test_cases/test_nom.rs:12:5
+   |
+12 |     many_till(map(be_i32, |x| x), tag([0x0, 0x0, 0x0, 0x7]))(s)
+   |     ^^^^^^^^^ the trait `Input` is not implemented for `[{integer}; 4]`
+   |
+note: there are multiple different versions of crate `nom` in the dependency graph
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/traits.rs:24:1
+   |
+24 | pub trait Input: Clone + Sized {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the required trait
+   |
+  ::: src/error_types.rs:2:5
+   |
+ 2 | use nom::error::{ErrorKind};
+   |     --- one version of crate `nom` used here, as a direct dependency of the current crate
+   |
+  ::: src/lib.rs:35:5
+   |
+35 | use aios_core::tool::db_tool::db1_hash;
+   |     --------- one version of crate `nom` used here, as a dependency of crate `config`
+   |
+  ::: /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-7.1.3/src/error.rs:16:1
+   |
+16 | pub trait ParseError<I>: Sized {
+   | ------------------------------ this is the found trait
+   = help: you can use `cargo tree` to explore your dependency tree
+note: required by a bound in `nom::bytes::complete::tag`
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/bytes/complete.rs:35:6
+   |
+32 | pub fn tag<T, I, Error: ParseError<I>>(tag: T) -> impl Fn(I) -> IResult<I, I, Error>
+   |        --- required by a bound in this function
+...
+35 |   T: Input + Clone,
+   |      ^^^^^ required by this bound in `tag`
+
+error[E0277]: the trait bound `[{integer}; 4]: Input` is not satisfied
+  --> src/test_cases/test_nom.rs:12:5
+   |
+12 |     many_till(map(be_i32, |x| x), tag([0x0, 0x0, 0x0, 0x7]))(s)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Input` is not implemented for `[{integer}; 4]`
+   |
+note: there are multiple different versions of crate `nom` in the dependency graph
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/traits.rs:24:1
+   |
+24 | pub trait Input: Clone + Sized {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the required trait
+   |
+  ::: src/error_types.rs:2:5
+   |
+ 2 | use nom::error::{ErrorKind};
+   |     --- one version of crate `nom` used here, as a direct dependency of the current crate
+   |
+  ::: src/lib.rs:35:5
+   |
+35 | use aios_core::tool::db_tool::db1_hash;
+   |     --------- one version of crate `nom` used here, as a dependency of crate `config`
+   |
+  ::: /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-7.1.3/src/error.rs:16:1
+   |
+16 | pub trait ParseError<I>: Sized {
+   | ------------------------------ this is the found trait
+   = help: you can use `cargo tree` to explore your dependency tree
+note: required by a bound in `nom::bytes::complete::tag`
+  --> /Users/dongpengcheng/.cargo/registry/src/github.com-25cdd57fae9f0462/nom-8.0.0/src/bytes/complete.rs:35:6
+   |
+32 | pub fn tag<T, I, Error: ParseError<I>>(tag: T) -> impl Fn(I) -> IResult<I, I, Error>
+   |        --- required by a bound in this function
+...
+35 |   T: Input + Clone,
+   |      ^^^^^ required by this bound in `tag`
+
+error[E0618]: expected function, found `impl Parser<_, Output = (Vec<...>, ...), Error = _>`
+  --> src/test_cases/test_nom.rs:12:5
+   |
+12 |     many_till(map(be_i32, |x| x), tag([0x0, 0x0, 0x0, 0x7]))(s)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---
+   |     |
+   |     call expression requires function
+   |
+   = note: the full name for the type has been written to '/Volumes/DPC/work/plant-code/aios-parse-pdms/target/debug/deps/parse_pdms_db-84902fca6877f09e.long-type-17903363235499475804.txt'
+   = note: consider using `--verbose` to print the full type name to the console
+
+warning: unused import: `tokio::io::AsyncReadExt`
+  --> src/parse.rs:50:5
+   |
+50 | use tokio::io::AsyncReadExt;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `itertools::Itertools`
+  --> src/parse.rs:24:5
+   |
+24 | use itertools::Itertools;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `core::slice::SlicePattern`
+  --> src/parse.rs:22:5
+   |
+22 | use core::slice::SlicePattern;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `owner`
+    --> src/parse.rs:1051:9
+     |
+1051 |         owner,
+     |         ^^^^^ help: try ignoring the field: `owner: _`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `name`
+    --> src/parse.rs:1055:9
+     |
+1055 |         name,
+     |         ^^^^ help: try ignoring the field: `name: _`
+
+warning: unused variable: `refno`
+   --> src/parse.rs:658:9
+    |
+658 |     let refno = ele_data.refno;
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_refno`
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:211:9
+    |
+211 |     let mut basic_data = parse_db_basic_data(buf, file_name, project)?;
+    |         ----^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: value assigned to `step_w` is never read
+   --> src/parse.rs:551:26
+    |
+551 |         let mut step_w = 0;
+    |                          ^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:769:9
+    |
+769 |     let mut gen_ref_time = Instant::now();
+    |         ----^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:776:9
+    |
+776 |     let mut root_refno = world_refno;
+    |         ----^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/parse.rs:794:9
+    |
+794 |     let mut memb_time = Instant::now();
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: unused variable: `file_name`
+   --> src/parse.rs:768:44
+    |
+768 | pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Result<DbBasicData> {
+    |                                            ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_file_name`
+
+warning: unused variable: `project`
+   --> src/parse.rs:768:61
+    |
+768 | pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Result<DbBasicData> {
+    |                                                             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_project`
+
+warning: unused variable: `db_type`
+   --> src/parse.rs:830:9
+    |
+830 |         db_type,
+    |         ^^^^^^^ help: try ignoring the field: `db_type: _`
+
+warning: unused variable: `db_no`
+   --> src/parse.rs:832:9
+    |
+832 |         db_no,
+    |         ^^^^^ help: try ignoring the field: `db_no: _`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:1375:9
+     |
+1375 |     let mut is_debug = test_refno == Some(refno);
+     |         ----^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: unused variable: `e`
+    --> src/parse.rs:1411:21
+     |
+1411 |                 Err(e) => {
+     |                     ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `explict_hash`
+    --> src/parse.rs:1422:22
+     |
+1422 |             let (l, (explict_hash, attr_type_num, type_len)) = match tuple((
+     |                      ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_explict_hash`
+
+warning: unused variable: `e`
+    --> src/parse.rs:1429:21
+     |
+1429 |                 Err(e) => {
+     |                     ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:2274:14
+     |
+2274 |         let (mut tmp_input, (a, b, c, d, e)) =
+     |              ----^^^^^^^^^
+     |              |
+     |              help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:2310:40
+     |
+2310 |                         let (residual, mut coord) = parse_xyz_data(axis_data, refno, true)?;
+     |                                        ----^^^^^
+     |                                        |
+     |                                        help: remove this `mut`
+
+warning: unused variable: `a`
+    --> src/parse.rs:2274:30
+     |
+2274 |         let (mut tmp_input, (a, b, c, d, e)) =
+     |                              ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+warning: unused variable: `b`
+    --> src/parse.rs:2274:33
+     |
+2274 |         let (mut tmp_input, (a, b, c, d, e)) =
+     |                                 ^ help: if this is intentional, prefix it with an underscore: `_b`
+
+warning: unused variable: `c`
+    --> src/parse.rs:2274:36
+     |
+2274 |         let (mut tmp_input, (a, b, c, d, e)) =
+     |                                    ^ help: if this is intentional, prefix it with an underscore: `_c`
+
+warning: unused variable: `i`
+    --> src/parse.rs:2309:25
+     |
+2309 |                     for i in 0..count {
+     |                         ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: unused variable: `noun_map`
+    --> src/parse.rs:2576:9
+     |
+2576 |     let noun_map = get_default_pdms_db_info();
+     |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_noun_map`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:2775:9
+     |
+2775 |     let mut refno_table = DashMap::new();
+     |         ----^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:2776:9
+     |
+2776 |     let mut word_refno_hashset = DashSet::new();
+     |         ----^^^^^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:2815:9
+     |
+2815 |     let mut refno_table: DashMap<RefU64, EleDataEntry> = DashMap::new();
+     |         ----^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:2816:9
+     |
+2816 |     let mut word_refno_hashset = DashSet::new();
+     |         ----^^^^^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: unused variable: `noun_attr_info_map`
+    --> src/parse.rs:2804:5
+     |
+2804 |     noun_attr_info_map: &DashMap<String, DashMap<String, AttrInfo>>,
+     |     ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_noun_attr_info_map`
+
+warning: variable does not need to be mutable
+    --> src/parse.rs:2881:13
+     |
+2881 |         let mut s = t + 4 * 6;
+     |             ----^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `refno`
+   --> src/parse_explict_tools.rs:248:44
+    |
+248 | pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], String> {
+    |                                            ^^^^^ help: if this is intentional, prefix it with an underscore: `_refno`
+
+Some errors have detailed explanations: E0277, E0282, E0618.
+For more information about an error, try `rustc --explain E0277`.
+warning: `parse_pdms_db` (lib) generated 152 warnings
+error: could not compile `parse_pdms_db` (lib) due to 14 previous errors; 152 warnings emitted

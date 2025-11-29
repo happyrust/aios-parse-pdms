@@ -18,6 +18,8 @@ mod test_nom;
 mod test_chinese;
 mod test_uda;
 mod test_parse_element;
+mod test_parse_ams;
+mod test_parse_children;
 
 mod test_parse_string;
 mod binary_data_parser_test;

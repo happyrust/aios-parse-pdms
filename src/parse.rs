@@ -25,11 +25,11 @@ use itertools::Itertools;
 use memchr::memmem;
 use memchr::memmem::rfind_iter;
 use nom::bytes::complete::take_until;
+use nom::branch::alt;
 use nom::character::complete::alpha1;
-use nom::combinator::verify;
-use nom::error::ErrorKind;
-use nom::multi::count;
-use nom::multi::many_till;
+use nom::combinator::{map, verify};
+use nom::error::{make_error, ErrorKind};
+use nom::multi::{count, many0, many_till};
 use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
 use nom::sequence::tuple;
 use nom::IResult;
@@ -340,32 +340,95 @@ impl EleData {
     }
 }
 
-//只是获得RefU64, 用于多线程找到所有需要处理的参考号
-pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
-    let mut members = vec![];
-    let mut a = parse_to_i32(&input[0..4]) as usize * 4; //隐含数据长度  0-4
-    let refno = RefI32Tuple::from(&input[4..12]);
-    let mut t = parse_to_i32(&input[a..a + 4]);
-    while t == 0 || t == 7 {
-        a += 4;
-        t = parse_to_i32(&input[a..a + 4]);
-    }
-    //隐藏属性得数据切片
-    let membs_data = &input[a..];
-    let maybe_refno: RefI32Tuple = (&membs_data[4..12]).into();
-    let mut memb_bytes_len = 0;
+/// 使用 nom 组合子解析 refno
+#[inline]
+fn parse_ref_u64_nom(input: &[u8]) -> IResult<&[u8], RefU64> {
+    map(tuple((be_u32, be_u32)), |(a, b)| RefU64::from_two_nums(a, b))(input)
+}
 
-    if maybe_refno == refno {
-        if &membs_data[0..2] == [0x0, 0x2].as_slice() {
-            memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len, 0x2);
-            // dbg!(merged_data.len());
-            if let Ok((_, c)) = parse_attr_members(&merged_data) {
-                members = c.0;
-            }
+/// 解析隐含区声明长度（单位：字节）
+#[inline]
+fn parse_impl_len_bytes(input: &[u8]) -> IResult<&[u8], usize> {
+    let (input, impl_words) = be_u32(input)?;
+    Ok((input, impl_words as usize * 4))
+}
+
+/// PDMS 隐含区末尾可能跟随 0/7 填充，扩展实际长度
+#[inline]
+fn extend_impl_len(declared: usize, input: &[u8]) -> usize {
+    let mut actual = declared;
+    while actual + 4 <= input.len() {
+        let next = &input[actual..actual + 4];
+        if next == [0, 0, 0, 0] || next == [0, 0, 0, 7] {
+            actual += 4;
+        } else {
+            break;
         }
     }
-    members
+    actual
+}
+
+/// 解析 members 段，返回剩余数据与成员列表
+#[inline]
+fn parse_members_block<'a>(input: &'a [u8], expected_refno: RefU64) -> IResult<&'a [u8], RefU64Vec> {
+    if input.len() < 4 {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+    // flag=0x0002，len_words=总长度（word 数）
+    let (_, (flag, len_words)) = tuple((be_u16, be_u16))(input)?;
+    let mut memb_bytes_len = len_words as usize * 4;
+    if flag != 0x0002 {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Tag)));
+    }
+    if memb_bytes_len > input.len() {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+
+    // 自身 refno 校验
+    if memb_bytes_len < 12 {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+    let block = &input[..memb_bytes_len];
+    let self_refno: RefI32Tuple = (&block[4..12]).into();
+    let expected_refno = RefI32Tuple::new(expected_refno.get_0() as i32, expected_refno.get_1() as i32);
+    if self_refno != expected_refno {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Verify)));
+    }
+
+    let merged_data = get_merged_data(block, &mut memb_bytes_len, 0x2);
+    let members = match parse_attr_members(&merged_data) {
+        Ok((_, m)) => m,
+        Err(_) => return Err(nom::Err::Error(make_error(input, ErrorKind::Verify))),
+    };
+    let rest = input
+        .get(block.len()..)
+        .ok_or_else(|| nom::Err::Error(make_error(input, ErrorKind::Eof)))?;
+    Ok((rest, members))
+}
+
+/// 组合式解析元素 children，返回 (refno, children)
+#[inline]
+fn parse_ele_children_nom(input: &[u8]) -> IResult<&[u8], (RefU64, RefU64Vec)> {
+    if input.len() < 24 {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+    let (_, impl_len_bytes) = parse_impl_len_bytes(input)?;
+    let refno: RefI32Tuple = (&input[4..12]).into();
+    let actual_impl_len = extend_impl_len(impl_len_bytes, input);
+    if actual_impl_len > input.len() {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+
+    let membs_data = &input[actual_impl_len..];
+    let (rest, children) = parse_members_block(membs_data, refno.into())?;
+    Ok((rest, (refno.into(), children)))
+}
+
+//只是获得RefU64, 用于多线程找到所有需要处理的参考号
+pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
+    parse_ele_children_nom(input)
+        .map(|(_, (_, children))| children.0)
+        .unwrap_or_default()
 }
 
 /// 解析元素的子元素
@@ -379,36 +442,18 @@ pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
 ///   - 子元素引用号的向量(RefU64Vec)
 #[inline]
 pub fn parse_ele_children(input: &[u8]) -> (RefU64, RefU64Vec) {
-    let mut children = RefU64Vec::default();
-    let mut origin_impl_len = parse_to_i32(&input[0..4]) * 4; //隐含数据长度  0-4
-    let mut actual_impl_len = origin_impl_len as usize; //隐含数据长度  0-4
-    let refno = RefI32Tuple::from(&input[4..12]);
-    let type_hash = parse_to_i32(&input[12..16]);
-    let noun = type_hash as u32;
-    let mut tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
-
-    while tmp_value == 0 || tmp_value == 7 {
-        actual_impl_len += 4;
-        tmp_value = parse_to_i32(&input[actual_impl_len..actual_impl_len + 4]);
-    }
-    //隐藏属性得数据切片
-    let implicit_data = &input[0..actual_impl_len];
-    let membs_pos = actual_impl_len;
-    let membs_data = &input[membs_pos..];
-    let maybe_refno: RefI32Tuple = (&membs_data[4..12]).into();
-    let mut memb_bytes_len = 0;
-
-    if maybe_refno == refno {
-        if &membs_data[0..2] == [0x0, 0x2].as_slice() {
-            memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len, 0x2);
-            if let Ok((_, c)) = parse_attr_members(&merged_data) {
-                return (refno.into(), c);
-            }
+    match parse_ele_children_nom(input) {
+        Ok((_, res)) => res,
+        Err(_) => {
+            // 失败时尽量返回可读的 refno 方便上层判别
+            let fallback_refno = if input.len() >= 12 {
+                RefI32Tuple::from(&input[4..12]).into()
+            } else {
+                RefU64::default()
+            };
+            (fallback_refno, RefU64Vec::default())
         }
     }
-
-    (refno.into(), RefU64Vec::default())
 }
 
 /// 解析元素的基础数据（同步函数，不进行异步操作）
@@ -1713,14 +1758,16 @@ fn parse_param_with_index(input: i32) -> String {
 /// 获取所有的members
 #[inline]
 pub fn parse_attr_members(input: &[u8]) -> IResult<&[u8], RefU64Vec> {
-    let mut members = RefU64Vec::default();
-    let mut residual = input;
-    while residual.len() > 4 {
-        let (l, v) = be_u64(residual)?;
-        residual = l;
-        members.push(RefU64(v));
+    if input.len() % 8 != 0 {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::LengthValue,
+        )));
     }
-    Ok((input, members))
+    let cnt = input.len() / 8;
+    let (residual, vals) = count(be_u64, cnt)(input)?;
+    let members = RefU64Vec(vals.into_iter().map(RefU64).collect());
+    Ok((residual, members))
 }
 
 /// 获取该节点的owner
@@ -2423,7 +2470,7 @@ fn has_valid_db_header(path: &Path) -> bool {
                 let db_type_hash = parse_to_i32(&header[32..36]);
                 let db_type = db1_dehash(db_type_hash as u32).to_ascii_uppercase();
                 // 已知类型字符串判定
-                const DB_TYPES: [&str; 5] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
+                const DB_TYPES: [&str; 6] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
                 if DB_TYPES.contains(&db_type.as_str()) {
                     return true;
                 }
@@ -2431,6 +2478,84 @@ fn has_valid_db_header(path: &Path) -> bool {
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests_filters {
+    use super::{has_valid_db_header, is_pdms_db_file};
+    use aios_core::tool::db_tool::db1_hash;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_is_pdms_db_file_by_extension() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("foo.db");
+        std::fs::write(&db_path, b"dummy").unwrap();
+        let txt_path = dir.path().join("bar.txt");
+        std::fs::write(&txt_path, b"dummy").unwrap();
+        assert!(is_pdms_db_file(&db_path));
+        assert!(!is_pdms_db_file(&txt_path));
+    }
+
+    #[test]
+    fn test_has_valid_db_header_desi() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("desi.db");
+        // 构造长度 >= 36 的文件，并在 32..36 写入 db type hash ("DESI")
+        let mut data = vec![0u8; 64];
+        let hash = db1_hash("DESI") as i32;
+        data[32..36].copy_from_slice(&hash.to_be_bytes());
+        std::fs::write(&path, &data).unwrap();
+        assert!(has_valid_db_header(&path));
+    }
+
+    #[test]
+    fn test_has_valid_db_header_unknown() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("unknown.db");
+        let mut data = vec![0u8; 64];
+        data[32..36].copy_from_slice(b"FAKE");
+        std::fs::write(&path, &data).unwrap();
+        assert!(!has_valid_db_header(&path));
+    }
+
+    #[test]
+    fn test_has_valid_db_header_short_file() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("short.db");
+        std::fs::write(&path, b"short").unwrap();
+        assert!(!has_valid_db_header(&path));
+    }
+}
+
+#[cfg(test)]
+mod tests_attr_members {
+    use super::parse_attr_members;
+    use nom::error::ErrorKind;
+
+    #[test]
+    fn parse_simple_members() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&(1u64.to_be_bytes()));
+        bytes.extend_from_slice(&(2u64.to_be_bytes()));
+        let (residual, members) = parse_attr_members(&bytes).unwrap();
+        assert!(residual.is_empty());
+        assert_eq!(members.len(), 2);
+        assert_eq!(members.get(0).unwrap().0, 1);
+        assert_eq!(members.get(1).unwrap().0, 2);
+    }
+
+    #[test]
+    fn parse_members_reject_partial() {
+        let bytes = vec![0xAA, 0xBB, 0xCC]; // not multiple of 8
+        let err = parse_attr_members(&bytes).unwrap_err();
+        let kind = match err {
+            nom::Err::Error(e) | nom::Err::Failure(e) => e.code,
+            _ => ErrorKind::Fail,
+        };
+        assert_eq!(kind, ErrorKind::LengthValue);
+    }
 }
 
 ///处理type_hash对应的refno位置信息
