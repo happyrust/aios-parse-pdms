@@ -45,6 +45,7 @@ pub mod consts;
 pub mod error_types;
 pub mod parse;
 pub mod parse_explict_tools;
+pub mod parser;
 pub mod test_cases;
 
 pub type BHashMap<K, V> = std::collections::HashMap<K, V>;
