@@ -2,7 +2,7 @@ use crate::consts::*;
 use crate::parse_explict_tools::*;
 // 使用新 parser 模块中的基础函数
 use crate::parser::attribute::explicit::get_explicit_attr_type;
-use crate::parser::combinator::extend_impl_len;
+use crate::parser::combinator::{collect_segmented_payload, extend_impl_len};
 use crate::parser::primitives::parse_impl_len_bytes;
 use aios_core::basic::info::RefnoInfo;
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
@@ -380,13 +380,22 @@ fn parse_members_block<'a>(input: &'a [u8], expected_refno: RefU64) -> IResult<&
         return Err(nom::Err::Error(make_error(input, ErrorKind::Verify)));
     }
 
-    let merged_data = get_merged_data(block, &mut memb_bytes_len, 0x2);
+    // 使用新的 collect_segmented_payload 替换 get_merged_data
+    let (_, merged_data) = collect_segmented_payload(input, memb_bytes_len, 0x2)
+        .map_err(|_| nom::Err::Error(make_error(input, ErrorKind::Verify)))?;
     let members = match parse_attr_members(&merged_data) {
         Ok((_, m)) => m,
         Err(_) => return Err(nom::Err::Error(make_error(input, ErrorKind::Verify))),
     };
+    // collect_segmented_payload 已经处理了所有段，直接使用它返回的剩余数据
+    // 但为了保持兼容，我们需要手动跳过已处理的数据
+    let consumed = if let Ok((rest, _)) = collect_segmented_payload(input, memb_bytes_len, 0x2) {
+        input.len() - rest.len()
+    } else {
+        memb_bytes_len
+    };
     let rest = input
-        .get(block.len()..)
+        .get(consumed..)
         .ok_or_else(|| nom::Err::Error(make_error(input, ErrorKind::Eof)))?;
     Ok((rest, members))
 }
@@ -493,9 +502,15 @@ pub fn parse_raw_ele_data_with_info(
     if maybe_refno.is_some() && maybe_refno.unwrap() == refno {
         if &membs_data[0..2] == [0x0, 0x2].as_slice() {
             memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
-            let merged_data = get_merged_data(membs_data, &mut memb_bytes_len, 0x2);
-            if let Ok((_, c)) = parse_attr_members(&merged_data) {
-                children = c;
+            // 使用新的 collect_segmented_payload 替换 get_merged_data
+            if let Ok((_, merged_data)) = collect_segmented_payload(membs_data, memb_bytes_len, 0x2) {
+                if let Ok((_, c)) = parse_attr_members(&merged_data) {
+                    children = c;
+                }
+                // 更新 memb_bytes_len 为实际消耗的字节数
+                memb_bytes_len = membs_data.len() - collect_segmented_payload(membs_data, memb_bytes_len, 0x2)
+                    .map(|(rest, _)| rest.len())
+                    .unwrap_or(membs_data.len());
             }
         }
     }
@@ -2846,36 +2861,6 @@ pub fn gen_ref_type_pos_table_parallel(
     let world_refno = word_refno_hashset.into_iter().next().unwrap_or_default();
     // dbg!(world_refno.to_refno_str());
     (refno_table, world_refno)
-}
-
-// 02 代表 members, 01 代表 显示属性
-//00 00 00 07 00 02(maybe 01) 00 xx  (REF0)  (REF1)  00 00 00 00  00 00 00 00
-fn get_merged_data(input: &[u8], len: &mut usize, flag: u8) -> Vec<u8> {
-    let input_len = input.len();
-    if *len + 4 >= input_len {
-        return input[20..].to_vec();
-    }
-    let mut data = input[20..*len].to_vec();
-    // if *len + 4 > input_len {
-    //     return data;
-    // }
-    let mut t = *len;
-    while t + 6 <= input_len && &input[t..t + 6] == &[0x0, 0x0, 0x0, 0x7, 0x0, flag] {
-        let seg_bytes_len = parse_to_u16(&input[t + 6..t + 8]) as usize * 4;
-        //跳过6个byte
-        let mut s = t + 4 * 6;
-        let end = (t + seg_bytes_len + 4).min(input_len);
-        // println!("07 的membs范围： {:#4X}..{:#4X}", s, end);
-        if end <= s {
-            println!("{:#4X}..{:#4X} merged data出错", s, end);
-            break;
-        }
-        let next_seg = &input[s..end];
-        data.extend_from_slice(next_seg);
-        t += seg_bytes_len + 4;
-    }
-    *len = t;
-    data
 }
 
 pub fn get_project_name_from_filename(filename: &str) -> IResult<&str, &str> {

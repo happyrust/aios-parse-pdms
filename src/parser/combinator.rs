@@ -10,6 +10,11 @@ use nom::error::{ErrorKind, make_error};
 use nom::IResult;
 use nom::Parser;
 
+/// 默认 members 主段 payload 起始偏移（flag+len+self_ref 共 12 字节）
+const MEMBERS_BASE_PAYLOAD_OFFSET: usize = 12;
+/// 追加段（0x00000007）payload 起始偏移（标记+flag+len+self_ref+保留 16 字节 共 24 字节）
+const SEGMENT_PAYLOAD_OFFSET: usize = 24;
+
 /// PDMS 0/7 填充标记
 pub const PADDING_ZERO: [u8; 4] = [0x00, 0x00, 0x00, 0x00];
 pub const PADDING_SEVEN: [u8; 4] = [0x00, 0x00, 0x00, 0x07];
@@ -102,6 +107,73 @@ pub fn take_impl_block(input: &[u8]) -> IResult<&[u8], &[u8]> {
     Ok((rest, block))
 }
 
+/// 合并带 0x00000007 追加段的块数据
+///
+/// 一些 members/显式属性块在声明长度后，可能跟随一个或多个
+/// `00 00 00 07 00 <flag>` 开头的追加段。该函数在保留主段内容的
+/// 同时，将追加段的 payload 片段串联起来，返回组合后的 payload。
+///
+/// # 参数
+/// - `input`: 从块起始处开始的完整数据（主段 + 后续可能的 0x07 段）
+/// - `declared_len_bytes`: 主段声明的长度（字节）
+/// - `flag`: 目标段的标志位（members=0x02/显式属性=0x01）
+pub fn collect_segmented_payload(
+    input: &[u8],
+    declared_len_bytes: usize,
+    flag: u8,
+) -> IResult<&[u8], Vec<u8>> {
+    if declared_len_bytes < MEMBERS_BASE_PAYLOAD_OFFSET {
+        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+    if input.len() < declared_len_bytes {
+        return Err(nom::Err::Incomplete(nom::Needed::new(
+            declared_len_bytes - input.len(),
+        )));
+    }
+
+    // 主段 payload（去掉 flag/len/self_ref）
+    let mut payload = input[MEMBERS_BASE_PAYLOAD_OFFSET..declared_len_bytes].to_vec();
+    let mut cursor = declared_len_bytes;
+
+    while cursor + 6 <= input.len()
+        && &input[cursor..cursor + 4] == &[0x00, 0x00, 0x00, 0x07]
+        && input[cursor + 4] == 0x00
+        && input[cursor + 5] == flag
+    {
+        if cursor + 8 > input.len() {
+            return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+        }
+        let seg_len_words =
+            u16::from_be_bytes(input[cursor + 6..cursor + 8].try_into().unwrap()) as usize;
+        let seg_len_bytes = seg_len_words * 4;
+        if seg_len_bytes == 0 {
+            return Err(nom::Err::Error(make_error(
+                input,
+                ErrorKind::LengthValue,
+            )));
+        }
+
+        // 与旧逻辑保持一致：总长 = len_bytes + 4（含前导长度字段）
+        let seg_end = cursor + seg_len_bytes + 4;
+        if seg_end > input.len() {
+            return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
+        }
+
+        let seg_payload_start = cursor + SEGMENT_PAYLOAD_OFFSET;
+        if seg_payload_start > seg_end {
+            return Err(nom::Err::Error(make_error(
+                input,
+                ErrorKind::LengthValue,
+            )));
+        }
+
+        payload.extend_from_slice(&input[seg_payload_start..seg_end]);
+        cursor = seg_end;
+    }
+
+    Ok((&input[cursor..], payload))
+}
+
 /// 验证标志位
 ///
 /// # 参数
@@ -175,6 +247,7 @@ pub fn remaining_bytes(input: &[u8], consumed: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::element::children::MEMBERS_FLAG;
 
     #[test]
     fn test_extend_impl_len() {
@@ -257,5 +330,31 @@ mod tests {
 
         let input2 = [0x00, 0x00, 0x00, 0x01]; // no padding
         assert_eq!(find_non_padding(&input2), 0);
+    }
+
+    #[test]
+    fn test_collect_segmented_payload() {
+        // 主段：flag 0x02，len=5 words（20 bytes），payload=8 bytes
+        let mut data = Vec::new();
+        data.extend_from_slice(&MEMBERS_FLAG.to_be_bytes());
+        data.extend_from_slice(&(5u16).to_be_bytes()); // 20 bytes
+        data.extend_from_slice(&1u32.to_be_bytes()); // refno high
+        data.extend_from_slice(&2u32.to_be_bytes()); // refno low
+        data.extend_from_slice(&[0xAA, 0xBB, 0xCC, 0xDD]); // payload 1
+        data.extend_from_slice(&[0x11, 0x22, 0x33, 0x44]); // payload 2
+
+        // 追加段：0x00000007 00 02，len=7 words（28 bytes），payload=8 bytes
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0x07, 0x00, MEMBERS_FLAG as u8]);
+        data.extend_from_slice(&(7u16).to_be_bytes());
+        data.extend_from_slice(&1u32.to_be_bytes()); // refno high
+        data.extend_from_slice(&2u32.to_be_bytes()); // refno low
+        data.extend_from_slice(&0u32.to_be_bytes()); // reserved
+        data.extend_from_slice(&0u32.to_be_bytes()); // reserved
+        data.extend_from_slice(&[0x55, 0x66, 0x77, 0x88]); // payload 3
+        data.extend_from_slice(&[0x99, 0xAA, 0xBB, 0xCC]); // payload 4
+
+        let (rest, payload) = collect_segmented_payload(&data, 20, MEMBERS_FLAG as u8).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(payload, vec![0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC]);
     }
 }

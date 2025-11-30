@@ -11,7 +11,7 @@ use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
 
-use crate::parser::combinator::extend_impl_len;
+use crate::parser::combinator::{collect_segmented_payload, extend_impl_len};
 use crate::parser::primitives::parse_impl_len_bytes;
 
 /// Members 块标志位
@@ -56,11 +56,15 @@ pub fn parse_members_block(input: &[u8], expected_refno: RefU64) -> IResult<&[u8
         return Err(nom::Err::Error(make_error(input, ErrorKind::Verify)));
     }
 
-    // 解析成员列表
-    let members_data = &block[12..];
-    let members = parse_members_data(members_data)?;
+    // 合并主段及可能存在的 0x00000007 追加段
+    let (rest, members_data) =
+        collect_segmented_payload(input, memb_bytes_len, MEMBERS_FLAG as u8)?;
 
-    let rest = input.get(memb_bytes_len..).unwrap_or(&[]);
+    // 解析成员列表；错误时将错误绑定到原始 input 以避免悬垂引用
+    let members = match parse_members_data(&members_data) {
+        Ok(m) => m,
+        Err(_) => return Err(nom::Err::Error(make_error(input, ErrorKind::Verify))),
+    };
     Ok((rest, members))
 }
 
@@ -189,6 +193,33 @@ mod tests {
         assert_eq!(result.0[0].0, 100);
         assert_eq!(result.0[1].0, 200);
         assert_eq!(result.0[2].0, 300);
+    }
+
+    #[test]
+    fn test_parse_members_block_with_segment() {
+        let refno = RefU64::from_two_nums(1, 2);
+        let base_members = vec![RefU64(10), RefU64(20)];
+        let extra_member = RefU64(30);
+
+        // 主段
+        let mut data = make_members_block(refno, &base_members);
+
+        // 追加段：00 00 00 07 00 02 00 07 ... payload(30)
+        let seg_len_words: u16 = 7; // 28 bytes
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0x07, 0x00, MEMBERS_FLAG as u8]);
+        data.extend_from_slice(&seg_len_words.to_be_bytes());
+        // self refno + reserved 8 bytes
+        data.extend_from_slice(&(refno.get_0() as i32).to_be_bytes());
+        data.extend_from_slice(&(refno.get_1() as i32).to_be_bytes());
+        data.extend_from_slice(&0i32.to_be_bytes());
+        data.extend_from_slice(&0i32.to_be_bytes());
+        // payload
+        data.extend_from_slice(&extra_member.0.to_be_bytes());
+
+        let (rest, result) = parse_members_block(&data, refno).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(result.0.len(), 3);
+        assert_eq!(result.0[2].0, extra_member.0);
     }
 
     #[test]
