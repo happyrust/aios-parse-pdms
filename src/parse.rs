@@ -33,6 +33,7 @@ use nom::multi::{count, many0, many_till};
 use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
 use nom::sequence::tuple;
 use nom::IResult;
+use nom::Parser;
 use phf::phf_map;
 use pretty_hex::{pretty_hex, simple_hex};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -343,7 +344,7 @@ impl EleData {
 /// 使用 nom 组合子解析 refno
 #[inline]
 fn parse_ref_u64_nom(input: &[u8]) -> IResult<&[u8], RefU64> {
-    map(tuple((be_u32, be_u32)), |(a, b)| RefU64::from_two_nums(a, b))(input)
+    map(tuple((be_u32, be_u32)), |(a, b)| RefU64::from_two_nums(a, b)).parse(input)
 }
 
 /// 解析隐含区声明长度（单位：字节）
@@ -1195,7 +1196,7 @@ pub fn parse_implicit_attr_value<'a>(
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
         if attr_info.hash == ATT_LEVE || attr_info.hash == ATT_PTS {
             let (bytes, len) = be_u32(bytes)?;
-            let (_, result) = count(be_i32, len as usize)(bytes)?;
+            let (_, result) = count(be_i32, len as usize).parse(bytes)?;
             val = IntArrayType(result);
         } else {
             match attr_info.default_val {
@@ -1423,7 +1424,7 @@ pub fn parse_raw_explicit_attrs<'a>(
                 be_i32::<_, nom::error::Error<_>>,
                 be_u16, //属性的类型
                 be_u16, //属性的长度
-            ))(&residual[..])
+            )).parse(&residual[..])
             {
                 Ok(result) => result,
                 Err(e) => {
@@ -1765,14 +1766,14 @@ pub fn parse_attr_members(input: &[u8]) -> IResult<&[u8], RefU64Vec> {
         )));
     }
     let cnt = input.len() / 8;
-    let (residual, vals) = count(be_u64, cnt)(input)?;
+    let (residual, vals) = count(be_u64, cnt).parse(input)?;
     let members = RefU64Vec(vals.into_iter().map(RefU64).collect());
     Ok((residual, members))
 }
 
 /// 获取该节点的owner
 pub fn parse_attr_owner(input: &[u8]) -> IResult<&[u8], String> {
-    let (_, (owner0, owner1)) = tuple((be_i32, be_i32))(input)?;
+    let (_, (owner0, owner1)) = tuple((be_i32, be_i32)).parse(input)?;
     let owner = RefI32Tuple::new(owner0, owner1).into();
     Ok((input, owner))
 }
@@ -2686,7 +2687,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
                             let s: IResult<&[u8], (Vec<i32>, i32)> = many_till(
                                 verify(be_i32, |&x| x == 0),
                                 verify(be_i32, |&x| x == 7),
-                            )(
+                            ).parse(
                                 &input[tmp_pos..end_pos]
                             );
                             if is_debug {

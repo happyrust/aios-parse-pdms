@@ -46,11 +46,11 @@ impl From<anyhow::Error> for NomError {
 
 impl nom::error::ParseError<&str> for NomError {
     fn from_error_kind(input: &str, kind: ErrorKind) -> Self {
-        NomError(anyhow!("error {} at: {}", kind.description(), input))
+        NomError(anyhow!("error {:?} at: {}", kind, input))
     }
 
     fn append(input: &str, kind: ErrorKind, other: Self) -> Self {
-        NomError(other.0.context(format!("error {} at: {}", kind.description(), input)))
+        NomError(other.0.context(format!("error {:?} at: {}", kind, input)))
     }
 }
 

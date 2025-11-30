@@ -12,6 +12,7 @@ use nom::multi::count;
 use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u8};
 use nom::sequence::tuple;
 use nom::IResult;
+use nom::Parser;
 use std::fs::File;
 use std::io::BufReader;
 use aios_core::bin_data::convert_str_to_bytes;
@@ -142,7 +143,7 @@ pub fn parse_other_expression(input: &[u8], expression_type: String, refno: RefU
     //string type
     if flag == 0x66 {
         let (_, str_len) = be_i32(&input[4 * 5..4 * 6])?;
-        let (input, chars) = count(be_i32, str_len as usize)(&input[4 * 6..])?;
+        let (input, chars) = count(be_i32, str_len as usize).parse(&input[4 * 6..])?;
         let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
         return Ok((input, (expression_type, string)));
     }
@@ -726,7 +727,7 @@ fn read_deseralize_file() {
 /// * PTCDI/PTCD表达式 - 点云相关的表达式
 /// * 其他表达式 - 包括数学运算、函数调用等复杂表达式
 pub fn parse_expression_attr_nom(input: &[u8], refno: RefU64) -> IResult<&[u8], (String, String)> {
-    let (input, hash_val) = nom::bytes::complete::take(4usize)(input)?;
+    let (input, hash_val) = nom::bytes::complete::take(4usize).parse(input)?;
     let expression_type = db1_dehash(convert_to_hash(hash_val).abs() as _);
     
     // 判断是否为轴向表达式
@@ -850,24 +851,24 @@ pub fn parse_other_expression_nom(input: &[u8], expression_type: String, refno: 
         return Err(nom::Err::Incomplete(nom::Needed::Size(std::num::NonZero::new(4 * 5).unwrap())));
     }
 
-    let (temp_input, _) = nom::bytes::complete::take(4usize * 4)(input)?; // 跳过前16字节
+    let (temp_input, _) = nom::bytes::complete::take(4usize * 4).parse(input)?; // 跳过前16字节
     let (_, flag) = be_i32(temp_input)?;
 
     // 重新使用原始input
 
     //string type
     if flag == 0x66 {
-        let (input, _) = nom::bytes::complete::take(4usize * 5)(input)?;
+        let (input, _) = nom::bytes::complete::take(4usize * 5).parse(input)?;
         let (input, str_len) = be_i32(input)?;
-        let (input, chars) = count(be_i32, str_len as usize)(input)?;
+        let (input, chars) = count(be_i32, str_len as usize).parse(input)?;
         let string = format!("'{}'", chars.iter().map(|c| *c as u8 as char).collect::<String>());
         return Ok((input, (expression_type, string)));
     }
 
     if expression_type == "PTCDI" || expression_type == "PTCD" {
-        let (input, _) = nom::bytes::complete::take(2usize)(input)?; // 跳过前2字节
+        let (input, _) = nom::bytes::complete::take(2usize).parse(input)?; // 跳过前2字节
         let (input, expression_length) = be_u16(input)?;
-        let (input, _) = nom::bytes::complete::take(4usize)(input)?; // 跳过4字节
+        let (input, _) = nom::bytes::complete::take(4usize).parse(input)?; // 跳过4字节
 
         // 显式属性的length后有数据
         let data_size = (expression_length * 4) as usize;
@@ -877,7 +878,7 @@ pub fn parse_other_expression_nom(input: &[u8], expression_type: String, refno: 
             return Err(nom::Err::Incomplete(nom::Needed::Size(std::num::NonZero::new(data_size).unwrap())));
         }
         
-        let (input, expression_data) = nom::bytes::complete::take(data_size)(input)?;
+        let (input, expression_data) = nom::bytes::complete::take(data_size).parse(input)?;
 
         let (_, axis) = convert_to_explicit_axis_string(expression_data, refno)?;
         let result = match axis {
@@ -887,11 +888,11 @@ pub fn parse_other_expression_nom(input: &[u8], expression_type: String, refno: 
 
         Ok((input, (expression_type, result)))
     } else {
-        let (remaining_input, _) = nom::bytes::complete::take(2usize)(input)?; // 跳过前2字节
+        let (remaining_input, _) = nom::bytes::complete::take(2usize).parse(input)?; // 跳过前2字节
         let (remaining_input, expression_length) = be_u16(remaining_input)?;
         let (remaining_input, flag1) = be_i32(remaining_input)?; // input[4..8]
         let (remaining_input, flag2) = be_i32(remaining_input)?; // input[8..12]
-        let (remaining_input, _) = nom::bytes::complete::take(4usize)(remaining_input)?; // 跳过4字节
+        let (remaining_input, _) = nom::bytes::complete::take(4usize).parse(remaining_input)?; // 跳过4字节
 
         // 检查表达式数据长度
         let data_size = (expression_length * 4) as usize;
