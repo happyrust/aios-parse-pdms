@@ -575,6 +575,51 @@ pub fn parse_raw_ele_data_with_info(
             step_w = origin_impl_len / 4 - (attr_info.offset as i32 & 0xFFFFF);
         }
         let step = step_w.max(1) as usize;
+
+        // ============================================================
+        // 新模块集成示例 (未来迁移参考)
+        // ============================================================
+        // 当启用新解析器时,使用以下代码替换旧的 parse_implicit_attr_value:
+        //
+        // #[cfg(feature = "new-parser")]
+        // {
+        //     use crate::parser::attribute::implicit::{ImplicitAttrOffset, parse_implicit_attr_value as parse_new};
+        //
+        //     // 1. 转换 AttrInfo 为 ImplicitAttrOffset
+        //     let implicit_offset = ImplicitAttrOffset {
+        //         name: attr_info.name.clone(),
+        //         offset: attr_info.offset,
+        //         attr_type: attr_info.att_type.clone(),
+        //     };
+        //
+        //     // 2. 调用新的解析函数
+        //     if let Ok((_, new_val)) = parse_new(&implicit_data, &implicit_offset, is_f32, f32_neg_offset, step) {
+        //         // 3. 转换 NamedAttrValue -> AttrVal
+        //         let att_val: AttrVal = new_val.into();
+        //
+        //         // 4. 后续处理保持不变
+        //         match &att_val {
+        //             RefU64Type(value) => { ... }
+        //             InvalidType => { ... }
+        //             _ => {}
+        //         }
+        //
+        //         if attr_info.name != "unset" {
+        //             implicit_attmap.insert(attr_info.name.clone(), att_val.into());
+        //         }
+        //     }
+        // }
+        //
+        // 优势:
+        // - 修复了偏移计算 bug (详见 llmdoc/agent/pdms-0x07-segment-offset-investigation.md)
+        // - 类型安全 (基于 DbAttributeType 而非 default_val)
+        // - 模块化清晰,易于测试和维护
+        //
+        // 参考文档:
+        // - llmdoc/guides/parser-module-integration.md - 完整集成指南
+        // - examples/new_parser_usage.rs - 使用示例
+        // ============================================================
+
         if let Ok((_, att_val)) =
             parse_implicit_attr_value(&implicit_data, &attr_info, is_f32, f32_neg_offset, step)
         {
@@ -1145,6 +1190,18 @@ pub async fn parse_db(
 }
 
 /// 获取隐式属性, input为分段数据，已经限制了长度
+///
+/// **注意**: 这是旧的实现,存在以下问题:
+/// - 偏移计算有误 (应该使用 12 字节而非 20 字节)
+/// - 表达式处理和类型解析耦合
+/// - 基于 `default_val` 判断类型,不够类型安全
+///
+/// **新实现**: 参见 [`crate::parser::attribute::implicit::parse_implicit_attr_value`]
+/// - 修复了偏移计算 bug
+/// - 基于 `DbAttributeType` 判断类型
+/// - 职责分离,表达式处理独立
+///
+/// 迁移指南: [`llmdoc/guides/parser-module-integration.md`](../../llmdoc/guides/parser-module-integration.md)
 #[inline]
 pub fn parse_implicit_attr_value<'a>(
     origin_bytes: &'a [u8],
