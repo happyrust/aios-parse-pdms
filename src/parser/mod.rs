@@ -7,12 +7,15 @@
 //! - `primitives` - 基础类型解析器（RefU64, Hash, String 等）
 //! - `numeric` - 数值解析器（f32/f64/带标志位数值）
 //! - `combinator` - 自定义组合子
+//! - `attribute` - 属性解析器（表达式、显式属性等）
 
+pub mod attribute;
 pub mod combinator;
 pub mod numeric;
 pub mod primitives;
 
 // 重新导出常用类型和函数
+pub use attribute::*;
 pub use combinator::*;
 pub use numeric::*;
 pub use primitives::*;
