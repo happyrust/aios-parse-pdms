@@ -8,8 +8,10 @@
 pub mod axis;
 pub mod expression;
 pub mod explicit;
+pub mod implicit;
 
 // 重新导出常用类型和函数
 pub use axis::*;
 pub use expression::*;
 pub use explicit::*;
+pub use implicit::*;
