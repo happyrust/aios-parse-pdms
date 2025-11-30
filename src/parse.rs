@@ -1,5 +1,8 @@
 use crate::consts::*;
 use crate::parse_explict_tools::*;
+// 使用新 parser 模块中的基础函数
+use crate::parser::combinator::extend_impl_len;
+use crate::parser::primitives::parse_impl_len_bytes;
 use aios_core::basic::info::RefnoInfo;
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
 use aios_core::db::*;
@@ -347,27 +350,7 @@ fn parse_ref_u64_nom(input: &[u8]) -> IResult<&[u8], RefU64> {
     map(tuple((be_u32, be_u32)), |(a, b)| RefU64::from_two_nums(a, b)).parse(input)
 }
 
-/// 解析隐含区声明长度（单位：字节）
-#[inline]
-fn parse_impl_len_bytes(input: &[u8]) -> IResult<&[u8], usize> {
-    let (input, impl_words) = be_u32(input)?;
-    Ok((input, impl_words as usize * 4))
-}
-
-/// PDMS 隐含区末尾可能跟随 0/7 填充，扩展实际长度
-#[inline]
-fn extend_impl_len(declared: usize, input: &[u8]) -> usize {
-    let mut actual = declared;
-    while actual + 4 <= input.len() {
-        let next = &input[actual..actual + 4];
-        if next == [0, 0, 0, 0] || next == [0, 0, 0, 7] {
-            actual += 4;
-        } else {
-            break;
-        }
-    }
-    actual
-}
+// parse_impl_len_bytes 和 extend_impl_len 已迁移到 parser::primitives 和 parser::combinator
 
 /// 解析 members 段，返回剩余数据与成员列表
 #[inline]
