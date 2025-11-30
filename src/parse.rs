@@ -1,6 +1,7 @@
 use crate::consts::*;
 use crate::parse_explict_tools::*;
 // 使用新 parser 模块中的基础函数
+use crate::parser::attribute::explicit::get_explicit_attr_type;
 use crate::parser::combinator::extend_impl_len;
 use crate::parser::primitives::parse_impl_len_bytes;
 use aios_core::basic::info::RefnoInfo;

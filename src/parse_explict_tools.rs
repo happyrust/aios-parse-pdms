@@ -1,4 +1,5 @@
 use crate::parse::{convert_to_explicit_axis_string, match_axis};
+use crate::parser::attribute::explicit::get_explicit_attr_type;
 use crate::BHashMap;
 use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32, parse_to_f64};
 use aios_core::pdms_types::DbAttributeType::*;
@@ -77,24 +78,7 @@ s.insert(0x582, "STR( {} )");
     };
 }
 
-#[inline]
-/// 若在反序列化给定的map集合中未找到该属性对应的hash ，则用该方法直接获取到该属性的数据类型 ，然后进行解析
-pub fn get_explicit_attr_type(input: u16) -> Option<DbAttributeType> {
-    match input {
-        // 2800 这个应该是个引用，数据给的是一个参考号 ，但是e3d没有这个属性值 ，但是他的类型不难看出是string   类型: 2C F2 AE D3
-        0x3C00 | 0x2800 => Some(STRING),
-        0x1800 => Some(DOUBLEVEC),
-        0x1C00 => Some(INTVEC),
-        0x4000 | 0x1000 => Some(ELEMENT),
-        0x0C00 => Some(INTEGER),
-        0x1400 => Some(BOOL),
-        0x0800 => Some(DOUBLE),
-        0x3800 => Some(TYPEX),
-        0x2000 => Some(RefU64Vec),
-        0x0000 => None,
-        _ => None,
-    }
-}
+// get_explicit_attr_type 已迁移到 parser::attribute::explicit 模块
 
 /// 解析轴向表达式   
 /// 轴向表达式处理总长度0x （4 * 4）= 16 字节： 1C 00 00 03 00 00 00 02 00 00 00 01 00 00 00 02
