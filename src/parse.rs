@@ -2423,7 +2423,7 @@ fn has_valid_db_header(path: &Path) -> bool {
                 let db_type_hash = parse_to_i32(&header[32..36]);
                 let db_type = db1_dehash(db_type_hash as u32).to_ascii_uppercase();
                 // 已知类型字符串判定
-                const DB_TYPES: [&str; 5] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
+                const DB_TYPES: [&str; 6] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
                 if DB_TYPES.contains(&db_type.as_str()) {
                     return true;
                 }
