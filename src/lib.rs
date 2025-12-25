@@ -1,12 +1,9 @@
 #![feature(type_ascription)]
 #![feature(array_methods)]
 #![feature(slice_pattern)]
-#![feature(core_intrinsics)]
 #![feature(associated_type_bounds)]
-#![feature(let_chains)]
-#![feature(async_closure)]
 #![feature(generic_const_exprs)]
-#![feature(exclusive_range_pattern)]
+#![allow(incomplete_features)]
 #[macro_use]
 extern crate approx;
 #[allow(
