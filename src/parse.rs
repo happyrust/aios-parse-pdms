@@ -2,19 +2,17 @@ use crate::consts::*;
 use crate::parse_explict_tools::*;
 // 使用新 parser 模块中的基础函数
 use crate::parser::attribute::explicit::get_explicit_attr_type;
-use crate::parser::combinator::{collect_segmented_payload, extend_impl_len};
-use crate::parser::primitives::{parse_impl_len_bytes, parse_refno, parse_members, parse_owner};
+use crate::parser::combinator::collect_segmented_payload;
+use crate::parser::primitives::{parse_members, parse_owner};
 use crate::parser::element::children::{parse_element_children, extract_members};
 use crate::parser::database::validation::is_valid_db_header;
 use aios_core::basic::info::RefnoInfo;
-use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
+use aios_core::consts::EXPR_ATT_SET;
 use aios_core::db::*;
 use aios_core::get_db_option;
 use aios_core::get_default_pdms_db_info;
 use aios_core::helper::*;
-use aios_core::parse::*;
 use aios_core::pdms_types::*;
-use aios_core::petgraph::PetRefnoNode;
 use aios_core::tool::db_tool::*;
 use aios_core::types::db_info::PdmsDatabaseInfo;
 use aios_core::types::WholeAttMap;
@@ -22,7 +20,6 @@ use aios_core::types::*;
 use aios_core::AttrVal::*;
 use aios_core::SUL_DB;
 use anyhow::*;
-use cached::proc_macro::cached;
 use core::result::Result::Ok;
 #[allow(unused_mut)]
 use core::slice::SlicePattern;
@@ -31,17 +28,15 @@ use itertools::Itertools;
 use memchr::memmem;
 use memchr::memmem::rfind_iter;
 use nom::bytes::complete::take_until;
-use nom::branch::alt;
 use nom::character::complete::alpha1;
-use nom::combinator::{map, verify};
-use nom::error::{make_error, ErrorKind};
-use nom::multi::{count, many0, many_till};
+use nom::combinator::verify;
+use nom::error::ErrorKind;
+use nom::multi::{count, many_till};
 use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
 use phf::phf_map;
-use pretty_hex::{pretty_hex, simple_hex};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rayon::prelude::IntoParallelIterator;
 use serde::{Deserialize, Serialize};
@@ -99,7 +94,7 @@ pub async fn parse_pdms_dir(
     need_parsed_files: &Option<Vec<String>>,
 ) -> Result<DashMap<String, PdmsDbData>> {
     let dir = PathBuf::from(dir);
-    let mut pdms_project_data_map = DashMap::new();
+    let pdms_project_data_map = DashMap::new();
     let mut children_files = fs::read_dir(dir)?
         .into_iter()
         .filter_map(|entry| entry.ok().map(|e| e.path()))
@@ -115,7 +110,7 @@ pub async fn parse_pdms_dir(
         }
     }
 
-    let mut pdms_db_name_map = DashMap::new(); //file_name->db_name
+    let pdms_db_name_map = DashMap::new(); //file_name->db_name
     let mut sys_file = None;
     for path in &children_files {
         let file_name = path.file_name().unwrap().to_str().unwrap();
@@ -217,7 +212,7 @@ pub fn parse_file_db_basic_data(
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
     //使用默认的配置信息
-    let mut basic_data = parse_db_basic_data(buf, file_name, project)?;
+    let basic_data = parse_db_basic_data(buf, file_name, project)?;
     Ok(basic_data)
 }
 
@@ -505,7 +500,7 @@ pub fn parse_raw_ele_data_with_info(
         if i < sorted_noun_hash.len() - 1 {
             let next_attr_info = hash_type_info_map.get(&sorted_noun_hash[i + 1]).unwrap();
             step_w =
-                ((next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32);
+                (next_attr_info.offset & 0xFFFFF) as i32 - (attr_info.offset & 0xFFFFF) as i32 ;
         } else {
             step_w = origin_impl_len / 4 - (attr_info.offset as i32 & 0xFFFFF);
         }
@@ -635,7 +630,7 @@ pub async fn parse_ele_data_with_info(
     let mut ele_data = parse_raw_ele_data_with_info(input, database_info)?;
 
     // 获取需要的信息用于异步调用
-    let refno = ele_data.refno;
+    let _refno = ele_data.refno;
     let noun_name = db1_dehash(ele_data.noun);
     let cur_type_info_map = database_info
         .named_attr_info_map
@@ -745,15 +740,15 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
 }
 
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
-pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Result<DbBasicData> {
-    let mut gen_ref_time = Instant::now();
+pub fn parse_db_basic_data(input: Vec<u8>, _file_name: &str, _project: &str) -> Result<DbBasicData> {
+    let gen_ref_time = Instant::now();
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(&input);
     println!(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
     );
 
-    let mut root_refno = world_refno;
+    let root_refno = world_refno;
     let mut children_map = HashMap::new();
 
     let (refno, children_refnos) = {
@@ -771,7 +766,7 @@ pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Re
 
     children_map.insert(refno, children);
 
-    let mut memb_time = Instant::now();
+    let memb_time = Instant::now();
     let mut pending_refnos = vec![root_refno.clone()];
     let mut all_refnos = HashSet::new();
 
@@ -807,9 +802,9 @@ pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Re
     println!("All refnos count: {}", all_refnos.len());
 
     let DbBasicInfo {
-        db_type,
+        db_type: _,
         ses_pgno,
-        db_no,
+        db_no: _,
     } = parse_file_basic_info(&input);
 
     Ok(DbBasicData {
@@ -910,8 +905,8 @@ pub async fn parse_db_with_chunk_with_info(
             .get(&root_refno)
             .ok_or(anyhow!("Not found refno in entry"))?;
 
-        let mut pgno = entry.pos / 0x800;
-        let mut sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
+        let pgno = entry.pos / 0x800;
+        let sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
         let EleData {
             refno,
             noun,
@@ -936,7 +931,7 @@ pub async fn parse_db_with_chunk_with_info(
     }
 
     for source_refno in chunk_refnos.iter() {
-        let mut is_debug = test_refno.is_some() && test_refno == Some(*source_refno);
+        let is_debug = test_refno.is_some() && test_refno == Some(*source_refno);
         if let Some(entry) = db_basic_data.refno_table_map.get(source_refno) {
             let pos = entry.pos;
             let total_attmap_clone = total_att_map.clone();
@@ -989,14 +984,14 @@ pub async fn parse_db(
     file_name: &str,
     project: &str,
 ) -> Result<PdmsDbData> {
-    let mut type_ele_map = Arc::new(DashMap::new());
-    let mut total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
+    let type_ele_map = Arc::new(DashMap::new());
+    let total_attr_map: Arc<DashMap<RefU64, NamedAttrMap>> = Arc::new(DashMap::new());
     let mut field_no = 0;
 
     let DbBasicInfo {
         db_type,
         ses_pgno,
-        mut db_no,
+        db_no,
     } = parse_file_basic_info(input);
     dbg!(&(db_type.as_str(), ses_pgno, db_no, file_name));
     let db_no_str = db_no.to_string();
@@ -1012,15 +1007,15 @@ pub async fn parse_db(
             .unwrap_or_default();
     }
 
-    let mut gen_ref_time = Instant::now();
+    let gen_ref_time = Instant::now();
     let (refno_table_map, world_refno) = gen_ref_type_pos_table(input);
     println!(
         "gen_ref_type_pos_table: {} ms",
         gen_ref_time.elapsed().as_millis()
     );
 
-    let mut root_refno = world_refno;
-    let mut refno_info_map = Arc::new(DashMap::new());
+    let root_refno = world_refno;
+    let refno_info_map = Arc::new(DashMap::new());
     let mut children_map = HashMap::new();
     let entry = &*refno_table_map
         .get(&root_refno)
@@ -1028,11 +1023,11 @@ pub async fn parse_db(
 
     let EleData {
         refno,
-        owner,
+        owner: _,
         noun,
         whole_attmap,
         children,
-        name,
+        name: _,
     } = parse_ele_data_with_info(&input[entry.pos - 4..], database_info)
         .await?;
 
@@ -1396,7 +1391,7 @@ pub fn parse_raw_explicit_attrs<'a>(
 ) -> IResult<&'a [u8], Vec<ExplicitAttr>> {
     let mut residual = input;
     let test_refno = get_db_option().get_test_refno().map(|x| x.refno());
-    let mut is_debug = test_refno == Some(refno);
+    let is_debug = test_refno == Some(refno);
     let mut attr_values = Vec::new();
 
     while !residual.is_empty() {
@@ -1432,7 +1427,7 @@ pub fn parse_raw_explicit_attrs<'a>(
                     }
                     residual = input;
                 }
-                Err(e) => {
+                Err(_e) => {
                     println!(
                         "解析{} 表达式属性退出: {:?}, {:#4X?}",
                         refno.to_e3d_id(),
@@ -1443,14 +1438,14 @@ pub fn parse_raw_explicit_attrs<'a>(
                 }
             }
         } else {
-            let (l, (explict_hash, attr_type_num, type_len)) = match tuple((
+            let (l, (_explict_hash, attr_type_num, type_len)) = match tuple((
                 be_i32::<_, nom::error::Error<_>>,
                 be_u16, //属性的类型
                 be_u16, //属性的长度
             )).parse(&residual[..])
             {
                 Ok(result) => result,
-                Err(e) => {
+                Err(_e) => {
                     println!(
                         "解析{} 显式属性退出: {:?}, {:#4X?}",
                         refno.to_e3d_id(),
@@ -2291,7 +2286,7 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
         result = val;
     } else {
         // 检测是否以 1A 1A 05 02 17 开头
-        let (mut tmp_input, (a, b, c, d, e)) =
+        let (tmp_input, (_a, _b, _c, d, e)) =
             tuple((be_u32, be_u32, be_u32, be_u32, be_u32))(input)?;
         match [d, e] {
             // 0x16 开头就是 X () Y ... 两个坐标的类型
@@ -2302,7 +2297,7 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
                     first_data = format!("AXIS {}", first_data);
                 }
                 let second = match_axis(parse_to_u32(&tmp_input[..4]));
-                result = StringType((format!("{}{}", first_data, second)));
+                result = StringType(format!("{}{}", first_data, second) );
             }
             // 0x17 开头代表是 X () Y () Z 这种类型
             [0x2, 0x17] => {
@@ -2312,13 +2307,13 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
                 }
                 let (tmp_input, second_data) = parse_xyz_data(tmp_input, refno, false)?;
                 let third = match_axis(parse_to_u32(&tmp_input[..4]));
-                result = StringType((format!("{}{}{}", first_data, second_data, third)));
+                result = StringType(format!("{}{}{}", first_data, second_data, third) );
             }
             [0x2, 0x22] => {
                 let (_, (a, b, c, d)) = tuple((be_u32, be_u32, be_u32, be_u32))(tmp_input)?;
                 // dbg!((a, b, c, d));
                 if a == 0x52 && b == 0x3 && c == 0x7 {
-                    result = StringType((format!("PP {}", d)));
+                    result = StringType(format!("PP {}", d) );
                 }
             }
             [0x2, 0x34] => {
@@ -2326,8 +2321,8 @@ pub fn convert_to_explicit_axis_string(input: &[u8], refno: RefU64) -> IResult<&
                     let mut v = func.to_string();
                     v.push_str(" ");
                     let mut axis_data = &tmp_input[8..];
-                    for i in 0..count {
-                        let (residual, mut coord) = parse_xyz_data(axis_data, refno, true)?;
+                    for _i in 0..count {
+                        let (residual, coord) = parse_xyz_data(axis_data, refno, true)?;
                         // dbg!(&coord);
                         v.push_str(&coord);
                         axis_data = residual;
@@ -2589,7 +2584,7 @@ fn process_type_hash<'a>(
         .to_string_lossy()
         .to_string()
         .into();
-    let noun_map = get_default_pdms_db_info();
+    let _noun_map = get_default_pdms_db_info();
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
@@ -2669,7 +2664,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
     let mut refno_entry = None;
     let mut is_ok = true;
     if NOUN_TYPES_MAP.contains_key(&noun_hash) {
-        let (_, (len, refno)) = tuple::<_, _, nom::error::Error<&[u8]>, _>((
+        let (_, (_len, _refno)) = tuple::<_, _, nom::error::Error<&[u8]>, _>((
             be_i32, //len
             be_u64,
         ))(&input[0..12])
@@ -2691,7 +2686,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
             if found_0_7.is_some() {
                 //允许一定范围去查找
                 if let Some(next_pos) = memmem::find(&input[12..tmp_pos + 20], &input[4..12]) {
-                    let end_pos = (next_pos + 12); //隐含属性实际结束点
+                    let end_pos = next_pos + 12 ; //隐含属性实际结束点
                     if end_pos >= tmp_pos + 4 {
                         let diff_len = end_pos - tmp_pos - 4;
                         if is_debug {
@@ -2788,8 +2783,8 @@ pub const WORLD_NOUN: i32 = 0xBEB83;
 
 pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let refno_0_set = get_total_refno_0s(input);
-    let mut refno_table = DashMap::new();
-    let mut word_refno_hashset = DashSet::new();
+    let refno_table = DashMap::new();
+    let word_refno_hashset = DashSet::new();
     refno_0_set.par_iter().for_each(|ref_0| {
         let pos_iter = rfind_iter(&input, ref_0);
         for p in pos_iter {
@@ -2817,7 +2812,7 @@ pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, R
 /// 利用这个层级关系去解析数据，加快速度
 pub fn gen_ref_type_pos_table_parallel(
     input: &[u8],
-    noun_attr_info_map: &DashMap<String, DashMap<String, AttrInfo>>,
+    _noun_attr_info_map: &DashMap<String, DashMap<String, AttrInfo>>,
 ) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let get_total_timer = Instant::now();
     let refno_0_set = get_total_refno_0s(input);
@@ -2828,8 +2823,8 @@ pub fn gen_ref_type_pos_table_parallel(
 
     let refno_0_set_timer = Instant::now();
     // let mut world_refno = Arc::new(Mutex::new(RefU64::default()));
-    let mut refno_table: DashMap<RefU64, EleDataEntry> = DashMap::new();
-    let mut word_refno_hashset = DashSet::new();
+    let refno_table: DashMap<RefU64, EleDataEntry> = DashMap::new();
+    let word_refno_hashset = DashSet::new();
     //todo 需要根据文件大小去优化
     let segs = 4;
     let step_size = input.len() / segs; //处理分段正好落在分割的地方的情况， 前后扩展多 20个 bytes吧

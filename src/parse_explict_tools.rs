@@ -1,8 +1,7 @@
 use crate::parse::{convert_to_explicit_axis_string, match_axis};
 use crate::BHashMap;
-use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
+use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u32};
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, is_uda};
-use aios_core::tool::float_tool::f64_round_3;
 use aios_core::{AttrVal::*, RefU64};
 use dynfmt::Format;
 #[cfg(test)]
@@ -15,7 +14,7 @@ use std::fs::File;
 use std::io::BufReader;
 use log::error;
 use nom::multi::count;
-use nom::number::complete::{be_i16, be_i32, be_u16, be_u32};
+use nom::number::complete::{be_i32, be_u16, be_u32};
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
@@ -231,7 +230,7 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
     }
 }
 
-pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], String> {
+pub fn parse_expression_func(input: &[u8], _refno: RefU64) -> IResult<&[u8], String> {
     if input.len() < 8 {
         return Ok((input, "".to_string()));
     }

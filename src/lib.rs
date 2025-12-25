@@ -32,11 +32,6 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde;
 
-use aios_core::tool::db_tool::db1_hash;
-use futures::stream::TryStreamExt;
-use std::collections::HashSet;
-use std::error::Error;
-use std::time::Instant;
 
 pub use parse::parse_pdms_dir;
 pub use parse::{parse_db, parse_file};
