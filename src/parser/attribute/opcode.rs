@@ -341,6 +341,204 @@ impl TryFrom<i32> for RealFunctionOpcode {
 }
 
 // ============================================================================
+// 字符串函数操作码 (case 13)
+// ============================================================================
+
+/// 字符串函数操作码
+/// 
+/// 基于 IDA 分析的 core.dll 函数名表：
+/// SINE COSINE TANGENT SQRT ASIN ACOS ATAN ATANT BOOLEAN POWER LOG ALOG ABS INT NINT 
+/// LENGTH REAL MATCH MAX MIN AFTER BEFORE STRING UPCASE LOWCASE SUBSTRING 
+/// DEFINED UNDEFINED SIZE DLENGTH DMATCH DSUBSTRING TRIM MATCHWILD WIDTH PART 
+/// SET UNSET ARRAY EMPTY OCCURS REPLACE VTEXT VVALUE VLOGICAL SPLIT IFTRUE DISTCONVERT
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StringFunctionOpcode {
+    /// 1301 (0x515) - 字符串长度
+    Length = 1301,
+    /// 1302 (0x516) - 转换为实数
+    Real = 1302,
+    /// 1303 (0x517) - 匹配
+    Match = 1303,
+    /// 1304 (0x518) - 之后
+    After = 1304,
+    /// 1305 (0x519) - 之前
+    Before = 1305,
+    /// 1306 (0x51A) - 转换为字符串
+    String = 1306,
+    /// 1307 (0x51B) - 转大写
+    Upcase = 1307,
+    /// 1308 (0x51C) - 转小写
+    Lowcase = 1308,
+    /// 1309 (0x51D) - 子串
+    Substring = 1309,
+    /// 1311 (0x51F) - 是否定义
+    Defined = 1311,
+    /// 1312 (0x520) - 是否未定义
+    Undefined = 1312,
+    /// 1313 (0x521) - 大小
+    Size = 1313,
+    /// 1314 (0x522) - 去空格
+    Trim = 1314,
+    /// 1315 (0x523) - 通配符匹配
+    Matchwild = 1315,
+    /// 1316 (0x524) - 宽度
+    Width = 1316,
+    /// 1317 (0x525) - 部分
+    Part = 1317,
+    /// 1321 (0x529) - 出现次数
+    Occurs = 1321,
+    /// 1322 (0x52A) - 替换
+    Replace = 1322,
+    /// 1369 (0x559) - VTEXT
+    Vtext = 1369,
+    /// 1370 (0x55A) - VVALUE
+    Vvalue = 1370,
+    /// 1401 (0x579) - 转换为实数（另一个版本）
+    RealAlt = 1401,
+    /// 1410 (0x582) - 转换为字符串 STR
+    Str = 1410,
+}
+
+impl StringFunctionOpcode {
+    /// 返回操作数个数
+    pub fn operand_count(&self) -> usize {
+        match self {
+            // 一元函数
+            StringFunctionOpcode::Length
+            | StringFunctionOpcode::Real
+            | StringFunctionOpcode::RealAlt
+            | StringFunctionOpcode::Str
+            | StringFunctionOpcode::Upcase
+            | StringFunctionOpcode::Lowcase
+            | StringFunctionOpcode::Trim
+            | StringFunctionOpcode::Defined
+            | StringFunctionOpcode::Undefined
+            | StringFunctionOpcode::Size
+            | StringFunctionOpcode::Width => 1,
+            // 二元函数
+            StringFunctionOpcode::Match
+            | StringFunctionOpcode::After
+            | StringFunctionOpcode::Before
+            | StringFunctionOpcode::Matchwild
+            | StringFunctionOpcode::Part
+            | StringFunctionOpcode::Occurs
+            | StringFunctionOpcode::Vtext
+            | StringFunctionOpcode::Vvalue
+            | StringFunctionOpcode::String => 2,
+            // 三元函数
+            StringFunctionOpcode::Substring
+            | StringFunctionOpcode::Replace => 3,
+        }
+    }
+
+    /// 返回格式化模板
+    pub fn format_template(&self) -> &'static str {
+        match self {
+            StringFunctionOpcode::Length => "LEN({})",
+            StringFunctionOpcode::Real | StringFunctionOpcode::RealAlt => "REAL({})",
+            StringFunctionOpcode::Match => "MAT({},'{}')",
+            StringFunctionOpcode::After => "AFTER({},{})",
+            StringFunctionOpcode::Before => "BEFORE({},{})",
+            StringFunctionOpcode::String => "STRING({},{})",
+            StringFunctionOpcode::Upcase => "UPCASE({})",
+            StringFunctionOpcode::Lowcase => "LOWCASE({})",
+            StringFunctionOpcode::Substring => "SUBSTRING({},{},{})",
+            StringFunctionOpcode::Defined => "DEFINED({})",
+            StringFunctionOpcode::Undefined => "UNDEFINED({})",
+            StringFunctionOpcode::Size => "SIZE({})",
+            StringFunctionOpcode::Trim => "TRIM({})",
+            StringFunctionOpcode::Matchwild => "MATCHWILD({},{})",
+            StringFunctionOpcode::Width => "WIDTH({})",
+            StringFunctionOpcode::Part => "PART({},{})",
+            StringFunctionOpcode::Occurs => "OCCURS({},{})",
+            StringFunctionOpcode::Replace => "REPLACE({},{},{})",
+            StringFunctionOpcode::Vtext => "VTEXT({},{})",
+            StringFunctionOpcode::Vvalue => "VVALUE({},{})",
+            StringFunctionOpcode::Str => "STR({})",
+        }
+    }
+}
+
+impl TryFrom<i32> for StringFunctionOpcode {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            1301 | 0x515 => Ok(StringFunctionOpcode::Length),
+            1302 | 0x516 => Ok(StringFunctionOpcode::Real),
+            1303 | 0x517 => Ok(StringFunctionOpcode::Match),
+            1304 | 0x518 => Ok(StringFunctionOpcode::After),
+            1305 | 0x519 => Ok(StringFunctionOpcode::Before),
+            1306 | 0x51A => Ok(StringFunctionOpcode::String),
+            1307 | 0x51B => Ok(StringFunctionOpcode::Upcase),
+            1308 | 0x51C => Ok(StringFunctionOpcode::Lowcase),
+            1309 | 0x51D => Ok(StringFunctionOpcode::Substring),
+            1311 | 0x51F => Ok(StringFunctionOpcode::Defined),
+            1312 | 0x520 => Ok(StringFunctionOpcode::Undefined),
+            1313 | 0x521 => Ok(StringFunctionOpcode::Size),
+            1314 | 0x522 => Ok(StringFunctionOpcode::Trim),
+            1315 | 0x523 => Ok(StringFunctionOpcode::Matchwild),
+            1316 | 0x524 => Ok(StringFunctionOpcode::Width),
+            1317 | 0x525 => Ok(StringFunctionOpcode::Part),
+            1321 | 0x529 => Ok(StringFunctionOpcode::Occurs),
+            1322 | 0x52A => Ok(StringFunctionOpcode::Replace),
+            1369 | 0x559 => Ok(StringFunctionOpcode::Vtext),
+            1370 | 0x55A => Ok(StringFunctionOpcode::Vvalue),
+            1401 | 0x579 => Ok(StringFunctionOpcode::RealAlt),
+            1410 | 0x582 => Ok(StringFunctionOpcode::Str),
+            _ => Err(()),
+        }
+    }
+}
+
+// ============================================================================
+// 布尔运算操作码 (case 3)
+// ============================================================================
+
+/// 布尔运算操作码
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BooleanOpcode {
+    /// 301 (0x12D) - 逻辑非
+    Not = 301,
+    /// 302 (0x12E) - 逻辑与
+    And = 302,
+    /// 303 (0x12F) - 逻辑或
+    Or = 303,
+}
+
+impl BooleanOpcode {
+    /// 返回操作数个数
+    pub fn operand_count(&self) -> usize {
+        match self {
+            BooleanOpcode::Not => 1,
+            BooleanOpcode::And | BooleanOpcode::Or => 2,
+        }
+    }
+
+    /// 返回格式化模板
+    pub fn format_template(&self) -> &'static str {
+        match self {
+            BooleanOpcode::Not => "NOT({})",
+            BooleanOpcode::And => "{} AND {}",
+            BooleanOpcode::Or => "{} OR {}",
+        }
+    }
+}
+
+impl TryFrom<i32> for BooleanOpcode {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            301 | 0x12D => Ok(BooleanOpcode::Not),
+            302 | 0x12E => Ok(BooleanOpcode::And),
+            303 | 0x12F => Ok(BooleanOpcode::Or),
+            _ => Err(()),
+        }
+    }
+}
+
+// ============================================================================
 // 比较运算操作码 (case 4, 5, 6)
 // ============================================================================
 
@@ -386,6 +584,79 @@ impl TryFrom<i32> for ComparisonOpcode {
             603 | 0x25B => Ok(ComparisonOpcode::Lt),
             605 | 0x25D => Ok(ComparisonOpcode::Ge),
             607 | 0x25F => Ok(ComparisonOpcode::Le),
+            _ => Err(()),
+        }
+    }
+}
+
+// ============================================================================
+// 通用函数操作码 (case 18)
+// ============================================================================
+
+/// 通用函数操作码
+/// 
+/// 包含 IFTRUE、DISTCONVERT 等高级控制函数
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeneralFunctionOpcode {
+    /// 1822 (0x071E) - 条件表达式 IFTRUE(condition, true_value, false_value)
+    Iftrue = 1822,
+    /// 1824 (0x0720) - 距离转换 DISTCONVERT(value)
+    Distconvert = 1824,
+    /// 1825 (0x0721) - SET 函数
+    Set = 1825,
+    /// 1826 (0x0722) - UNSET 函数
+    Unset = 1826,
+    /// 1827 (0x0723) - ARRAY 函数
+    Array = 1827,
+    /// 1828 (0x0724) - EMPTY 函数
+    Empty = 1828,
+    /// 1829 (0x0725) - SPLIT 函数
+    Split = 1829,
+}
+
+impl GeneralFunctionOpcode {
+    /// 返回操作数个数
+    pub fn operand_count(&self) -> usize {
+        match self {
+            // 一元函数
+            GeneralFunctionOpcode::Distconvert
+            | GeneralFunctionOpcode::Unset
+            | GeneralFunctionOpcode::Empty => 1,
+            // 二元函数
+            GeneralFunctionOpcode::Set
+            | GeneralFunctionOpcode::Array
+            | GeneralFunctionOpcode::Split => 2,
+            // 三元函数
+            GeneralFunctionOpcode::Iftrue => 3,
+        }
+    }
+
+    /// 返回格式化模板
+    pub fn format_template(&self) -> &'static str {
+        match self {
+            GeneralFunctionOpcode::Iftrue => "IFTRUE({},{},{})",
+            GeneralFunctionOpcode::Distconvert => "DISTCONVERT({})",
+            GeneralFunctionOpcode::Set => "SET({},{})",
+            GeneralFunctionOpcode::Unset => "UNSET({})",
+            GeneralFunctionOpcode::Array => "ARRAY({},{})",
+            GeneralFunctionOpcode::Empty => "EMPTY({})",
+            GeneralFunctionOpcode::Split => "SPLIT({},{})",
+        }
+    }
+}
+
+impl TryFrom<i32> for GeneralFunctionOpcode {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            1822 | 0x071E => Ok(GeneralFunctionOpcode::Iftrue),
+            1824 | 0x0720 => Ok(GeneralFunctionOpcode::Distconvert),
+            1825 | 0x0721 => Ok(GeneralFunctionOpcode::Set),
+            1826 | 0x0722 => Ok(GeneralFunctionOpcode::Unset),
+            1827 | 0x0723 => Ok(GeneralFunctionOpcode::Array),
+            1828 | 0x0724 => Ok(GeneralFunctionOpcode::Empty),
+            1829 | 0x0725 => Ok(GeneralFunctionOpcode::Split),
             _ => Err(()),
         }
     }
@@ -446,5 +717,102 @@ mod tests {
         assert!(RealFunctionOpcode::try_from(1001).is_ok());
         assert!(RealFunctionOpcode::try_from(0x3E9).is_ok());
         assert_eq!(RealFunctionOpcode::try_from(1008).unwrap().operand_count(), 2);
+    }
+
+    #[test]
+    fn test_string_function_opcode() {
+        // 测试基本解析
+        assert!(StringFunctionOpcode::try_from(1301).is_ok()); // LENGTH
+        assert!(StringFunctionOpcode::try_from(0x515).is_ok()); // LENGTH (hex)
+        assert!(StringFunctionOpcode::try_from(1314).is_ok()); // TRIM
+        assert!(StringFunctionOpcode::try_from(0x522).is_ok()); // TRIM (hex)
+        
+        // 测试操作数个数
+        assert_eq!(StringFunctionOpcode::try_from(1301).unwrap().operand_count(), 1); // LENGTH: 1参数
+        assert_eq!(StringFunctionOpcode::try_from(1303).unwrap().operand_count(), 2); // MATCH: 2参数
+        assert_eq!(StringFunctionOpcode::try_from(1309).unwrap().operand_count(), 3); // SUBSTRING: 3参数
+        
+        // 测试格式化模板
+        assert_eq!(
+            StringFunctionOpcode::try_from(1301).unwrap().format_template(),
+            "LEN({})"
+        );
+        assert_eq!(
+            StringFunctionOpcode::try_from(1314).unwrap().format_template(),
+            "TRIM({})"
+        );
+        assert_eq!(
+            StringFunctionOpcode::try_from(1309).unwrap().format_template(),
+            "SUBSTRING({},{},{})"
+        );
+    }
+
+    #[test]
+    fn test_general_function_opcode() {
+        // 测试 IFTRUE
+        assert!(GeneralFunctionOpcode::try_from(1822).is_ok());
+        assert!(GeneralFunctionOpcode::try_from(0x071E).is_ok());
+        assert_eq!(GeneralFunctionOpcode::try_from(1822).unwrap(), GeneralFunctionOpcode::Iftrue);
+        
+        // 测试 DISTCONVERT
+        assert!(GeneralFunctionOpcode::try_from(1824).is_ok());
+        assert!(GeneralFunctionOpcode::try_from(0x0720).is_ok());
+        
+        // 测试操作数个数
+        assert_eq!(GeneralFunctionOpcode::try_from(1822).unwrap().operand_count(), 3); // IFTRUE: 3参数
+        assert_eq!(GeneralFunctionOpcode::try_from(1824).unwrap().operand_count(), 1); // DISTCONVERT: 1参数
+        assert_eq!(GeneralFunctionOpcode::try_from(1825).unwrap().operand_count(), 2); // SET: 2参数
+        assert_eq!(GeneralFunctionOpcode::try_from(1826).unwrap().operand_count(), 1); // UNSET: 1参数
+        
+        // 测试格式化模板
+        assert_eq!(
+            GeneralFunctionOpcode::try_from(1822).unwrap().format_template(),
+            "IFTRUE({},{},{})"
+        );
+        assert_eq!(
+            GeneralFunctionOpcode::try_from(1826).unwrap().format_template(),
+            "UNSET({})"
+        );
+    }
+
+    #[test]
+    fn test_boolean_opcode() {
+        // 测试 NOT
+        assert!(BooleanOpcode::try_from(301).is_ok());
+        assert!(BooleanOpcode::try_from(0x12D).is_ok());
+        assert_eq!(BooleanOpcode::try_from(301).unwrap(), BooleanOpcode::Not);
+        
+        // 测试 AND 和 OR
+        assert!(BooleanOpcode::try_from(302).is_ok()); // AND
+        assert!(BooleanOpcode::try_from(303).is_ok()); // OR
+        
+        // 测试操作数个数
+        assert_eq!(BooleanOpcode::try_from(301).unwrap().operand_count(), 1); // NOT: 1参数
+        assert_eq!(BooleanOpcode::try_from(302).unwrap().operand_count(), 2); // AND: 2参数
+        assert_eq!(BooleanOpcode::try_from(303).unwrap().operand_count(), 2); // OR: 2参数
+        
+        // 测试格式化模板
+        assert_eq!(BooleanOpcode::try_from(301).unwrap().format_template(), "NOT({})");
+        assert_eq!(BooleanOpcode::try_from(302).unwrap().format_template(), "{} AND {}");
+        assert_eq!(BooleanOpcode::try_from(303).unwrap().format_template(), "{} OR {}");
+    }
+
+    #[test]
+    fn test_comparison_opcode() {
+        // 测试 EQ
+        assert!(ComparisonOpcode::try_from(401).is_ok());
+        assert!(ComparisonOpcode::try_from(0x191).is_ok());
+        assert_eq!(ComparisonOpcode::try_from(401).unwrap(), ComparisonOpcode::Eq);
+        
+        // 测试所有比较运算符
+        assert!(ComparisonOpcode::try_from(501).is_ok()); // NEQ
+        assert!(ComparisonOpcode::try_from(601).is_ok()); // GT
+        assert!(ComparisonOpcode::try_from(603).is_ok()); // LT
+        assert!(ComparisonOpcode::try_from(605).is_ok()); // GE
+        assert!(ComparisonOpcode::try_from(607).is_ok()); // LE
+        
+        // 测试格式化模板
+        assert_eq!(ComparisonOpcode::try_from(401).unwrap().format_template(), "{} EQ {}");
+        assert_eq!(ComparisonOpcode::try_from(603).unwrap().format_template(), "{} LT {}");
     }
 }

@@ -5,11 +5,23 @@
 //! - 多种数据类型解析（整数、浮点、字符串、引用号等）
 //! - 特殊属性处理（LEVEL、PTS、表达式等）
 //! - f32/f64 混合模式支持
+//! - 可配置的元素头部偏移
 
 use aios_core::pdms_types::DbAttributeType;
 use aios_core::types::NamedAttrValue;
 use glam::Vec3;
 use nom::IResult;
+
+/// 元素数据的标准头部大小（单位：word）
+/// 
+/// 标准元素数据头部布局：
+/// - bytes[0..4]: impl_len (1 word)
+/// - bytes[4..12]: refno (2 words)
+/// - bytes[12..16]: type_hash (1 word)
+/// - bytes[16..24]: owner (2 words)
+/// 
+/// 总计：6 words = 24 bytes
+pub const STANDARD_ELEMENT_HEADER_WORDS: usize = 6;
 
 /// 隐式属性偏移信息
 #[derive(Debug, Clone)]
@@ -28,8 +40,19 @@ pub struct ImplicitAttrOffset {
 /// - `input`: 隐式数据块（已分段合并）
 /// - `attr_info`: 属性元数据信息
 /// - `is_f32`: 是否使用 f32 模式
-/// - `f32_neg_offset`: f32 模式的负偏移量
-/// - `step`: 当前解析步骤（用于调试）
+/// - `f32_neg_offset`: f32 模式的负偏移量（用于调整因 f32/f64 类型差异导致的偏移）
+/// - `_step`: 当前解析步骤（用于调试）
+///
+/// # 偏移计算说明
+/// 
+/// Schema 中的 offset 是从元素开头计算的（以 word 为单位）。实际数据位置计算为：
+/// ```text
+/// actual_offset = (schema_offset - f32_neg_offset) * 4
+/// ```
+/// 
+/// 其中 f32_neg_offset 的累计规则：
+/// - 每个 DOUBLE 属性在 f32 模式下节省 1 word
+/// - 每个 Vec3/DIRECTION/POSITION/ORIENTATION 属性在 f32 模式下节省 3 words
 ///
 /// # 返回
 /// `IResult<&[u8], NamedAttrValue>` - 解析后的属性值
@@ -76,6 +99,62 @@ pub fn parse_implicit_attr_value<'a>(
             // 未知类型，返回空值
             Ok((input, NamedAttrValue::InvalidType))
         }
+    }
+}
+
+/// 检测元素数据的实际头部大小（单位：word）
+///
+/// PDMS 元素数据可能有不同的头部布局：
+/// - 标准头部 (6 words = 24 bytes): impl_len + refno + type_hash + owner
+/// - 扩展头部 (某些特殊元素可能有额外字段)
+///
+/// # 参数
+/// - `input`: 元素数据的开头部分
+///
+/// # 返回
+/// 检测到的头部大小（以 word 为单位）
+///
+/// # 说明
+/// 当前实现返回标准头部大小。如果发现特定元素有不同的头部布局，
+/// 可以根据 type_hash 或其他特征进行检测。
+pub fn detect_header_size(input: &[u8]) -> usize {
+    // 标准头部检测逻辑
+    // bytes[0..4]: impl_len - 隐式数据长度
+    // bytes[4..12]: refno - 参考号
+    // bytes[12..16]: type_hash - 类型哈希
+    // bytes[16..24]: owner - 所有者参考号
+    
+    if input.len() < 24 {
+        return STANDARD_ELEMENT_HEADER_WORDS;
+    }
+    
+    // 目前返回标准头部大小
+    // TODO: 如果需要支持特殊元素的扩展头部，在这里添加检测逻辑
+    // 例如：检查 type_hash 是否属于需要扩展头部的类型
+    STANDARD_ELEMENT_HEADER_WORDS
+}
+
+/// 计算 f32 模式下的负偏移量
+///
+/// 当元素使用 f32 模式存储浮点数时，某些属性类型会比 f64 模式占用更少的空间，
+/// 需要累计这个差值来调整后续属性的偏移量。
+///
+/// # 参数
+/// - `attr_type`: 属性类型
+///
+/// # 返回
+/// 该属性类型在 f32 模式下节省的 word 数量
+pub fn get_f32_offset_adjustment(attr_type: DbAttributeType) -> usize {
+    match attr_type {
+        // DOUBLE: f64 (2 words) -> f32 (1 word)，节省 1 word
+        DbAttributeType::DOUBLE => 1,
+        // Vec3/方向/位置/姿态: 3 个 f64 (6 words) -> 3 个 f32 (3 words)，节省 3 words
+        DbAttributeType::DIRECTION
+        | DbAttributeType::POSITION
+        | DbAttributeType::ORIENTATION
+        | DbAttributeType::Vec3Type => 3,
+        // 其他类型不受影响
+        _ => 0,
     }
 }
 
@@ -366,5 +445,40 @@ mod tests {
     fn test_check_is_expr() {
         // 这需要实际的表达式哈希值来测试
         // 暂时跳过具体测试
+    }
+
+    #[test]
+    fn test_standard_header_size() {
+        // 验证标准头部大小常量
+        assert_eq!(STANDARD_ELEMENT_HEADER_WORDS, 6);
+        assert_eq!(STANDARD_ELEMENT_HEADER_WORDS * 4, 24); // 24 bytes
+    }
+
+    #[test]
+    fn test_detect_header_size() {
+        // 测试头部大小检测
+        let data = vec![0u8; 100];
+        assert_eq!(detect_header_size(&data), STANDARD_ELEMENT_HEADER_WORDS);
+        
+        // 测试数据不足的情况
+        let short_data = vec![0u8; 10];
+        assert_eq!(detect_header_size(&short_data), STANDARD_ELEMENT_HEADER_WORDS);
+    }
+
+    #[test]
+    fn test_f32_offset_adjustment() {
+        // 测试 DOUBLE 类型节省 1 word
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::DOUBLE), 1);
+        
+        // 测试 Vec3 相关类型节省 3 words
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::Vec3Type), 3);
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::DIRECTION), 3);
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::POSITION), 3);
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::ORIENTATION), 3);
+        
+        // 测试其他类型不受影响
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::INTEGER), 0);
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::STRING), 0);
+        assert_eq!(get_f32_offset_adjustment(DbAttributeType::BOOL), 0);
     }
 }
