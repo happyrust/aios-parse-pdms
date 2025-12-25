@@ -7,7 +7,7 @@
 //! - f32/f64 混合模式支持
 
 use aios_core::pdms_types::DbAttributeType;
-use aios_core::types::{AttrVal, NamedAttrValue};
+use aios_core::types::NamedAttrValue;
 use glam::Vec3;
 use nom::IResult;
 

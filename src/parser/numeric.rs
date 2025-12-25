@@ -8,7 +8,6 @@
 use aios_core::tool::float_tool::f64_round_3;
 use nom::number::complete::{be_f32, be_f64, be_i16, be_i32, be_u16, be_u32};
 use nom::IResult;
-use nom::Parser;
 
 /// 解析大端序 f32
 #[inline]

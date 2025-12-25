@@ -21,7 +21,7 @@ pub mod primitives;
 // 重新导出常用类型和函数
 pub use attribute::*;
 pub use combinator::*;
-pub use database::*;
-pub use element::*;
+pub use database::{header::*, index::*, validation::*};
+pub use element::{children::*, header::*};
 pub use numeric::*;
 pub use primitives::*;

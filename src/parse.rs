@@ -3,7 +3,9 @@ use crate::parse_explict_tools::*;
 // 使用新 parser 模块中的基础函数
 use crate::parser::attribute::explicit::get_explicit_attr_type;
 use crate::parser::combinator::{collect_segmented_payload, extend_impl_len};
-use crate::parser::primitives::parse_impl_len_bytes;
+use crate::parser::primitives::{parse_impl_len_bytes, parse_refno, parse_members, parse_owner};
+use crate::parser::element::children::{parse_element_children, extract_members};
+use crate::parser::database::validation::is_valid_db_header;
 use aios_core::basic::info::RefnoInfo;
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
 use aios_core::db::*;
@@ -53,6 +55,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
+use tokio::sync::mpsc;
+use std::sync::OnceLock;
 
 //00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02
 // const REFNO_ALL_INDEX_PAGE: [u8; 11] = [0x00u8, 0x00, 0x00, 0x05, 0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00];
@@ -344,85 +348,15 @@ impl EleData {
         self.att_map().latest_refno().into()
     }
 }
-
-/// 使用 nom 组合子解析 refno
-#[inline]
-fn parse_ref_u64_nom(input: &[u8]) -> IResult<&[u8], RefU64> {
-    map(tuple((be_u32, be_u32)), |(a, b)| RefU64::from_two_nums(a, b)).parse(input)
-}
-
-// parse_impl_len_bytes 和 extend_impl_len 已迁移到 parser::primitives 和 parser::combinator
-
-/// 解析 members 段，返回剩余数据与成员列表
-#[inline]
-fn parse_members_block<'a>(input: &'a [u8], expected_refno: RefU64) -> IResult<&'a [u8], RefU64Vec> {
-    if input.len() < 4 {
-        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
-    }
-    // flag=0x0002，len_words=总长度（word 数）
-    let (_, (flag, len_words)) = tuple((be_u16, be_u16))(input)?;
-    let mut memb_bytes_len = len_words as usize * 4;
-    if flag != 0x0002 {
-        return Err(nom::Err::Error(make_error(input, ErrorKind::Tag)));
-    }
-    if memb_bytes_len > input.len() {
-        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
-    }
-
-    // 自身 refno 校验
-    if memb_bytes_len < 12 {
-        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
-    }
-    let block = &input[..memb_bytes_len];
-    let self_refno: RefI32Tuple = (&block[4..12]).into();
-    let expected_refno = RefI32Tuple::new(expected_refno.get_0() as i32, expected_refno.get_1() as i32);
-    if self_refno != expected_refno {
-        return Err(nom::Err::Error(make_error(input, ErrorKind::Verify)));
-    }
-
-    // 使用新的 collect_segmented_payload 替换 get_merged_data
-    let (_, merged_data) = collect_segmented_payload(input, memb_bytes_len, 0x2)
-        .map_err(|_| nom::Err::Error(make_error(input, ErrorKind::Verify)))?;
-    let members = match parse_attr_members(&merged_data) {
-        Ok((_, m)) => m,
-        Err(_) => return Err(nom::Err::Error(make_error(input, ErrorKind::Verify))),
-    };
-    // collect_segmented_payload 已经处理了所有段，直接使用它返回的剩余数据
-    // 但为了保持兼容，我们需要手动跳过已处理的数据
-    let consumed = if let Ok((rest, _)) = collect_segmented_payload(input, memb_bytes_len, 0x2) {
-        input.len() - rest.len()
-    } else {
-        memb_bytes_len
-    };
-    let rest = input
-        .get(consumed..)
-        .ok_or_else(|| nom::Err::Error(make_error(input, ErrorKind::Eof)))?;
-    Ok((rest, members))
-}
-
-/// 组合式解析元素 children，返回 (refno, children)
-#[inline]
-fn parse_ele_children_nom(input: &[u8]) -> IResult<&[u8], (RefU64, RefU64Vec)> {
-    if input.len() < 24 {
-        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
-    }
-    let (_, impl_len_bytes) = parse_impl_len_bytes(input)?;
-    let refno: RefI32Tuple = (&input[4..12]).into();
-    let actual_impl_len = extend_impl_len(impl_len_bytes, input);
-    if actual_impl_len > input.len() {
-        return Err(nom::Err::Error(make_error(input, ErrorKind::Eof)));
-    }
-
-    let membs_data = &input[actual_impl_len..];
-    let (rest, children) = parse_members_block(membs_data, refno.into())?;
-    Ok((rest, (refno.into(), children)))
-}
+// 以下函数已迁移到 crate::parser::element::children 模块
+// parse_ref_u64_nom -> crate::parser::primitives::parse_refno
+// parse_members_block -> crate::parser::element::children::parse_members_block
+// parse_ele_children_nom -> crate::parser::element::children::parse_element_children
 
 //只是获得RefU64, 用于多线程找到所有需要处理的参考号
 pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
-    parse_ele_children_nom(input)
-        .map(|(_, (_, children))| children.0)
-        .unwrap_or_default()
+    // 委托给新的 parser::element::children 模块
+    extract_members(input)
 }
 
 /// 解析元素的子元素
@@ -436,7 +370,8 @@ pub fn parse_ele_membs(input: &[u8]) -> Vec<RefU64> {
 ///   - 子元素引用号的向量(RefU64Vec)
 #[inline]
 pub fn parse_ele_children(input: &[u8]) -> (RefU64, RefU64Vec) {
-    match parse_ele_children_nom(input) {
+    // 委托给新的 parser::element::children 模块
+    match parse_element_children(input) {
         Ok((_, res)) => res,
         Err(_) => {
             // 失败时尽量返回可读的 refno 方便上层判别
@@ -1399,19 +1334,51 @@ async fn get_uda_short_name(hash: i32) -> Option<String> {
     })
 }
 
+lazy_static! {
+    static ref UDA_NAME_CACHE: DashMap<i32, String> = DashMap::new();
+}
+
+static UDA_WORKER_TX: OnceLock<mpsc::UnboundedSender<i32>> = OnceLock::new();
+
+fn resolve_uda_label(hash: i32) -> String {
+    if let Some(name) = UDA_NAME_CACHE.get(&hash) {
+        return format!("UDA:{}", name.value());
+    }
+    format!("UDA_HASH:{hash}")
+}
+
+fn spawn_uda_worker() -> mpsc::UnboundedSender<i32> {
+    UDA_WORKER_TX
+        .get_or_init(|| {
+            let (tx, mut rx) = mpsc::unbounded_channel();
+            tokio::spawn(async move {
+                while let Some(hash) = rx.recv().await {
+                    if UDA_NAME_CACHE.contains_key(&hash) {
+                        continue;
+                    }
+                    if let Some(name) = get_uda_full_name(hash).await {
+                        UDA_NAME_CACHE.insert(hash, name);
+                    }
+                }
+            });
+            tx
+        })
+        .clone()
+}
+
 /// 获取已知显式属性
 pub async fn process_explicit_attrs(
     uda_attrs: Vec<ExplicitAttr>,
     attr_data_map: &mut NamedAttrMap,
 ) -> anyhow::Result<()> {
     // 处理解析结果，包括UDA的异步处理
+    let uda_tx = spawn_uda_worker();
     for attr in uda_attrs {
         if attr.is_uda {
-            // UDA 异步处理
-            if let Some(uda_refno) = aios_core::get_uda_refno(attr.hash_val).await {
-                //要加UDA:表达区分
-                attr_data_map.insert(format!("UDA:{uda_refno}"), attr.value.into());
-            }
+            let label = resolve_uda_label(attr.hash_val);
+            attr_data_map.insert(label, attr.value.into());
+            // 后台异步获取名称，不阻塞解析主流程
+            let _ = uda_tx.send(attr.hash_val);
         } else {
             //覆盖可能在隐含属性里出现过的数据
             attr_data_map.insert(attr.name.clone(), attr.value.into());
@@ -1813,25 +1780,21 @@ fn parse_param_with_index(input: i32) -> String {
 }
 
 /// 获取所有的members
+/// 
+/// 已迁移到 crate::parser::primitives::parse_members
 #[inline]
 pub fn parse_attr_members(input: &[u8]) -> IResult<&[u8], RefU64Vec> {
-    if input.len() % 8 != 0 {
-        return Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            ErrorKind::LengthValue,
-        )));
-    }
-    let cnt = input.len() / 8;
-    let (residual, vals) = count(be_u64, cnt).parse(input)?;
-    let members = RefU64Vec(vals.into_iter().map(RefU64).collect());
-    Ok((residual, members))
+    // 委托给新的 parser::primitives 模块
+    let (residual, members) = parse_members(input)?;
+    Ok((residual, RefU64Vec(members)))
 }
 
 /// 获取该节点的owner
+/// 
+/// 已迁移到 crate::parser::primitives::parse_owner
 pub fn parse_attr_owner(input: &[u8]) -> IResult<&[u8], String> {
-    let (_, (owner0, owner1)) = tuple((be_i32, be_i32)).parse(input)?;
-    let owner = RefI32Tuple::new(owner0, owner1).into();
-    Ok((input, owner))
+    // 委托给新的 parser::primitives 模块
+    parse_owner(input)
 }
 
 #[inline]
@@ -2518,19 +2481,15 @@ fn is_pdms_db_file(path: &Path) -> bool {
 }
 
 /// 检查文件头是否包含 PDMS/E3D DbType 标识
+/// 
+/// 已迁移到 crate::parser::database::validation::is_valid_db_header
 fn has_valid_db_header(path: &Path) -> bool {
     if let Ok(mut file) = File::open(path) {
         let mut header = [0u8; 64];
         if let Ok(len) = file.read(&mut header) {
             if len >= 36 {
-                // 偏移 32..36 是 db type hash（参考现有解析逻辑）
-                let db_type_hash = parse_to_i32(&header[32..36]);
-                let db_type = db1_dehash(db_type_hash as u32).to_ascii_uppercase();
-                // 已知类型字符串判定
-                const DB_TYPES: [&str; 6] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
-                if DB_TYPES.contains(&db_type.as_str()) {
-                    return true;
-                }
+                // 委托给 parser::database::validation 模块
+                return is_valid_db_header(&header);
             }
         }
     }

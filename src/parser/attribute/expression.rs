@@ -60,6 +60,93 @@ pub fn get_math_operators() -> HashMap<i32, &'static str> {
     map
 }
 
+// ============================================================================
+// 基于 opcode 枚举的运算符处理函数
+// ============================================================================
+
+use super::opcode::{ArithmeticOpcode, TrigonometricOpcode, RealFunctionOpcode, OpcodeCategory};
+
+/// 使用 opcode 枚举应用运算符到操作数栈
+///
+/// # 参数
+/// - `opcode`: 操作码（十进制或十六进制均可）
+/// - `stack`: 操作数栈
+///
+/// # 返回
+/// 运算成功返回 `Some(结果字符串)`，否则返回 `None`
+pub fn apply_operator(opcode: i32, stack: &mut Vec<String>) -> Option<String> {
+    // 按操作码类别分发
+    match OpcodeCategory::from(opcode) {
+        OpcodeCategory::Arithmetic => apply_arithmetic(opcode, stack),
+        OpcodeCategory::Trigonometric => apply_trigonometric(opcode, stack),
+        OpcodeCategory::RealFunctions => apply_real_function(opcode, stack),
+        _ => None,
+    }
+}
+
+/// 应用算术运算符
+fn apply_arithmetic(opcode: i32, stack: &mut Vec<String>) -> Option<String> {
+    let op = ArithmeticOpcode::try_from(opcode).ok()?;
+    
+    match op.operand_count() {
+        1 => {
+            let a = stack.pop()?;
+            Some(format_operator(op.format_template(), &[a]))
+        }
+        2 => {
+            let b = stack.pop()?;
+            let a = stack.pop()?;
+            Some(format_operator(op.format_template(), &[a, b]))
+        }
+        _ => None,
+    }
+}
+
+/// 应用三角函数运算符
+fn apply_trigonometric(opcode: i32, stack: &mut Vec<String>) -> Option<String> {
+    let op = TrigonometricOpcode::try_from(opcode).ok()?;
+    
+    match op.operand_count() {
+        1 => {
+            let a = stack.pop()?;
+            Some(format_operator(op.format_template(), &[a]))
+        }
+        2 => {
+            let b = stack.pop()?;
+            let a = stack.pop()?;
+            Some(format_operator(op.format_template(), &[a, b]))
+        }
+        _ => None,
+    }
+}
+
+/// 应用实数函数运算符
+fn apply_real_function(opcode: i32, stack: &mut Vec<String>) -> Option<String> {
+    let op = RealFunctionOpcode::try_from(opcode).ok()?;
+    
+    match op.operand_count() {
+        1 => {
+            let a = stack.pop()?;
+            Some(format_operator(op.format_template(), &[a]))
+        }
+        2 => {
+            let b = stack.pop()?;
+            let a = stack.pop()?;
+            Some(format_operator(op.format_template(), &[a, b]))
+        }
+        _ => None,
+    }
+}
+
+/// 格式化运算符模板
+fn format_operator(template: &str, args: &[String]) -> String {
+    let mut result = template.to_string();
+    for arg in args {
+        result = result.replacen("{}", arg, 1);
+    }
+    result
+}
+
 /// 特殊常量映射
 pub fn parse_expression_const(input: &[u8]) -> &'static str {
     if input.len() < 4 {
@@ -323,5 +410,45 @@ mod tests {
         ];
         let result = parse_axis_data(&data);
         assert!(result.contains("X"));
+    }
+
+    #[test]
+    fn test_apply_operator_arithmetic() {
+        // 测试加法 (802 = 0x322)
+        let mut stack = vec!["a".to_string(), "b".to_string()];
+        let result = apply_operator(802, &mut stack);
+        assert_eq!(result, Some("(a+b)".to_string()));
+        assert!(stack.is_empty());
+        
+        // 测试取负 (801 = 0x321)
+        let mut stack = vec!["x".to_string()];
+        let result = apply_operator(801, &mut stack);
+        assert_eq!(result, Some("(-x)".to_string()));
+    }
+
+    #[test]
+    fn test_apply_operator_trigonometric() {
+        // 测试 SIN (901 = 0x385)
+        let mut stack = vec!["45".to_string()];
+        let result = apply_operator(901, &mut stack);
+        assert_eq!(result, Some("SIN(45)".to_string()));
+        
+        // 测试 COS (902 = 0x386)
+        let mut stack = vec!["90".to_string()];
+        let result = apply_operator(902, &mut stack);
+        assert_eq!(result, Some("COS(90)".to_string()));
+    }
+
+    #[test]
+    fn test_apply_operator_real_functions() {
+        // 测试 MAX (1008 = 0x3F0)
+        let mut stack = vec!["a".to_string(), "b".to_string()];
+        let result = apply_operator(1008, &mut stack);
+        assert_eq!(result, Some("MAX(a,b)".to_string()));
+        
+        // 测试 SQRT (1001 = 0x3E9)
+        let mut stack = vec!["16".to_string()];
+        let result = apply_operator(1001, &mut stack);
+        assert_eq!(result, Some("SQRT(16)".to_string()));
     }
 }

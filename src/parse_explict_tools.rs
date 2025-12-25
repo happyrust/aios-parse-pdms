@@ -1,25 +1,37 @@
 use crate::parse::{convert_to_explicit_axis_string, match_axis};
-use crate::parser::attribute::explicit::get_explicit_attr_type;
 use crate::BHashMap;
-use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32, parse_to_f64};
-use aios_core::pdms_types::DbAttributeType::*;
-use aios_core::pdms_types::{DbAttributeType, RefI32Tuple};
+use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u16, parse_to_u32};
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, is_uda};
 use aios_core::tool::float_tool::f64_round_3;
 use aios_core::{AttrVal::*, RefU64};
-use dashmap::DashMap;
 use dynfmt::Format;
+#[cfg(test)]
+use aios_core::bin_data::convert_str_to_bytes;
+#[cfg(test)]
+use dashmap::DashMap;
+#[cfg(test)]
+use std::fs::File;
+#[cfg(test)]
+use std::io::BufReader;
+use log::error;
 use nom::multi::count;
-use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u8};
+use nom::number::complete::{be_i16, be_i32, be_u16, be_u32};
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
-use std::fs::File;
-use std::io::BufReader;
-use aios_core::bin_data::convert_str_to_bytes;
-use log::error;
-use pretty_hex::pretty_hex;
-use tokio::count;
+// 使用新的 parser::numeric 模块
+use crate::parser::numeric::{
+    parse_explicit_num_00 as parser_parse_explicit_num_00,
+    parse_explicit_f64_40 as parser_parse_explicit_f64_40,
+    parse_explicit_num_ff as parser_parse_explicit_num_ff,
+    times_keep_f32_two_decimal,
+};
+// 使用新的 parser::attribute::expression 模块
+use crate::parser::attribute::expression::{
+    parse_expression_const as parser_parse_expression_const,
+    get_expression_of_func as parser_get_expression_of_func,
+    apply_operator,
+};
 
 const ATT_PX: i32 = 0xFFF7E177u32 as i32;
 const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
@@ -392,7 +404,12 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
         {
             let mut symbol = String::new();
             let op_key = parse_to_i32(&expression_data[..4]);
-            if MATH_OPERATORS_MAP.contains_key(&op_key) {
+            
+            // 优先使用 opcode 枚举处理（算术/三角函数/实数函数）
+            if let Some(result) = apply_operator(op_key, &mut result_stack) {
+                symbol = result;
+            } else if MATH_OPERATORS_MAP.contains_key(&op_key) {
+                // 回退到 HashMap 处理（比较运算符、字符串函数等）
                 let op_str = MATH_OPERATORS_MAP[&op_key];
                 let cnt = op_str.matches("{}").count();
                 let len = result_stack.len();
@@ -438,50 +455,20 @@ pub fn parse_expression_func(input: &[u8], refno: RefU64) -> IResult<&[u8], Stri
                         symbol = String::from_utf8_lossy(&chars).to_string();
                     }
                 }
+                // MAX: 简化为双参数（与 core.dll DBE_Max 一致）
                 &[0x0, 0x0, 0x3, 0xF0] => {
-                    if result_stack.len() > 1 {
-                        let value1 = result_stack.pop().unwrap_or_default();
+                    if result_stack.len() >= 2 {
                         let value2 = result_stack.pop().unwrap_or_default();
-                        let mut max_array = format!("{},{}", value2, value1);
-                        while expression_data.len() > 36
-                            && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF0]
-                        {
-                            let expression_data_value = &expression_data[12..24];
-                            let mut dst_data = expression_data_value[..8].to_vec();
-                            let dst_first =
-                                (expression_data_value[10] & 0xF).checked_shl(4).unwrap()
-                                    + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
-                            dst_data[0] = dst_first;
-                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap()
-                                + (expression_data_value[1] & 0xF);
-                            let value = f64::from_be_bytes(dst_data.try_into().unwrap());
-                            max_array = format!("{},{}", max_array, value);
-                            expression_data = &expression_data[32..];
-                        }
-                        symbol = format!(" ( MAX ({}) ) ", max_array);
+                        let value1 = result_stack.pop().unwrap_or_default();
+                        symbol = format!("MAX({},{})", value1, value2);
                     }
                 }
+                // MIN: 简化为双参数（与 core.dll DBE_Min 一致）
                 &[0x0, 0x0, 0x3, 0xF1] => {
-                    if result_stack.len() > 1 {
-                        let value1 = result_stack.pop().unwrap_or_default();
+                    if result_stack.len() >= 2 {
                         let value2 = result_stack.pop().unwrap_or_default();
-                        let mut max_array = format!("{},{}", value2, value1);
-                        while expression_data.len() > 36
-                            && &expression_data[32..36] == &[0x0, 0x0, 0x3, 0xF1]
-                        {
-                            let expression_data_value = &expression_data[12..24];
-                            let mut dst_data = expression_data_value[..8].to_vec();
-                            let dst_first =
-                                (expression_data_value[10] & 0xF).checked_shl(4).unwrap()
-                                    + (expression_data_value[11] & 0xF0).checked_shr(4).unwrap();
-                            dst_data[0] = dst_first;
-                            dst_data[1] = (expression_data_value[11] & 0xF).checked_shl(4).unwrap()
-                                + (expression_data_value[1] & 0xF);
-                            let value = f64::from_be_bytes(dst_data.try_into().unwrap());
-                            max_array = format!("{},{}", max_array, value);
-                            expression_data = &expression_data[32..];
-                        }
-                        symbol = format!(" ( MIN ( {} ) ) ", max_array);
+                        let value1 = result_stack.pop().unwrap_or_default();
+                        symbol = format!("MIN({},{})", value1, value2);
                     }
                 }
                 &[0x0, 0x0, 0x7, 0x1E] => {
@@ -545,34 +532,17 @@ pub fn get_expression_func_name(input: &[u8]) -> IResult<&[u8], String> {
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种
+/// 
+/// 已迁移到 crate::parser::numeric::parse_explicit_num_00
 pub fn parse_explicit_num_00(data: &[u8]) -> IResult<&[u8], f64> {
-    let (_, times) = be_i16(&data[10..12])?;
-    let times = 2_f32.powf((5i16 - times) as f32) as f64;
-    let (_, a) = be_i32(&data[..4])?;
-    let (_, b) = be_i32(&data[4..8])?;
-    let value = (((a as f64 / 0x400 as f64) + (b as f64 / 0x20000000 as f64)) / times * 1000.0)
-        .round()
-        / 1000.0;
-    let value = f64_round_3(value);
-    Ok((data, value))
+    parser_parse_explicit_num_00(data)
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种
+/// 
+/// 已迁移到 crate::parser::numeric::parse_explicit_f64_40
 pub fn parse_explicit_f64_40(data: &[u8]) -> IResult<&[u8], f64> {
-    let mut dst_data = data[..8].to_vec();
-    let dst_first =
-        (data[10] & 0xF).checked_shl(4).unwrap() + (data[11] & 0xF0).checked_shr(4).unwrap();
-    dst_data[0] = dst_first;
-    dst_data[1] = (data[11] & 0xF).checked_shl(4).unwrap() + (data[1] & 0xF);
-    // println!("data={:?}", pretty_hex(&dst_data));
-    let value = if data[0] == 0x40 {
-        let value = f64::from_be_bytes(dst_data.try_into().unwrap());
-        -value
-    } else {
-        f64::from_be_bytes(dst_data.try_into().unwrap())
-    };
-    let value = f64_round_3(value);
-    Ok((data, value))
+    parser_parse_explicit_f64_40(data)
 }
 
 #[test]
@@ -583,11 +553,11 @@ fn parse_axis_f32() {
     dbg!(value);
 }
 
+/// 解析表达式常量
+/// 
+/// 已迁移到 crate::parser::attribute::expression::parse_expression_const
 pub fn parse_expression_const(input: &[u8]) -> String {
-    match input {
-        &[0, 0, 0, 0x6F] => "PI".to_string(),
-        &_ => "".to_string(),
-    }
+    parser_parse_expression_const(input).to_string()
 }
 
 #[test]
@@ -599,50 +569,24 @@ fn test_parse_explicit_num_40() {
 }
 
 /// 解析axis显式属性的值，分为00 40 FF三种
+/// 
+/// 已迁移到 crate::parser::numeric::parse_explicit_num_ff
 pub fn parse_explicit_num_ff(data: &[u8]) -> IResult<&[u8], f64> {
-    let a = parse_to_i32(&data[..4]);
-    //40 00 00 00 代表 0.5
-    let b = parse_to_i32(&data[4..8]);
-    let v = (a as f64 / 0x10024 as f64) + b as f64 / 0x40000000 as f64 * 0.5;
-    let c = 0xFFFFu32 - parse_to_u16(&data[10..12]) as u32; //parse like 0xFF FE
-    let div_times = 2_i32.pow(c);
-    let v = (v * 1000.0).round() / (div_times as f64) / 1000.0;
-    let value = f64_round_3(v);
-    Ok((data, value))
+    parser_parse_explicit_num_ff(data)
 }
 
+/// 特殊函数表达式
+/// 
+/// 已迁移到 crate::parser::attribute::expression::get_expression_of_func  
 #[inline]
 pub fn get_expression_of_func(input: &[u8]) -> String {
-    let mut result = "".to_string();
-    match input {
-        &[0, 0, 0, 0xA] => result = "PREV".to_string(),
-        &[0, 0, 0, 0xB] => result = "NEXT".to_string(),
-        &[0x0, 0xA, 0x1D, 0xCB] => {
-            result = "BLRF NUM 1".to_string();
-        }
-        &[0x0, 0xD, 0xBC, 0xF9] => {
-            result = "CATR".to_string();
-        }
-        &[0x0, 0xD, 0x24, 0x5B] => {
-            result = "BLTP 1".to_string();
-        }
-        _ => {}
-    }
-    result
+    parser_get_expression_of_func(input).to_string()
 }
 
 #[inline]
 pub fn times_keep_f32_two_decimal_place(input: i32) -> f32 {
-    let input = input as f32;
-    let result = input / 40.0f32 * 100.0;
-    let b_seven = result as i32 % 10 == 7 && result < 100.0;
-    let mut result = result;
-    if b_seven {
-        result = f32::trunc(result) / 100.0;
-    } else {
-        result = result.round() / 100.0;
-    }
-    result
+    // 委托给 parser::numeric 模块
+    times_keep_f32_two_decimal(input)
 }
 
 #[inline]
@@ -682,12 +626,5 @@ fn pow_test() {
     println!("value={}", value);
 }
 
-#[test]
-fn read_deseralize_file() {
-    let file = File::open("E:/AVEVA/Plant/PDMS12.0.SP4/expression_test.json").unwrap();
-    let reader = BufReader::new(file);
-    let database_info: DashMap<String, Vec<(String, String)>> =
-        serde_json::from_reader(reader).unwrap();
-    println!("value={:?}", database_info);
-}
+
 

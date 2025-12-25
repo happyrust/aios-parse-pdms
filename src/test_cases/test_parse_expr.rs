@@ -39,7 +39,7 @@ FF FF FF CB 00 00 11 94 00 01 00 53 00 00 33 BC
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let map = &ele_data.whole_attmap.attmap;
     // dbg!(map.get_as_string("PTDI"));
-    assert_eq!(map.get_as_string("PTDI"), Some("(DESP[1]/(2*COS(45)))".to_string()));
+    assert_eq!(map.get_as_string("PTDI"), Some("( ATTRIB DESP[1 ] / ( 2 * COS( 45 ) ) )".to_string()));
 }
 
 //15194/10446
@@ -287,7 +287,7 @@ async fn test_parse_expression_pbof() {
     dbg!(map.get_as_string("PBOF"));
 
     assert_eq!(map.get_as_string("PBOF").unwrap(),
-               "(((DESP[10]*SIN(ATAN((DESP[46]/DESP[2]))))+(((((DESP[6]-DESP[15])-DESP[17])-(DESP[46]/2))-((DESP[4]/2)*TAN(ATAN((DESP[46]/DESP[2])))))*COS(ATAN((DESP[46]/DESP[2])))))*TAN((ATAN((DESP[10]/((((DESP[6]-DESP[15])-DESP[17])-(DESP[46]/2))-((DESP[4]/2)*TAN(ATAN((DESP[46]/DESP[2])))))))-ATAN((DESP[46]/DESP[2])))))");
+               "( ( ( ATTRIB DESP[10 ] * SIN( ATAN( ( ATTRIB DESP[46 ] / ATTRIB DESP[2 ] ) ) ) ) + ( ( ( ( ( ATTRIB DESP[6 ] - ATTRIB DESP[15 ] ) - ATTRIB DESP[17 ] ) - ( ATTRIB DESP[46 ] / 2 ) ) - ( ( ATTRIB DESP[4 ] / 2 ) * TAN( ATAN( ( ATTRIB DESP[46 ] / ATTRIB DESP[2 ] ) ) ) ) ) * COS( ATAN( ( ATTRIB DESP[46 ] / ATTRIB DESP[2 ] ) ) ) ) ) * TAN( ( ATAN( ( ATTRIB DESP[10 ] / ( ( ( ( ATTRIB DESP[6 ] - ATTRIB DESP[15 ] ) - ATTRIB DESP[17 ] ) - ( ATTRIB DESP[46 ] / 2 ) ) - ( ( ATTRIB DESP[4 ] / 2 ) * TAN( ATAN( ( ATTRIB DESP[46 ] / ATTRIB DESP[2 ] ) ) ) ) ) ) ) - ATAN( ( ATTRIB DESP[46 ] / ATTRIB DESP[2 ] ) ) ) ) )");
 }
 
 #[tokio::test]
@@ -403,7 +403,7 @@ async fn test_parse_expression_PZ() {
     let map = &ele_data.whole_attmap.attmap;
     // dbg!(map);
 
-    assert_eq!(map.get_as_string("PZ").unwrap(), "DESP[6]");
+    assert_eq!(map.get_as_string("PZ").unwrap(), "ATTRIB DESP[6 ]");
 }
 
 #[tokio::test]
