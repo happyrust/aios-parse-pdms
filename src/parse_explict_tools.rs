@@ -33,18 +33,7 @@ use crate::parser::attribute::expression::{
     apply_operator,
 };
 
-const ATT_PX: i32 = 0xFFF7E177u32 as i32;
-const ATT_PY: i32 = 0xFFF7E15Cu32 as i32;
-const ATT_PZ: i32 = 0xFFF7E141u32 as i32;
-const ATT_PDIA: i32 = 0xFFF77D0Fu32 as i32;
-const ATT_PHEI: i32 = 0xFFF520EFu32 as i32;
-const ATT_PDIS: i32 = 0xFFF21519u32 as i32;
-const ATT_PCON: i32 = 0xFFF3848Du32 as i32;
-const ATT_PBOR: i32 = 0xFFF2511Cu32 as i32;
-const ATT_PPRO: i32 = 0xFFF32DC0u32 as i32;
-const ATT_DPRO: i32 = 0xFFF32DCCu32 as i32;
-const ATT_BTHK: i32 = 0xFFF47D68u32 as i32;
-const ATT_PTCDI: i32 = 0x95A34;
+// 以下常量已移除（未使用）：ATT_PX, ATT_PY, ATT_PZ, ATT_PDIA, ATT_PHEI, ATT_PDIS, ATT_PCON, ATT_PBOR, ATT_PPRO, ATT_DPRO, ATT_BTHK, ATT_PTCDI
 
 // pub static STRING_LOOKUP: Lazy<Mutex<StringLookupTable>> = Lazy::new(|| {
 //     Mutex::new(StringLookupTable::default())
