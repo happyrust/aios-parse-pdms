@@ -7,7 +7,6 @@
 
 use aios_core::pdms_types::DbAttributeType;
 use nom::number::complete::{be_i32, be_u16};
-use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
 
@@ -63,7 +62,7 @@ impl ExplicitAttrHeader {
 /// - bytes[6..8]: 属性长度 (u16, word 数)
 pub fn parse_explicit_header(input: &[u8]) -> IResult<&[u8], ExplicitAttrHeader> {
     let (input, (hash, type_code, length)) =
-        tuple((be_i32, be_u16, be_u16)).parse(input)?;
+        (be_i32, be_u16, be_u16).parse(input)?;
 
     Ok((
         input,

@@ -12,7 +12,6 @@ use nom::combinator::map;
 use nom::error::{ErrorKind, make_error};
 use nom::multi::count;
 use nom::number::complete::{be_i32, be_u16, be_u32, be_u64};
-use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
 
@@ -31,7 +30,7 @@ use nom::Parser;
 #[inline]
 pub fn parse_refno(input: &[u8]) -> IResult<&[u8], RefU64> {
     map(
-        tuple((be_u32, be_u32)),
+        (be_u32, be_u32),
         |(high, low)| RefU64::from_two_nums(high, low),
     )
     .parse(input)
@@ -46,7 +45,7 @@ pub fn parse_refno(input: &[u8]) -> IResult<&[u8], RefU64> {
 #[inline]
 pub fn parse_ref_tuple(input: &[u8]) -> IResult<&[u8], RefI32Tuple> {
     map(
-        tuple((be_i32, be_i32)),
+        (be_i32, be_i32),
         |(a, b)| RefI32Tuple::new(a, b),
     )
     .parse(input)
@@ -101,7 +100,7 @@ pub fn parse_members(input: &[u8]) -> IResult<&[u8], Vec<RefU64>> {
 /// 解析 owner 属性（返回字符串形式的 refno）
 #[inline]
 pub fn parse_owner(input: &[u8]) -> IResult<&[u8], String> {
-    let (_, (owner0, owner1)) = tuple((be_i32, be_i32)).parse(input)?;
+    let (_, (owner0, owner1)) = (be_i32, be_i32).parse(input)?;
     let owner: String = RefI32Tuple::new(owner0, owner1).into();
     Ok((input, owner))
 }
@@ -112,7 +111,7 @@ pub fn parse_owner(input: &[u8]) -> IResult<&[u8], String> {
 /// - `(flag, length_in_words)`: 标志位和长度（word 数）
 #[inline]
 pub fn parse_flag_and_len(input: &[u8]) -> IResult<&[u8], (u16, u16)> {
-    tuple((be_u16, be_u16)).parse(input)
+    (be_u16, be_u16).parse(input)
 }
 
 /// 从固定偏移量解析 RefI32Tuple

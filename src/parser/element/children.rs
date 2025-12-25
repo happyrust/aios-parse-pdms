@@ -7,7 +7,6 @@ use aios_core::types::{RefU64, RefU64Vec};
 use nom::error::{ErrorKind, make_error};
 use nom::multi::count;
 use nom::number::complete::{be_u16, be_u64};
-use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
 
@@ -34,7 +33,7 @@ pub fn parse_members_block(input: &[u8], expected_refno: RefU64) -> IResult<&[u8
     }
 
     // 解析 flag 和长度
-    let (_, (flag, len_words)) = tuple((be_u16, be_u16)).parse(input)?;
+    let (_, (flag, len_words)) = (be_u16, be_u16).parse(input)?;
     let memb_bytes_len = len_words as usize * 4;
 
     if flag != MEMBERS_FLAG {
