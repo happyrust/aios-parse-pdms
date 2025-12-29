@@ -1,0 +1,63 @@
+{
+  "file_info": {
+    "filepath": "data/attlib.dat",
+    "size": 3973120,
+    "analysis_method": "IDA_pro_guided_6_layer_analysis"
+  },
+  "header": {
+    "magic": 19,
+    "version": 65,
+    "record_count": 116,
+    "data_offset": 116,
+    "string_offset": 114,
+    "index_offset": 105,
+    "checksum": 98,
+    "flags": 117
+  },
+  "layers": {
+    "1": {
+      "layer_number": 1,
+      "section_key": "ATGTIX",
+      "record_count": 0,
+      "summary": "第1层包含 0 条记录",
+      "records": []
+    },
+    "2": {
+      "layer_number": 2,
+      "section_key": "ATGTDF",
+      "record_count": 0,
+      "summary": "第2层包含 0 条记录",
+      "records": []
+    },
+    "3": {
+      "layer_number": 3,
+      "section_key": "ATGTSX",
+      "record_count": 0,
+      "summary": "第3层包含 0 条记录",
+      "records": []
+    },
+    "4": {
+      "layer_number": 4,
+      "section_key": "ATGTIX",
+      "record_count": 0,
+      "summary": "第4层包含 0 条记录",
+      "records": []
+    },
+    "5": {
+      "layer_number": 5,
+      "section_key": "ATGTDF",
+      "record_count": 0,
+      "summary": "第5层包含 0 条记录",
+      "records": []
+    },
+    "6": {
+      "layer_number": 6,
+      "section_key": "ATGTSX",
+      "record_count": 0,
+      "summary": "第6层包含 0 条记录",
+      "records": []
+    }
+  },
+  "analysis": {},
+  "total_records": 0
+}

@@ -1,0 +1,772 @@
+{
+  "file_info": {
+    "filepath": "data/attlib.dat",
+    "size": 3973120,
+    "analysis_method": "IDA_pro_guided_smart_scan"
+  },
+  "summary": {
+    "total_records": 128,
+    "unique_types": 88,
+    "layers_found": 2
+  },
+  "layers": {
+    "1": {
+      "layer_number": 1,
+      "section_key": "ATGTIX",
+      "name": "基础属性类型定义",
+      "record_count": 6,
+      "records": [
+        {
+          "offset": 4172,
+          "type": 31533490,
+          "size": 8,
+          "flags": 0,
+          "checksum": 0,
+          "layer": 1,
+          "description": "未知类型(31533490)"
+        },
+        {
+          "offset": 4272,
+          "type": 768950,
+          "size": 8,
+          "flags": 0,
+          "checksum": 0,
+          "layer": 1,
+          "description": "未知类型(768950)"
+        },
+        {
+          "offset": 4332,
+          "type": 65477461,
+          "size": 8,
+          "flags": 0,
+          "checksum": 0,
+          "layer": 1,
+          "description": "未知类型(65477461)"
+        },
+        {
+          "offset": 4516,
+          "type": 232347465,
+          "size": 8,
+          "flags": 0,
+          "checksum": 0,
+          "layer": 1,
+          "description": "未知类型(232347465)"
+        },
+        {
+          "offset": 4736,
+          "type": 317984008,
+          "size": 8,
+          "flags": 0,
+          "checksum": 0,
+          "layer": 1,
+          "description": "未知类型(317984008)"
+        }
+      ]
+    },
+    "2": {
+      "layer_number": 2,
+      "section_key": "ATGTDF",
+      "name": "属性详细配置",
+      "record_count": 0,
+      "records": []
+    },
+    "3": {
+      "layer_number": 3,
+      "section_key": "ATGTSX",
+      "name": "属性值定义和约束",
+      "record_count": 0,
+      "records": []
+    },
+    "4": {
+      "layer_number": 4,
+      "section_key": "ATGTIX",
+      "name": "扩展属性信息",
+      "record_count": 0,
+      "records": []
+    },
+    "5": {
+      "layer_number": 5,
+      "section_key": "ATGTDF",
+      "name": "属性关联和依赖关系",
+      "record_count": 0,
+      "records": []
+    },
+    "6": {
+      "layer_number": 6,
+      "section_key": "ATGTSX",
+      "name": "最终属性映射和索引",
+      "record_count": 122,
+      "records": [
+        {
+          "offset": 2896823,
+          "type": 33556773,
+          "size": 512,
+          "flags": 16779564,
+          "checksum": 3036676960,
+          "layer": 6,
+          "description": "未知类型(33556773)"
+        },
+        {
+          "offset": 2931039,
+          "type": 18223490,
+          "size": 582,
+          "flags": 4212527514,
+          "checksum": 822085230,
+          "layer": 6,
+          "description": "未知类型(18223490)"
+        },
+        {
+          "offset": 2933617,
+          "type": 539648,
+          "size": 1024,
+          "flags": 160270848,
+          "checksum": 539648,
+          "layer": 6,
+          "description": "未知类型(539648)"
+        },
+        {
+          "offset": 2937377,
+          "type": 1040384,
+          "size": 1024,
+          "flags": 325351424,
+          "checksum": 1040384,
+          "layer": 6,
+          "description": "未知类型(1040384)"
+        },
+        {
+          "offset": 2938697,
+          "type": 738816,
+          "size": 1024,
+          "flags": 375812608,
+          "checksum": 738816,
+          "layer": 6,
+          "description": "未知类型(738816)"
+        }
+      ]
+    }
+  },
+  "type_distribution": {
+    "539648": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(539648)"
+    },
+    "549376": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(549376)"
+    },
+    "553472": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(553472)"
+    },
+    "570880": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(570880)"
+    },
+    "601088": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(601088)"
+    },
+    "621056": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(621056)"
+    },
+    "642053": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(642053)"
+    },
+    "722578": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(722578)"
+    },
+    "728064": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(728064)"
+    },
+    "738816": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(738816)"
+    },
+    "750336": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(750336)"
+    },
+    "764672": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(764672)"
+    },
+    "768950": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(768950)"
+    },
+    "769280": {
+      "count": 2,
+      "percentage": 1.56,
+      "description": "未知类型(769280)"
+    },
+    "771072": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(771072)"
+    },
+    "771840": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(771840)"
+    },
+    "772352": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(772352)"
+    },
+    "882432": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(882432)"
+    },
+    "882688": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(882688)"
+    },
+    "918272": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(918272)"
+    },
+    "974848": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(974848)"
+    },
+    "985088": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(985088)"
+    },
+    "1003776": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1003776)"
+    },
+    "1024512": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1024512)"
+    },
+    "1024768": {
+      "count": 4,
+      "percentage": 3.12,
+      "description": "未知类型(1024768)"
+    },
+    "1025024": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1025024)"
+    },
+    "1031424": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1031424)"
+    },
+    "1031680": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1031680)"
+    },
+    "1031936": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1031936)"
+    },
+    "1040384": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1040384)"
+    },
+    "1063424": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1063424)"
+    },
+    "1068032": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1068032)"
+    },
+    "1118464": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1118464)"
+    },
+    "1119744": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1119744)"
+    },
+    "1280256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1280256)"
+    },
+    "1536256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1536256)"
+    },
+    "1538304": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1538304)"
+    },
+    "1539584": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(1539584)"
+    },
+    "2304256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2304256)"
+    },
+    "2560256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2560256)"
+    },
+    "2561280": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2561280)"
+    },
+    "2561536": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2561536)"
+    },
+    "2561792": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2561792)"
+    },
+    "2562048": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2562048)"
+    },
+    "2562304": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2562304)"
+    },
+    "2562560": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(2562560)"
+    },
+    "3073024": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3073024)"
+    },
+    "3328256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3328256)"
+    },
+    "3328512": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3328512)"
+    },
+    "3328768": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3328768)"
+    },
+    "3329024": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3329024)"
+    },
+    "3329280": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3329280)"
+    },
+    "3584256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3584256)"
+    },
+    "3584768": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3584768)"
+    },
+    "3585280": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3585280)"
+    },
+    "3840256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3840256)"
+    },
+    "3840512": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3840512)"
+    },
+    "3840768": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3840768)"
+    },
+    "3841024": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3841024)"
+    },
+    "3841280": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(3841280)"
+    },
+    "4096256": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(4096256)"
+    },
+    "4096512": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(4096512)"
+    },
+    "18223490": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(18223490)"
+    },
+    "31533490": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(31533490)"
+    },
+    "33556773": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(33556773)"
+    },
+    "65477461": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(65477461)"
+    },
+    "137021696": {
+      "count": 4,
+      "percentage": 3.12,
+      "description": "未知类型(137021696)"
+    },
+    "139042560": {
+      "count": 5,
+      "percentage": 3.91,
+      "description": "未知类型(139042560)"
+    },
+    "139702528": {
+      "count": 5,
+      "percentage": 3.91,
+      "description": "未知类型(139702528)"
+    },
+    "143352064": {
+      "count": 5,
+      "percentage": 3.91,
+      "description": "未知类型(143352064)"
+    },
+    "143352832": {
+      "count": 3,
+      "percentage": 2.34,
+      "description": "未知类型(143352832)"
+    },
+    "144958720": {
+      "count": 4,
+      "percentage": 3.12,
+      "description": "未知类型(144958720)"
+    },
+    "158852096": {
+      "count": 3,
+      "percentage": 2.34,
+      "description": "未知类型(158852096)"
+    },
+    "163519232": {
+      "count": 8,
+      "percentage": 6.25,
+      "description": "未知类型(163519232)"
+    },
+    "163679744": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(163679744)"
+    },
+    "163866880": {
+      "count": 3,
+      "percentage": 2.34,
+      "description": "未知类型(163866880)"
+    },
+    "164295424": {
+      "count": 2,
+      "percentage": 1.56,
+      "description": "未知类型(164295424)"
+    },
+    "164717824": {
+      "count": 3,
+      "percentage": 2.34,
+      "description": "未知类型(164717824)"
+    },
+    "182055424": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(182055424)"
+    },
+    "210350848": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(210350848)"
+    },
+    "228461824": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(228461824)"
+    },
+    "230488320": {
+      "count": 3,
+      "percentage": 2.34,
+      "description": "未知类型(230488320)"
+    },
+    "230490880": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(230490880)"
+    },
+    "232347465": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(232347465)"
+    },
+    "238231040": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(238231040)"
+    },
+    "298898432": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(298898432)"
+    },
+    "317984008": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(317984008)"
+    },
+    "319776000": {
+      "count": 1,
+      "percentage": 0.78,
+      "description": "未知类型(319776000)"
+    }
+  },
+  "records_sample": [
+    {
+      "offset": 4172,
+      "type": 31533490,
+      "size": 8,
+      "flags": 0,
+      "checksum": 0,
+      "layer": 1,
+      "description": "未知类型(31533490)"
+    },
+    {
+      "offset": 4272,
+      "type": 768950,
+      "size": 8,
+      "flags": 0,
+      "checksum": 0,
+      "layer": 1,
+      "description": "未知类型(768950)"
+    },
+    {
+      "offset": 4332,
+      "type": 65477461,
+      "size": 8,
+      "flags": 0,
+      "checksum": 0,
+      "layer": 1,
+      "description": "未知类型(65477461)"
+    },
+    {
+      "offset": 4516,
+      "type": 232347465,
+      "size": 8,
+      "flags": 0,
+      "checksum": 0,
+      "layer": 1,
+      "description": "未知类型(232347465)"
+    },
+    {
+      "offset": 4736,
+      "type": 317984008,
+      "size": 8,
+      "flags": 0,
+      "checksum": 0,
+      "layer": 1,
+      "description": "未知类型(317984008)"
+    },
+    {
+      "offset": 6444,
+      "type": 722578,
+      "size": 27,
+      "flags": 65,
+      "checksum": 114,
+      "layer": 1,
+      "description": "未知类型(722578)"
+    },
+    {
+      "offset": 2896823,
+      "type": 33556773,
+      "size": 512,
+      "flags": 16779564,
+      "checksum": 3036676960,
+      "layer": 6,
+      "description": "未知类型(33556773)"
+    },
+    {
+      "offset": 2931039,
+      "type": 18223490,
+      "size": 582,
+      "flags": 4212527514,
+      "checksum": 822085230,
+      "layer": 6,
+      "description": "未知类型(18223490)"
+    },
+    {
+      "offset": 2933617,
+      "type": 539648,
+      "size": 1024,
+      "flags": 160270848,
+      "checksum": 539648,
+      "layer": 6,
+      "description": "未知类型(539648)"
+    },
+    {
+      "offset": 2937377,
+      "type": 1040384,
+      "size": 1024,
+      "flags": 325351424,
+      "checksum": 1040384,
+      "layer": 6,
+      "description": "未知类型(1040384)"
+    },
+    {
+      "offset": 2938697,
+      "type": 738816,
+      "size": 1024,
+      "flags": 375812608,
+      "checksum": 738816,
+      "layer": 6,
+      "description": "未知类型(738816)"
+    },
+    {
+      "offset": 2944589,
+      "type": 570880,
+      "size": 1024,
+      "flags": 557876736,
+      "checksum": 570880,
+      "layer": 6,
+      "description": "未知类型(570880)"
+    },
+    {
+      "offset": 2946493,
+      "type": 621056,
+      "size": 1024,
+      "flags": 589857536,
+      "checksum": 621056,
+      "layer": 6,
+      "description": "未知类型(621056)"
+    },
+    {
+      "offset": 2947893,
+      "type": 601088,
+      "size": 1024,
+      "flags": 638576640,
+      "checksum": 601088,
+      "layer": 6,
+      "description": "未知类型(601088)"
+    },
+    {
+      "offset": 2950673,
+      "type": 985088,
+      "size": 1024,
+      "flags": 804919296,
+      "checksum": 985088,
+      "layer": 6,
+      "description": "未知类型(985088)"
+    },
+    {
+      "offset": 2951761,
+      "type": 1063424,
+      "size": 768,
+      "flags": 864359424,
+      "checksum": 177152,
+      "layer": 6,
+      "description": "未知类型(1063424)"
+    },
+    {
+      "offset": 2960097,
+      "type": 1003776,
+      "size": 1024,
+      "flags": 1241807872,
+      "checksum": 1003776,
+      "layer": 6,
+      "description": "未知类型(1003776)"
+    },
+    {
+      "offset": 2961509,
+      "type": 882688,
+      "size": 1024,
+      "flags": 1299179776,
+      "checksum": 882688,
+      "layer": 6,
+      "description": "未知类型(882688)"
+    },
+    {
+      "offset": 2963593,
+      "type": 764672,
+      "size": 1024,
+      "flags": 1651564032,
+      "checksum": 764672,
+      "layer": 6,
+      "description": "未知类型(764672)"
+    },
+    {
+      "offset": 2967557,
+      "type": 1119744,
+      "size": 1024,
+      "flags": 1778292992,
+      "checksum": 791552,
+      "layer": 6,
+      "description": "未知类型(1119744)"
+    }
+  ]
+}

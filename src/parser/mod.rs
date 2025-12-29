@@ -12,6 +12,7 @@
 //! - `database` - 数据库解析器（文件头、索引区等）
 
 pub mod attribute;
+pub mod attlib;
 pub mod combinator;
 pub mod database;
 pub mod element;
