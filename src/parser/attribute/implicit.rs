@@ -7,6 +7,7 @@
 //! - f32/f64 混合模式支持
 //! - 可配置的元素头部偏移
 
+use aios_core::helper::{parse_to_f32, parse_to_f64};
 use aios_core::pdms_types::DbAttributeType;
 use aios_core::types::NamedAttrValue;
 use glam::Vec3;
@@ -179,7 +180,7 @@ fn parse_double(input: &[u8], is_f32: bool) -> IResult<&[u8], NamedAttrValue> {
                 nom::error::ErrorKind::Eof,
             )));
         }
-        let value = f32::from_be_bytes(input[..4].try_into().unwrap());
+        let value = parse_to_f32(&input[..4]);
         Ok((input, NamedAttrValue::F32Type(value)))
     } else {
         if input.len() < 8 {
@@ -188,7 +189,7 @@ fn parse_double(input: &[u8], is_f32: bool) -> IResult<&[u8], NamedAttrValue> {
                 nom::error::ErrorKind::Eof,
             )));
         }
-        let value = f64::from_be_bytes(input[..8].try_into().unwrap()) as f32;
+        let value = parse_to_f64(&input[..8]) as f32;
         Ok((input, NamedAttrValue::F32Type(value)))
     }
 }
@@ -286,9 +287,9 @@ fn parse_vec3(input: &[u8], is_f32: bool) -> IResult<&[u8], NamedAttrValue> {
         }
         // 长度 + 3个 f32 值
         let _len = i32::from_be_bytes(input[..4].try_into().unwrap());
-        let x = f32::from_be_bytes(input[4..8].try_into().unwrap());
-        let y = f32::from_be_bytes(input[8..12].try_into().unwrap());
-        let z = f32::from_be_bytes(input[12..16].try_into().unwrap());
+        let x = parse_to_f32(&input[4..8]);
+        let y = parse_to_f32(&input[8..12]);
+        let z = parse_to_f32(&input[12..16]);
         Ok((input, NamedAttrValue::Vec3Type(Vec3::new(x, y, z))))
     } else {
         if input.len() < 28 {
@@ -299,9 +300,9 @@ fn parse_vec3(input: &[u8], is_f32: bool) -> IResult<&[u8], NamedAttrValue> {
         }
         // 长度 + 3个 f64 值
         let _len = i32::from_be_bytes(input[..4].try_into().unwrap());
-        let x = f64::from_be_bytes(input[4..12].try_into().unwrap()) as f32;
-        let y = f64::from_be_bytes(input[12..20].try_into().unwrap()) as f32;
-        let z = f64::from_be_bytes(input[20..28].try_into().unwrap()) as f32;
+        let x = parse_to_f64(&input[4..12]) as f32;
+        let y = parse_to_f64(&input[12..20]) as f32;
+        let z = parse_to_f64(&input[20..28]) as f32;
         Ok((input, NamedAttrValue::Vec3Type(Vec3::new(x, y, z))))
     }
 }
@@ -331,7 +332,7 @@ fn parse_double_array(input: &[u8], is_f32: bool) -> IResult<&[u8], NamedAttrVal
             .chunks(4)
             .filter_map(|chunk| {
                 if chunk.len() == 4 {
-                    Some(f32::from_be_bytes(chunk.try_into().unwrap()))
+                    Some(parse_to_f32(chunk))
                 } else {
                     None
                 }
@@ -352,7 +353,7 @@ fn parse_double_array(input: &[u8], is_f32: bool) -> IResult<&[u8], NamedAttrVal
             .chunks(8)
             .filter_map(|chunk| {
                 if chunk.len() == 8 {
-                    Some(f64::from_be_bytes(chunk.try_into().unwrap()) as f32)
+                    Some(parse_to_f64(chunk) as f32)
                 } else {
                     None
                 }

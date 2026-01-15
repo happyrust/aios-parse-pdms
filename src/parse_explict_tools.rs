@@ -2,16 +2,11 @@ use crate::parse::{convert_to_explicit_axis_string, match_axis};
 use crate::BHashMap;
 use aios_core::helper::{parse_to_i16, parse_to_i32, parse_to_u32};
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash, is_uda};
+use aios_core::tool::float_tool::f64_round_3;
 use aios_core::{AttrVal::*, RefU64};
 use dynfmt::Format;
 #[cfg(test)]
 use aios_core::bin_data::convert_str_to_bytes;
-#[cfg(test)]
-use dashmap::DashMap;
-#[cfg(test)]
-use std::fs::File;
-#[cfg(test)]
-use std::io::BufReader;
 use log::error;
 use nom::multi::count;
 use nom::number::complete::{be_i32, be_u16, be_u32};
@@ -230,6 +225,67 @@ pub fn parse_expression_attr(input: &[u8], refno: RefU64) -> IResult<&[u8], (Str
     }
 }
 
+fn decode_value_expr_base(a2: i32, a3: i32, a4: i32) -> f64 {
+    let a2u = a2 as u32;
+    let a3u = a3 as u32;
+    let a4u = a4 as u32;
+    if (a4u & 0xC0000000) != 0x40000000 {
+        let v = (a2 as f64) * 0.000030517578125 + (a3 as f64) * 9.313225746154785e-10;
+        return v * 2_f64.powi(a4);
+    }
+
+    let mut hi = (a2u & 0x1FFFFF) | ((a4u & 0x7FF) << 20);
+    if (a2u & 0x40000000) != 0 {
+        hi |= 0x80000000;
+    }
+    let bits = ((hi as u64) << 32) | (a3u as u64);
+    f64::from_bits(bits)
+}
+
+fn parse_value_expression_number(input: &[u8]) -> IResult<&[u8], f64> {
+    if input.len() < 8 {
+        return Err(nom::Err::Incomplete(nom::Needed::new(8 - input.len())));
+    }
+    let (rest, opcode) = be_i32(input)?;
+    if opcode != 0x65 {
+        return Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    let (rest, count) = be_i32(rest)?;
+    if count <= 0 {
+        return Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    let count_usize = count as usize;
+    let total_bytes = count_usize
+        .checked_mul(4)
+        .ok_or_else(|| nom::Err::Error(nom::error::make_error(input, nom::error::ErrorKind::Verify)))?;
+    if rest.len() < total_bytes {
+        return Err(nom::Err::Incomplete(nom::Needed::new(
+            total_bytes - rest.len(),
+        )));
+    }
+    if total_bytes < 20 {
+        return Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    let data = &rest[..total_bytes];
+    let a2 = i32::from_be_bytes(data[4..8].try_into().unwrap());
+    let a3 = i32::from_be_bytes(data[8..12].try_into().unwrap());
+    let a4 = i32::from_be_bytes(data[12..16].try_into().unwrap());
+    let exp10 = i32::from_be_bytes(data[16..20].try_into().unwrap());
+    let base = decode_value_expr_base(a2, a3, a4);
+    let value = base * 10_f64.powi(exp10);
+    let value = f64_round_3(value);
+    Ok((&rest[total_bytes..], value))
+}
+
 pub fn parse_expression_func(input: &[u8], _refno: RefU64) -> IResult<&[u8], String> {
     if input.len() < 8 {
         return Ok((input, "".to_string()));
@@ -258,24 +314,35 @@ pub fn parse_expression_func(input: &[u8], _refno: RefU64) -> IResult<&[u8], Str
         }
         //解析数值
         if number_flag {
-            expression_data = &expression_data[8..];
-            if expression_data.len() < 12 {
-                return Ok((input, "".to_string())); //todo 检查这种情况
+            let mut parsed_value = None;
+            if check_val1 == 0x65 {
+                if let Ok((rest, value)) = parse_value_expression_number(expression_data) {
+                    parsed_value = Some((rest, value));
+                }
             }
-            let num_flag = parse_to_i16(&expression_data[8..10]);
-            let value = if num_flag == 0i16 {
-                parse_explicit_num_00(&expression_data[..12])?.1
-            } else if num_flag == 0x4000i16 {
-                parse_explicit_f64_40(&expression_data[..12])?.1
-            } else if num_flag == -1i16 {
-                parse_explicit_num_ff(&expression_data[..12])?.1
+            if let Some((rest, value)) = parsed_value {
+                result_stack.push(value.to_string());
+                expression_data = rest;
             } else {
-                0.0
-            };
-            // 表达式的值
-            result_stack.push(value.to_string());
+                expression_data = &expression_data[8..];
+                if expression_data.len() < 12 {
+                    return Ok((input, "".to_string())); //todo 检查这种情况
+                }
+                let num_flag = parse_to_i16(&expression_data[8..10]);
+                let value = if num_flag == 0i16 {
+                    parse_explicit_num_00(&expression_data[..12])?.1
+                } else if num_flag == 0x4000i16 {
+                    parse_explicit_f64_40(&expression_data[..12])?.1
+                } else if num_flag == -1i16 {
+                    parse_explicit_num_ff(&expression_data[..12])?.1
+                } else {
+                    0.0
+                };
+                // 表达式的值
+                result_stack.push(value.to_string());
 
-            expression_data = &expression_data[12..];
+                expression_data = &expression_data[12..];
+            }
             // 表达式 值的结束位  这里是个结束位 结束位 00 00 00 00 00 00 00 06
             // 这里可能会出现没有结束位就结束的情况，所以加了一个长度判断
             if expression_data.len() > 8 {

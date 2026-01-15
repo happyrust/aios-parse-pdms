@@ -1,11 +1,16 @@
 use crate::consts::*;
 use crate::parse_explict_tools::*;
 // 使用新 parser 模块中的基础函数
-use crate::parser::attribute::explicit::get_explicit_attr_type;
+use crate::parser::attribute::explicit::{get_explicit_attr_type, parse_explicit_header};
+use crate::parser::attribute::expression::parse_expression_attr as parse_expression_attr_nom;
+use crate::parser::attribute::implicit::{
+    parse_implicit_attr_value as parse_implicit_attr_value_new, ImplicitAttrOffset,
+};
 use crate::parser::combinator::collect_segmented_payload;
-use crate::parser::primitives::{parse_members, parse_owner};
-use crate::parser::element::children::{parse_element_children, extract_members};
+use crate::parser::database::header::extract_db_no;
 use crate::parser::database::validation::is_valid_db_header;
+use crate::parser::element::children::{extract_members, parse_element_children};
+use crate::parser::primitives::{parse_members, parse_owner};
 use aios_core::basic::info::RefnoInfo;
 use aios_core::consts::EXPR_ATT_SET;
 use aios_core::db::*;
@@ -32,7 +37,7 @@ use nom::character::complete::alpha1;
 use nom::combinator::verify;
 use nom::error::ErrorKind;
 use nom::multi::{count, many_till};
-use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
+use nom::number::complete::{be_i16, be_i32, be_u32, be_u64};
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
@@ -44,8 +49,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Seek, Write};
-use std::ops::{Deref, Range};
+use std::io::{Read, Write};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -230,6 +235,9 @@ pub async fn parse_file(
     let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::new();
     file.read_to_end(&mut buf).context("read db file")?;
+    if !is_valid_db_header(&buf) {
+        return Err(anyhow!("invalid db header: {:?}", path));
+    }
     let input = &buf[..];
     let time = time_start.elapsed();
     println!("read file {:?} finished in {:?}", path, time);
@@ -429,19 +437,19 @@ pub fn parse_raw_ele_data_with_info(
     };
     let mut memb_bytes_len = 0;
 
-    if maybe_refno.is_some() && maybe_refno.unwrap() == refno {
+    if maybe_refno == Some(refno) && membs_data.len() >= 4 {
         if &membs_data[0..2] == [0x0, 0x2].as_slice() {
-            memb_bytes_len = parse_to_u16(&membs_data[2..4]) as usize * 4;
+            let declared_bytes = parse_to_u16(&membs_data[2..4]) as usize * 4;
+            memb_bytes_len = declared_bytes;
             // 使用新的 collect_segmented_payload 替换 get_merged_data
-            if let Ok((_, merged_data)) = collect_segmented_payload(membs_data, memb_bytes_len, 0x2) {
-                if let Ok((_, c)) = parse_attr_members(&merged_data) {
-                    children = c;
-                }
-                // 更新 memb_bytes_len 为实际消耗的字节数
-                memb_bytes_len = membs_data.len() - collect_segmented_payload(membs_data, memb_bytes_len, 0x2)
-                    .map(|(rest, _)| rest.len())
-                    .unwrap_or(membs_data.len());
+            let (rest, merged_data) =
+                collect_segmented_payload(membs_data, declared_bytes, 0x2)
+                    .map_err(|_| anyhow!("parse members segment failed"))?;
+            if let Ok((_, c)) = parse_attr_members(&merged_data) {
+                children = c;
             }
+            // 更新 memb_bytes_len 为实际消耗的字节数
+            memb_bytes_len = membs_data.len().saturating_sub(rest.len());
         }
     }
 
@@ -550,24 +558,71 @@ pub fn parse_raw_ele_data_with_info(
         // - examples/new_parser_usage.rs - 使用示例
         // ============================================================
 
-        if let Ok((_, att_val)) =
-            parse_implicit_attr_value(&implicit_data, &attr_info, is_f32, f32_neg_offset, step)
-        {
+        let is_expr = check_is_expr(attr_info.hash);
+        if is_expr {
+            if let Ok((_, legacy_val)) = parse_implicit_attr_value(
+                &implicit_data,
+                &attr_info,
+                is_f32,
+                f32_neg_offset,
+                step,
+            ) {
+                let att_val = NamedAttrValue::from(&legacy_val);
+                if attr_info.name != "unset" {
+                    implicit_attmap.insert(attr_info.name.clone(), att_val);
+                }
+            }
+            continue;
+        }
+
+        let implicit_offset = ImplicitAttrOffset {
+            name: attr_info.name.clone(),
+            offset: attr_info.offset,
+            attr_type: attr_info.att_type.clone(),
+        };
+        let mut att_val = None;
+        if let Ok((_, new_val)) = parse_implicit_attr_value_new(
+            &implicit_data,
+            &implicit_offset,
+            is_f32,
+            f32_neg_offset,
+            step,
+        ) {
+            if !matches!(new_val, NamedAttrValue::InvalidType) {
+                att_val = Some(new_val);
+            }
+        }
+        if att_val.is_none() {
+            if let Ok((_, legacy_val)) = parse_implicit_attr_value(
+                &implicit_data,
+                &attr_info,
+                is_f32,
+                f32_neg_offset,
+                step,
+            ) {
+                att_val = Some(NamedAttrValue::from(&legacy_val));
+            }
+        }
+
+        if let Some(att_val) = att_val {
             match &att_val {
-                RefU64Type(value) => {
+                NamedAttrValue::RefU64Type(value) => {
                     if attr_info.name.to_lowercase() != "owner" && value.get_0() != 0 {
                         // foreign_refnos.insert(attr_info.name.to_string(), *value);
                     }
                 }
-                InvalidType => {
-                    dbg!(&refno);
-                    dbg!(&noun_name);
+                NamedAttrValue::InvalidType => {
+                    #[cfg(feature = "debug_parse")]
+                    {
+                        dbg!(&refno);
+                        dbg!(&noun_name);
+                    }
                 }
                 _ => {}
             }
             // unset 是pdms数据中存在info文件里没有的offset数据，手动在info文件里面加的这个 unset 占位
             if attr_info.name != "unset" {
-                implicit_attmap.insert(attr_info.name.clone(), att_val.into());
+                implicit_attmap.insert(attr_info.name.clone(), att_val);
             }
         }
     }
@@ -663,12 +718,11 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
 
 //移除00 00 00 007，保留后面的数据
 pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
-    let mut has_next = input.len() >= 4 * 3;
-    let mut bytes = vec![];
-    if !has_next {
+    let mut bytes = Vec::new();
+    if input.len() < 4 {
         return bytes;
     }
-    while has_next && input.len() > 4 {
+    while input.len() >= 4 {
         //还可能遇到各种page，需要跳过，暂时假定只有遇到INDEX Page的情况
         let v = parse_to_i32(&input[..4]);
         match v {
@@ -676,17 +730,17 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
                 input = &input[4..];
             }
             5 => {
+                if input.len() < 8 {
+                    break;
+                }
                 let page_type = parse_to_i32(&input[4..8]);
                 #[cfg(feature = "debug_parse")]
                 println!("Found {refno} attr may be in page type {:#4X?}", page_type);
                 if page_type == 0xCC47DF && input.len() > 0x2C {
                     //一直找到为0的为止
                     input = &input[0x2C..];
-                    while parse_to_i32(&input[0..4]) != 0 {
+                    while input.len() >= 4 && parse_to_i32(&input[0..4]) != 0 {
                         input = &input[4..];
-                        if input.len() < 4 {
-                            break;
-                        }
                     }
                     if input.len() > 4 {
                         input = &input[4..];
@@ -698,23 +752,30 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
                 }
             }
             _ => {
-                let flag = parse_to_u16(&input[0..2]) as usize;
+                let flag = parse_to_u16(&input[0..2]) as u8;
                 if flag != 1 {
                     break;
                 }
-                let len = parse_to_u16(&input[2..4]) as usize;
+                let len_words = parse_to_u16(&input[2..4]) as usize;
+                let declared_bytes = len_words * 4;
+                if declared_bytes < 12 || declared_bytes > input.len() {
+                    break;
+                }
                 let maybe_refno = RefU64::from(&input[4..12]);
                 //必须要检查是否跟的是 refno
-                if len < 5 || len > input.len() || maybe_refno != refno {
+                if len_words < 5 || maybe_refno != refno {
                     break;
                 }
-                if len * 4 > input.len() {
-                    bytes.extend(&input[20..]);
-                    break;
+                match collect_segmented_payload(input, declared_bytes, 0x01) {
+                    Ok((rest, mut payload)) => {
+                        if payload.len() >= 8 && payload[..8].iter().all(|&b| b == 0) {
+                            payload.drain(..8);
+                        }
+                        bytes.extend(payload);
+                        input = rest;
+                    }
+                    Err(_) => break,
                 }
-                bytes.extend(&input[20..len * 4]);
-                input = &input[len * 4..];
-                has_next = input.len() >= 4 * 3;
             }
         }
     }
@@ -748,58 +809,39 @@ pub fn parse_db_basic_data(input: Vec<u8>, _file_name: &str, _project: &str) -> 
         gen_ref_time.elapsed().as_millis()
     );
 
-    let root_refno = world_refno;
-    let mut children_map = HashMap::new();
-
-    let (refno, children_refnos) = {
-        if let Some(entry) = refno_table_map.get(&root_refno) {
-            parse_ele_children(&input[entry.pos - 4..])
-        } else {
-            (root_refno, Default::default())
-        }
-    };
-    let children = children_refnos
-        .iter()
-        .filter(|&x| refno_table_map.contains_key(x))
-        .map(|&x| x)
-        .collect::<Vec<_>>();
-
-    children_map.insert(refno, children);
+    let _root_refno = world_refno;
 
     let memb_time = Instant::now();
-    let mut pending_refnos = vec![root_refno.clone()];
-    let mut all_refnos = HashSet::new();
-
-    while !pending_refnos.is_empty() {
-        let refno = pending_refnos.pop().unwrap();
-        if all_refnos.contains(&refno) {
-            continue;
-        }
-        all_refnos.insert(refno);
-        if refno_table_map.contains_key(&refno) {
-            let entry = refno_table_map.get(&refno).unwrap();
-            let pos = entry.pos;
-            //解析到members数据
-            let d = &input[pos - 4..];
-            let membs = parse_ele_membs(&d);
-            let children = membs
-                .iter()
-                .filter(|&x| refno_table_map.contains_key(x))
-                .map(|&x| x)
-                .collect::<Vec<_>>();
-            for memb in &membs {
-                if !all_refnos.contains(&memb) {
-                    pending_refnos.push(*memb);
-                }
-            }
-            children_map.insert(refno, children);
-        }
-    }
+    
+    // 并行处理：直接遍历所有 refno 解析 children
+    let children_map_dash: DashMap<RefU64, Vec<RefU64>> = DashMap::with_capacity(refno_table_map.len());
+    
+    // 并行处理所有 refno 的 children 解析
+    refno_table_map.par_iter().for_each(|entry| {
+        let refno = *entry.key();
+        let pos = entry.value().pos;
+        let d = &input[pos - 4..];
+        let membs = parse_ele_membs(&d);
+        let children: Vec<RefU64> = membs
+            .iter()
+            .filter(|&x| refno_table_map.contains_key(x))
+            .cloned()
+            .collect();
+        children_map_dash.insert(refno, children);
+    });
+    
+    // 转换为 HashMap
+    let children_map: HashMap<RefU64, Vec<RefU64>> = children_map_dash
+        .into_iter()
+        .collect();
+    
+    let all_refnos_count = children_map.len();
+    
     println!(
         "Parsing children members cost: {} ms",
         memb_time.elapsed().as_millis()
     );
-    println!("All refnos count: {}", all_refnos.len());
+    println!("All refnos count: {}", all_refnos_count);
 
     let DbBasicInfo {
         db_type: _,
@@ -918,6 +960,7 @@ pub async fn parse_db_with_chunk_with_info(
         let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
         named_attmap.set_sesno(sesno as _);
 
+        #[cfg(feature = "debug_parse")]
         dbg!(&refno);
         total_att_map.insert(refno, named_attmap);
         type_ele_map
@@ -993,6 +1036,7 @@ pub async fn parse_db(
         ses_pgno,
         db_no,
     } = parse_file_basic_info(input);
+    #[cfg(feature = "debug_parse")]
     dbg!(&(db_type.as_str(), ses_pgno, db_no, file_name));
     let db_no_str = db_no.to_string();
     if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
@@ -1056,6 +1100,7 @@ pub async fn parse_db(
         all_refnos.insert(refno);
         if refno_table_map.contains_key(&refno) {
             let entry = &*refno_table_map.get(&refno).unwrap();
+            #[cfg(feature = "debug_parse")]
             dbg!(entry);
             let pos = entry.pos;
             //解析到members数据
@@ -1196,11 +1241,14 @@ pub fn parse_implicit_attr_value<'a>(
                             let d = parse_to_f32(&bytes[..4]) as f64;
                             val = DoubleType(d as _);
                         } else {
-                            dbg!(step);
-                            dbg!(f32_flag);
-                            dbg!(f32_neg_offset);
-                            dbg!(attr_info);
-                            println!("parse double 有问题的数据：{:#04X?}", origin_bytes);
+                            #[cfg(feature = "debug_parse")]
+                            {
+                                dbg!(step);
+                                dbg!(f32_flag);
+                                dbg!(f32_neg_offset);
+                                dbg!(attr_info);
+                                println!("parse double 有问题的数据：{:#04X?}", origin_bytes);
+                            }
                         }
                     } else {
                         if bytes.len() >= 8 {
@@ -1211,9 +1259,12 @@ pub fn parse_implicit_attr_value<'a>(
                                 val = DoubleType(d);
                             }
                         } else {
-                            dbg!(step);
-                            dbg!(f32_flag);
-                            dbg!(attr_info);
+                            #[cfg(feature = "debug_parse")]
+                            {
+                                dbg!(step);
+                                dbg!(f32_flag);
+                                dbg!(attr_info);
+                            }
                         }
                     }
                 }
@@ -1264,30 +1315,36 @@ pub fn parse_implicit_attr_value<'a>(
                 //todo need to find if exist invalid data
                 Vec3Type(_) => {
                     // let mut data = [0f64; 3];
-                    let (l, cnt) = be_i32(bytes)?;
+                    let (l, _cnt) = be_i32(bytes)?;
                     let data_len = l.len() / 4; //WORD个数
                     if f32_flag {
                         if data_len >= 3 {
                             let data = parse_to_f32_arr(l, 3).try_into().unwrap();
                             val = Vec3Type(data);
                         } else {
-                            dbg!(step);
-                            dbg!(data_len);
-                            dbg!(f32_flag);
-                            dbg!(cnt);
-                            dbg!(attr_info);
-                            println!("parse vec3 有问题的数据：{:#04X?}", origin_bytes);
+                            #[cfg(feature = "debug_parse")]
+                            {
+                                dbg!(step);
+                                dbg!(data_len);
+                                dbg!(f32_flag);
+                                dbg!(cnt);
+                                dbg!(attr_info);
+                                println!("parse vec3 有问题的数据：{:#04X?}", origin_bytes);
+                            }
                         }
                     } else {
                         if data_len >= 6 {
                             let data = parse_to_f64_arr(l, 3).try_into().unwrap();
                             val = Vec3Type(data);
                         } else {
-                            dbg!(step);
-                            dbg!(data_len);
-                            dbg!(f32_flag);
-                            dbg!(cnt);
-                            dbg!(attr_info);
+                            #[cfg(feature = "debug_parse")]
+                            {
+                                dbg!(step);
+                                dbg!(data_len);
+                                dbg!(f32_flag);
+                                dbg!(cnt);
+                                dbg!(attr_info);
+                            }
                         }
                     }
                 }
@@ -1409,41 +1466,62 @@ pub fn parse_raw_explicit_attrs<'a>(
         };
         // println!("hex value is {:#4X?}, att name is {}", &residual[..4], &att_name);
         if is_debug {
-            if is_uda {
-                dbg!(&att_name);
+            #[cfg(feature = "debug_parse")]
+            {
+                if is_uda {
+                    dbg!(&att_name);
+                }
             }
         }
         if check_is_expr(hash_val) {
             // dbg!(&att_name);
-            match parse_expression_attr(residual, refno) {
-                Ok((input, (_, value))) => {
-                    if value.is_empty() {
-                        att_value = None;
-                    } else {
-                        att_value = Some(StringType(value));
-                    }
-                    if is_debug {
-                        dbg!(&att_value);
-                    }
-                    residual = input;
-                }
-                Err(_e) => {
-                    println!(
-                        "解析{} 表达式属性退出: {:?}, {:#4X?}",
-                        refno.to_e3d_id(),
-                        &att_name,
-                        &residual[..]
-                    );
-                    break;
+            let mut parsed: Option<(&[u8], String)> = None;
+            if let Ok((input, (_, value))) = parse_expression_attr_nom(residual, refno.0) {
+                parsed = Some((input, value));
+            }
+            if parsed
+                .as_ref()
+                .map(|(_, value)| value.is_empty())
+                .unwrap_or(true)
+            {
+                if let Ok((input, (_, value))) =
+                    crate::parse_explict_tools::parse_expression_attr(residual, refno)
+                {
+                    parsed = Some((input, value));
                 }
             }
+              if let Some((input, value)) = parsed {
+                  if value.is_empty() {
+                      att_value = None;
+                  } else {
+                      let mut parsed_numeric = None;
+                      if let Some(attr_info) = attr_info_map.get(&att_name) {
+                          if matches!(&attr_info.default_val, DoubleType(_)) {
+                              if let Ok(num) = value.trim().parse::<f64>() {
+                                  parsed_numeric = Some(DoubleType(num));
+                              }
+                          }
+                      }
+                      att_value = parsed_numeric.or_else(|| Some(StringType(value)));
+                  }
+                  if is_debug {
+                    #[cfg(feature = "debug_parse")]
+                    {
+                        dbg!(&att_value);
+                    }
+                }
+                residual = input;
+            } else {
+                println!(
+                    "解析{} 表达式属性退出: {:?}, {:#4X?}",
+                    refno.to_e3d_id(),
+                    &att_name,
+                    &residual[..]
+                );
+                break;
+            }
         } else {
-            let (l, (_explict_hash, attr_type_num, type_len)) = match tuple((
-                be_i32::<_, nom::error::Error<_>>,
-                be_u16, //属性的类型
-                be_u16, //属性的长度
-            )).parse(&residual[..])
-            {
+            let (l, header) = match parse_explicit_header(&residual[..]) {
                 Ok(result) => result,
                 Err(_e) => {
                     println!(
@@ -1455,7 +1533,8 @@ pub fn parse_raw_explicit_attrs<'a>(
                     break;
                 }
             };
-            let type_len = type_len as usize;
+            let attr_type_num = header.type_code;
+            let type_len = header.length as usize;
             if type_len * 4 <= l.len() {
                 residual = &l[type_len * 4..];
                 // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
@@ -2493,7 +2572,7 @@ fn check_path_db_header(path: &Path) -> bool {
 mod tests_filters {
     use super::{check_path_db_header, is_pdms_db_file};
     use aios_core::tool::db_tool::db1_hash;
-    use std::io::Write;
+    
     use tempfile::tempdir;
 
     #[test]
@@ -2563,6 +2642,47 @@ mod tests_attr_members {
             _ => ErrorKind::Fail,
         };
         assert_eq!(kind, ErrorKind::LengthValue);
+    }
+}
+
+#[cfg(test)]
+mod tests_explicit_segments {
+    use super::collect_explict_data;
+    use aios_core::types::RefU64;
+
+    fn make_explicit_block(refno: RefU64, payload: &[u8]) -> Vec<u8> {
+        assert_eq!(payload.len() % 4, 0);
+        let mut data = Vec::new();
+        data.extend_from_slice(&1u16.to_be_bytes()); // flag
+        let total_bytes = 4 + 8 + payload.len();
+        let len_words = total_bytes / 4;
+        data.extend_from_slice(&(len_words as u16).to_be_bytes());
+        data.extend_from_slice(&(refno.get_0() as i32).to_be_bytes());
+        data.extend_from_slice(&(refno.get_1() as i32).to_be_bytes());
+        data.extend_from_slice(payload);
+        data
+    }
+
+    #[test]
+    fn test_collect_explict_data_with_segment() {
+        let refno = RefU64::from_two_nums(1, 2);
+        let base_payload = vec![0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44];
+        let mut data = make_explicit_block(refno, &base_payload);
+
+        let seg_payload = vec![0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC];
+        let seg_len_words: u16 = 7; // 28 bytes
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0x07, 0x00, 0x01]);
+        data.extend_from_slice(&seg_len_words.to_be_bytes());
+        data.extend_from_slice(&(refno.get_0() as i32).to_be_bytes());
+        data.extend_from_slice(&(refno.get_1() as i32).to_be_bytes());
+        data.extend_from_slice(&0i32.to_be_bytes());
+        data.extend_from_slice(&0i32.to_be_bytes());
+        data.extend_from_slice(&seg_payload);
+
+        let result = collect_explict_data(&data, refno);
+        let mut expected = base_payload;
+        expected.extend_from_slice(&seg_payload);
+        assert_eq!(result, expected);
     }
 }
 
@@ -2642,8 +2762,20 @@ pub fn parse_file_basic_info(input: &[u8]) -> DbBasicInfo {
     if t >= 0x81BF1 {
         file_type = db1_dehash(t);
     }
-    let db_no = parse_to_u32(&input[8..12]);
-    let ses_pgno = parse_to_u32(&input[40..44]);
+    let db_no = extract_db_no(input)
+        .map(|v| v as u32)
+        .unwrap_or_else(|| {
+            if input.len() >= 12 {
+                parse_to_u32(&input[8..12])
+            } else {
+                0
+            }
+        });
+    let ses_pgno = if input.len() >= 44 {
+        parse_to_u32(&input[40..44])
+    } else {
+        0
+    };
     DbBasicInfo {
         db_type: file_type,
         ses_pgno,
@@ -2677,7 +2809,10 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
                 &[0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7],
             );
             if is_debug {
-                dbg!(found_0_7);
+                #[cfg(feature = "debug_parse")]
+                {
+                    dbg!(found_0_7);
+                }
             }
 
             if found_0_7.is_some() {
@@ -2687,7 +2822,10 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
                     if end_pos >= tmp_pos + 4 {
                         let diff_len = end_pos - tmp_pos - 4;
                         if is_debug {
-                            dbg!(diff_len);
+                            #[cfg(feature = "debug_parse")]
+                            {
+                                dbg!(diff_len);
+                            }
                         }
                         is_ok = diff_len == 0;
                         if diff_len > 0 && diff_len % 4 == 0 && end_pos > tmp_pos {
@@ -2698,7 +2836,10 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
                                 &input[tmp_pos..end_pos]
                             );
                             if is_debug {
-                                dbg!(&s);
+                                #[cfg(feature = "debug_parse")]
+                                {
+                                    dbg!(&s);
+                                }
                             }
                             if s.is_ok() {
                                 is_ok = (diff_len / 4) == (s.unwrap().1 .0.len() + 1);
