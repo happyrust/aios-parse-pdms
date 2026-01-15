@@ -98,7 +98,7 @@ pub async fn parse_pdms_dir(
     let mut children_files = fs::read_dir(dir)?
         .into_iter()
         .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|p| is_pdms_db_file(p) && has_valid_db_header(p))
+        .filter(|p| is_pdms_db_file(p) && check_path_db_header(p))
         .collect::<Vec<PathBuf>>();
     let mut database_info = None;
 
@@ -202,7 +202,7 @@ pub fn parse_file_db_basic_data(
     file_name: &str,
     project: &str,
 ) -> Result<DbBasicData> {
-    if !is_pdms_db_file(path) || !has_valid_db_header(path) {
+    if !is_pdms_db_file(path) || !check_path_db_header(path) {
         return Err(anyhow!("skip non-db file: {:?}", path));
     }
     let time_start = Instant::now();
@@ -2475,25 +2475,23 @@ fn is_pdms_db_file(path: &Path) -> bool {
     true
 }
 
-/// 检查文件头是否包含 PDMS/E3D DbType 标识
-/// 
-/// 已迁移到 crate::parser::database::validation::is_valid_db_header
-fn has_valid_db_header(path: &Path) -> bool {
-    if let Ok(mut file) = File::open(path) {
-        let mut header = [0u8; 64];
-        if let Ok(len) = file.read(&mut header) {
-            if len >= 36 {
-                // 委托给 parser::database::validation 模块
-                return is_valid_db_header(&header);
-            }
-        }
-    }
-    false
+/// 检查文件头是否包含有效的 PDMS 数据库类型
+///
+/// 委托给 `validation::is_valid_db_header`，避免代码重复
+#[inline]
+fn check_path_db_header(path: &Path) -> bool {
+    std::fs::File::open(path)
+        .and_then(|mut f| {
+            let mut header = [0u8; 64];
+            f.read(&mut header)?;
+            Ok(is_valid_db_header(&header))
+        })
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
 mod tests_filters {
-    use super::{has_valid_db_header, is_pdms_db_file};
+    use super::{check_path_db_header, is_pdms_db_file};
     use aios_core::tool::db_tool::db1_hash;
     use std::io::Write;
     use tempfile::tempdir;
@@ -2510,33 +2508,32 @@ mod tests_filters {
     }
 
     #[test]
-    fn test_has_valid_db_header_desi() {
+    fn test_check_path_db_header_desi() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("desi.db");
-        // 构造长度 >= 36 的文件，并在 32..36 写入 db type hash ("DESI")
         let mut data = vec![0u8; 64];
         let hash = db1_hash("DESI") as i32;
         data[32..36].copy_from_slice(&hash.to_be_bytes());
         std::fs::write(&path, &data).unwrap();
-        assert!(has_valid_db_header(&path));
+        assert!(check_path_db_header(&path));
     }
 
     #[test]
-    fn test_has_valid_db_header_unknown() {
+    fn test_check_path_db_header_unknown() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("unknown.db");
         let mut data = vec![0u8; 64];
         data[32..36].copy_from_slice(b"FAKE");
         std::fs::write(&path, &data).unwrap();
-        assert!(!has_valid_db_header(&path));
+        assert!(!check_path_db_header(&path));
     }
 
     #[test]
-    fn test_has_valid_db_header_short_file() {
+    fn test_check_path_db_header_short_file() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("short.db");
         std::fs::write(&path, b"short").unwrap();
-        assert!(!has_valid_db_header(&path));
+        assert!(!check_path_db_header(&path));
     }
 }
 
