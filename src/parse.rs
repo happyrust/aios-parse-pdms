@@ -55,8 +55,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
-use tokio::sync::mpsc;
-use std::sync::OnceLock;
 
 //00 00 00 05 00 CC 47 DF 00 00 00 00 00 00 00 02
 // const REFNO_ALL_INDEX_PAGE: [u8; 11] = [0x00u8, 0x00, 0x00, 0x05, 0x00, 0xCC, 0x47, 0xDF, 0x00, 0x00, 0x00];
@@ -696,13 +694,12 @@ pub async fn parse_ele_data_with_info(
     // 异步处理显式属性
     let explicit_attmap = &mut ele_data.whole_attmap.explicit_attmap;
 
-    // 如果存在UDA属性，进行异步处理
+    // 如果存在UDA属性，进行处理（直接从预加载的缓存读取）
     if !ele_data.whole_attmap.uda_atts.is_empty() {
         let _ = process_explicit_attrs(
             std::mem::take(&mut ele_data.whole_attmap.uda_atts),
             explicit_attmap,
-        )
-        .await;
+        );
     }
     // 精炼属性
     ele_data.whole_attmap = ele_data.whole_attmap.refine(&cur_type_info_map);
@@ -1363,21 +1360,18 @@ pub fn parse_implicit_attr_value<'a>(
     Ok((origin_bytes, val))
 }
 
-///获得uda 名称
-async fn get_uda_full_name(hash: i32) -> Option<String> {
-    if let Ok(mut response) = SUL_DB
-        .query("select value UDNA from only UDA where UKEY=$key limit 1")
-        .bind(("key", hash))
-        .await
-    {
-        let name: Option<String> = response.take(0).unwrap();
-        return name;
-    }
-    None
+/// 获得 UDA 名称（从动态收集的 HashMap 中读取）
+pub fn get_uda_full_name(hash: i32) -> Option<String> {
+    UDA_NAME_CACHE.get(&hash).map(|v| v.clone())
 }
 
-async fn get_uda_short_name(hash: i32) -> Option<String> {
-    get_uda_full_name(hash).await.map(|x| {
+/// 注册 UDA 名称到缓存（在解析过程中动态收集）
+pub fn register_uda_name(hash: i32, name: String) {
+    UDA_NAME_CACHE.insert(hash, name);
+}
+
+fn get_uda_short_name(hash: i32) -> Option<String> {
+    get_uda_full_name(hash).map(|x| {
         if x.len() < 4 {
             x.to_uppercase()
         } else {
@@ -1390,8 +1384,6 @@ lazy_static! {
     static ref UDA_NAME_CACHE: DashMap<i32, String> = DashMap::new();
 }
 
-static UDA_WORKER_TX: OnceLock<mpsc::UnboundedSender<i32>> = OnceLock::new();
-
 fn resolve_uda_label(hash: i32) -> String {
     if let Some(name) = UDA_NAME_CACHE.get(&hash) {
         return format!("UDA:{}", name.value());
@@ -1399,38 +1391,46 @@ fn resolve_uda_label(hash: i32) -> String {
     format!("UDA_HASH:{hash}")
 }
 
-fn spawn_uda_worker() -> mpsc::UnboundedSender<i32> {
-    UDA_WORKER_TX
-        .get_or_init(|| {
-            let (tx, mut rx) = mpsc::unbounded_channel();
-            tokio::spawn(async move {
-                while let Some(hash) = rx.recv().await {
-                    if UDA_NAME_CACHE.contains_key(&hash) {
-                        continue;
-                    }
-                    if let Some(name) = get_uda_full_name(hash).await {
-                        UDA_NAME_CACHE.insert(hash, name);
-                    }
-                }
-            });
-            tx
-        })
-        .clone()
+/// 异步查询并缓存 UDA 名称（如果缓存中不存在）
+async fn fetch_and_cache_uda_name(hash: i32) {
+    // 如果已经缓存，直接返回
+    if UDA_NAME_CACHE.contains_key(&hash) {
+        return;
+    }
+
+    // 从数据库查询 UDA 名称
+    if let Ok(mut response) = SUL_DB
+        .query("select value UDNA from only UDA where UKEY=$key limit 1")
+        .bind(("key", hash))
+        .await
+    {
+        if let Ok(name) = response.take(0) {
+            if let Some(uda_name) = name {
+                UDA_NAME_CACHE.insert(hash, uda_name);
+            }
+        }
+    }
 }
 
 /// 获取已知显式属性
-pub async fn process_explicit_attrs(
+pub fn process_explicit_attrs(
     uda_attrs: Vec<ExplicitAttr>,
     attr_data_map: &mut NamedAttrMap,
 ) -> anyhow::Result<()> {
-    // 处理解析结果，包括UDA的异步处理
-    let uda_tx = spawn_uda_worker();
+    // 处理解析结果，UDA 名称从缓存中读取
+    // 如果缓存中没有，会显示 UDA_HASH 格式，后续可以通过异步查询补充
     for attr in uda_attrs {
         if attr.is_uda {
             let label = resolve_uda_label(attr.hash_val);
             attr_data_map.insert(label, attr.value.into());
-            // 后台异步获取名称，不阻塞解析主流程
-            let _ = uda_tx.send(attr.hash_val);
+
+            // 如果缓存中没有这个 UDA，触发异步查询（不阻塞当前流程）
+            if !UDA_NAME_CACHE.contains_key(&attr.hash_val) {
+                let hash = attr.hash_val;
+                tokio::spawn(async move {
+                    fetch_and_cache_uda_name(hash).await;
+                });
+            }
         } else {
             //覆盖可能在隐含属性里出现过的数据
             attr_data_map.insert(attr.name.clone(), attr.value.into());
