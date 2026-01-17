@@ -1,4 +1,3 @@
-use std::io::Read;
 
 pub fn convert_str_to_bytes(data_str: &str) -> Vec<u8> {
     data_str

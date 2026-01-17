@@ -5,7 +5,7 @@ use crate::parse::{parse_ele_data, parse_raw_ele_data};
 //00 00 00 07
 #[tokio::test]
 async fn test_parse_binary_data_a5_35_30() {
-    let test_data = [
+    let _test_data = [
         0xA5, 0x35, 0x30, 0x29, 0x00, 0x00, 0x00, 0x21, 0x00, 0x00, 0x44, 0xAA, 0x00, 0x00, 0x09, 0x16,
         0x00, 0x0B, 0x0D, 0x89, 0x00, 0x00, 0x44, 0xAA, 0x00, 0x00, 0x09, 0x08, 0x00, 0x00, 0x01, 0x94,
         0x00, 0x3E, 0x20, 0x01, 0x00, 0x00, 0x01, 0x94, 0x00, 0x3D, 0x40, 0x01, 0x20, 0x02, 0xC0, 0x02,
@@ -400,7 +400,7 @@ async fn tets_17496_161418_udtype() {
 38 00 00 02 00 00 00 01 2C 00 D4 9E 04 D8 52 B8
 0C 00 00 01 2C 00 D4 9E";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let _pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap);
     // let typex = ele_data.whole_attmap.explicit_attmap.get_typex().as_bytes();

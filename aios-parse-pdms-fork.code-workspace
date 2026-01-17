@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../rs-core"
+		},
+		{
+			"path": "../surrealdb"
+		},
+		{
+			"path": "../gen-model-fork"
+		},
+		{
+			"path": "../pdms-io"
+		}
+	],
+	"settings": {
+		"workbench.colorCustomizations": {
+			"activityBar.background": "#492406",
+			"titleBar.activeBackground": "#663209",
+			"titleBar.activeForeground": "#FEFBF8"
+		}
+	}
+}

@@ -1,7 +1,6 @@
 use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
 use aios_core::get_default_pdms_db_info;
-use aios_core::tool::db_tool::{db1_dehash, db1_hash, read_attr_info_config_from_json};
 
 //13244/142148
 #[tokio::test]
@@ -23,10 +22,10 @@ async fn test_ams_pcon() {
 00 0D 20 C7 FF FF FF FF FF FF FF FF 00 00 00 00
 00 00 06 41 00 00 06 A5 00 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let _pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data);
     if let Some(val) = ele_data.whole_attmap.attmap.get_val("PCON") {
-        let result = val.string_value();
+        let _result = val.string_value();
     }
 }

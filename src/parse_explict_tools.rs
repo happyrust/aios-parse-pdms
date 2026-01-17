@@ -354,19 +354,9 @@ pub fn parse_expression_func(input: &[u8], _refno: RefU64) -> IResult<&[u8], Str
             // 跳6A
             expression_data = &expression_data[4..];
             let hash_num = u32::from_be_bytes(expression_data[4..8].try_into().unwrap());
-            let att_name = if is_uda(hash_num as _) {
-                let uda_name = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async move {
-                        if let Some(uda_name) = aios_core::get_uda_name(hash_num as _).await {
-                            // dbg!(hash_val, uda_refno);
-                            format!(":{uda_name}")
-                            //要加UDA:表达区分
-                        } else {
-                            db1_dehash(hash_num)
-                        }
-                    })
-                });
-                uda_name
+            let hash_val = hash_num as i32;
+            let att_name = if is_uda(hash_val) {
+                format!(":UDA_HASH:{hash_val}")
             } else {
                 db1_dehash(hash_num)
             };

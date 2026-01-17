@@ -2,7 +2,7 @@ use crate::parse::parse_ele_data;
 use crate::test_cases::convert_str_to_bytes;
 use aios_core::get_default_pdms_db_info;
 use aios_core::pdms_types::RefU64;
-use aios_core::tool::db_tool::{db1_dehash, read_attr_info_config_from_json};
+use aios_core::tool::db_tool::db1_dehash;
 
 #[tokio::test]
 async fn test_uda_dehash() {
@@ -45,7 +45,7 @@ async fn test_parse_uda_data_24381_48631() {
 74 65 73 74 00 00 00 00 00 00 00 00
     ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let _pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     for (key, value) in ele_data.whole_attmap.explicit_attmap.map {
         dbg!(&key);
@@ -85,8 +85,8 @@ async fn test_14194_4_udna() {
 00 0D FA A2 03 DB 13 9A 10 1D 50 ED 00 0E D9 D0
 00 09 72 47";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
-    let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
+    let _pdms_database_info = get_default_pdms_db_info();
+    let _ele_data = parse_ele_data(data.as_slice()).await.unwrap();
 }
 
 #[tokio::test]
@@ -107,7 +107,7 @@ async fn test_udna_1() {
 45 6D 70 74 79 20 57 65 69 67 68 74 00 0B C6 1B
 1C 00 00 02 00 00 00 01 00 AC 03 06";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let _pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }
@@ -139,7 +139,7 @@ async fn test_13292_185_udna() {
 50 69 70 65 20 66 61 62 72 69 63 61 74 69 6F 6E
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let _pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     dbg!(&ele_data.whole_attmap.explicit_attmap);
 }

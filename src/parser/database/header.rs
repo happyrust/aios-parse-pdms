@@ -93,11 +93,19 @@ impl DbHeader {
 }
 
 /// 文件头偏移常量
+/// 
+/// PDMS 数据库文件头格式:
+/// - bytes[0..4]: 保留字段 (通常为 0)
+/// - bytes[4..8]: 字段编号 (field_no)
+/// - bytes[8..12]: 数据库编号 (db_no)
+/// - bytes[32..36]: 类型哈希 (type_hash)
 pub mod offsets {
-    /// 数据库编号偏移
-    pub const DB_NO: usize = 0;
+    /// 保留字段偏移 (通常为 0)
+    pub const RESERVED: usize = 0;
     /// 字段编号偏移
     pub const FIELD_NO: usize = 4;
+    /// 数据库编号偏移
+    pub const DB_NO: usize = 8;
     /// 类型哈希偏移
     pub const TYPE_HASH: usize = 32;
     /// 索引区偏移量位置
@@ -111,8 +119,9 @@ pub mod offsets {
 /// 解析数据库文件头
 ///
 /// # 格式
-/// - bytes[0..4]: 数据库编号
+/// - bytes[0..4]: 保留字段 (通常为 0)
 /// - bytes[4..8]: 字段编号
+/// - bytes[8..12]: 数据库编号
 /// - bytes[32..36]: 类型哈希
 /// - bytes[36..40]: 索引区偏移
 /// - bytes[40..44]: 数据区偏移
@@ -157,12 +166,17 @@ pub fn extract_db_type(input: &[u8]) -> Option<DbType> {
 }
 
 /// 快速提取数据库编号
+/// 
+/// PDMS 文件头格式:
+/// - bytes[0..4]: 保留字段 (通常为 0)
+/// - bytes[4..8]: 字段编号
+/// - bytes[8..12]: 数据库编号 (db_no)
 #[inline]
 pub fn extract_db_no(input: &[u8]) -> Option<i32> {
-    if input.len() < 4 {
+    if input.len() < 12 {
         return None;
     }
-    Some(i32::from_be_bytes(input[0..4].try_into().ok()?))
+    Some(i32::from_be_bytes(input[8..12].try_into().ok()?))
 }
 
 /// 快速提取字段编号
@@ -181,16 +195,18 @@ mod tests {
 
     fn make_test_header(db_type: &str) -> Vec<u8> {
         let mut data = vec![0u8; 64];
-        // db_no = 1
-        data[0..4].copy_from_slice(&1i32.to_be_bytes());
-        // field_no = 2
+        // reserved = 0 (offset 0-4)
+        data[0..4].copy_from_slice(&0i32.to_be_bytes());
+        // field_no = 2 (offset 4-8)
         data[4..8].copy_from_slice(&2i32.to_be_bytes());
-        // type_hash
+        // db_no = 1 (offset 8-12) - PDMS 数据库编号存储在此位置
+        data[8..12].copy_from_slice(&1i32.to_be_bytes());
+        // type_hash (offset 32-36)
         let hash = db1_hash(db_type) as i32;
         data[32..36].copy_from_slice(&hash.to_be_bytes());
-        // index_offset = 1024
+        // index_offset = 1024 (offset 36-40)
         data[36..40].copy_from_slice(&1024u32.to_be_bytes());
-        // data_offset = 2048
+        // data_offset = 2048 (offset 40-44)
         data[40..44].copy_from_slice(&2048u32.to_be_bytes());
         data
     }

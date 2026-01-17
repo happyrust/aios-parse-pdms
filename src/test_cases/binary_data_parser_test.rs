@@ -126,7 +126,7 @@ async fn test_new_case_00_00_00_2f() {
 00 00 00 02
 ";
     let data = convert_str_to_bytes(data_str);
-    let pdms_database_info = get_default_pdms_db_info();
+    let _pdms_database_info = get_default_pdms_db_info();
     let ele_data = parse_ele_data(data.as_slice()).await.unwrap();
     let mut result = "".to_string();
     let merged = ele_data.whole_attmap.merge();

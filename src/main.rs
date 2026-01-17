@@ -7,10 +7,7 @@ extern crate nom;
 #[macro_use]
 extern crate serde;
 extern crate clap;
-use std::convert::TryInto;
 use std::time::Instant;
-use serde::Serializer;
-use log::LevelFilter;
 use aios_core::options::DbOption;
 const ATT_MDB: i32 = 0x8221C;
 const ATT_DB: i32 = 0x81C2B;
@@ -24,7 +21,7 @@ fn main() -> anyhow::Result<()> {
         .build()?;
     let db_option: DbOption = s.try_deserialize().unwrap();
     dbg!(&db_option);
-    let mut time = Instant::now();
+    let time = Instant::now();
     println!("初始化数据库时间: {} ms", time.elapsed().as_millis());
     return Ok(());
 }

@@ -107,7 +107,7 @@ async fn test_parse_ams7330_0001() {
     println!("\n🔍 开始解析文件内容...");
 
     let mut parsed_records: Vec<ParsedElementRecord> = Vec::new();
-    let mut offset = 0;
+    let offset = 0;
     let mut element_index = 0;
 
     // 逐个解析元素
