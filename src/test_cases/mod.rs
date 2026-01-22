@@ -23,3 +23,6 @@ mod test_parse_children;
 mod test_parse_string;
 mod binary_data_parser_test;
 mod test_ams7330;
+mod test_amssys;
+// mod expression_test_utils; // 暂时禁用
+mod test_collect_explict;

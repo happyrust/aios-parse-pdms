@@ -72,7 +72,7 @@ impl std::fmt::Display for DbType {
 #[derive(Debug, Clone)]
 pub struct DbHeader {
     /// 数据库编号
-    pub db_no: i32,
+    pub dbnum: i32,
     /// 字段编号
     pub field_no: i32,
     /// 数据库类型哈希
@@ -97,7 +97,7 @@ impl DbHeader {
 /// PDMS 数据库文件头格式:
 /// - bytes[0..4]: 保留字段 (通常为 0)
 /// - bytes[4..8]: 字段编号 (field_no)
-/// - bytes[8..12]: 数据库编号 (db_no)
+/// - bytes[8..12]: 数据库编号 (dbnum)
 /// - bytes[32..36]: 类型哈希 (type_hash)
 pub mod offsets {
     /// 保留字段偏移 (通常为 0)
@@ -134,7 +134,7 @@ pub fn parse_db_header(input: &[u8]) -> IResult<&[u8], DbHeader> {
         )));
     }
 
-    let (_, db_no) = be_i32(&input[DB_NO..DB_NO + 4])?;
+    let (_, dbnum) = be_i32(&input[DB_NO..DB_NO + 4])?;
     let (_, field_no) = be_i32(&input[FIELD_NO..FIELD_NO + 4])?;
     let (_, type_hash) = be_i32(&input[TYPE_HASH..TYPE_HASH + 4])?;
     let (_, index_offset) = be_u32(&input[INDEX_OFFSET..INDEX_OFFSET + 4])?;
@@ -145,7 +145,7 @@ pub fn parse_db_header(input: &[u8]) -> IResult<&[u8], DbHeader> {
     Ok((
         &input[MIN_HEADER_SIZE..],
         DbHeader {
-            db_no,
+            dbnum: dbnum,
             field_no,
             type_hash,
             db_type,
@@ -170,7 +170,7 @@ pub fn extract_db_type(input: &[u8]) -> Option<DbType> {
 /// PDMS 文件头格式:
 /// - bytes[0..4]: 保留字段 (通常为 0)
 /// - bytes[4..8]: 字段编号
-/// - bytes[8..12]: 数据库编号 (db_no)
+/// - bytes[8..12]: 数据库编号 (dbnum)
 #[inline]
 pub fn extract_db_no(input: &[u8]) -> Option<i32> {
     if input.len() < 12 {
@@ -199,7 +199,7 @@ mod tests {
         data[0..4].copy_from_slice(&0i32.to_be_bytes());
         // field_no = 2 (offset 4-8)
         data[4..8].copy_from_slice(&2i32.to_be_bytes());
-        // db_no = 1 (offset 8-12) - PDMS 数据库编号存储在此位置
+        // dbnum = 1 (offset 8-12) - PDMS 数据库编号存储在此位置
         data[8..12].copy_from_slice(&1i32.to_be_bytes());
         // type_hash (offset 32-36)
         let hash = db1_hash(db_type) as i32;
@@ -236,7 +236,7 @@ mod tests {
         let (rest, header) = parse_db_header(&data).unwrap();
 
         assert!(rest.is_empty());
-        assert_eq!(header.db_no, 1);
+        assert_eq!(header.dbnum, 1);
         assert_eq!(header.field_no, 2);
         assert_eq!(header.db_type, DbType::Design);
         assert_eq!(header.index_offset, 1024);

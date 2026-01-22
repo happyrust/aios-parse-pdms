@@ -77,8 +77,9 @@ pub struct PdmsDbData {
     pub db_type: String,
     /// 数据文件的db 名称（SYS里用的名称）
     pub db_name: String,
-    ///数据文件的 db number
-    pub db_no: u32,
+    /// 数据文件的 db number（统一命名为 dbnum）
+    #[serde(alias = "dbnum")]
+    pub dbnum: u32,
     ///数据文件的field no
     pub field_no: u32,
 }
@@ -143,12 +144,12 @@ pub async fn parse_pdms_dir(
                         .get_as_string("NAME")
                         .ok_or(anyhow!("NAME not exist".to_string()))?
                         .to_string();
-                    let db_no = if fnum == 0 { num } else { fnum };
-                    pdms_db_name_map.insert(db_no, name);
+                    let dbnum = if fnum == 0 { num } else { fnum };
+                    pdms_db_name_map.insert(dbnum, name);
                     Ok(())
                 })?;
-            if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
-                pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+            if pdms_db_name_map.contains_key(&pdms_db_data.dbnum) {
+                pdms_db_data.db_name = pdms_db_name_map.get(&pdms_db_data.dbnum).unwrap().clone();
             } else {
                 pdms_db_data.db_name = file_name.into();
             }
@@ -174,11 +175,11 @@ pub async fn parse_pdms_dir(
                     parse_file(&path, &database_info, file_name, project).await
                 {
                     pdms_db_data.filename = file_name.into();
-                    let cur_dbno = pdms_db_data.db_no.to_string();
-                    if pdms_db_data.filename.contains(&cur_dbno) {
-                        if pdms_db_name_map.contains_key(&pdms_db_data.db_no) {
+                    let cur_dbnum = pdms_db_data.dbnum.to_string();
+                    if pdms_db_data.filename.contains(&cur_dbnum) {
+                        if pdms_db_name_map.contains_key(&pdms_db_data.dbnum) {
                             pdms_db_data.db_name =
-                                pdms_db_name_map.get(&pdms_db_data.db_no).unwrap().clone();
+                                pdms_db_name_map.get(&pdms_db_data.dbnum).unwrap().clone();
                         }
                     } else {
                         if pdms_db_name_map.contains_key(&pdms_db_data.field_no) {
@@ -556,7 +557,8 @@ pub fn parse_raw_ele_data_with_info(
         // - examples/new_parser_usage.rs - 使用示例
         // ============================================================
 
-        let is_expr = check_is_expr(attr_info.hash);
+        let is_expr =
+            check_is_expr(attr_info.hash) || is_force_implicit_expr_attr_name(attr_info.name.trim());
         if is_expr {
             if let Ok((_, legacy_val)) = parse_implicit_attr_value(
                 &implicit_data,
@@ -625,6 +627,16 @@ pub fn parse_raw_ele_data_with_info(
         }
     }
     let final_explicit_data = collect_explict_data(explicit_data, refno);
+
+    // 临时调试输出（仅 debug_parse）
+    if cfg!(feature = "debug_parse") {
+        eprintln!(
+            "[DEBUG collect_explict_data] refno={}, explicit_data.len()={}, final_explicit_data.len()={}",
+            refno,
+            explicit_data.len(),
+            final_explicit_data.len()
+        );
+    }
 
     //添加遗漏的属性
     implicit_attmap.insert("OWNER".into(), NamedAttrValue::RefU64Type(owner));
@@ -716,9 +728,45 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
 //移除00 00 00 007，保留后面的数据
 pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
     let mut bytes = Vec::new();
+    let original_len = input.len();
+    let mut block_count = 0;
     if input.len() < 4 {
         return bytes;
     }
+    // 显式块的 payload 在不同样本里存在两种布局：
+    // - 直接从 offset=12（flag+len+self_ref）开始就是属性流
+    // - offset=12 之后还有 8 字节保留区（旧实现用 offset=20）
+    // 这里用“可解析性”做自适应判定，避免误删真实数据。
+    let looks_like_attr_stream_start = |buf: &[u8]| -> bool {
+        if buf.len() < 4 {
+            return false;
+        }
+        let hash_val = convert_to_hash(&buf[..4]);
+        if hash_val == 0 {
+            return false;
+        }
+        // 表达式类显式属性：只有 hash + expression payload（无 type/len 头）
+        if check_is_expr(hash_val) {
+            if parse_expression_attr_nom(buf, refno.0).is_ok() {
+                return true;
+            }
+        }
+        // 普通显式属性：hash + type_code + len_words
+        if buf.len() < 8 {
+            return false;
+        }
+        if let Ok((rest, header)) = parse_explicit_header(buf) {
+            if header.hash == 0 {
+                return false;
+            }
+            if get_explicit_attr_type(header.type_code).is_none() {
+                return false;
+            }
+            let data_len = header.data_len();
+            return data_len <= rest.len();
+        }
+        false
+    };
     while input.len() >= 4 {
         //还可能遇到各种page，需要跳过，暂时假定只有遇到INDEX Page的情况
         let v = parse_to_i32(&input[..4]);
@@ -751,27 +799,90 @@ pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
             _ => {
                 let flag = parse_to_u16(&input[0..2]) as u8;
                 if flag != 1 {
-                    break;
+                    if cfg!(feature = "debug_parse") {
+                        // 调试：打印更多信息
+                        let raw_bytes: Vec<u8> = input[..std::cmp::min(16, input.len())].to_vec();
+                        eprintln!(
+                            "[DEBUG collect_explict_data] block#{} break: flag={} != 1, pos={}, v={:#X}, raw_bytes={:02X?}",
+                            block_count,
+                            flag,
+                            original_len - input.len(),
+                            v,
+                            raw_bytes
+                        );
+                    }
+                    // 这里不能直接 break：在某些样本里 explicit 区域后面可能混入其它块/下一条记录开头，
+                    // 我们仅需“搜集当前 refno 的显式块”，应尝试按 word 对齐继续向后寻找下一个 0x0001 块头。
+                    input = &input[4..];
+                    continue;
                 }
                 let len_words = parse_to_u16(&input[2..4]) as usize;
-                let declared_bytes = len_words * 4;
-                if declared_bytes < 12 || declared_bytes > input.len() {
-                    break;
+                // len_words 是该显式块的总 word 数（包含 flag+len 本身的 4 字节）。
+                // 某些数据块后面可能紧跟 0/7 填充；这些应由上层循环的 (0|7) 分支跳过，
+                // 不能在这里“无条件 +4”，否则会把下一块的 flag+len 吃掉，导致跨块错位。
+                let declared_len_bytes = len_words * 4;
+                if declared_len_bytes < 12 || declared_len_bytes > input.len() {
+                    if cfg!(feature = "debug_parse") {
+                        eprintln!(
+                            "[DEBUG collect_explict_data] block#{} break: declared_len_bytes={}, input.len()={}",
+                            block_count,
+                            declared_len_bytes,
+                            input.len()
+                        );
+                    }
+                    // 尝试继续向后 resync
+                    input = &input[4..];
+                    continue;
                 }
                 let maybe_refno = RefU64::from(&input[4..12]);
                 //必须要检查是否跟的是 refno
                 if len_words < 5 || maybe_refno != refno {
-                    break;
+                    if cfg!(feature = "debug_parse") {
+                        eprintln!(
+                            "[DEBUG collect_explict_data] block#{} break: len_words={}, maybe_refno={}, expected_refno={}",
+                            block_count,
+                            len_words,
+                            maybe_refno,
+                            refno
+                        );
+                    }
+                    input = &input[4..];
+                    continue;
                 }
-                match collect_segmented_payload(input, declared_bytes, 0x01) {
+                block_count += 1;
+                if cfg!(feature = "debug_parse") {
+                    eprintln!(
+                        "[DEBUG collect_explict_data] block#{} found: len_words={}, declared_len_bytes={}",
+                        block_count,
+                        len_words,
+                        declared_len_bytes
+                    );
+                }
+                match collect_segmented_payload(input, declared_len_bytes, 0x01) {
                     Ok((rest, mut payload)) => {
+                        // 兼容：主段可能包含 8 字节保留区（不一定全 0）
                         if payload.len() >= 8 && payload[..8].iter().all(|&b| b == 0) {
                             payload.drain(..8);
+                        } else if payload.len() >= 16 {
+                            let ok0 = looks_like_attr_stream_start(&payload);
+                            let ok8 = looks_like_attr_stream_start(&payload[8..]);
+                            if !ok0 && ok8 {
+                                payload.drain(..8);
+                            }
                         }
                         bytes.extend(payload);
                         input = rest;
                     }
-                    Err(_) => break,
+                    Err(e) => {
+                        if cfg!(feature = "debug_parse") {
+                            eprintln!(
+                                "[DEBUG collect_explict_data] block#{} break: collect_segmented_payload error: {:?}",
+                                block_count,
+                                e
+                            );
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -843,7 +954,7 @@ pub fn parse_db_basic_data(input: Vec<u8>, _file_name: &str, _project: &str) -> 
     let DbBasicInfo {
         db_type: _,
         ses_pgno,
-        db_no: _,
+        dbnum: _,
     } = parse_file_basic_info(&input);
 
     Ok(DbBasicData {
@@ -906,11 +1017,11 @@ pub async fn parse_db_with_chunk_with_info(
     let DbBasicInfo {
         db_type,
         ses_pgno,
-        db_no,
+        dbnum,
     } = parse_file_basic_info(input);
-    let db_no_str = db_no.to_string();
-    if db_type.as_str() != "SYST" && !filename.contains(&db_no_str) {
-        let _chars_len = db_no_str.len();
+    let dbnum_str = dbnum.to_string();
+    if db_type.as_str() != "SYST" && !filename.contains(&dbnum_str) {
+        let _chars_len = dbnum_str.len();
         let l = filename.len();
         let end = filename.chars().position(|x| x == '_').unwrap_or(l);
         if end < project.len() {
@@ -956,6 +1067,8 @@ pub async fn parse_db_with_chunk_with_info(
             .unwrap_or_default();
         let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
         named_attmap.set_sesno(sesno as _);
+        // 用文件头解析到的 dbnum，而不是 refno.get_0()
+        named_attmap.insert("DBNUM".into(), NamedAttrValue::IntegerType(dbnum as i32));
 
         #[cfg(feature = "debug_parse")]
         dbg!(&refno);
@@ -967,7 +1080,7 @@ pub async fn parse_db_with_chunk_with_info(
         let ref_0 = refno.get_0();
         _refno_info_map
             .entry(ref_0)
-            .or_insert(RefnoInfo { ref_0, db_no });
+            .or_insert(RefnoInfo { ref_0, dbnum });
     }
 
     for source_refno in chunk_refnos.iter() {
@@ -987,6 +1100,7 @@ pub async fn parse_db_with_chunk_with_info(
                 let sesno = get_sesno(&ses_range_map, pgno as _).unwrap_or_default();
                 let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
                 named_attmap.set_sesno(sesno as _);
+                named_attmap.insert("DBNUM".into(), NamedAttrValue::IntegerType(dbnum as i32));
                 //页数就是所在的位置除以0x800
                 total_attmap_clone.insert(refno, named_attmap);
                 type_ele_map
@@ -1012,7 +1126,7 @@ pub async fn parse_db_with_chunk_with_info(
         ses_pgno,
         db_type,
         db_name: Default::default(),
-        db_no,
+        dbnum,
         field_no,
     })
 }
@@ -1031,13 +1145,13 @@ pub async fn parse_db(
     let DbBasicInfo {
         db_type,
         ses_pgno,
-        db_no,
+        dbnum,
     } = parse_file_basic_info(input);
     #[cfg(feature = "debug_parse")]
-    dbg!(&(db_type.as_str(), ses_pgno, db_no, file_name));
-    let db_no_str = db_no.to_string();
-    if db_type.as_str() != "SYST" && !file_name.contains(&db_no_str) {
-        let _chars_len = db_no_str.len();
+    dbg!(&(db_type.as_str(), ses_pgno, dbnum, file_name));
+    let dbnum_str = dbnum.to_string();
+    if db_type.as_str() != "SYST" && !file_name.contains(&dbnum_str) {
+        let _chars_len = dbnum_str.len();
         let l = file_name.len();
         let end = file_name.chars().position(|x| x == '_').unwrap_or(l);
         if end < project.len() {
@@ -1072,7 +1186,11 @@ pub async fn parse_db(
     } = parse_ele_data_with_info(&input[entry.pos - 4..], database_info)
         .await?;
 
-    total_attr_map.insert(refno, whole_attmap.merge().into());
+    {
+        let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
+        named_attmap.insert("DBNUM".into(), NamedAttrValue::IntegerType(dbnum as i32));
+        total_attr_map.insert(refno, named_attmap);
+    }
     type_ele_map
         .entry(noun)
         .or_insert(HashSet::default())
@@ -1080,7 +1198,7 @@ pub async fn parse_db(
     let ref_0 = refno.get_0();
     refno_info_map
         .entry(ref_0)
-        .or_insert(RefnoInfo { ref_0, db_no });
+        .or_insert(RefnoInfo { ref_0, dbnum });
     if children.len() > 0 {
         children_map.insert(refno, children.clone());
     }
@@ -1131,7 +1249,9 @@ pub async fn parse_db(
                 ..
             }) = parse_ele_data_with_info(&input[pos - 4..], database_info).await
             {
-                whole_attr_dashmap.insert(refno, whole_attmap.merge().into());
+                let mut named_attmap: NamedAttrMap = whole_attmap.merge().into();
+                named_attmap.insert("DBNUM".into(), NamedAttrValue::IntegerType(dbnum as i32));
+                whole_attr_dashmap.insert(refno, named_attmap);
                 type_ele_map
                     .entry(noun)
                     .or_insert(HashSet::default())
@@ -1156,9 +1276,16 @@ pub async fn parse_db(
         ses_pgno,
         db_type,
         db_name: Default::default(),
-        db_no,
+        dbnum,
         field_no,
     })
+}
+
+#[inline]
+fn is_force_implicit_expr_attr_name(name: &str) -> bool {
+    // 这些字段在 PDMS 中经常以“表达式”形式存储（例如 ATTRIB DESP[1 ]），
+    // 直接按 DOUBLE/f64 解析会把表达式 payload 误读为浮点。
+    matches!(name, "PX" | "PY" | "DX" | "DY" | "PRAD" | "DRAD")
 }
 
 /// 获取隐式属性, input为分段数据，已经限制了长度
@@ -1183,7 +1310,8 @@ pub fn parse_implicit_attr_value<'a>(
     step: usize, //dword 即 4字节数量
 ) -> IResult<&'a [u8], AttrVal> {
     let mut val = InvalidType;
-    let b_expr = check_is_expr(attr_info.hash);
+    let force_expr = is_force_implicit_expr_attr_name(attr_info.name.trim());
+    let b_expr = check_is_expr(attr_info.hash) || force_expr;
     // dbg!(attr_info);
     let offset = ((attr_info.offset & 0xFFFF) as usize - f32_neg_offset) * 4;
     // if attr_info.name.as_str() == "BANG" || attr_info.name.as_str() == "DRNS"{
@@ -1199,26 +1327,118 @@ pub fn parse_implicit_attr_value<'a>(
     // println!("{}", pretty_hex::pretty_hex(&bytes));
     if b_expr {
         // dbg!(attr_info);
-        //既然当作表达式，而且又在隐含属性里，这里需要把bytes的长度锁定
-        let (_, string_val) =
-            parse_to_expression(&bytes[0..step * 4], attr_info.default_val.clone())?;
+        // 既然当作表达式，而且又在隐含属性里，这里需要把bytes的长度锁定。
+        // 注意：某些情况下 step 可能计算为 0（例如 offset 列表里它是最后一个），
+        // 此时不能截成空 slice，否则会导致解析结果为空字符串。
+        let expr_bytes_len = if step == 0 {
+            bytes.len()
+        } else {
+            (step * 4).min(bytes.len())
+        };
+        let expr_bytes = &bytes[..expr_bytes_len];
+
+        let (_, string_val) = parse_to_expression(expr_bytes, attr_info.default_val.clone())?;
         val = string_val.clone();
-        match attr_info.default_val {
-            IntegerType(_) => {
-                if let AttrVal::StringType(s) = string_val
-                    && let Ok(v) = s.parse::<i32>()
+
+        // PX/PY/DX/DY/PRAD/DRAD 这类隐式“表达式”在不同数据里可能走的是显式表达式编码格式，
+        // parse_to_expression 覆盖不全时会返回空字符串；这里再尝试用显式表达式解析器补全。
+        if force_expr {
+            if let AttrVal::StringType(s) = &val
+                && s.trim().is_empty()
+            {
+                // step 可能不足以覆盖完整表达式：先扩大到剩余隐式数据再试一次旧隐式表达式解析器
+                if expr_bytes_len < bytes.len() {
+                    if let Ok((_, retry_val)) =
+                        parse_to_expression(bytes, attr_info.default_val.clone())
+                    {
+                        val = retry_val;
+                    }
+                }
+
+                if let Ok((_, (_, v))) = parse_expression_attr_nom(expr_bytes, 0) {
+                    if !v.trim().is_empty() {
+                        val = StringType(v.into());
+                    }
+                }
+                if let AttrVal::StringType(s2) = &val
+                    && s2.trim().is_empty()
+                    && expr_bytes_len < bytes.len()
                 {
-                    val = IntegerType(v);
+                    if let Ok((_, (_, v))) = parse_expression_attr_nom(bytes, 0) {
+                        if !v.trim().is_empty() {
+                            val = StringType(v.into());
+                        }
+                    }
+                }
+                if let AttrVal::StringType(s2) = &val
+                    && s2.trim().is_empty()
+                {
+                    if let Ok((_, v)) =
+                        crate::parse_explict_tools::parse_expression_func(expr_bytes, RefU64::default())
+                    {
+                        if !v.trim().is_empty() {
+                            val = StringType(v.into());
+                        }
+                    }
+                }
+                if let AttrVal::StringType(s2) = &val
+                    && s2.trim().is_empty()
+                {
+                    if let Ok((_, (_, v))) =
+                        crate::parse_explict_tools::parse_expression_attr(expr_bytes, RefU64::default())
+                    {
+                        if !v.trim().is_empty() {
+                            val = StringType(v.into());
+                        }
+                    }
+                }
+                if let AttrVal::StringType(s2) = &val
+                    && s2.trim().is_empty()
+                    && expr_bytes_len < bytes.len()
+                {
+                    if let Ok((_, (_, v))) =
+                        crate::parse_explict_tools::parse_expression_attr(bytes, RefU64::default())
+                    {
+                        if !v.trim().is_empty() {
+                            val = StringType(v.into());
+                        }
+                    }
+                }
+                if let AttrVal::StringType(s2) = &val
+                    && s2.trim().is_empty()
+                    && expr_bytes_len < bytes.len()
+                {
+                    if let Ok((_, v)) =
+                        crate::parse_explict_tools::parse_expression_func(bytes, RefU64::default())
+                    {
+                        if !v.trim().is_empty() {
+                            val = StringType(v.into());
+                        }
+                    }
                 }
             }
-            DoubleType(_) => {
-                if let AttrVal::StringType(s) = string_val
-                    && let Ok(v) = s.parse::<f64>()
-                {
-                    val = DoubleType(v);
+        }
+
+        // 对坐标/半径类隐式表达式（PX/PY/DX/DY/PRAD/DRAD）保持字符串，
+        // 避免把表达式（或带格式的 " 0"）强行转换为数值后丢失语义。
+        if !force_expr {
+            match attr_info.default_val {
+                IntegerType(_) => {
+                    if let AttrVal::StringType(s) = string_val
+                        && let Ok(v) = s.parse::<i32>()
+                    {
+                        val = IntegerType(v);
+                    }
                 }
+                DoubleType(_) => {
+                    if let AttrVal::StringType(s) = string_val
+                        && let Ok(v) = s.parse::<f64>()
+                    {
+                        val = DoubleType(v);
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
     } else {
         // 隐式属性LEVEL 需要做特殊处理 map给定的是IntegerType 但其实是Vec<Int>
@@ -1386,30 +1606,24 @@ lazy_static! {
 
 fn resolve_uda_label(hash: i32) -> String {
     if let Some(name) = UDA_NAME_CACHE.get(&hash) {
-        return format!("UDA:{}", name.value());
+        return format!("UDA_{}", name.value());
     }
-    format!("UDA_HASH:{hash}")
+    format!("UDA_HASH_{hash}")
 }
 
-/// 异步查询并缓存 UDA 名称（如果缓存中不存在）
-async fn fetch_and_cache_uda_name(hash: i32) {
-    // 如果已经缓存，直接返回
-    if UDA_NAME_CACHE.contains_key(&hash) {
-        return;
-    }
-
-    // 从数据库查询 UDA 名称
-    if let Ok(mut response) = SUL_DB
-        .query("select value UDNA from only UDA where UKEY=$key limit 1")
-        .bind(("key", hash))
-        .await
-    {
-        if let Ok(name) = response.take(0) {
-            if let Some(uda_name) = name {
-                UDA_NAME_CACHE.insert(hash, uda_name);
-            }
+/// 从数据库批量预加载所有 UDA 名称到缓存
+pub async fn preload_uda_name_cache() -> anyhow::Result<()> {
+    use aios_core::SurrealQueryExt;
+    let sql = "SELECT UKEY, UDNA, DYUDNA FROM UDA WHERE UKEY != none";
+    let udas: Vec<(i32, Option<String>, Option<String>)> = SUL_DB.query_take(sql, 0).await?;
+    for (ukey, udna, dyudna) in udas {
+        let name = udna.filter(|s| !s.is_empty())
+            .or(dyudna.filter(|s| !s.is_empty()));
+        if let Some(n) = name {
+            UDA_NAME_CACHE.insert(ukey, n);
         }
     }
+    Ok(())
 }
 
 /// 获取已知显式属性
@@ -1417,20 +1631,11 @@ pub fn process_explicit_attrs(
     uda_attrs: Vec<ExplicitAttr>,
     attr_data_map: &mut NamedAttrMap,
 ) -> anyhow::Result<()> {
-    // 处理解析结果，UDA 名称从缓存中读取
-    // 如果缓存中没有，会显示 UDA_HASH 格式，后续可以通过异步查询补充
+    // 处理解析结果，UDA 名称从缓存中读取（缓存应在 SYST 解析后已预加载）
     for attr in uda_attrs {
         if attr.is_uda {
             let label = resolve_uda_label(attr.hash_val);
             attr_data_map.insert(label, attr.value.into());
-
-            // 如果缓存中没有这个 UDA，触发异步查询（不阻塞当前流程）
-            if !UDA_NAME_CACHE.contains_key(&attr.hash_val) {
-                let hash = attr.hash_val;
-                tokio::spawn(async move {
-                    fetch_and_cache_uda_name(hash).await;
-                });
-            }
         } else {
             //覆盖可能在隐含属性里出现过的数据
             attr_data_map.insert(attr.name.clone(), attr.value.into());
@@ -1464,6 +1669,9 @@ pub fn parse_raw_explicit_attrs<'a>(
         } else {
             db1_dehash(hash_val.abs() as _)
         };
+        // 一些坐标/半径字段在不同数据里会以“表达式”编码出现，
+        // 但它们的 hash 并不总在 EXPR_ATT_SET 中；若按 DOUBLE 直接解析会把表达式 payload 误读为浮点。
+        let force_expr = !is_uda && is_force_implicit_expr_attr_name(att_name.trim());
         // println!("hex value is {:#4X?}, att name is {}", &residual[..4], &att_name);
         if is_debug {
             #[cfg(feature = "debug_parse")]
@@ -1473,40 +1681,101 @@ pub fn parse_raw_explicit_attrs<'a>(
                 }
             }
         }
-        if check_is_expr(hash_val) {
-            // dbg!(&att_name);
+
+        // 强制按表达式解析（仅针对 PX/PY/DX/DY/PRAD/DRAD 等字段）
+        if force_expr {
             let mut parsed: Option<(&[u8], String)> = None;
-            if let Ok((input, (_, value))) = parse_expression_attr_nom(residual, refno.0) {
-                parsed = Some((input, value));
-            }
-            if parsed
-                .as_ref()
-                .map(|(_, value)| value.is_empty())
-                .unwrap_or(true)
-            {
-                if let Ok((input, (_, value))) =
-                    crate::parse_explict_tools::parse_expression_attr(residual, refno)
-                {
+            if let Ok((input, (_ty, value))) = parse_expression_attr_nom(residual, refno.0) {
+                if !value.trim().is_empty() {
                     parsed = Some((input, value));
                 }
             }
+            if parsed.is_none() {
+                if let Ok((input, (_ty, value))) =
+                    crate::parse_explict_tools::parse_expression_attr(residual, refno)
+                {
+                    if !value.trim().is_empty() {
+                        parsed = Some((input, value));
+                    }
+                }
+            }
+
+            if let Some((input, value)) = parsed {
+                att_value = Some(StringType(value));
+                residual = input;
+            }
+        }
+
+        if att_value.is_none() && check_is_expr(hash_val) {
+            // dbg!(&att_name);
+            let mut parsed: Option<(&[u8], String)> = None;
+            let mut expr_type: Option<String> = None;
+            if let Ok((input, (ty, value))) = parse_expression_attr_nom(residual, refno.0) {
+                expr_type = Some(ty);
+                parsed = Some((input, value));
+            }
+
+            // PTCD/PTCDI 是最复杂的一类表达式：新/旧解析器各自有覆盖盲区。
+            // 策略：两边都尝试（若可），再按“更像符号表达式”的结果优先选用。
+            let prefer_dual_parse = matches!(expr_type.as_deref(), Some("PTCD") | Some("PTCDI"));
+            let need_fallback = parsed
+                .as_ref()
+                .map(|(_, value)| value.trim().is_empty())
+                .unwrap_or(true);
+            let legacy = crate::parse_explict_tools::parse_expression_attr(residual, refno)
+                .ok()
+                .map(|(input, (_ty, value))| (input, value));
+            let score = |s: &str| -> i32 {
+                let mut sc = 0;
+                if s.contains("PARA[") {
+                    sc += 10;
+                }
+                if s.contains("DESP[") || s.contains("DDES[") || s.contains("WDES[") {
+                    sc += 8;
+                }
+                if s.contains('/') || s.contains('*') || s.contains('+') {
+                    sc += 3;
+                }
+                // 纯数值（或几乎纯数值）更可能是误解析：给一个负权重
+                if s.trim().parse::<f64>().is_ok() {
+                    sc -= 5;
+                }
+                sc
+            };
+            if prefer_dual_parse || need_fallback {
+                match (parsed.as_ref().map(|(_, v)| v), legacy.as_ref().map(|(_, v)| v)) {
+                    (Some(new_v), Some(old_v)) => {
+                        if score(old_v) > score(new_v) {
+                            parsed = legacy;
+                        }
+                    }
+                    (None, Some(_)) => parsed = legacy,
+                    _ => {}
+                }
+            } else if let (Some(new_v), Some(old_v)) = (parsed.as_ref().map(|(_, v)| v), legacy.as_ref().map(|(_, v)| v)) {
+                if !old_v.trim().is_empty() && score(old_v) >= score(new_v) {
+                    parsed = legacy;
+                }
+            }
               if let Some((input, value)) = parsed {
-                  if value.is_empty() {
-                      att_value = None;
-                  } else {
-                      let mut parsed_numeric = None;
-                      if let Some(attr_info) = attr_info_map.get(&att_name) {
-                          if matches!(&attr_info.default_val, DoubleType(_)) {
-                              if let Ok(num) = value.trim().parse::<f64>() {
-                                  parsed_numeric = Some(DoubleType(num));
-                              }
-                          }
-                      }
-                      att_value = parsed_numeric.or_else(|| Some(StringType(value)));
-                  }
-                  if is_debug {
-                    #[cfg(feature = "debug_parse")]
-                    {
+                   if value.is_empty() {
+                       att_value = None;
+                   } else {
+                       let mut parsed_numeric = None;
+                       if !force_expr {
+                           if let Some(attr_info) = attr_info_map.get(&att_name) {
+                               if matches!(&attr_info.default_val, DoubleType(_)) {
+                                   if let Ok(num) = value.trim().parse::<f64>() {
+                                       parsed_numeric = Some(DoubleType(num));
+                                   }
+                               }
+                           }
+                       }
+                       att_value = parsed_numeric.or_else(|| Some(StringType(value)));
+                   }
+                   if is_debug {
+                     #[cfg(feature = "debug_parse")]
+                     {
                         dbg!(&att_value);
                     }
                 }
@@ -1520,7 +1789,7 @@ pub fn parse_raw_explicit_attrs<'a>(
                 );
                 break;
             }
-        } else {
+        } else if att_value.is_none() {
             let (l, header) = match parse_explicit_header(&residual[..]) {
                 Ok(result) => result,
                 Err(_e) => {
@@ -2744,7 +3013,7 @@ pub fn get_expression_angle_or_param(input: &[u8]) -> IResult<&[u8], String> {
 pub struct DbBasicInfo {
     pub db_type: String,
     pub ses_pgno: u32,
-    pub db_no: u32,
+    pub dbnum: u32,
 }
 
 /// 获取文件的type和ses_pgno, db number
@@ -2762,7 +3031,7 @@ pub fn parse_file_basic_info(input: &[u8]) -> DbBasicInfo {
     if t >= 0x81BF1 {
         file_type = db1_dehash(t);
     }
-    let db_no = extract_db_no(input)
+    let dbnum = extract_db_no(input)
         .map(|v| v as u32)
         .unwrap_or_else(|| {
             if input.len() >= 12 {
@@ -2779,7 +3048,7 @@ pub fn parse_file_basic_info(input: &[u8]) -> DbBasicInfo {
     DbBasicInfo {
         db_type: file_type,
         ses_pgno,
-        db_no,
+        dbnum,
     }
 }
 

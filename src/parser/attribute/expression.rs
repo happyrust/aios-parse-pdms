@@ -7,6 +7,7 @@
 //! - 常量表达式
 
 use crate::parser::numeric::{parse_explicit_f64_40, parse_explicit_num_00, parse_explicit_num_ff};
+use aios_core::types::RefU64;
 use aios_core::helper::parse_to_i16;
 use aios_core::tool::db_tool::{convert_to_hash, db1_dehash};
 use nom::bytes::complete::take;
@@ -16,6 +17,7 @@ use nom::Parser;
 use std::collections::HashMap;
 
 use super::axis::{is_axis_expression, parse_axis_expression_str};
+use super::expression_payload::decode_expression_payload;
 
 /// 数学运算符映射表
 ///
@@ -269,7 +271,10 @@ pub fn parse_expression_attr(input: &[u8], refno: u64) -> IResult<&[u8], (String
     if is_axis_expression(input)? {
         parse_axis_expression_str(input, expression_type)
     } else {
-        parse_other_expression(input, expression_type, refno)
+        match parse_other_expression(input, expression_type.clone(), refno) {
+            Ok(result) => Ok(result),
+            Err(_) => crate::parse_explict_tools::parse_expression_attr(input, RefU64(refno)),
+        }
     }
 }
 
@@ -300,8 +305,24 @@ pub fn parse_other_expression(
         return parse_ptcd_expression(input, expression_type);
     }
 
-    // 通用表达式处理
-    parse_general_expression(input, expression_type)
+    // 通用表达式处理：基于 payload→postfix→pretty 的复刻实现
+    match decode_expression_payload(input) {
+        Ok((consumed, value)) if !value.trim().is_empty() => {
+            let trimmed = value.trim();
+            let numeric_only = trimmed.parse::<f64>().is_ok();
+            if numeric_only && input.len() > 32 {
+                return Err(nom::Err::Error(nom::error::make_error(
+                    input,
+                    nom::error::ErrorKind::Verify,
+                )));
+            }
+            Ok((&input[consumed..], (expression_type, value)))
+        }
+        _ => Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Verify,
+        ))),
+    }
 }
 
 /// 解析字符串表达式
@@ -361,50 +382,6 @@ fn parse_ptcd_expression(
 }
 
 /// 解析通用表达式
-fn parse_general_expression(
-    input: &[u8],
-    expression_type: String,
-) -> IResult<&[u8], (String, String)> {
-    if input.len() < 16 {
-        return Ok((input, (expression_type, String::new())));
-    }
-
-    // 读取控制标志
-    let (_, flag1) = be_i32(&input[4..8])?;
-    let (_, flag2) = be_i32(&input[8..12])?;
-
-    // 轴向快速模式
-    if flag1 == 2 && flag2 == 1 {
-        let axis_index = if input.len() >= 16 {
-            i32::from_be_bytes(input[12..16].try_into().unwrap_or([0; 4]))
-        } else {
-            0
-        };
-        let axis = match axis_index {
-            1 => "X",
-            2 => "Y",
-            3 => "Z",
-            _ => "",
-        };
-        return Ok((input, (expression_type, axis.to_string())));
-    }
-
-    // 数值模式
-    if flag2 == 0x28 && input.len() >= 24 {
-        let num_flag = parse_to_i16(&input[20..22]);
-        let value = match num_flag {
-            0 => parse_explicit_num_00(&input[12..24]).map(|(_, v)| v).unwrap_or(0.0),
-            0x4000 => parse_explicit_f64_40(&input[12..24]).map(|(_, v)| v).unwrap_or(0.0),
-            -1 => parse_explicit_num_ff(&input[12..24]).map(|(_, v)| v).unwrap_or(0.0),
-            _ => 0.0,
-        };
-        return Ok((input, (expression_type, value.to_string())));
-    }
-
-    // 默认返回空字符串
-    Ok((input, (expression_type, String::new())))
-}
-
 /// 解析轴向数据
 fn parse_axis_data(data: &[u8]) -> String {
     let mut result = String::new();
