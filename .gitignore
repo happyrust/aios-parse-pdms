@@ -12,3 +12,6 @@ Cargo.lock
 .idea/aios-parse-pdms.iml
 .idea/vcs.xml
 .ace-tool/
+.ida-mcp/
+nul
+test-files/amssys
