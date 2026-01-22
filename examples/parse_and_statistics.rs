@@ -114,8 +114,8 @@ async fn main() -> Result<()> {
     println!("📁 文件大小: {} bytes", buffer.len());
     
     // 显示文件基本信息
-    if let Some(db_no) = extract_db_no(&buffer) {
-        println!("📊 数据库编号: {}", db_no);
+    if let Some(dbnum) = extract_db_no(&buffer) {
+        println!("📊 数据库编号: {}", dbnum);
     }
     if let Some(field_no) = extract_field_no(&buffer) {
         println!("📋 字段编号: {}", field_no);

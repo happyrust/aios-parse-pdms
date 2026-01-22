@@ -7,13 +7,10 @@
 			"path": "../rs-core"
 		},
 		{
-			"path": "../surrealdb"
+			"path": "../pdms-io-fork"
 		},
 		{
-			"path": "../gen-model-fork"
-		},
-		{
-			"path": "../pdms-io"
+			"path": "../gen_model-dev"
 		}
 	],
 	"settings": {

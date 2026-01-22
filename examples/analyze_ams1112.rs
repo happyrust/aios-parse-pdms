@@ -21,8 +21,8 @@ fn main() -> Result<()> {
     println!("📁 文件大小: {} bytes", buffer.len());
     
     // 提取数据库头部信息
-    if let Some(db_no) = extract_db_no(&buffer) {
-        println!("📊 数据库编号 (db_no): {}", db_no);
+    if let Some(dbnum) = extract_db_no(&buffer) {
+        println!("📊 数据库编号 (dbnum): {}", dbnum);
     } else {
         println!("❌ 无法提取数据库编号");
     }

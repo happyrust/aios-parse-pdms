@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     match &header_result {
         Ok((rest, header)) => {
             println!("✅ 头部解析成功");
-            println!("   📊 数据库编号: {}", header.db_no);
+            println!("   📊 数据库编号: {}", header.dbnum);
             println!("   📋 字段编号: {}", header.field_no);
             println!("   🗄️  数据库类型: {}", header.db_type);
             println!("   📍 索引区偏移: {}", header.index_offset);
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
     let basic_info = parse_file_basic_info(&buffer);
     println!("   📊 数据库类型: {}", basic_info.db_type);
     println!("   📋 SES 页号: {}", basic_info.ses_pgno);
-    println!("   🔢 数据库编号: {}", basic_info.db_no);
+    println!("   🔢 数据库编号: {}", basic_info.dbnum);
     
     // 4. 分析数据区结构
     if let Ok((_, header)) = &header_result {
