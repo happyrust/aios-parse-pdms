@@ -20,8 +20,9 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::OnceLock;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
 /// 每页 i32 个数（core.dll 里 `512 * slot` 的步长）。
@@ -54,9 +55,9 @@ pub const HDR_NOUN_START: usize = 6;
 /// 字段类型码（`dword_6C21070[col]`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FieldType {
-    Bool,       // 1 → `==1` 为真
-    Int,        // 3
-    Array,      // 4
+    Bool,  // 1 → `==1` 为真
+    Int,   // 3
+    Array, // 4
     Other(i32),
 }
 impl FieldType {
@@ -228,7 +229,8 @@ pub fn export_noun_flags(attr_file: &Path, out_json: &Path) -> Result<()> {
     let df = AttrDataFile::open(attr_file)?;
     let flags = df.all_noun_flags();
     let json = serde_json::to_string_pretty(&flags)?;
-    std::fs::write(out_json, json.into_bytes()).map_err(|e| anyhow!("write {:?}: {e}", out_json))?;
+    std::fs::write(out_json, json.into_bytes())
+        .map_err(|e| anyhow!("write {:?}: {e}", out_json))?;
     Ok(())
 }
 
@@ -263,7 +265,10 @@ impl NounClassifier {
             }
             by_hash.insert(f.noun_hash, f);
         }
-        Self { by_hash, name_to_hash }
+        Self {
+            by_hash,
+            name_to_hash,
+        }
     }
 
     /// 从 `noun_flags.json` 文本构建。
@@ -282,7 +287,9 @@ impl NounClassifier {
 
     /// 直接从 `attlib.dat` 解析并构建（离线，无需先导出 json）。
     pub fn from_attr_file(attr_file: &Path) -> Result<Self> {
-        Ok(Self::from_flags(AttrDataFile::open(attr_file)?.all_noun_flags()))
+        Ok(Self::from_flags(
+            AttrDataFile::open(attr_file)?.all_noun_flags(),
+        ))
     }
 
     pub fn len(&self) -> usize {
@@ -352,6 +359,36 @@ impl NounClassifier {
     pub fn extrusion_nouns(&self) -> Vec<String> {
         self.nouns_where(|f| f.extrusion)
     }
+
+    /// 负体候选名单（**启发式**：`N` 前缀 ∩ 几何(primitive/geomset/extrusion)）。
+    ///
+    /// ⚠️ dict 的 5 个已 RE flag 里**没有**显式 negative 字段（ADR-006 未决），故负体只能
+    /// 启发式推断。实测（Phase 1-A）：curated `TOTAL_NEG`(23) 是本集合的**干净子集**；本启发式
+    /// 相对 `TOTAL_NEG` **多出** `NBXI/NPOLYH/NSLC/NTUB`(候选真负体) + **误纳** `NOZZ`(实为喷嘴正体)。
+    /// ⇒ 生产用途**不要**直接用本集合当负体名单；应 = `TOTAL_NEG ∪ {NBXI,NPOLYH,NSLC,NTUB}`
+    /// 并排除 `NOZZ`，或将来 RE dict negative 字段做数据驱动。本方法仅供交叉核对/发现用。
+    pub fn negative_candidate_nouns(&self) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .by_hash
+            .values()
+            .filter(|f| f.primitive || f.geomset || f.extrusion)
+            .map(|f| f.noun_name.trim().to_ascii_uppercase())
+            .filter(|n| !n.is_empty() && n.starts_with('N'))
+            .collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    }
+}
+
+/// 全局默认 `NounClassifier`：加载 **crate 内嵌**的 `noun_flags.json`（与 `all_attr_info.json`
+/// 同款内嵌，无运行期文件依赖）。首次调用懒加载；解析失败退化为空分类器（谓词全 false，
+/// 保守不误判）。gen-model 侧后续（ADR-006 阶段 3）用它把路由判定从硬编码名单迁到 dict flag。
+pub fn default_noun_classifier() -> &'static NounClassifier {
+    static DEFAULT_CLASSIFIER: OnceLock<NounClassifier> = OnceLock::new();
+    DEFAULT_CLASSIFIER.get_or_init(|| {
+        NounClassifier::from_json_str(include_str!("../noun_flags.json")).unwrap_or_default()
+    })
 }
 
 // ── 内部工具 ────────────────────────────────────────────────────────────────
@@ -507,7 +544,9 @@ mod tests {
     #[test]
     fn print_known_noun_hashes() {
         use aios_core::tool::db_tool::db1_hash;
-        for n in ["SCYL", "SBOX", "CYLI", "SPHE", "SCOM", "GMSET", "SITE", "ZONE", "EQUI"] {
+        for n in [
+            "SCYL", "SBOX", "CYLI", "SPHE", "SCOM", "GMSET", "SITE", "ZONE", "EQUI",
+        ] {
             let h = db1_hash(n);
             println!("db1_hash({:6}) = {:>12} (0x{:08X})", n, h as i32, h);
         }
@@ -523,7 +562,11 @@ mod tests {
         let path = std::path::Path::new(r"D:\AVEVA\Everything3D3.1\attlib.dat");
         let df = AttrDataFile::open(path).expect("open attlib.dat");
         println!("header v47 = {:?}", df.header());
-        println!("noun_count={} field_count={}", df.noun_count(), df.field_count());
+        println!(
+            "noun_count={} field_count={}",
+            df.noun_count(),
+            df.field_count()
+        );
         for (fid, name) in [
             (FIELD_PRIMITIVE, "primitive"),
             (FIELD_GEOMSET, "geomset"),
@@ -532,7 +575,10 @@ mod tests {
             (FIELD_BASE_TYPE, "base_type"),
         ] {
             if let Some(s) = df.field_index.get(&fid) {
-                println!("field {name}({fid}) col={} type={:?} default={}", s.col, s.ty, s.default);
+                println!(
+                    "field {name}({fid}) col={} type={:?} default={}",
+                    s.col, s.ty, s.default
+                );
             } else {
                 println!("field {name}({fid}) NOT FOUND in field index");
             }
@@ -554,7 +600,13 @@ mod tests {
                 let f = df.noun_flags(h);
                 println!(
                     "{n:5}({h:>10}) @raw{}:{:<3} prim={} geomset={} extr={} gb={:?} [prim.off={:?}]",
-                    ns.raw_page, ns.row_base, f.primitive, f.geomset, f.extrusion, f.graphics_behaviour, off_dbg
+                    ns.raw_page,
+                    ns.row_base,
+                    f.primitive,
+                    f.geomset,
+                    f.extrusion,
+                    f.graphics_behaviour,
+                    off_dbg
                 );
             } else {
                 println!("{n:5}({h:>10}) NOT FOUND in noun index");
@@ -581,10 +633,30 @@ mod tests {
 
         // (标签, 名单, 期望谓词, 期望描述)
         let groups: [(&str, &[&str], fn(&NounFlags) -> bool, &str); 4] = [
-            ("PRIMITIVE(设计图元)", &PRIMITIVE_NOUN_NAMES, |f| f.primitive, "primitive=true"),
-            ("GNERAL_PRIM(图元+负体)", &GNERAL_PRIM_NOUN_NAMES, |f| f.primitive, "primitive=true"),
-            ("CATA_GEO(元件库几何)", &TOTAL_CATA_GEO_NOUN_NAMES, |f| f.geomset, "geomset=true"),
-            ("LOOP_OWNER(挤出)", &GNERAL_LOOP_OWNER_NOUN_NAMES, |f| f.extrusion, "extrusion=true"),
+            (
+                "PRIMITIVE(设计图元)",
+                &PRIMITIVE_NOUN_NAMES,
+                |f| f.primitive,
+                "primitive=true",
+            ),
+            (
+                "GNERAL_PRIM(图元+负体)",
+                &GNERAL_PRIM_NOUN_NAMES,
+                |f| f.primitive,
+                "primitive=true",
+            ),
+            (
+                "CATA_GEO(元件库几何)",
+                &TOTAL_CATA_GEO_NOUN_NAMES,
+                |f| f.geomset,
+                "geomset=true",
+            ),
+            (
+                "LOOP_OWNER(挤出)",
+                &GNERAL_LOOP_OWNER_NOUN_NAMES,
+                |f| f.extrusion,
+                "extrusion=true",
+            ),
         ];
 
         for (label, names, pred, want) in groups {
@@ -609,7 +681,11 @@ mod tests {
                     ));
                 }
             }
-            let rate = if found > 0 { 100.0 * ok as f64 / found as f64 } else { 0.0 };
+            let rate = if found > 0 {
+                100.0 * ok as f64 / found as f64
+            } else {
+                0.0
+            };
             println!(
                 "[{label}] 期望 {want}: 命中 {found}/{} 一致 {ok}/{found} ({rate:.0}%)",
                 names.len()
@@ -695,9 +771,15 @@ mod tests {
                 .filter(|n| !piping.contains(**n) && !use_cate.contains(**n))
                 .collect();
             println!("\n[{label}] 名单 {} 个", list.len());
-            println!("  名单内但 flag=false（盲替会漏路由）: {:?}", in_list_no_flag);
+            println!(
+                "  名单内但 flag=false（盲替会漏路由）: {:?}",
+                in_list_no_flag
+            );
             println!("  flag=true 但不在名单 共 {} 个:", extras.len());
-            println!("     ├ 属 PIPING（盲替会误路由到该路径）: {:?}", extra_piping);
+            println!(
+                "     ├ 属 PIPING（盲替会误路由到该路径）: {:?}",
+                extra_piping
+            );
             println!("     ├ 属 USE_CATE: {:?}", extra_cate);
             println!(
                 "     └ 其它 {} 个（样本≤40）: {:?}",
@@ -706,9 +788,21 @@ mod tests {
             );
         };
 
-        report("GNERAL_PRIM→prim_model vs primitive", &set(&GNERAL_PRIM_NOUN_NAMES), clf.primitive_nouns());
-        report("GNERAL_LOOP_OWNER→loop_model vs extrusion", &set(&GNERAL_LOOP_OWNER_NOUN_NAMES), clf.extrusion_nouns());
-        report("TOTAL_CATA_GEO vs geomset", &set(&TOTAL_CATA_GEO_NOUN_NAMES), clf.geomset_nouns());
+        report(
+            "GNERAL_PRIM→prim_model vs primitive",
+            &set(&GNERAL_PRIM_NOUN_NAMES),
+            clf.primitive_nouns(),
+        );
+        report(
+            "GNERAL_LOOP_OWNER→loop_model vs extrusion",
+            &set(&GNERAL_LOOP_OWNER_NOUN_NAMES),
+            clf.extrusion_nouns(),
+        );
+        report(
+            "TOTAL_CATA_GEO vs geomset",
+            &set(&TOTAL_CATA_GEO_NOUN_NAMES),
+            clf.geomset_nouns(),
+        );
 
         // 管件在各 flag 下的归类（决定管件该走哪条路由）。
         println!("\n[PIPING 各 flag 归类]");
@@ -746,7 +840,9 @@ mod tests {
         let clf = match NounClassifier::from_json_path(&json) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("skip routing guard: {e}（noun_flags.json 未生成，跑 export_noun_flags_json）");
+                eprintln!(
+                    "skip routing guard: {e}（noun_flags.json 未生成，跑 export_noun_flags_json）"
+                );
                 return;
             }
         };
@@ -759,14 +855,51 @@ mod tests {
                     viol.push(format!("{n}(flag=false)"));
                 }
             }
-            assert!(viol.is_empty(), "[{label}] 路由名单与 dict flag 不符: {viol:?}");
+            assert!(
+                viol.is_empty(),
+                "[{label}] 路由名单与 dict flag 不符: {viol:?}"
+            );
         };
-        check("PRIMITIVE⊆primitive", &PRIMITIVE_NOUN_NAMES, &|n| clf.primitive(n));
-        check("GNERAL_PRIM⊆primitive∪geomset", &GNERAL_PRIM_NOUN_NAMES, &|n| {
-            clf.primitive(n) || clf.geomset(n)
+        check("PRIMITIVE⊆primitive", &PRIMITIVE_NOUN_NAMES, &|n| {
+            clf.primitive(n)
         });
-        check("GNERAL_LOOP_OWNER⊆extrusion", &GNERAL_LOOP_OWNER_NOUN_NAMES, &|n| clf.extrusion(n));
-        check("TOTAL_CATA_GEO⊆geomset", &TOTAL_CATA_GEO_NOUN_NAMES, &|n| clf.geomset(n));
+        check(
+            "GNERAL_PRIM⊆primitive∪geomset",
+            &GNERAL_PRIM_NOUN_NAMES,
+            &|n| clf.primitive(n) || clf.geomset(n),
+        );
+        check(
+            "GNERAL_LOOP_OWNER⊆extrusion",
+            &GNERAL_LOOP_OWNER_NOUN_NAMES,
+            &|n| clf.extrusion(n),
+        );
+        check(
+            "TOTAL_CATA_GEO⊆geomset",
+            &TOTAL_CATA_GEO_NOUN_NAMES,
+            &|n| clf.geomset(n),
+        );
+    }
+
+    /// Phase 1-B：全局 `default_noun_classifier()` 加载 crate 内嵌 `noun_flags.json`
+    /// （非 ignore，随常规构建跑，验证内嵌数据可用 + 分类正确）。
+    #[test]
+    fn default_classifier_loads_and_spot_checks() {
+        let c = default_noun_classifier();
+        assert!(c.len() > 1000, "内嵌分类器为空? len={}", c.len());
+        assert!(c.primitive("BOX") && c.primitive("CYLI"), "BOX/CYLI 应 primitive");
+        assert!(c.geomset("SCYL") && c.geomset("SBOX"), "SCYL/SBOX 应 geomset");
+        assert!(c.primitive("ELBO"), "管件 ELBO 也是 primitive(设计级几何叶子)");
+        assert!(!c.primitive("SITE") && !c.geomset("SITE"), "SITE 容器非几何");
+        // 负体候选启发式（Phase 1-A 结论）：含真负体候选，也记录 NOZZ 假阳性。
+        let negs: std::collections::HashSet<String> =
+            c.negative_candidate_nouns().into_iter().collect();
+        for n in ["NBOX", "NPOLYH", "NSLC", "NTUB"] {
+            assert!(negs.contains(n), "负体候选应含 {n}");
+        }
+        assert!(
+            negs.contains("NOZZ"),
+            "NOZZ 被 N-前缀启发式误纳(已知假阳性 → 负体源不能纯用本启发式)"
+        );
     }
 
     /// 产出「gen-model 漏路由的几何 noun」缺口清单 → `docs/plans/stage3-noun-routing-gaps.md`。
@@ -802,9 +935,8 @@ mod tests {
         let geoms: BTreeSet<String> = clf.geomset_nouns().into_iter().collect();
         let extr: BTreeSet<String> = clf.extrusion_nouns().into_iter().collect();
 
-        let fmt = |xs: &BTreeSet<String>| -> String {
-            xs.iter().cloned().collect::<Vec<_>>().join(", ")
-        };
+        let fmt =
+            |xs: &BTreeSet<String>| -> String { xs.iter().cloned().collect::<Vec<_>>().join(", ") };
         let diff = |a: &BTreeSet<String>, b: &BTreeSet<String>| -> BTreeSet<String> {
             a.difference(b).cloned().collect()
         };
@@ -915,7 +1047,11 @@ mod tests {
         let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(|p| p.parent())
-            .map(|p| p.join("docs").join("plans").join("stage3-noun-routing-gaps.md"))
+            .map(|p| {
+                p.join("docs")
+                    .join("plans")
+                    .join("stage3-noun-routing-gaps.md")
+            })
             .expect("resolve out path");
         std::fs::write(&out, md.into_bytes()).expect("write gap report");
         println!(
