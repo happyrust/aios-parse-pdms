@@ -18,7 +18,7 @@
 //!
 //! Rust 的整数除法向下取整（PowerShell `[int]` 会四舍五入，早前踩过坑）——本实现直接用之。
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -42,6 +42,66 @@ pub const FIELD_ISPOINTSETPOINT: i32 = 290555737;
 pub const FIELD_GRAPHICS_BEHAVIOUR: i32 = 5099119;
 /// base_type 字段 id（ATNLOG 里的 `unk_5DAEB9C`，实测 = 837586）：cell==0 时沿它继承。
 pub const FIELD_BASE_TYPE: i32 = 837586;
+
+// ── 其余 DB_Noun 能力字段（core.dll 访问器逐个反编译取得，见 v2 测试计划 §2）──
+//
+// 取自 `DB_Noun::<accessor>` 的 `internalGetField(field)` 立即数，或 `ReadData`/`ReadDataDab`
+// 里 `sub_55BC8DC` 的字段号。`DB_Noun::primaryList` 走 `db_get_element_info(297853135)`
+// 而非 dabacon，**不在本文件可得**，故不在此列。
+
+/// `DB_Noun::point`(0x58da1c0)：顶点/点容器 noun（LOOP/PLOO/PAVE/VERT/SPINE…）。
+pub const FIELD_POINT: i32 = 661624;
+/// `DB_Noun::positiveEquivalent`(0x58da1e0)：负体 noun 的正体等价类型 hash。
+pub const FIELD_POSITIVE_EQUIVALENT: i32 = 778791;
+/// `DB_Noun::changeType`(0x58d7630)：变化等价类的目标 noun hash（0 表示自成一类）。
+pub const FIELD_CHANGE_TYPE: i32 = 76272573;
+/// `DB_Noun::spatialMap`(0x58db9d0)：空间索引参与方式。
+pub const FIELD_SPATIAL_MAP: i32 = 847458;
+/// `DB_Noun::secondaryHierarchy`(0x58db900)：owner 链之外的次层级归属。
+pub const FIELD_SECONDARY_HIERARCHY: i32 = 65664829;
+/// `DB_Noun::defined`(0x58d7860)：定义级别；`== 4` 即 `isPseudo`。
+pub const FIELD_DEFINED: i32 = 713101;
+/// `DB_Noun::validc`(0x58dbc10)：校验分类。
+pub const FIELD_VALIDC: i32 = 45889870;
+/// `DB_Noun::visible`(0x58dbc30)。
+pub const FIELD_VISIBLE: i32 = 722704;
+/// `DB_Noun::toplevel`(0x58dba70)。
+pub const FIELD_TOPLEVEL: i32 = 661628;
+/// `DB_Noun::pickable`(0x58da1a0)。
+pub const FIELD_PICKABLE: i32 = 750400;
+/// `DB_Noun::world`(0x58dbc50)。
+pub const FIELD_WORLD: i32 = 843594;
+/// `DB_Noun::defaultVolumeQuery`(0x58d7840)。
+pub const FIELD_DEFAULT_VOLUME_QUERY: i32 = 89369995;
+/// `DB_Noun::clasherWithin`(0x58d7670)。
+pub const FIELD_CLASHER_WITHIN: i32 = 206078421;
+/// `DB_Noun::clasherSection`(0x58d7650)。
+pub const FIELD_CLASHER_SECTION: i32 = 46622793;
+/// `DB_Noun::modifiable`(0x58da0e0)。
+pub const FIELD_MODIFIABLE: i32 = 621476;
+/// `DB_Noun::statusEligible`(0x58dba10)。
+pub const FIELD_STATUS_ELIGIBLE: i32 = 204468292;
+/// `DB_Noun::isCloneable`(0x58d9df0)。
+pub const FIELD_IS_CLONEABLE: i32 = 3475470;
+/// `DB_Noun::requiresMarine`(0x58db8e0)。
+pub const FIELD_REQUIRES_MARINE: i32 = 259611633;
+/// `DB_Noun::isProtected`(0x58da070)。
+pub const FIELD_IS_PROTECTED: i32 = 212119090;
+/// `DB_Noun::deleteMemberOnCopy`(0x58d7880)。
+pub const FIELD_DELETE_MEMBER_ON_COPY: i32 = 193546290;
+/// `DB_Noun::spoolerModifiable`(0x58db9f0)。
+pub const FIELD_SPOOLER_MODIFIABLE: i32 = 208122411;
+/// `DB_Noun::psOwner`(0x58db510)。
+pub const FIELD_PS_OWNER: i32 = 266716114;
+/// `DB_Noun::psNext`(0x58db4f0)。
+pub const FIELD_PS_NEXT: i32 = 300373315;
+/// `DB_Noun::psFirstMember`(0x58db4d0)。
+pub const FIELD_PS_FIRST_MEMBER: i32 = 297966157;
+
+/// `DB_Noun::primaryList` 的字段号。**不在 dabacon 字典里**——`ReadDataDab`(0x58d7100) 用
+/// `db_get_element_info(hash, 297853135)` 从运行库读取。列在此仅为记录来源，
+/// [`AttrDataFile`] 查询它必然返回 `None`。
+pub const FIELD_PRIMARY_LIST_NOT_IN_DICT: i32 = 297853135;
 /// noun 继承链上溯上限（防环）。
 const MAX_INHERIT_DEPTH: usize = 32;
 
@@ -210,6 +270,54 @@ impl AttrDataFile {
         hashes.sort_unstable();
         hashes.into_iter().map(|h| self.noun_flags(h)).collect()
     }
+
+    /// 读取一个 noun 的**完整**能力集（`DB_Noun` 全部可从 dabacon 取得的访问器）。
+    pub fn noun_capabilities(&self, noun_hash: i32) -> NounCapabilities {
+        let b = |f: i32| self.field_bool(noun_hash, f);
+        let i = |f: i32| self.field_int(noun_hash, f);
+        NounCapabilities {
+            noun_hash,
+            noun_name: dehash_noun(noun_hash),
+            primitive: b(FIELD_PRIMITIVE),
+            geomset: b(FIELD_GEOMSET),
+            extrusion: b(FIELD_EXTRUSION),
+            point: b(FIELD_POINT),
+            is_pointset_point: b(FIELD_ISPOINTSETPOINT),
+            graphics_behaviour: i(FIELD_GRAPHICS_BEHAVIOUR),
+            change_type: i(FIELD_CHANGE_TYPE),
+            positive_equivalent: i(FIELD_POSITIVE_EQUIVALENT),
+            spatial_map: i(FIELD_SPATIAL_MAP),
+            secondary_hierarchy: i(FIELD_SECONDARY_HIERARCHY),
+            defined: i(FIELD_DEFINED),
+            validc: i(FIELD_VALIDC),
+            visible: b(FIELD_VISIBLE),
+            toplevel: b(FIELD_TOPLEVEL),
+            pickable: b(FIELD_PICKABLE),
+            world: b(FIELD_WORLD),
+            default_volume_query: b(FIELD_DEFAULT_VOLUME_QUERY),
+            clasher_within: b(FIELD_CLASHER_WITHIN),
+            clasher_section: b(FIELD_CLASHER_SECTION),
+            modifiable: b(FIELD_MODIFIABLE),
+            status_eligible: b(FIELD_STATUS_ELIGIBLE),
+            is_cloneable: b(FIELD_IS_CLONEABLE),
+            requires_marine: b(FIELD_REQUIRES_MARINE),
+            is_protected: b(FIELD_IS_PROTECTED),
+            delete_member_on_copy: b(FIELD_DELETE_MEMBER_ON_COPY),
+            spooler_modifiable: b(FIELD_SPOOLER_MODIFIABLE),
+            ps_owner: i(FIELD_PS_OWNER),
+            ps_next: i(FIELD_PS_NEXT),
+            ps_first_member: i(FIELD_PS_FIRST_MEMBER),
+        }
+    }
+
+    pub fn all_noun_capabilities(&self) -> Vec<NounCapabilities> {
+        let mut hashes: Vec<i32> = self.noun_index.keys().copied().collect();
+        hashes.sort_unstable();
+        hashes
+            .into_iter()
+            .map(|h| self.noun_capabilities(h))
+            .collect()
+    }
 }
 
 /// 一个 noun 的分类 flag（导出到 `noun_flags.json` 的一行）。
@@ -232,6 +340,240 @@ pub fn export_noun_flags(attr_file: &Path, out_json: &Path) -> Result<()> {
     std::fs::write(out_json, json.into_bytes())
         .map_err(|e| anyhow!("write {:?}: {e}", out_json))?;
     Ok(())
+}
+
+/// 一个 noun 的**完整**能力集：`DB_Noun` 里所有可从 dabacon 取到的访问器。
+///
+/// 字段名与 `DB_Noun` 的访问器一一对应（蛇形化）。`primaryList` 不在其中——它走
+/// `db_get_element_info`，见 [`FIELD_PRIMARY_LIST_NOT_IN_DICT`]。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NounCapabilities {
+    pub noun_hash: i32,
+    pub noun_name: String,
+
+    // ── 直接几何能力 ────────────────────────────────────────────────────────
+    pub primitive: bool,
+    pub geomset: bool,
+    pub extrusion: bool,
+    /// 顶点/点容器（LOOP/PLOO/PAVE/VERT/SPINE…）——「不能当生成根」的权威名单来源。
+    pub point: bool,
+    pub is_pointset_point: bool,
+
+    // ── 生成与变化路由 ──────────────────────────────────────────────────────
+    pub graphics_behaviour: Option<i32>,
+    /// 变化等价类目标 noun hash；0 表示自成一类。
+    pub change_type: Option<i32>,
+    /// 负体 → 正体等价类型 hash；0 表示不是负体。
+    pub positive_equivalent: Option<i32>,
+    pub spatial_map: Option<i32>,
+    pub secondary_hierarchy: Option<i32>,
+    /// `== 4` 即 `DB_Noun::isPseudo`。
+    pub defined: Option<i32>,
+    pub validc: Option<i32>,
+
+    // ── 显示与交互 ──────────────────────────────────────────────────────────
+    pub visible: bool,
+    pub toplevel: bool,
+    pub pickable: bool,
+    pub world: bool,
+    pub default_volume_query: bool,
+    pub clasher_within: bool,
+    pub clasher_section: bool,
+
+    // ── 生命周期与权限 ──────────────────────────────────────────────────────
+    pub modifiable: bool,
+    pub status_eligible: bool,
+    pub is_cloneable: bool,
+    pub requires_marine: bool,
+    pub is_protected: bool,
+    pub delete_member_on_copy: bool,
+    pub spooler_modifiable: bool,
+
+    // ── pointset 遍历链 ─────────────────────────────────────────────────────
+    pub ps_owner: Option<i32>,
+    pub ps_next: Option<i32>,
+    pub ps_first_member: Option<i32>,
+}
+
+impl NounCapabilities {
+    /// 三个直接几何能力的并集——生成能力基线。
+    pub fn has_direct_geometry(&self) -> bool {
+        self.primitive || self.geomset || self.extrusion
+    }
+
+    /// `DB_Noun::isPseudo`：`defined == 4`。
+    pub fn is_pseudo(&self) -> bool {
+        self.defined == Some(4)
+    }
+
+    /// 该 noun 所属变化等价类的目标 hash：字典值为 0/缺失时按 core.dll `ReadData`
+    /// 的回填规则取自身 hash。
+    pub fn change_class_hash(&self) -> i32 {
+        match self.change_type {
+            Some(h) if h != 0 => h,
+            _ => self.noun_hash,
+        }
+    }
+
+    /// 负体的正体等价 hash（不是负体时为 `None`）。
+    pub fn positive_equivalent_hash(&self) -> Option<i32> {
+        self.positive_equivalent.filter(|h| *h != 0 && *h != -1)
+    }
+}
+
+/// 导出 `noun_caps.json`（紧凑，供 [`default_noun_capabilities`] 内嵌）。
+pub fn export_noun_capabilities(attr_file: &Path, out_json: &Path) -> Result<()> {
+    let df = AttrDataFile::open(attr_file)?;
+    let caps = df.all_noun_capabilities();
+    let json = serde_json::to_string(&caps)?;
+    std::fs::write(out_json, json.into_bytes())
+        .map_err(|e| anyhow!("write {:?}: {e}", out_json))?;
+    Ok(())
+}
+
+/// 全局默认能力矩阵：加载 crate 内嵌的 `noun_caps.json`（由 [`export_noun_capabilities`]
+/// 从 `attlib.dat` 生成）。解析失败退化为空表。
+pub fn default_noun_capabilities() -> &'static NounCapabilityTable {
+    static DEFAULT_CAPS: OnceLock<NounCapabilityTable> = OnceLock::new();
+    DEFAULT_CAPS.get_or_init(|| {
+        NounCapabilityTable::from_json_str(include_str!("../noun_caps.json")).unwrap_or_default()
+    })
+}
+
+/// 全量能力矩阵的查询视图。
+#[derive(Debug, Clone, Default)]
+pub struct NounCapabilityTable {
+    by_hash: HashMap<i32, NounCapabilities>,
+    name_to_hash: HashMap<String, i32>,
+}
+
+impl NounCapabilityTable {
+    pub fn from_caps(caps: Vec<NounCapabilities>) -> Self {
+        let mut by_hash = HashMap::with_capacity(caps.len());
+        let mut name_to_hash = HashMap::with_capacity(caps.len());
+        for c in caps {
+            let key = c.noun_name.trim().to_ascii_uppercase();
+            if !key.is_empty() {
+                name_to_hash.insert(key, c.noun_hash);
+            }
+            by_hash.insert(c.noun_hash, c);
+        }
+        Self {
+            by_hash,
+            name_to_hash,
+        }
+    }
+
+    pub fn from_json_str(s: &str) -> Result<Self> {
+        let caps: Vec<NounCapabilities> =
+            serde_json::from_str(s).map_err(|e| anyhow!("parse noun_caps.json: {e}"))?;
+        Ok(Self::from_caps(caps))
+    }
+
+    pub fn len(&self) -> usize {
+        self.by_hash.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.by_hash.is_empty()
+    }
+
+    pub fn get(&self, noun: &str) -> Option<&NounCapabilities> {
+        let h = *self.name_to_hash.get(&noun.trim().to_ascii_uppercase())?;
+        self.by_hash.get(&h)
+    }
+    pub fn by_hash(&self, noun_hash: i32) -> Option<&NounCapabilities> {
+        self.by_hash.get(&noun_hash)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &NounCapabilities> {
+        self.by_hash.values()
+    }
+
+    /// 命中谓词的 noun 名（大写、升序、去重、跳过无名项）。
+    pub fn nouns_where(&self, pred: impl Fn(&NounCapabilities) -> bool) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .by_hash
+            .values()
+            .filter(|c| pred(c) && !c.noun_name.trim().is_empty())
+            .map(|c| c.noun_name.trim().to_ascii_uppercase())
+            .collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    }
+
+    /// 顶点/点容器名单（`point == true`）。
+    pub fn point_nouns(&self) -> Vec<String> {
+        self.nouns_where(|c| c.point)
+    }
+
+    /// 直接几何能力名单（`primitive ∪ geomset ∪ extrusion`）。
+    pub fn direct_geometry_nouns(&self) -> Vec<String> {
+        self.nouns_where(|c| c.has_direct_geometry())
+    }
+
+    /// 伪类型名单（`defined == 4`）。
+    pub fn pseudo_nouns(&self) -> Vec<String> {
+        self.nouns_where(|c| c.is_pseudo())
+    }
+
+    /// 负体 → 正体名字映射（只含字典登记了 `positiveEquivalent` 的 noun）。
+    pub fn positive_equivalents(&self) -> Vec<(String, String)> {
+        let mut v: Vec<(String, String)> = self
+            .by_hash
+            .values()
+            .filter_map(|c| {
+                let target = c.positive_equivalent_hash()?;
+                let to = self.by_hash.get(&target)?;
+                (!c.noun_name.trim().is_empty() && !to.noun_name.trim().is_empty()).then(|| {
+                    (
+                        c.noun_name.trim().to_ascii_uppercase(),
+                        to.noun_name.trim().to_ascii_uppercase(),
+                    )
+                })
+            })
+            .collect();
+        v.sort_unstable();
+        v
+    }
+
+    /// 一个 noun 的变化等价类名（目标 noun 未登记在字典时用 `db1_dehash` 还原，
+    /// 例如抽象类 `LINEAR`/`MULTC`/`INLINE`/`PCONN`）。
+    pub fn change_class_name(&self, noun: &str) -> Option<String> {
+        let c = self.get(noun)?;
+        let h = c.change_class_hash();
+        Some(match self.by_hash.get(&h) {
+            Some(t) if !t.noun_name.trim().is_empty() => t.noun_name.trim().to_ascii_uppercase(),
+            _ => dehash_noun(h).trim().to_ascii_uppercase(),
+        })
+    }
+
+    /// 全部非平凡变化等价类：`类名 → 成员名单`（只含 `change_type` 非 0 的 noun）。
+    pub fn change_classes(&self) -> std::collections::BTreeMap<String, Vec<String>> {
+        let mut out: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+        for c in self.by_hash.values() {
+            let Some(h) = c.change_type.filter(|h| *h != 0) else {
+                continue;
+            };
+            if c.noun_name.trim().is_empty() {
+                continue;
+            }
+            let class = match self.by_hash.get(&h) {
+                Some(t) if !t.noun_name.trim().is_empty() => {
+                    t.noun_name.trim().to_ascii_uppercase()
+                }
+                _ => dehash_noun(h).trim().to_ascii_uppercase(),
+            };
+            out.entry(class)
+                .or_default()
+                .push(c.noun_name.trim().to_ascii_uppercase());
+        }
+        for v in out.values_mut() {
+            v.sort_unstable();
+            v.dedup();
+        }
+        out
+    }
 }
 
 // ── NounClassifier（ADR-004 阶段 3）──────────────────────────────────────────
@@ -389,6 +731,60 @@ pub fn default_noun_classifier() -> &'static NounClassifier {
     DEFAULT_CLASSIFIER.get_or_init(|| {
         NounClassifier::from_json_str(include_str!("../noun_flags.json")).unwrap_or_default()
     })
+}
+
+/// gen-model 全部几何路由/覆盖名单的并集（近似「顶层任一路径能处理」的 noun 集）。
+///
+/// 缺口清单（`export_stage3_gap_report`）与运行期覆盖观测共用本函数，避免两处口径漂移。
+pub fn routing_coverage_nouns() -> &'static BTreeSet<String> {
+    static COVERAGE: OnceLock<BTreeSet<String>> = OnceLock::new();
+    COVERAGE.get_or_init(|| {
+        use aios_core::pdms_types::{
+            CATA_GEO_NAMES, CATA_WITHOUT_REUSE_GEO_NAMES, GENRAL_NEG_NOUN_NAMES,
+            GENRAL_POS_NOUN_NAMES, GNERAL_LOOP_OWNER_NOUN_NAMES, GNERAL_PRIM_NOUN_NAMES,
+            PIPING_NOUN_NAMES, POHE_GEO_NAMES, PRIMITIVE_NOUN_NAMES, TOTAL_CATA_GEO_NOUN_NAMES,
+            TOTAL_CONTAIN_NGMR_GEO_NAEMS, TOTAL_GEO_NOUN_NAMES, TOTAL_LOOP_NOUN_NAMES,
+            TOTAL_NEG_NOUN_NAMES, TOTAL_VERT_NOUN_NAMES, USE_CATE_NOUN_NAMES, VISBILE_GEO_NOUNS,
+        };
+        let mut coverage: BTreeSet<String> = BTreeSet::new();
+        for list in [
+            PRIMITIVE_NOUN_NAMES.as_slice(),
+            GNERAL_PRIM_NOUN_NAMES.as_slice(),
+            GNERAL_LOOP_OWNER_NOUN_NAMES.as_slice(),
+            USE_CATE_NOUN_NAMES.as_slice(),
+            PIPING_NOUN_NAMES.as_slice(),
+            GENRAL_NEG_NOUN_NAMES.as_slice(),
+            TOTAL_NEG_NOUN_NAMES.as_slice(),
+            TOTAL_VERT_NOUN_NAMES.as_slice(),
+            TOTAL_LOOP_NOUN_NAMES.as_slice(),
+            GENRAL_POS_NOUN_NAMES.as_slice(),
+            TOTAL_GEO_NOUN_NAMES.as_slice(),
+            TOTAL_CATA_GEO_NOUN_NAMES.as_slice(),
+            CATA_GEO_NAMES.as_slice(),
+            CATA_WITHOUT_REUSE_GEO_NAMES.as_slice(),
+            VISBILE_GEO_NOUNS.as_slice(),
+            TOTAL_CONTAIN_NGMR_GEO_NAEMS.as_slice(),
+            POHE_GEO_NAMES.as_slice(),
+        ] {
+            coverage.extend(list.iter().map(|s| s.trim().to_ascii_uppercase()));
+        }
+        coverage
+    })
+}
+
+/// dict 认定为几何（`primitive ∪ geomset ∪ extrusion`）却不在任何路由/覆盖名单里的 noun。
+///
+/// ⚠️ 这是**上界**，不是 bug 列表：gen-model 是层级式生成，管件 / 吊架件 / 暖通 / 桥架等
+/// 子孙 noun 在生成根子树深度展开时经 catalogue 渲染，本就不需要进任何顶层名单。真实缺口
+/// 只能由运行期观测（`fast_model::coverage_audit`）收敛。
+pub fn uncovered_geometry_nouns(clf: &NounClassifier) -> BTreeSet<String> {
+    let coverage = routing_coverage_nouns();
+    clf.primitive_nouns()
+        .into_iter()
+        .chain(clf.geomset_nouns())
+        .chain(clf.extrusion_nouns())
+        .filter(|noun| !coverage.contains(noun))
+        .collect()
 }
 
 // ── 内部工具 ────────────────────────────────────────────────────────────────
@@ -886,10 +1282,22 @@ mod tests {
     fn default_classifier_loads_and_spot_checks() {
         let c = default_noun_classifier();
         assert!(c.len() > 1000, "内嵌分类器为空? len={}", c.len());
-        assert!(c.primitive("BOX") && c.primitive("CYLI"), "BOX/CYLI 应 primitive");
-        assert!(c.geomset("SCYL") && c.geomset("SBOX"), "SCYL/SBOX 应 geomset");
-        assert!(c.primitive("ELBO"), "管件 ELBO 也是 primitive(设计级几何叶子)");
-        assert!(!c.primitive("SITE") && !c.geomset("SITE"), "SITE 容器非几何");
+        assert!(
+            c.primitive("BOX") && c.primitive("CYLI"),
+            "BOX/CYLI 应 primitive"
+        );
+        assert!(
+            c.geomset("SCYL") && c.geomset("SBOX"),
+            "SCYL/SBOX 应 geomset"
+        );
+        assert!(
+            c.primitive("ELBO"),
+            "管件 ELBO 也是 primitive(设计级几何叶子)"
+        );
+        assert!(
+            !c.primitive("SITE") && !c.geomset("SITE"),
+            "SITE 容器非几何"
+        );
         // 负体候选启发式（Phase 1-A 结论）：含真负体候选，也记录 NOZZ 假阳性。
         let negs: std::collections::HashSet<String> =
             c.negative_candidate_nouns().into_iter().collect();
@@ -902,6 +1310,69 @@ mod tests {
         );
     }
 
+    /// 守护：运行期覆盖观测与 `docs/plans/stage3-noun-routing-gaps.md` 用同一口径。
+    /// 名单或字典任一漂移都会在这里先失败，而不是让运行期告警悄悄换了含义。
+    #[test]
+    fn uncovered_geometry_nouns_match_the_gap_report_snapshot() {
+        let clf = default_noun_classifier();
+        if clf.len() == 0 {
+            return; // 无内嵌字典的环境软跳过，不误伤
+        }
+        assert_eq!(routing_coverage_nouns().len(), 122, "路由覆盖并集漂移");
+        let uncovered = uncovered_geometry_nouns(clf);
+        assert_eq!(uncovered.len(), 291, "dict 几何 − 路由覆盖 的差集漂移");
+        for covered in ["BOX", "CYLI", "TUBI", "NOZZ"] {
+            assert!(!uncovered.contains(covered), "{covered} 已被路由名单覆盖");
+        }
+        for gap in ["POINSP", "AIDLIN", "HPLATE", "CTRAY"] {
+            assert!(uncovered.contains(gap), "{gap} 应属名单外几何");
+        }
+    }
+
+    /// RE 负体字段：暴力扫全部 dict 字段，找出"能把负体(NBOX/NCYL…)与正体(BOX/CYLI…)
+    /// 干净二分"的字段号（负体全同值 A、正体全同值 B、A≠B）——即 dabacon 的负体标志。
+    /// `cargo test --lib dict::tests::find_negative_field -- --ignored --nocapture`
+    #[test]
+    #[ignore = "需本机 D:/AVEVA/Everything3D3.1/attlib.dat"]
+    fn find_negative_field() {
+        use aios_core::tool::db_tool::db1_hash;
+        let df = AttrDataFile::open(std::path::Path::new(r"D:\AVEVA\Everything3D3.1\attlib.dat"))
+            .expect("open attlib.dat");
+        // 设计负体 vs 对应正体（都在 noun 索引里）。
+        let negs = [
+            "NBOX", "NCYL", "NSBO", "NCON", "NSNO", "NPYR", "NDIS", "NCTO",
+        ];
+        let poss = [
+            "BOX", "CYLI", "SBOX", "CONE", "SNOU", "PYRA", "DISH", "CTOR",
+        ];
+        let nh: Vec<i32> = negs.iter().map(|n| db1_hash(n) as i32).collect();
+        let ph: Vec<i32> = poss.iter().map(|n| db1_hash(n) as i32).collect();
+        let mut fids: Vec<i32> = df.field_index.keys().copied().collect();
+        fids.sort_unstable();
+        println!(
+            "扫描 {} 个字段，负体{}个/正体{}个",
+            fids.len(),
+            nh.len(),
+            ph.len()
+        );
+        let mut hits = 0;
+        for fid in fids {
+            let nv: Vec<Option<i32>> = nh.iter().map(|&h| df.raw_field(h, fid)).collect();
+            let pv: Vec<Option<i32>> = ph.iter().map(|&h| df.raw_field(h, fid)).collect();
+            let neg_uniform = nv.iter().all(|x| *x == nv[0]);
+            let pos_uniform = pv.iter().all(|x| *x == pv[0]);
+            if neg_uniform && pos_uniform && nv[0] != pv[0] {
+                let ty = df.field_index.get(&fid).map(|f| f.ty);
+                println!(
+                    "★ 二分字段 {fid} type={ty:?}: 负体={:?} 正体={:?}",
+                    nv[0], pv[0]
+                );
+                hits += 1;
+            }
+        }
+        println!("共 {hits} 个候选二分字段");
+    }
+
     /// 产出「gen-model 漏路由的几何 noun」缺口清单 → `docs/plans/stage3-noun-routing-gaps.md`。
     /// 供人工审：哪些是真几何(应补生成) vs 构造辅助(AID*/A*)本就不生成。
     /// `cargo test --lib dict::tests::export_stage3_gap_report -- --ignored --nocapture`
@@ -909,11 +1380,8 @@ mod tests {
     #[ignore = "生成 docs/plans/stage3-noun-routing-gaps.md（需 noun_flags.json）"]
     fn export_stage3_gap_report() {
         use aios_core::pdms_types::{
-            CATA_GEO_NAMES, CATA_WITHOUT_REUSE_GEO_NAMES, GENRAL_NEG_NOUN_NAMES,
-            GENRAL_POS_NOUN_NAMES, GNERAL_LOOP_OWNER_NOUN_NAMES, GNERAL_PRIM_NOUN_NAMES,
-            PIPING_NOUN_NAMES, POHE_GEO_NAMES, PRIMITIVE_NOUN_NAMES, TOTAL_CATA_GEO_NOUN_NAMES,
-            TOTAL_CONTAIN_NGMR_GEO_NAEMS, TOTAL_GEO_NOUN_NAMES, TOTAL_LOOP_NOUN_NAMES,
-            TOTAL_NEG_NOUN_NAMES, TOTAL_VERT_NOUN_NAMES, USE_CATE_NOUN_NAMES, VISBILE_GEO_NOUNS,
+            GNERAL_LOOP_OWNER_NOUN_NAMES, GNERAL_PRIM_NOUN_NAMES, PIPING_NOUN_NAMES,
+            TOTAL_CATA_GEO_NOUN_NAMES, USE_CATE_NOUN_NAMES,
         };
         use std::collections::BTreeSet;
 
@@ -958,34 +1426,13 @@ mod tests {
         let geom_extra = diff(&geoms, &set(&TOTAL_CATA_GEO_NOUN_NAMES));
 
         // gen-model 全部几何路由/覆盖名单的并集（近似"任一路径能处理"的 noun 集）。
-        let mut coverage: BTreeSet<String> = BTreeSet::new();
-        for list in [
-            PRIMITIVE_NOUN_NAMES.as_slice(),
-            GNERAL_PRIM_NOUN_NAMES.as_slice(),
-            GNERAL_LOOP_OWNER_NOUN_NAMES.as_slice(),
-            USE_CATE_NOUN_NAMES.as_slice(),
-            PIPING_NOUN_NAMES.as_slice(),
-            GENRAL_NEG_NOUN_NAMES.as_slice(),
-            TOTAL_NEG_NOUN_NAMES.as_slice(),
-            TOTAL_VERT_NOUN_NAMES.as_slice(),
-            TOTAL_LOOP_NOUN_NAMES.as_slice(),
-            GENRAL_POS_NOUN_NAMES.as_slice(),
-            TOTAL_GEO_NOUN_NAMES.as_slice(),
-            TOTAL_CATA_GEO_NOUN_NAMES.as_slice(),
-            CATA_GEO_NAMES.as_slice(),
-            CATA_WITHOUT_REUSE_GEO_NAMES.as_slice(),
-            VISBILE_GEO_NOUNS.as_slice(),
-            TOTAL_CONTAIN_NGMR_GEO_NAEMS.as_slice(),
-            POHE_GEO_NAMES.as_slice(),
-        ] {
-            coverage.extend(list.iter().map(|s| up(s)));
-        }
+        let coverage = routing_coverage_nouns();
         // dict 认定"几何" = primitive ∪ geomset ∪ extrusion。
         let mut dict_geo: BTreeSet<String> = BTreeSet::new();
         dict_geo.extend(prim.iter().cloned());
         dict_geo.extend(geoms.iter().cloned());
         dict_geo.extend(extr.iter().cloned());
-        let uncovered: BTreeSet<String> = dict_geo.difference(&coverage).cloned().collect();
+        let uncovered = uncovered_geometry_nouns(&clf);
         // 前缀直方图（辅助人工判：AID*/FE* 多为不渲染；A*/H*/C* 多为真几何）。
         let mut prefix_hist: std::collections::BTreeMap<String, usize> =
             std::collections::BTreeMap::new();
@@ -1062,5 +1509,250 @@ mod tests {
             prim_other.len(),
             uncovered.len()
         );
+    }
+
+    // ── 批次 A：noun 能力矩阵（v2 测试计划 §4 批次 A）──────────────────────
+    //
+    // 数据源是 crate 内嵌的 `noun_caps.json`（由 `regenerate_noun_caps_snapshot`
+    // 从 `attlib.dat` 导出），因此 A-DICT-02…06 无需本机 E3D 即可跑。
+
+    /// 重新生成内嵌快照。改了字段集合后手动跑一次，再提交 `noun_caps.json`。
+    /// `cargo test -p parse_pdms_db regenerate_noun_caps_snapshot -- --ignored --nocapture`
+    #[test]
+    #[ignore = "需本机 D:/AVEVA/Everything3D3.1/attlib.dat；导出后需提交 noun_caps.json"]
+    fn regenerate_noun_caps_snapshot() {
+        let attlib = std::path::Path::new(r"D:\AVEVA\Everything3D3.1\attlib.dat");
+        let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("noun_caps.json");
+        export_noun_capabilities(attlib, &out).expect("export noun_caps.json");
+        let table =
+            NounCapabilityTable::from_json_str(&std::fs::read_to_string(&out).expect("read back"))
+                .expect("parse exported");
+        println!("noun_caps.json → {} ({} noun)", out.display(), table.len());
+    }
+
+    /// A-DICT-01：31 个能力字段里，除 `primaryList` 外全部能从真实字典读出；
+    /// 且 Rust 读出的结果与内嵌快照逐条一致。
+    /// `cargo test -p parse_pdms_db a_dict_01 -- --ignored --nocapture`
+    #[test]
+    #[ignore = "需本机 D:/AVEVA/Everything3D3.1/attlib.dat"]
+    fn a_dict_01_all_capability_fields_readable_and_snapshot_matches() {
+        let df = AttrDataFile::open(std::path::Path::new(r"D:\AVEVA\Everything3D3.1\attlib.dat"))
+            .expect("open attlib.dat");
+
+        let in_dict = [
+            ("primitive", FIELD_PRIMITIVE),
+            ("geomset", FIELD_GEOMSET),
+            ("extrusion", FIELD_EXTRUSION),
+            ("isPointsetPoint", FIELD_ISPOINTSETPOINT),
+            ("graphicsBehaviour", FIELD_GRAPHICS_BEHAVIOUR),
+            ("point", FIELD_POINT),
+            ("positiveEquivalent", FIELD_POSITIVE_EQUIVALENT),
+            ("changeType", FIELD_CHANGE_TYPE),
+            ("spatialMap", FIELD_SPATIAL_MAP),
+            ("secondaryHierarchy", FIELD_SECONDARY_HIERARCHY),
+            ("defined", FIELD_DEFINED),
+            ("validc", FIELD_VALIDC),
+            ("visible", FIELD_VISIBLE),
+            ("toplevel", FIELD_TOPLEVEL),
+            ("pickable", FIELD_PICKABLE),
+            ("world", FIELD_WORLD),
+            ("defaultVolumeQuery", FIELD_DEFAULT_VOLUME_QUERY),
+            ("clasherWithin", FIELD_CLASHER_WITHIN),
+            ("clasherSection", FIELD_CLASHER_SECTION),
+            ("modifiable", FIELD_MODIFIABLE),
+            ("statusEligible", FIELD_STATUS_ELIGIBLE),
+            ("isCloneable", FIELD_IS_CLONEABLE),
+            ("requiresMarine", FIELD_REQUIRES_MARINE),
+            ("isProtected", FIELD_IS_PROTECTED),
+            ("deleteMemberOnCopy", FIELD_DELETE_MEMBER_ON_COPY),
+            ("spoolerModifiable", FIELD_SPOOLER_MODIFIABLE),
+            ("psOwner", FIELD_PS_OWNER),
+            ("psNext", FIELD_PS_NEXT),
+            ("psFirstMember", FIELD_PS_FIRST_MEMBER),
+        ];
+        for (name, fid) in in_dict {
+            assert!(
+                df.field_index.contains_key(&fid),
+                "字段 {name}({fid}) 应存在于 dabacon FIELD 表"
+            );
+        }
+        // primaryList 走 db_get_element_info，不该出现在字典里——若哪天出现了，
+        // 说明 ReadDataDab 的结论要重审。
+        assert!(
+            !df.field_index.contains_key(&FIELD_PRIMARY_LIST_NOT_IN_DICT),
+            "primaryList 不应出现在 dabacon 字典（core.dll 用 db_get_element_info 读）"
+        );
+
+        let live = df.all_noun_capabilities();
+        let snapshot = default_noun_capabilities();
+        assert_eq!(live.len(), snapshot.len(), "快照与实时字典的 noun 数不一致");
+        for c in &live {
+            let s = snapshot
+                .by_hash(c.noun_hash)
+                .unwrap_or_else(|| panic!("快照缺 noun_hash={}", c.noun_hash));
+            assert_eq!(s, c, "noun {} 的能力与快照不一致", c.noun_name);
+        }
+    }
+
+    /// A-DICT-02：能力计数快照不漂移（数值来自 E3D 3.1 的 attlib.dat）。
+    #[test]
+    fn a_dict_02_capability_counts_do_not_drift() {
+        let t = default_noun_capabilities();
+        let n = |p: fn(&NounCapabilities) -> bool| t.iter().filter(|c| p(c)).count();
+
+        assert_eq!(t.len(), 1931, "noun 总数");
+        assert_eq!(n(|c| c.primitive), 347, "primitive");
+        assert_eq!(n(|c| c.geomset), 44, "geomset");
+        assert_eq!(n(|c| c.extrusion), 38, "extrusion");
+        assert_eq!(t.direct_geometry_nouns().len(), 395, "直接几何并集");
+        assert_eq!(n(|c| c.point), 44, "point");
+        assert_eq!(n(|c| c.is_pointset_point), 4, "isPointsetPoint");
+        assert_eq!(t.positive_equivalents().len(), 12, "positiveEquivalent");
+        assert_eq!(
+            n(|c| c.change_type.is_some_and(|v| v != 0)),
+            117,
+            "changeType 非零"
+        );
+        assert_eq!(t.pseudo_nouns().len(), 10, "isPseudo");
+        assert_eq!(
+            n(|c| c.graphics_behaviour.is_some_and(|v| v != 0)),
+            279,
+            "graphicsBehaviour 非零"
+        );
+    }
+
+    /// A-DICT-03：负体 → 正体映射精确等于字典登记的 12 对。
+    ///
+    /// 这 12 对是布尔减法的权威来源：几何 noun 里叫 `N*` 的远不止 12 个，
+    /// 按名字前缀推断会既多算又少算。
+    #[test]
+    fn a_dict_03_positive_equivalent_pairs_are_exact() {
+        const EXPECTED: &[(&str, &str)] = &[
+            ("NBOX", "BOX"),
+            ("NCON", "CONE"),
+            ("NCTO", "CTOR"),
+            ("NCYL", "CYLI"),
+            ("NDIS", "DISH"),
+            ("NPOLYH", "POLYHE"),
+            ("NPYR", "PYRA"),
+            ("NREV", "EXTR"),
+            ("NRTO", "RTOR"),
+            ("NSLC", "SLCY"),
+            ("NSNO", "SNOU"),
+            ("NXTR", "EXTR"),
+        ];
+        let actual = default_noun_capabilities().positive_equivalents();
+        let expected: Vec<(String, String)> = EXPECTED
+            .iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect();
+        assert_eq!(actual, expected);
+    }
+
+    /// A-DICT-04：变化等价类精确等于 25 类；4 个抽象类由 db1 反哈希还原。
+    #[test]
+    fn a_dict_04_change_classes_are_exact() {
+        let classes = default_noun_capabilities().change_classes();
+        assert_eq!(classes.len(), 25, "变化等价类数量");
+
+        // 抽象类（目标 hash 不在 noun 索引里，只能反哈希得名）。
+        for abstract_class in ["LINEAR", "MULTC", "INLINE", "PCONN"] {
+            assert!(
+                classes.contains_key(abstract_class),
+                "缺抽象变化类 {abstract_class}"
+            );
+        }
+
+        // 结构专业的等价类：同类成员必须走同一条变化处理路径。
+        assert_eq!(
+            classes.get("PANE").map(Vec::as_slice),
+            Some(["FLOOR", "GWALL", "SCREED"].map(String::from).as_slice())
+        );
+        assert_eq!(
+            classes.get("GENSEC").map(Vec::as_slice),
+            Some(["GENSEC", "WALL"].map(String::from).as_slice())
+        );
+        assert_eq!(
+            classes.get("SCTN").map(Vec::as_slice),
+            Some(["SCTN", "STWALL"].map(String::from).as_slice())
+        );
+        assert_eq!(
+            classes.get("SUPPO").map(Vec::as_slice),
+            Some(["REST", "SUPPO"].map(String::from).as_slice())
+        );
+        assert_eq!(
+            classes.get("LINEAR").map(Vec::as_slice),
+            Some(
+                [
+                    "DUCT", "FTUB", "OFST", "PLAT", "PLEN", "REDU", "STRT", "TAPE", "TRNS",
+                    "TRREDU",
+                ]
+                .map(String::from)
+                .as_slice()
+            )
+        );
+
+        // 单点查询与整表一致。
+        assert_eq!(
+            default_noun_capabilities().change_class_name("FLOOR"),
+            Some("PANE".to_string())
+        );
+        assert_eq!(
+            default_noun_capabilities().change_class_name("VALV"),
+            Some("INLINE".to_string())
+        );
+        // change_type 为 0 的 noun 自成一类。
+        assert_eq!(
+            default_noun_capabilities().change_class_name("EQUI"),
+            Some("EQUI".to_string())
+        );
+    }
+
+    /// A-DICT-05：手写的 loop/vert 容器名单必须是字典 `point==true`(44) 的子集。
+    ///
+    /// 超出部分说明手写名单收了字典不认为是点容器的类型，`is_loop_container_noun`
+    /// 会把本该当生成根的元素误判为容器。反过来，字典里多出的 40 个 point noun
+    /// 是**潜在漏判**——本测试打印出来供人工审，不断言（补进名单前需逐个确认它们
+    /// 确实不该当生成根）。
+    #[test]
+    fn a_dict_05_curated_loop_lists_subset_of_dict_point() {
+        use aios_core::pdms_types::{TOTAL_LOOP_NOUN_NAMES, TOTAL_VERT_NOUN_NAMES};
+
+        let point = default_noun_capabilities().point_nouns();
+        assert_eq!(point.len(), 44, "point noun 数");
+
+        let curated: Vec<String> = TOTAL_LOOP_NOUN_NAMES
+            .iter()
+            .chain(TOTAL_VERT_NOUN_NAMES.iter())
+            .map(|n| n.trim().to_ascii_uppercase())
+            .collect();
+        let extra: Vec<&String> = curated.iter().filter(|n| !point.contains(n)).collect();
+        assert!(
+            extra.is_empty(),
+            "手写 loop/vert 名单超出字典 point 集合：{extra:?}\n字典 point={point:?}"
+        );
+
+        let uncovered: Vec<&String> = point.iter().filter(|n| !curated.contains(n)).collect();
+        println!(
+            "curated loop/vert = {curated:?}\n字典 point 未收录 {} 个（待人工审）：{uncovered:?}",
+            uncovered.len()
+        );
+    }
+
+    /// A-DICT-06：整型能力字段的值域封闭——出现新值说明字典换版，需重新解读语义。
+    #[test]
+    fn a_dict_06_integer_capability_domains_are_closed() {
+        let t = default_noun_capabilities();
+        let domain = |get: fn(&NounCapabilities) -> Option<i32>| {
+            let mut v: Vec<i32> = t.iter().map(|c| get(c).unwrap_or(0)).collect();
+            v.sort_unstable();
+            v.dedup();
+            v
+        };
+        assert_eq!(domain(|c| c.graphics_behaviour), vec![0, 1, 2, 3]);
+        assert_eq!(domain(|c| c.spatial_map), vec![0, 1, 2, 3, 5, 7]);
+        assert_eq!(domain(|c| c.secondary_hierarchy), vec![0, 1, 2]);
+        assert_eq!(domain(|c| c.defined), vec![1, 4]);
+        assert_eq!(domain(|c| c.validc), vec![0, 1, 2]);
     }
 }

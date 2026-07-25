@@ -40,11 +40,14 @@ use std::time::Instant;
 
 pub use parse::parse_pdms_dir;
 pub use parse::{parse_db, parse_file};
+pub use refno_index::{find_refno_entry, gen_ref_type_pos_table_from_index};
 
 pub mod consts;
+pub mod dict;
 pub mod error_types;
 pub mod parse;
 pub mod parse_explict_tools;
+pub mod refno_index;
 pub mod test_cases;
 
 pub type BHashMap<K, V> = std::collections::HashMap<K, V>;
