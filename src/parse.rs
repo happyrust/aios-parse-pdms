@@ -1,5 +1,7 @@
 use crate::consts::*;
 use crate::parse_explict_tools::*;
+use aios_core::AttrVal::*;
+use aios_core::SUL_DB;
 use aios_core::basic::info::RefnoInfo;
 use aios_core::consts::{EXPR_ATT_SET, NAME_HASH, TYPE_HASH};
 use aios_core::db::*;
@@ -10,11 +12,9 @@ use aios_core::parse::*;
 use aios_core::pdms_types::*;
 use aios_core::petgraph::PetRefnoNode;
 use aios_core::tool::db_tool::*;
-use aios_core::types::db_info::PdmsDatabaseInfo;
 use aios_core::types::WholeAttMap;
+use aios_core::types::db_info::PdmsDatabaseInfo;
 use aios_core::types::*;
-use aios_core::AttrVal::*;
-use aios_core::SUL_DB;
 use anyhow::*;
 use cached::proc_macro::cached;
 use core::result::Result::Ok;
@@ -24,6 +24,7 @@ use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
 use memchr::memmem;
 use memchr::memmem::rfind_iter;
+use nom::IResult;
 use nom::bytes::complete::take_until;
 use nom::character::complete::alpha1;
 use nom::combinator::verify;
@@ -32,7 +33,6 @@ use nom::multi::count;
 use nom::multi::many_till;
 use nom::number::complete::{be_i16, be_i32, be_u16, be_u32, be_u64};
 use nom::sequence::tuple;
-use nom::IResult;
 use phf::phf_map;
 use pretty_hex::{pretty_hex, simple_hex};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -101,7 +101,8 @@ pub async fn parse_pdms_dir(
     if config_path.is_some() {
         if let Ok(mut file) = File::open(config_path.unwrap()) {
             let mut attr_buf: Vec<u8> = Vec::new();
-            file.read_to_end(&mut attr_buf).context("read database_info config")?;
+            file.read_to_end(&mut attr_buf)
+                .context("read database_info config")?;
             database_info = bincode::deserialize(&attr_buf).ok();
         }
     }
@@ -210,6 +211,53 @@ pub fn parse_file_db_basic_data(
     //使用默认的配置信息
     let mut basic_data = parse_db_basic_data(buf, file_name, project)?;
     Ok(basic_data)
+}
+
+/// 只含 refno 索引的解析产物：够按 refno 随机定位再逐元素解析，不含 owner→children 全量树。
+///
+/// 刻意与 [`DbBasicData`] 分成两个类型，而不是给后者留一个空的 `children_map`：留空的话
+/// 任何漏改的读取点都会静默拿到空表、少件而不报错，而这种错没有声音。分成独立类型后，
+/// 「谁还在读成员树」由编译器回答。
+#[derive(Default, Debug)]
+pub struct DbIndexData {
+    pub ses_pgno: u32,
+    pub bytes: Vec<u8>,
+    pub world_refno: RefU64,
+    pub refno_table_map: DashMap<RefU64, EleDataEntry>,
+}
+
+/// 只建 refno 索引表的解析：读文件 + [`gen_ref_type_pos_table`]，**跳过整棵成员树的展开**。
+///
+/// 展开成员树占 [`parse_db_basic_data`] 约四分之三的耗时（7997 的 acp7320 一个文件就是
+/// 117 万元素、单次 21 秒），而按 refno 随机取件的调用方只要能定位到记录就够了——children
+/// 由元素记录自带，不必先有一棵全量树。
+pub fn parse_file_db_index_data(path: &PathBuf) -> Result<DbIndexData> {
+    if !is_pdms_db_file(path) || !has_valid_db_header(path) {
+        return Err(anyhow!("skip non-db file: {:?}", path));
+    }
+    let time_start = Instant::now();
+    let mut file = File::open(path)?;
+    let mut buf: Vec<u8> = Vec::new();
+    file.read_to_end(&mut buf)?;
+    println!("read file {:?} finished in {:?}", path, time_start.elapsed());
+    Ok(parse_db_index_data(buf))
+}
+
+/// 见 [`parse_file_db_index_data`]。
+pub fn parse_db_index_data(input: Vec<u8>) -> DbIndexData {
+    let gen_ref_time = Instant::now();
+    let (refno_table_map, world_refno) = gen_ref_type_pos_table(&input);
+    println!(
+        "gen_ref_type_pos_table: {} ms",
+        gen_ref_time.elapsed().as_millis()
+    );
+    let DbBasicInfo { ses_pgno, .. } = parse_file_basic_info(&input);
+    DbIndexData {
+        ses_pgno,
+        bytes: input,
+        world_refno,
+        refno_table_map,
+    }
 }
 
 ///解析db文件
@@ -642,7 +690,211 @@ pub async fn parse_ele_data(input: &[u8]) -> Result<EleData> {
 }
 
 //移除00 00 00 007，保留后面的数据
+//
+// gen-model-9 / ADR-006：显式数据可能跨多个记录块(block)，块之间可能夹有其它块头或
+// 0x07 追加段(continuation segment)。旧实现遇到「块头 flag!=1 / self-ref 不匹配 / 长度非法」
+// 会直接 break，导致像 CURD/DBLS 这类跨块的长引用列表属性主体被丢弃（表现为收集缓冲区
+// 正好停在属性 hash 处、解析报「显式属性退出」，进而 SYS 元数据的设计 MDB/CURD 建不起来）。
+// 现按 pdms-io-fork 的做法：遇到不匹配块按 word 对齐 resync 继续找下一个匹配块，并收集 0x07
+// 追加段的 payload；主段起点用「可解析性」自适应判定(12/20)。旧实现保留为 *_legacy 作对照/兜底。
 pub fn collect_explict_data(mut input: &[u8], refno: RefU64) -> Vec<u8> {
+    const MAX_RESYNC: usize = 64;
+    let mut bytes: Vec<u8> = Vec::new();
+    if input.len() < 4 {
+        return bytes;
+    }
+    // 自适应判定：buf 是否像一个属性流的起点（用于区分主段是否含 8 字节保留区）
+    let looks_like_attr_stream_start = |buf: &[u8]| -> bool {
+        if buf.len() < 4 {
+            return false;
+        }
+        let hash_val = convert_to_hash(&buf[..4]);
+        if hash_val == 0 {
+            return false;
+        }
+        if check_is_expr(hash_val) && parse_expression_attr_nom(buf, refno).is_ok() {
+            return true;
+        }
+        if buf.len() < 8 {
+            return false;
+        }
+        let type_code = parse_to_u16(&buf[4..6]);
+        if get_explicit_attr_type(type_code).is_none() {
+            return false;
+        }
+        let data_len = parse_to_u16(&buf[6..8]) as usize * 4;
+        data_len <= buf.len() - 8
+    };
+    let mut resync = 0usize;
+    while input.len() >= 4 {
+        let v = parse_to_i32(&input[..4]);
+        match v {
+            0 | 7 => {
+                input = &input[4..];
+            }
+            5 => {
+                if input.len() < 8 {
+                    break;
+                }
+                let page_type = parse_to_i32(&input[4..8]);
+                #[cfg(feature = "debug_parse")]
+                println!("Found {refno} attr may be in page type {:#4X?}", page_type);
+                if page_type == 0xCC47DF && input.len() > 0x2C {
+                    //一直找到为0的为止
+                    input = &input[0x2C..];
+                    while input.len() >= 4 && parse_to_i32(&input[0..4]) != 0 {
+                        input = &input[4..];
+                    }
+                    if input.len() > 4 {
+                        input = &input[4..];
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            _ => {
+                let flag = parse_to_u16(&input[0..2]) as u8;
+                if flag != 1 {
+                    // 不能直接 break：显式区后面可能混入其它块/下一条记录开头，
+                    // 按 word 对齐继续向后寻找下一个 0x0001 块头。
+                    resync += 1;
+                    if resync > MAX_RESYNC {
+                        break;
+                    }
+                    input = &input[4..];
+                    continue;
+                }
+                let len_words = parse_to_u16(&input[2..4]) as usize;
+                let declared = len_words * 4;
+                if declared < 12 || declared > input.len() {
+                    resync += 1;
+                    if resync > MAX_RESYNC {
+                        break;
+                    }
+                    input = &input[4..];
+                    continue;
+                }
+                let maybe_refno = RefU64::from(&input[4..12]);
+                //必须要检查是否跟的是 refno
+                if len_words < 5 || maybe_refno != refno {
+                    resync += 1;
+                    if resync > MAX_RESYNC {
+                        break;
+                    }
+                    input = &input[4..];
+                    continue;
+                }
+                resync = 0;
+                let (rest, mut payload) = collect_explicit_segmented_payload(input, declared, 0x01);
+                // 主段可能含 8 字节保留区（不一定全 0）：自适应裁掉，兼容 offset 12/20 两种布局
+                if payload.len() >= 8 && payload[..8].iter().all(|&b| b == 0) {
+                    let overlap = payload.len() >= 12
+                        && bytes.len() >= 4
+                        && bytes[bytes.len() - 4..] == payload[8..12];
+                    if overlap {
+                        payload.drain(..12);
+                    } else {
+                        payload.drain(..8);
+                    }
+                } else if payload.len() >= 16 {
+                    let ok0 = looks_like_attr_stream_start(&payload);
+                    let ok8 = looks_like_attr_stream_start(&payload[8..]);
+                    if !ok0 && ok8 {
+                        payload.drain(..8);
+                    }
+                }
+                bytes.extend(payload);
+                input = rest;
+            }
+        }
+    }
+    bytes
+}
+
+/// 合并「主段 + 0x07 追加段」的显式块 payload（移植自 pdms-io-fork collect_segmented_payload）。
+/// 主段 payload 从 offset 12（flag+len+self_ref 之后）开始；0x07 追加段 payload 从 offset 24 开始。
+fn collect_explicit_segmented_payload(
+    input: &[u8],
+    declared_len_bytes: usize,
+    flag: u8,
+) -> (&[u8], Vec<u8>) {
+    const MEMBERS_BASE_PAYLOAD_OFFSET: usize = 12;
+    const SEGMENT_PAYLOAD_OFFSET: usize = 24;
+    if declared_len_bytes < MEMBERS_BASE_PAYLOAD_OFFSET || input.len() < declared_len_bytes {
+        return (input, Vec::new());
+    }
+    let mut payload = input[MEMBERS_BASE_PAYLOAD_OFFSET..declared_len_bytes].to_vec();
+    let mut cursor = declared_len_bytes;
+    while cursor + 6 <= input.len()
+        && input[cursor..].starts_with(&[0x00, 0x00, 0x00, 0x07])
+        && input[cursor + 4] == 0x00
+        && input[cursor + 5] == flag
+    {
+        if cursor + 8 > input.len() {
+            break;
+        }
+        let seg_len_words = parse_to_u16(&input[cursor + 6..cursor + 8]) as usize;
+        let seg_len_bytes = seg_len_words * 4;
+        if seg_len_bytes == 0 {
+            break;
+        }
+        // 与旧逻辑一致：总长 = len_bytes + 4（含前导长度字段）
+        let seg_end = cursor + seg_len_bytes + 4;
+        if seg_end > input.len() {
+            break;
+        }
+        let mut seg_payload_start = cursor + SEGMENT_PAYLOAD_OFFSET;
+        if seg_payload_start > seg_end {
+            break;
+        }
+        // 仅 packed 表达式条目会有「重复上一个 word」的续接怪癖；对普通段套用会破坏数据
+        if flag == 0x01
+            && payload.len() >= 4
+            && seg_end - seg_payload_start >= 4
+            && payload[payload.len() - 4..] == input[seg_payload_start..seg_payload_start + 4]
+            && has_unfinished_packed_expression_entry(&payload)
+        {
+            seg_payload_start += 4;
+        }
+        payload.extend_from_slice(&input[seg_payload_start..seg_end]);
+        cursor = seg_end;
+    }
+    (&input[cursor..], payload)
+}
+
+/// payload 末尾是否有一个未完成的 packed 表达式条目
+/// （word[1] = (dab_type<<26)|len_words；dab_type==7 表示表达式）。
+fn has_unfinished_packed_expression_entry(payload: &[u8]) -> bool {
+    const PACKED_EXPRESSION_DAB_TYPE: u32 = 7;
+    let mut cursor = 0usize;
+    while cursor + 8 <= payload.len() {
+        let packed_header = u32::from_be_bytes([
+            payload[cursor + 4],
+            payload[cursor + 5],
+            payload[cursor + 6],
+            payload[cursor + 7],
+        ]);
+        let dab_type = packed_header >> 26;
+        let payload_len_words = (packed_header & 0x03ff_ffff) as usize;
+        let Some(payload_len_bytes) = payload_len_words.checked_mul(4) else {
+            return false;
+        };
+        let Some(total_len) = 8usize.checked_add(payload_len_bytes) else {
+            return false;
+        };
+        if cursor + total_len > payload.len() {
+            return dab_type == PACKED_EXPRESSION_DAB_TYPE;
+        }
+        cursor += total_len;
+    }
+    false
+}
+
+//移除00 00 00 007，保留后面的数据（旧实现：遇不匹配块直接 break；保留作对照/兜底）
+#[allow(dead_code)]
+pub fn collect_explict_data_legacy(mut input: &[u8], refno: RefU64) -> Vec<u8> {
     let mut has_next = input.len() >= 4 * 3;
     let mut bytes = vec![];
     if !has_next {
@@ -719,6 +971,67 @@ pub fn take_off_007_explicit(mut input: &[u8]) -> &[u8] {
     input
 }
 
+/// 从 `pending_refnos` 出发按成员表逐层展开，把每个元素的**有序**成员写进
+/// `children_map`。成员顺序是 PDMS 语义的一部分（BRAN 组件次序等），只能取自元素
+/// 自己的成员块，不能重排。
+fn expand_members_from(
+    input: &[u8],
+    refno_table_map: &DashMap<RefU64, EleDataEntry>,
+    pending_refnos: &mut Vec<RefU64>,
+    all_refnos: &mut HashSet<RefU64>,
+    children_map: &mut HashMap<RefU64, Vec<RefU64>>,
+) {
+    while let Some(refno) = pending_refnos.pop() {
+        if !all_refnos.insert(refno) {
+            continue;
+        }
+        let Some(pos) = refno_table_map.get(&refno).map(|entry| entry.pos) else {
+            continue;
+        };
+        let membs = parse_ele_membs(&input[pos - 4..]);
+        let children = membs
+            .iter()
+            .filter(|memb| refno_table_map.contains_key(*memb))
+            .copied()
+            .collect::<Vec<_>>();
+        for memb in &membs {
+            if !all_refnos.contains(memb) {
+                pending_refnos.push(*memb);
+            }
+        }
+        children_map.insert(refno, children);
+    }
+}
+
+/// 用每条元素记录自带的 owner（记录内偏移 16..24）补回缺失的父子边：owner 的成员表
+/// 里没列出该元素时，把它追加到末尾。只追加不删除、不重排，已有成员的次序不受影响。
+fn relink_children_by_owner(
+    input: &[u8],
+    refno_table_map: &DashMap<RefU64, EleDataEntry>,
+    children_map: &mut HashMap<RefU64, Vec<RefU64>>,
+) {
+    let mut linked = HashSet::with_capacity(children_map.values().map(Vec::len).sum());
+    for (owner, children) in children_map.iter() {
+        for child in children {
+            linked.insert((*owner, *child));
+        }
+    }
+    for entry in refno_table_map.iter() {
+        let refno = *entry.key();
+        let pos = entry.value().pos;
+        if pos < 4 || pos + 20 > input.len() {
+            continue;
+        }
+        let owner = RefU64::from(&input[pos + 12..pos + 20]);
+        if owner.get_0() == 0 || owner == refno || !refno_table_map.contains_key(&owner) {
+            continue;
+        }
+        if linked.insert((owner, refno)) {
+            children_map.entry(owner).or_default().push(refno);
+        }
+    }
+}
+
 ///解析db文件的chidlren部分，得到参考号和对应的类型集合
 pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Result<DbBasicData> {
     let mut gen_ref_time = Instant::now();
@@ -750,30 +1063,35 @@ pub fn parse_db_basic_data(input: Vec<u8>, file_name: &str, project: &str) -> Re
     let mut pending_refnos = vec![root_refno.clone()];
     let mut all_refnos = HashSet::new();
 
-    while !pending_refnos.is_empty() {
-        let refno = pending_refnos.pop().unwrap();
-        if all_refnos.contains(&refno) {
-            continue;
-        }
-        all_refnos.insert(refno);
-        if refno_table_map.contains_key(&refno) {
-            let entry = refno_table_map.get(&refno).unwrap();
-            let pos = entry.pos;
-            //解析到members数据
-            let d = &input[pos - 4..];
-            let membs = parse_ele_membs(&d);
-            let children = membs
-                .iter()
-                .filter(|&x| refno_table_map.contains_key(x))
-                .map(|&x| x)
-                .collect::<Vec<_>>();
-            for memb in &membs {
-                if !all_refnos.contains(&memb) {
-                    pending_refnos.push(*memb);
-                }
-            }
-            children_map.insert(refno, children);
-        }
+    expand_members_from(
+        &input,
+        &refno_table_map,
+        &mut pending_refnos,
+        &mut all_refnos,
+        &mut children_map,
+    );
+
+    // 同一元素在库文件里存在多条物理记录，建表选中的那条不保证带成员块。一旦
+    // 某个 owner 选中了不带成员的记录，自顶向下的成员展开就在那里断掉；断在
+    // WORL 上时整库会静默解析出 0 个元素（TEST 项目的 DESI 即如此：WORL 有 160
+    // 条物理记录、157 条带成员，选中的最后一条为空）。所以再补一轮：把表内尚未
+    // 访问到的元素也当作根展开，各自的成员顺序仍由自己的记录决定；随后按记录
+    // 自带的 owner 把断链处缺失的父子边补回去。
+    let unreached = refno_table_map
+        .iter()
+        .map(|entry| *entry.key())
+        .filter(|refno| !all_refnos.contains(refno))
+        .collect::<Vec<_>>();
+    if !unreached.is_empty() {
+        pending_refnos.extend(unreached);
+        expand_members_from(
+            &input,
+            &refno_table_map,
+            &mut pending_refnos,
+            &mut all_refnos,
+            &mut children_map,
+        );
+        relink_children_by_owner(&input, &refno_table_map, &mut children_map);
     }
     println!(
         "Parsing children members cost: {} ms",
@@ -872,9 +1190,12 @@ pub async fn parse_db_with_chunk_with_info(
     // 只保留当前分块相关的 children，避免超大 children_map 占用
     if !chunk_refnos.is_empty() {
         let keep_set: HashSet<RefU64> = chunk_refnos.iter().cloned().collect();
-        children_map.retain(|k, _| keep_set.contains(k) || (!ignore_world_refno && *k == root_refno));
+        children_map
+            .retain(|k, _| keep_set.contains(k) || (!ignore_world_refno && *k == root_refno));
         for (_, v) in children_map.iter_mut() {
-            v.retain(|child| keep_set.contains(child) || (!ignore_world_refno && *child == root_refno));
+            v.retain(|child| {
+                keep_set.contains(child) || (!ignore_world_refno && *child == root_refno)
+            });
         }
     }
     //如果忽略world_refno，则不解析world_refno的数据
@@ -1008,8 +1329,7 @@ pub async fn parse_db(
         whole_attmap,
         children,
         name,
-    } = parse_ele_data_with_info(&input[entry.pos - 4..], database_info)
-        .await?;
+    } = parse_ele_data_with_info(&input[entry.pos - 4..], database_info).await?;
 
     total_attr_map.insert(refno, whole_attmap.merge().into());
     type_ele_map
@@ -1388,10 +1708,32 @@ pub fn parse_raw_explicit_attrs<'a>(
                         &att_name,
                         &residual[..]
                     );
+                    if att_name == "CURD" || att_name == "MDB" {
+                        let off = input.len() - residual.len();
+                        println!(
+                            "[CURD_DUMP] refno={} att={} 失败偏移={} 全长={} 全量bytes={:#04X?}",
+                            refno.to_e3d_id(),
+                            &att_name,
+                            off,
+                            input.len(),
+                            input
+                        );
+                    }
                     break;
                 }
             };
             let type_len = type_len as usize;
+            if refno.to_e3d_id().contains("24575/1309") {
+                println!(
+                    "[ATTR] off={} name={:?} hash={:#X} type={:#X} type_len={} in_map={}",
+                    input.len() - residual.len(),
+                    &att_name,
+                    explict_hash,
+                    attr_type_num,
+                    type_len,
+                    attr_info_map.contains_key(&att_name)
+                );
+            }
             if type_len * 4 <= l.len() {
                 residual = &l[type_len * 4..];
                 // 显式属性有可能他给了type但是超了01 后面得长度 所以还要做一层判断
@@ -2423,7 +2765,7 @@ fn has_valid_db_header(path: &Path) -> bool {
                 let db_type_hash = parse_to_i32(&header[32..36]);
                 let db_type = db1_dehash(db_type_hash as u32).to_ascii_uppercase();
                 // 已知类型字符串判定
-                const DB_TYPES: [&str; 5] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
+                const DB_TYPES: [&str; 6] = ["DESI", "CATA", "DICT", "SYST", "GLB", "GLOB"];
                 if DB_TYPES.contains(&db_type.as_str()) {
                     return true;
                 }
@@ -2568,7 +2910,7 @@ fn get_refno_entry(input: &[u8], offset: usize) -> Option<(RefU64, EleDataEntry)
                                 dbg!(&s);
                             }
                             if s.is_ok() {
-                                is_ok = (diff_len / 4) == (s.unwrap().1 .0.len() + 1);
+                                is_ok = (diff_len / 4) == (s.unwrap().1.0.len() + 1);
                             }
                         }
                     }
@@ -2646,6 +2988,14 @@ pub fn parse_pdms_project_name(input: &str) -> IResult<&str, &str> {
 pub const WORLD_NOUN: i32 = 0xBEB83;
 
 pub fn gen_ref_type_pos_table(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
+    // 索引优先：走会话 B-tree 索引 O(log n) 建表（得最新会话存活集）；解码失败回退全缓冲扫描（全物理记录集）。语义：干净库相等、编辑库索引更权威，见 ADR-005。
+    if let Some(indexed) = crate::refno_index::gen_ref_type_pos_table_from_index(input) {
+        return indexed;
+    }
+    gen_ref_type_pos_table_scan(input)
+}
+
+pub fn gen_ref_type_pos_table_scan(input: &[u8]) -> (DashMap<RefU64, EleDataEntry>, RefU64) {
     let refno_0_set = get_total_refno_0s(input);
     let mut refno_table = DashMap::new();
     let mut word_refno_hashset = DashSet::new();

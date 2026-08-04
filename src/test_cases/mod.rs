@@ -12,12 +12,12 @@ mod test_parse_uda;
 
 mod test_parse_expr;
 
-mod test_expression;
-mod test_data_new;
-mod test_nom;
 mod test_chinese;
-mod test_uda;
+mod test_data_new;
+mod test_expression;
+mod test_nom;
 mod test_parse_element;
+mod test_uda;
 
-mod test_parse_string;
 mod binary_data_parser_test;
+mod test_parse_string;

@@ -1,6 +1,6 @@
+use anyhow::{Error, anyhow};
+use nom::error::ErrorKind;
 use std::io;
-use nom::error::{ErrorKind};
-use anyhow::{anyhow, Error};
 
 #[derive(Debug, thiserror::Error)]
 #[error("...")]
@@ -50,18 +50,16 @@ impl nom::error::ParseError<&str> for NomError {
     }
 
     fn append(input: &str, kind: ErrorKind, other: Self) -> Self {
-        NomError(other.0.context(format!("error {} at: {}", kind.description(), input)))
+        NomError(
+            other
+                .0
+                .context(format!("error {} at: {}", kind.description(), input)),
+        )
     }
 }
 
-
-
-
-
-
-fn gen_resolve_error() -> anyhow::Result<u32>{
-
-     // Err(ResolveError::AxisIndeNotExist(1).into());
+fn gen_resolve_error() -> anyhow::Result<u32> {
+    // Err(ResolveError::AxisIndeNotExist(1).into());
     let io = io::Error::new(io::ErrorKind::Other, "oh no!");
     Err(ResolveError::from(io).into())
 }
@@ -76,7 +74,6 @@ fn test_resolve_error() {
     }
 
     assert_eq!(1, 1);
-
 }
 
 #[test]
@@ -86,7 +83,6 @@ fn test_resolve_panic() {
 }
 
 //
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {

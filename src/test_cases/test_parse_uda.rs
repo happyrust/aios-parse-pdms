@@ -1,6 +1,6 @@
-use aios_core::init_test_surreal;
 use super::convert_str_to_bytes;
 use crate::parse::parse_ele_data;
+use aios_core::init_test_surreal;
 
 #[tokio::test]
 async fn test_parse_uda_elelist_0() {
